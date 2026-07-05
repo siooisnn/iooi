@@ -155,6 +155,12 @@ function buildSummerDynamic(state: SummerState): string {
   return parts.join("\n").trim();
 }
 
+function shouldSearchSummer(query: string): boolean {
+  const text = query.trim();
+  if (!text) return false;
+  return /summer|记忆|日记|小暑|夏至|芒种|小满|立夏|rain|sunny|之前|以前|那天|哪天|想起来|记得|说过|写过|发生过|找一下|查一下|搜一下|\d{1,2}[.-]\d{1,2}|20\d{2}-\d{1,2}-\d{1,2}/i.test(text);
+}
+
 type SummerWrite = {
   layer: "xiazhi" | "xiaoshu" | "rain";
   title: string;
@@ -389,10 +395,10 @@ export async function POST(request: Request) {
       system.push({ type: "text", text: summerStable, cache_control: cacheControl() });
     }
     if (summerDynamic) {
-      system.push({ type: "text", text: summerDynamic });
+      system.push({ type: "text", text: summerDynamic, cache_control: cacheControl() });
     }
-    if (query.trim()) {
-      summerSearch = await callSummerTool("search", { query, limit: 5 });
+    if (shouldSearchSummer(query)) {
+      summerSearch = await callSummerTool("search", { query, limit: 3 });
     }
   } catch (error) {
     const message = error instanceof Error ? error.message : "unknown error";

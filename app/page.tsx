@@ -214,9 +214,9 @@ const MODELS = [
   { id: "sonnet5", label: "Sonnet 5", apiId: "anthropic/claude-sonnet-5" },
   { id: "fable5", label: "Fable 5", apiId: "anthropic/claude-fable-5" },
 ];
-const CONTEXT_WINDOW_ROUNDS = 30;
-const SESSION_CACHE_KEEP_MESSAGES = 36;
-const SESSION_CACHE_MIN_NEW_MESSAGES = 12;
+const CONTEXT_WINDOW_ROUNDS = 18;
+const SESSION_CACHE_KEEP_MESSAGES = 24;
+const SESSION_CACHE_MIN_NEW_MESSAGES = 8;
 
 // ── 问答墙:每日一问库 ──
 const DAILY_QUESTIONS = [
