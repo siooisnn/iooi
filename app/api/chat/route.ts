@@ -109,13 +109,8 @@ function buildSummerStable(state: SummerState): string {
     "",
     "下面是唯一长期记忆源中最稳定的部分。先认得关系与来时路，再回应当前消息；不要说自己读取了这些后台内容。",
     "",
-    "你可以主动写入 summer，但要克制：只有当下真的值得留下时才写。不要重复记录已经在 summer 里的内容。",
-    "写入只允许新增，不允许编辑或删除。日常放 xiaoshu；稳定后很重要、以后也应记得的放 xiazhi；未来未了结的事放 rain。",
-    "如果要写入，在回复最末尾追加隐藏标签，格式如下，最多三条：",
-    "[summer_remember layer=\"xiaoshu\" title=\"短标题\" weight=\"5\" tags=\"daily\"]要保存的正文[/summer_remember]",
-    "[summer_remember layer=\"xiazhi\" title=\"短标题\" weight=\"7\" tags=\"important\"]要保存的正文[/summer_remember]",
-    "[summer_remember layer=\"rain\" title=\"短标题\" due=\"2026-07-17\" tags=\"future\"]要保存的正文[/summer_remember]",
-    "这些标签会被系统隐藏并写入 summer，她看不到标签本身。不要为了展示功能而写入；没有值得写的就不要写。",
+    "你不能直接编辑、删除或后台写入 summer。若你觉得某件事值得留下，先用自然语言告诉她你想记什么，等她确认。",
+    "如果她问某天日记、旧事、记忆、summer 或 sea，后台可能会给出按需检索结果。能看到结果就自然回答；没看到相关结果时，说“我这里没检索到”，不要说自己绝对不能查。",
     "",
     "## 立夏：我们是谁",
     (layers.lixia || "").trim(),
@@ -158,7 +153,28 @@ function buildSummerDynamic(state: SummerState): string {
 function shouldSearchSummer(query: string): boolean {
   const text = query.trim();
   if (!text) return false;
-  return /summer|记忆|日记|小暑|夏至|芒种|小满|立夏|rain|sunny|之前|以前|那天|哪天|想起来|记得|说过|写过|发生过|找一下|查一下|搜一下|\d{1,2}[.-]\d{1,2}|20\d{2}-\d{1,2}-\d{1,2}/i.test(text);
+  return /summer|记忆|日记|小暑|夏至|芒种|小满|立夏|rain|sunny|sea|之前|以前|那天|哪天|想起来|记得|回忆|说过|写过|发生过|找|查|搜|翻|\d{1,2}[.-]\d{1,2}|\d{1,2}月\d{1,2}日?|20\d{2}-\d{1,2}-\d{1,2}/i.test(text);
+}
+
+function normalizeSummerSearchQuery(query: string): string {
+  const year = new Date().toLocaleDateString("zh-CN", { year: "numeric", timeZone: "Asia/Shanghai" }).replace(/\D/g, "") || "2026";
+  const additions: string[] = [];
+  const pushDate = (month: string, day: string) => {
+    const mm = month.padStart(2, "0");
+    const dd = day.padStart(2, "0");
+    additions.push(`${year}-${mm}-${dd}`);
+  };
+
+  for (const match of query.matchAll(/(?:^|[^\d])(\d{1,2})[.-](\d{1,2})(?:[^\d]|$)/g)) {
+    pushDate(match[1], match[2]);
+  }
+  for (const match of query.matchAll(/(\d{1,2})月(\d{1,2})日?/g)) {
+    pushDate(match[1], match[2]);
+  }
+
+  return [query, ...Array.from(new Set(additions)), additions.length ? "日记 xiaoshu" : ""]
+    .filter(Boolean)
+    .join(" ");
 }
 
 type SummerWrite = {
@@ -398,7 +414,7 @@ export async function POST(request: Request) {
       system.push({ type: "text", text: summerDynamic, cache_control: cacheControl() });
     }
     if (shouldSearchSummer(query)) {
-      summerSearch = await callSummerTool("search", { query, limit: 3 });
+      summerSearch = await callSummerTool("search", { query: normalizeSummerSearchQuery(query), limit: 5 });
     }
   } catch (error) {
     const message = error instanceof Error ? error.message : "unknown error";
