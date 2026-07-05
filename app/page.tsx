@@ -347,11 +347,15 @@ function genId() {
 }
 
 function chatMessageKey(message: Message) {
+  const content = (message.content || "").trim().replace(/\s+/g, " ");
+  if (message.role === "assistant" && content.length >= 20 && !message.image && !message.file) {
+    return [message.role, content].join("\u0001");
+  }
   return [
     message.role,
     message.time || "",
     message.date || "",
-    message.content || "",
+    content,
     message.image || "",
     message.file || "",
   ].join("\u0001");
