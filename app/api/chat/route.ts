@@ -16,7 +16,7 @@ function cstToday() {
 function cstDateStr() {
   return new Date().toLocaleDateString("zh-CN", { year: "numeric", month: "long", day: "numeric", weekday: "long", timeZone: "Asia/Shanghai" });
 }
-type StoreMsg = { role: string; content: string; time?: string; date?: string; thinking?: string; image?: string; file?: string };
+type StoreMsg = { role: string; content: string; time?: string; date?: string; thinking?: string; image?: string; file?: string; source?: string };
 type TextBlock = {
   type: "text";
   text: string;
@@ -386,11 +386,42 @@ function hasLaterUserMessage(msgs: StoreMsg[], userMsg: StoreMsg | undefined) {
   return msgs.slice(index + 1).some((m) => m.role === "user");
 }
 
+function storeMessageKey(message: StoreMsg) {
+  return [
+    message.role || "",
+    message.source || "",
+    (message.content || "").trim().replace(/\s+/g, " "),
+    message.image || "",
+    message.file || "",
+  ].join("\u0001");
+}
+
+function summerCallContent(call: SummerCall): string {
+  return [
+    "summer",
+    call.label || call.tool || "called",
+    typeof call.count === "number" ? `${call.count} 条` : "",
+    call.status === "fallback" ? "fallback" : "",
+  ].filter(Boolean).join(" · ");
+}
+
+function summerWriteProposalContent(proposal: SummerWrite): string {
+  const layerName: Record<string, string> = { xiazhi: "夏至", xiaoshu: "小暑", rain: "rain" };
+  const meta = [
+    `summer · 提议写入${layerName[proposal.layer] || proposal.layer}`,
+    proposal.title || "未命名",
+    typeof proposal.weight === "number" ? `权重 ${proposal.weight}` : "",
+  ].filter(Boolean).join(" · ");
+  return `${meta}\n${String(proposal.content || "").trim()}`.trim();
+}
+
 async function persistRound(
   sessionId: string | undefined,
   userMsg: StoreMsg | undefined,
   reply: string,
-  thinkingContent: string
+  thinkingContent: string,
+  summerCalls: SummerCall[] = [],
+  summerWriteProposals: SummerWrite[] = []
 ) {
   if (!sessionId || !reply) return;
   try {
@@ -438,15 +469,38 @@ async function persistRound(
         }
       }
 
-      const tailContents = new Set(msgs.slice(-8).filter((m) => m.role === "assistant").map((m) => m.content));
+      const tailKeys = new Set(msgs.slice(-16).filter((m) => m.role === "assistant").map(storeMessageKey));
+      const pushAssistant = (message: StoreMsg) => {
+        const key = storeMessageKey(message);
+        if (tailKeys.has(key)) return;
+        msgs.push(message);
+        tailKeys.add(key);
+      };
+      for (const call of summerCalls) {
+        pushAssistant({
+          role: "assistant",
+          source: "summer_call",
+          content: summerCallContent(call),
+          time: now,
+          date: today,
+        });
+      }
       parts.forEach((p, i) => {
         const c = p.trim();
-        if (tailContents.has(c)) return;
-        msgs.push({
+        pushAssistant({
           role: "assistant", content: c, time: now, date: today,
           ...(i === 0 && thinkingContent ? { thinking: thinkingContent } : {}),
         });
       });
+      for (const proposal of summerWriteProposals) {
+        pushAssistant({
+          role: "assistant",
+          source: "summer_write_proposal",
+          content: summerWriteProposalContent(proposal),
+          time: now,
+          date: today,
+        });
+      }
     });
   } catch {
     // 落地失败不影响正常返回
@@ -716,7 +770,7 @@ ${combinedDynamicPrompt}
     const summerWriteProposals = collectSummerWriteProposals(reply);
     reply = stripSummerWriteTags(reply);
 
-    await persistRound(sessionId, userMsg, reply, thinkingContent);
+    await persistRound(sessionId, userMsg, reply, thinkingContent, summerCalls, summerWriteProposals);
 
     const usage = data.usage || {};
     const promptTokens =

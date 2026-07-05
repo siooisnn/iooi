@@ -23,10 +23,11 @@ type StoredSession = {
 function messageKey(message: StoredMessage) {
   const content = (message.content || "").trim().replace(/\s+/g, " ");
   if (message.role === "assistant" && content.length >= 20 && !message.image && !message.file) {
-    return [message.role || "", content].join("\u0001");
+    return [message.role || "", message.source || "", content].join("\u0001");
   }
   return [
     message.role || "",
+    message.source || "",
     message.time || "",
     message.date || "",
     content,
