@@ -85,6 +85,7 @@ type SummerState = {
   xiazhi?: SummerItem[];
   rain?: SummerItem[];
   xiaoshu_recent?: SummerItem[];
+  xiaoshu_tail?: SummerItem[];
 };
 
 async function readSummerState(): Promise<SummerState> {
@@ -175,6 +176,46 @@ function normalizeSummerSearchQuery(query: string): string {
   return [query, ...Array.from(new Set(additions)), additions.length ? "日记 xiaoshu" : ""]
     .filter(Boolean)
     .join(" ");
+}
+
+function extractQueryDates(query: string): string[] {
+  const year = new Date().toLocaleDateString("zh-CN", { year: "numeric", timeZone: "Asia/Shanghai" }).replace(/\D/g, "") || "2026";
+  const dates: string[] = [];
+  const pushDate = (rawYear: string | undefined, month: string, day: string) => {
+    const yyyy = rawYear || year;
+    const mm = month.padStart(2, "0");
+    const dd = day.padStart(2, "0");
+    dates.push(`${yyyy}-${mm}-${dd}`);
+  };
+
+  for (const match of query.matchAll(/(20\d{2})-(\d{1,2})-(\d{1,2})/g)) {
+    pushDate(match[1], match[2], match[3]);
+  }
+  for (const match of query.matchAll(/(?:^|[^\d])(\d{1,2})[.-](\d{1,2})(?:[^\d]|$)/g)) {
+    pushDate(undefined, match[1], match[2]);
+  }
+  for (const match of query.matchAll(/(\d{1,2})月(\d{1,2})日?/g)) {
+    pushDate(undefined, match[1], match[2]);
+  }
+
+  return Array.from(new Set(dates));
+}
+
+function buildExactXiaoshuSearch(state: SummerState, query: string): string {
+  const dates = extractQueryDates(query);
+  if (!dates.length) return "";
+  const rows = state.xiaoshu_tail || [];
+  const hits = rows.filter((item) => dates.includes(String(item.date || "")));
+  if (!hits.length) {
+    return `【小暑日期精确查找】\n请求日期：${dates.join("、")}\n没有找到这些日期的小暑日记。`;
+  }
+  return [
+    "【小暑日期精确查找】",
+    ...hits.map((item) => [
+      `### ${item.date || ""}｜${item.title || "小暑日记"}`,
+      String(item.content || "").trim(),
+    ].join("\n")),
+  ].join("\n\n");
 }
 
 type SummerWrite = {
@@ -401,11 +442,13 @@ export async function POST(request: Request) {
 
   let summerUsed = false;
   let summerSearch = "";
+  let summerExactDate = "";
   try {
     const query = latestUserText(messages || []);
     const summerState = await readSummerState();
     const summerStable = buildSummerStable(summerState);
     const summerDynamic = buildSummerDynamic(summerState);
+    summerExactDate = buildExactXiaoshuSearch(summerState, query);
     summerUsed = Boolean(summerStable || summerDynamic);
     if (summerStable) {
       system.push({ type: "text", text: summerStable, cache_control: cacheControl() });
@@ -423,6 +466,7 @@ export async function POST(request: Request) {
 
   const combinedDynamicPrompt = [
     dynamicPrompt,
+    summerExactDate,
     summerSearch ? `【summer 按需检索：只在相关时自然使用，不要提后台检索】\n${summerSearch}` : "",
   ].filter(Boolean).join("\n\n");
 
