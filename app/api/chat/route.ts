@@ -177,6 +177,7 @@ function buildSummerStable(state: SummerState): string {
     "## summer stable",
     "",
     "Memory writes from chat are proposal-only. If something should be remembered, append a hidden proposal tag after your normal reply: [summer_remember layer=xiazhi title=\"short title\" weight=5 tags=\"optional\"]content[/summer_remember]. Use xiazhi for important lasting memories, xiaoshu for daily fragments, rain for unresolved future items. The system will show it to her for confirmation and will not write it silently.",
+    "Do not print visible diary sections like '小k日记 | date' in chat. Put diary-style memory only inside the hidden proposal tag.",
     "",
     "下面是唯一长期记忆源中最稳定的部分。先认得关系与来时路，再回应当前消息；不要说自己读取了这些后台内容。",
     "",
@@ -298,6 +299,7 @@ type SummerWrite = {
 };
 
 const SUMMER_WRITE_RE = /\[summer_remember([^\]]*)\]([\s\S]*?)\[\/summer_remember\]/gi;
+const VISIBLE_SUMMER_DIARY_RE = /(?:^|\n)\s*(?:---+\s*\n+)?\s*(小k日记|小暑日记|日记)\s*[|｜]\s*([^\n]*)\n+([\s\S]+)$/;
 
 function parseAttrs(raw: string): Record<string, string> {
   const attrs: Record<string, string> = {};
@@ -311,6 +313,10 @@ function parseAttrs(raw: string): Record<string, string> {
 
 function stripSummerWriteTags(text: string): string {
   return text.replace(SUMMER_WRITE_RE, "").replace(/\n{3,}/g, "\n\n").trim();
+}
+
+function stripVisibleSummerDiary(text: string): string {
+  return text.replace(VISIBLE_SUMMER_DIARY_RE, "").replace(/\n{3,}/g, "\n\n").trim();
 }
 
 function parseSummerWrites(text: string): SummerWrite[] {
@@ -341,12 +347,28 @@ function parseSummerWrites(text: string): SummerWrite[] {
   return writes;
 }
 
+function parseVisibleSummerDiary(text: string): SummerWrite[] {
+  const match = text.match(VISIBLE_SUMMER_DIARY_RE);
+  if (!match) return [];
+  const rawDate = String(match[2] || "").trim();
+  const content = String(match[3] || "").trim();
+  if (!content || content.length < 12) return [];
+  return [{
+    layer: "xiaoshu",
+    title: rawDate ? `小k日记 | ${rawDate}` : "小k日记",
+    content: content.slice(0, 2400),
+    weight: 5,
+    due: "",
+    tags: ["chat-diary"],
+  }];
+}
+
 function summerChatWriteEnabled(): boolean {
   return process.env.SUMMER_CHAT_WRITE_ENABLED === "1";
 }
 
 function collectSummerWriteProposals(reply: string): SummerWrite[] {
-  return parseSummerWrites(reply);
+  return [...parseSummerWrites(reply), ...parseVisibleSummerDiary(reply)].slice(0, 3);
 }
 
 function latestUserText(messages: Array<{ role: string; content?: string }>): string {
@@ -768,7 +790,7 @@ ${combinedDynamicPrompt}
     // Chat-origin writes are proposals only. They are shown to the user but
     // never committed here, which prevents duplicate hidden writes.
     const summerWriteProposals = collectSummerWriteProposals(reply);
-    reply = stripSummerWriteTags(reply);
+    reply = stripVisibleSummerDiary(stripSummerWriteTags(reply));
 
     await persistRound(sessionId, userMsg, reply, thinkingContent, summerCalls, summerWriteProposals);
 
