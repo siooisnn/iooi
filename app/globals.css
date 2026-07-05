@@ -308,6 +308,14 @@ body {
 .msg-bubble { padding: 10px 14px; font-size: 14px; line-height: 1.55; word-break: break-word; white-space: pre-wrap; }
 .msg-bubble-ai { background: linear-gradient(135deg, #f7ede5, #f0e4d9); border-radius: 18px 18px 18px 6px; box-shadow: var(--shadow-bubble); }
 .msg-bubble-user { background: linear-gradient(135deg, #ece1d6, #e2d5c8); border-radius: 18px 18px 6px 18px; box-shadow: var(--shadow-bubble); }
+.msg-bubble-summer-call {
+  background: rgba(255, 250, 246, 0.72);
+  border: 1px solid rgba(196, 134, 108, 0.18);
+  box-shadow: none;
+  color: #a77a68;
+  font-size: 12px;
+  line-height: 1.6;
+}
 
 .typing-dots { display: flex; gap: 5px; padding: 4px 2px; align-items: center; }
 .typing-dots span { width: 6px; height: 6px; border-radius: 50%; background: var(--text-light); animation: dotBounce 1.2s ease-in-out infinite; }

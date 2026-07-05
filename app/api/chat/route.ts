@@ -54,6 +54,7 @@ async function callSummerTool(name: string, args: Record<string, unknown>): Prom
     method: "POST",
     headers: {
       "Content-Type": "application/json",
+      "Accept": "application/json, text/event-stream",
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
     body: JSON.stringify({
@@ -88,6 +89,37 @@ type SummerState = {
   xiaoshu_tail?: SummerItem[];
 };
 
+type SummerCall = {
+  tool: string;
+  label: string;
+  status: "hit" | "miss" | "used" | "fallback";
+  count?: number;
+  detail?: string;
+};
+
+type SummerDateResult = {
+  dates?: string[];
+  items?: SummerItem[];
+  count?: number;
+};
+
+type SummerStructuredHit = {
+  layer?: string;
+  source?: string;
+  score?: number;
+  id?: string;
+  date?: string;
+  title?: string;
+  content?: string;
+};
+
+type SummerStructuredResult = {
+  query?: string;
+  dates?: string[];
+  results?: SummerStructuredHit[];
+  count?: number;
+};
+
 async function readSummerState(): Promise<SummerState> {
   const token = process.env.SUMMER_TOKEN || "";
   const res = await fetch(`${summerBaseUrl()}/api/state`, {
@@ -101,6 +133,42 @@ async function readSummerState(): Promise<SummerState> {
     throw new Error(data?.error || `summer state failed: ${res.status}`);
   }
   return data as SummerState;
+}
+
+function parseSummerJson<T>(raw: string): T {
+  return JSON.parse(raw) as T;
+}
+
+function renderSummerDateResult(result: SummerDateResult): string {
+  const dates = result.dates || [];
+  const items = result.items || [];
+  if (!items.length) {
+    return `【小暑日期精确查找】\n请求日期：${dates.join("、") || "未识别"}\n没有找到这些日期的小暑日记。`;
+  }
+  return [
+    "【小暑日期精确查找】",
+    ...items.map((item) => [
+      `### ${item.date || ""}｜${item.title || "小暑日记"}`,
+      String(item.content || "").trim(),
+    ].join("\n")),
+  ].join("\n\n");
+}
+
+function renderStructuredSearch(result: SummerStructuredResult): string {
+  const hits = result.results || [];
+  if (!hits.length) return "";
+  return [
+    "【summer 按需检索：只在相关时自然使用，不要提后台检索】",
+    ...hits.map((hit) => {
+      const head = [
+        hit.layer || "summer",
+        hit.date || "",
+        hit.title || "",
+        typeof hit.score === "number" ? `score ${hit.score}` : "",
+      ].filter(Boolean).join("｜");
+      return [`### ${head}`, String(hit.content || "").trim()].join("\n");
+    }),
+  ].join("\n\n");
 }
 
 function buildSummerStable(state: SummerState): string {
@@ -443,12 +511,12 @@ export async function POST(request: Request) {
   let summerUsed = false;
   let summerSearch = "";
   let summerExactDate = "";
+  const summerCalls: SummerCall[] = [];
   try {
     const query = latestUserText(messages || []);
     const summerState = await readSummerState();
     const summerStable = buildSummerStable(summerState);
     const summerDynamic = buildSummerDynamic(summerState);
-    summerExactDate = buildExactXiaoshuSearch(summerState, query);
     summerUsed = Boolean(summerStable || summerDynamic);
     if (summerStable) {
       system.push({ type: "text", text: summerStable, cache_control: cacheControl() });
@@ -456,8 +524,52 @@ export async function POST(request: Request) {
     if (summerDynamic) {
       system.push({ type: "text", text: summerDynamic, cache_control: cacheControl() });
     }
+
+    const queryDates = extractQueryDates(query);
+    if (queryDates.length) {
+      try {
+        const raw = await callSummerTool("read_xiaoshu_by_date", { query });
+        const result = parseSummerJson<SummerDateResult>(raw);
+        summerExactDate = renderSummerDateResult(result);
+        summerCalls.push({
+          tool: "read_xiaoshu_by_date",
+          label: `查小暑 ${((result.dates || queryDates).join("、"))}`,
+          status: (result.count || 0) > 0 ? "hit" : "miss",
+          count: result.count || 0,
+        });
+      } catch {
+        summerExactDate = buildExactXiaoshuSearch(summerState, query);
+        summerCalls.push({
+          tool: "read_xiaoshu_by_date",
+          label: `查小暑 ${queryDates.join("、")}`,
+          status: summerExactDate ? "fallback" : "miss",
+          detail: "fallback",
+        });
+      }
+    }
+
     if (shouldSearchSummer(query)) {
-      summerSearch = await callSummerTool("search", { query: normalizeSummerSearchQuery(query), limit: 5 });
+      if (!summerExactDate || summerExactDate.includes("没有找到")) {
+        try {
+          const raw = await callSummerTool("search_structured", { query: normalizeSummerSearchQuery(query), limit: 5 });
+          const result = parseSummerJson<SummerStructuredResult>(raw);
+          summerSearch = renderStructuredSearch(result);
+          summerCalls.push({
+            tool: "search_structured",
+            label: "检索 summer",
+            status: (result.results || []).length > 0 ? "hit" : "miss",
+            count: (result.results || []).length,
+          });
+        } catch {
+          summerSearch = await callSummerTool("search", { query: normalizeSummerSearchQuery(query), limit: 5 });
+          summerCalls.push({
+            tool: "search",
+            label: "检索 summer",
+            status: summerSearch ? "fallback" : "miss",
+            detail: "fallback",
+          });
+        }
+      }
     }
   } catch (error) {
     const message = error instanceof Error ? error.message : "unknown error";
@@ -467,7 +579,7 @@ export async function POST(request: Request) {
   const combinedDynamicPrompt = [
     dynamicPrompt,
     summerExactDate,
-    summerSearch ? `【summer 按需检索：只在相关时自然使用，不要提后台检索】\n${summerSearch}` : "",
+    summerSearch,
   ].filter(Boolean).join("\n\n");
 
   // --- Process conversation messages into Anthropic format ---
@@ -663,6 +775,7 @@ ${combinedDynamicPrompt}
         reason: cacheReason,
         summer_used: summerUsed,
         summer_writes: summerWrites.length,
+        summer_calls: summerCalls,
       },
     });
   } catch (error) {

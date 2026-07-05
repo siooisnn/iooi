@@ -76,7 +76,16 @@ type CacheStats = {
   summary_used?: boolean;
   memory_count?: number;
   summer_used?: boolean;
+  summer_calls?: SummerCall[];
   time?: string;
+};
+
+type SummerCall = {
+  tool?: string;
+  label?: string;
+  status?: "hit" | "miss" | "used" | "fallback";
+  count?: number;
+  detail?: string;
 };
 
 // ── 记忆条目(借鉴Ombre Brain:情绪坐标+遗忘曲线+悬而未决浮环) ──
@@ -349,10 +358,11 @@ function genId() {
 function chatMessageKey(message: Message) {
   const content = (message.content || "").trim().replace(/\s+/g, " ");
   if (message.role === "assistant" && content.length >= 20 && !message.image && !message.file) {
-    return [message.role, content].join("\u0001");
+    return [message.role, message.source || "", content].join("\u0001");
   }
   return [
     message.role,
+    message.source || "",
     message.time || "",
     message.date || "",
     content,
@@ -1423,7 +1433,7 @@ function ChatView({
 
     const slice = allMessages
       .slice(summarizedUntil, cutoff)
-      .filter((m) => m.role === "user" || m.role === "assistant")
+      .filter((m) => (m.role === "user" || m.role === "assistant") && m.source !== "summer_call")
       .map((m) => ({ role: m.role, content: m.content }));
     if (slice.length < SESSION_CACHE_MIN_NEW_MESSAGES) {
       return { summary: session.summary || "", until: summarizedUntil, updated: false };
@@ -1479,7 +1489,7 @@ function ChatView({
       // 上下文组装：气泡合并 + 按轮数截取。
       type CtxMsg = { role: "user" | "assistant"; content: string; image?: string; file?: string };
       const allMsgs: CtxMsg[] = [
-        ...messagesWithUser.map((m) => {
+        ...messagesWithUser.filter((m) => m.source !== "summer_call").map((m) => {
           return {
             role: m.role, content: m.content,
             ...(m.image ? { image: m.image } : {}), ...(m.file ? { file: m.file } : {}),
@@ -1578,6 +1588,21 @@ function ChatView({
       const parts = reply.split(/\n{2,}/).filter((p: string) => p.trim());
       const now = getTime();
       const today = getTodayStr();
+      const summerCallMsgs: Message[] = (data.cache?.summer_calls || []).map((call: SummerCall) => {
+        const bits = [
+          "summer",
+          call.label || call.tool || "called",
+          typeof call.count === "number" ? `${call.count} 条` : "",
+          call.status === "fallback" ? "fallback" : "",
+        ].filter(Boolean);
+        return {
+          role: "assistant" as const,
+          source: "summer_call",
+          content: bits.join(" · "),
+          time: now,
+          date: today,
+        };
+      });
       const newMsgs: Message[] = parts.map((p: string, i: number) => ({
         role: "assistant" as const,
         content: p.trim(),
@@ -1588,7 +1613,7 @@ function ChatView({
       if (hasLaterUserMessage(sessionMessagesRef.current, userMsg)) {
         return;
       }
-      const finalMessages = [...messagesWithUser, ...newMsgs];
+      const finalMessages = [...messagesWithUser, ...summerCallMsgs, ...newMsgs];
       sessionMessagesRef.current = mergeChatMessages(sessionMessagesRef.current, finalMessages);
       updateMessages((msgs) => mergeChatMessages(msgs, finalMessages));
 
@@ -1692,7 +1717,7 @@ function ChatView({
                     </div>
                   ) : (
                     <div
-                      className={`msg-bubble ${message.role === "user" ? "msg-bubble-user" : "msg-bubble-ai"} ${heartBurst === index ? "bubble-hearted" : ""}`}
+                      className={`msg-bubble ${message.role === "user" ? "msg-bubble-user" : "msg-bubble-ai"} ${message.source === "summer_call" ? "msg-bubble-summer-call" : ""} ${heartBurst === index ? "bubble-hearted" : ""}`}
                       onTouchStart={message.role === "assistant" ? () => startPress(index) : undefined}
                       onTouchEnd={message.role === "assistant" ? cancelPress : undefined}
                       onTouchMove={message.role === "assistant" ? cancelPress : undefined}
