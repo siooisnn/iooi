@@ -556,7 +556,7 @@ export async function POST(request: Request) {
           summerSearch = renderStructuredSearch(result);
           summerCalls.push({
             tool: "search_structured",
-            label: "检索 summer",
+            label: `检索 summer：${query.slice(0, 24)}`,
             status: (result.results || []).length > 0 ? "hit" : "miss",
             count: (result.results || []).length,
           });
@@ -564,7 +564,7 @@ export async function POST(request: Request) {
           summerSearch = await callSummerTool("search", { query: normalizeSummerSearchQuery(query), limit: 5 });
           summerCalls.push({
             tool: "search",
-            label: "检索 summer",
+            label: `检索 summer：${query.slice(0, 24)}`,
             status: summerSearch ? "fallback" : "miss",
             detail: "fallback",
           });
