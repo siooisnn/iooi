@@ -176,6 +176,8 @@ function buildSummerStable(state: SummerState): string {
   return [
     "## summer stable",
     "",
+    "Memory writes from chat are proposal-only. If something should be remembered, append a hidden proposal tag after your normal reply: [summer_remember layer=xiazhi title=\"short title\" weight=5 tags=\"optional\"]content[/summer_remember]. Use xiazhi for important lasting memories, xiaoshu for daily fragments, rain for unresolved future items. The system will show it to her for confirmation and will not write it silently.",
+    "",
     "下面是唯一长期记忆源中最稳定的部分。先认得关系与来时路，再回应当前消息；不要说自己读取了这些后台内容。",
     "",
     "你不能直接编辑、删除或后台写入 summer。若你觉得某件事值得留下，先用自然语言告诉她你想记什么，等她确认。",
@@ -343,22 +345,8 @@ function summerChatWriteEnabled(): boolean {
   return process.env.SUMMER_CHAT_WRITE_ENABLED === "1";
 }
 
-async function commitSummerWrites(reply: string): Promise<SummerWrite[]> {
-  const writes = parseSummerWrites(reply);
-  const committed: SummerWrite[] = [];
-  for (const write of writes) {
-    await callSummerTool("remember", {
-      layer: write.layer,
-      title: write.title,
-      content: write.content,
-      weight: write.weight,
-      due: write.due,
-      tags: write.tags,
-      source: "iooi-chat",
-    });
-    committed.push(write);
-  }
-  return committed;
+function collectSummerWriteProposals(reply: string): SummerWrite[] {
+  return parseSummerWrites(reply);
 }
 
 function latestUserText(messages: Array<{ role: string; content?: string }>): string {
@@ -723,15 +711,9 @@ ${combinedDynamicPrompt}
 
     if (!reply) reply = "没有收到回复";
 
-    // 服务端落地:先写库再返回,前端死活都不丢消息
-    let summerWrites: SummerWrite[] = [];
-    if (summerChatWriteEnabled()) {
-      try {
-        summerWrites = await commitSummerWrites(reply);
-      } catch {
-        summerWrites = [];
-      }
-    }
+    // Chat-origin writes are proposals only. They are shown to the user but
+    // never committed here, which prevents duplicate hidden writes.
+    const summerWriteProposals = collectSummerWriteProposals(reply);
     reply = stripSummerWriteTags(reply);
 
     await persistRound(sessionId, userMsg, reply, thinkingContent);
@@ -774,7 +756,8 @@ ${combinedDynamicPrompt}
         status: cacheStatus,
         reason: cacheReason,
         summer_used: summerUsed,
-        summer_writes: summerWrites.length,
+        summer_writes: 0,
+        summer_write_proposals: summerWriteProposals,
         summer_calls: summerCalls,
       },
     });

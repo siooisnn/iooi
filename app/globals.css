@@ -316,6 +316,14 @@ body {
   font-size: 12px;
   line-height: 1.6;
 }
+.msg-bubble-summer-write {
+  background: rgba(250, 244, 238, 0.88);
+  border: 1px solid rgba(137, 120, 103, 0.22);
+  box-shadow: none;
+  color: #80695d;
+  font-size: 12px;
+  line-height: 1.65;
+}
 
 .typing-dots { display: flex; gap: 5px; padding: 4px 2px; align-items: center; }
 .typing-dots span { width: 6px; height: 6px; border-radius: 50%; background: var(--text-light); animation: dotBounce 1.2s ease-in-out infinite; }

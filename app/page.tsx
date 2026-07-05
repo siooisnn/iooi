@@ -77,6 +77,7 @@ type CacheStats = {
   memory_count?: number;
   summer_used?: boolean;
   summer_calls?: SummerCall[];
+  summer_write_proposals?: SummerWriteProposal[];
   time?: string;
 };
 
@@ -86,6 +87,15 @@ type SummerCall = {
   status?: "hit" | "miss" | "used" | "fallback";
   count?: number;
   detail?: string;
+};
+
+type SummerWriteProposal = {
+  layer?: "xiazhi" | "xiaoshu" | "rain";
+  title?: string;
+  content?: string;
+  weight?: number;
+  due?: string;
+  tags?: string[];
 };
 
 // ── 记忆条目(借鉴Ombre Brain:情绪坐标+遗忘曲线+悬而未决浮环) ──
@@ -1433,7 +1443,7 @@ function ChatView({
 
     const slice = allMessages
       .slice(summarizedUntil, cutoff)
-      .filter((m) => (m.role === "user" || m.role === "assistant") && m.source !== "summer_call")
+      .filter((m) => (m.role === "user" || m.role === "assistant") && m.source !== "summer_call" && m.source !== "summer_write_proposal")
       .map((m) => ({ role: m.role, content: m.content }));
     if (slice.length < SESSION_CACHE_MIN_NEW_MESSAGES) {
       return { summary: session.summary || "", until: summarizedUntil, updated: false };
@@ -1489,7 +1499,7 @@ function ChatView({
       // 上下文组装：气泡合并 + 按轮数截取。
       type CtxMsg = { role: "user" | "assistant"; content: string; image?: string; file?: string };
       const allMsgs: CtxMsg[] = [
-        ...messagesWithUser.filter((m) => m.source !== "summer_call").map((m) => {
+        ...messagesWithUser.filter((m) => m.source !== "summer_call" && m.source !== "summer_write_proposal").map((m) => {
           return {
             role: m.role, content: m.content,
             ...(m.image ? { image: m.image } : {}), ...(m.file ? { file: m.file } : {}),
@@ -1603,6 +1613,23 @@ function ChatView({
           date: today,
         };
       });
+      const layerName: Record<string, string> = { xiazhi: "夏至", xiaoshu: "小暑", rain: "rain" };
+      const summerWriteMsgs: Message[] = (data.cache?.summer_write_proposals || []).map((proposal: SummerWriteProposal) => {
+        const layer = proposal.layer || "xiaoshu";
+        const title = proposal.title || "未命名";
+        const meta = [
+          `summer · 提议写入${layerName[layer] || layer}`,
+          title,
+          typeof proposal.weight === "number" ? `权重 ${proposal.weight}` : "",
+        ].filter(Boolean).join(" · ");
+        return {
+          role: "assistant" as const,
+          source: "summer_write_proposal",
+          content: `${meta}\n${String(proposal.content || "").trim()}`.trim(),
+          time: now,
+          date: today,
+        };
+      });
       const newMsgs: Message[] = parts.map((p: string, i: number) => ({
         role: "assistant" as const,
         content: p.trim(),
@@ -1613,7 +1640,7 @@ function ChatView({
       if (hasLaterUserMessage(sessionMessagesRef.current, userMsg)) {
         return;
       }
-      const finalMessages = [...messagesWithUser, ...summerCallMsgs, ...newMsgs];
+      const finalMessages = [...messagesWithUser, ...summerCallMsgs, ...newMsgs, ...summerWriteMsgs];
       sessionMessagesRef.current = mergeChatMessages(sessionMessagesRef.current, finalMessages);
       updateMessages((msgs) => mergeChatMessages(msgs, finalMessages));
 
@@ -1717,7 +1744,7 @@ function ChatView({
                     </div>
                   ) : (
                     <div
-                      className={`msg-bubble ${message.role === "user" ? "msg-bubble-user" : "msg-bubble-ai"} ${message.source === "summer_call" ? "msg-bubble-summer-call" : ""} ${heartBurst === index ? "bubble-hearted" : ""}`}
+                      className={`msg-bubble ${message.role === "user" ? "msg-bubble-user" : "msg-bubble-ai"} ${message.source === "summer_call" ? "msg-bubble-summer-call" : ""} ${message.source === "summer_write_proposal" ? "msg-bubble-summer-write" : ""} ${heartBurst === index ? "bubble-hearted" : ""}`}
                       onTouchStart={message.role === "assistant" ? () => startPress(index) : undefined}
                       onTouchEnd={message.role === "assistant" ? cancelPress : undefined}
                       onTouchMove={message.role === "assistant" ? cancelPress : undefined}
