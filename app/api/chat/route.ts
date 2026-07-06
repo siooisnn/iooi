@@ -118,6 +118,8 @@ type SummerStructuredResult = {
   dates?: string[];
   results?: SummerStructuredHit[];
   count?: number;
+  cleaned?: { query?: string; label?: string; kind?: string };
+  items?: SummerStructuredHit[];
 };
 
 async function readSummerState(): Promise<SummerState> {
@@ -155,7 +157,7 @@ function renderSummerDateResult(result: SummerDateResult): string {
 }
 
 function renderStructuredSearch(result: SummerStructuredResult): string {
-  const hits = result.results || [];
+  const hits = result.results || result.items || [];
   if (!hits.length) return "";
   return [
     "【summer 按需检索：只在相关时自然使用，不要提后台检索】",
@@ -226,6 +228,10 @@ function shouldSearchSummer(query: string): boolean {
   const text = query.trim();
   if (!text) return false;
   return /summer|记忆|日记|小暑|夏至|芒种|小满|立夏|rain|sunny|sea|之前|以前|那天|哪天|想起来|记得|回忆|说过|写过|发生过|找|查|搜|翻|\d{1,2}[.-]\d{1,2}|\d{1,2}月\d{1,2}日?|20\d{2}-\d{1,2}-\d{1,2}/i.test(text);
+}
+
+function shouldReadSummerRef(query: string): boolean {
+  return /(?:\u5c0f\u6691\s*)?\u788e\u7247\s*\d{1,3}|(?:^|\s)(?:rain|sea)(?:\s|$)/i.test(query);
 }
 
 function cleanSummerSearchQuery(query: string): { query: string; label: string } {
@@ -320,6 +326,8 @@ function buildExactXiaoshuSearch(state: SummerState, query: string): string {
 }
 
 type SummerWrite = {
+  id?: string;
+  status?: string;
   layer: "xiazhi" | "xiaoshu" | "rain";
   title: string;
   content: string;
@@ -399,6 +407,36 @@ function summerChatWriteEnabled(): boolean {
 
 function collectSummerWriteProposals(reply: string): SummerWrite[] {
   return [...parseSummerWrites(reply), ...parseVisibleSummerDiary(reply)].slice(0, 3);
+}
+
+async function createSummerProposals(proposals: SummerWrite[]): Promise<SummerWrite[]> {
+  if (!proposals.length) return [];
+  const created: SummerWrite[] = [];
+  for (const proposal of proposals) {
+    try {
+      const raw = await callSummerTool("propose_memory", {
+        layer: proposal.layer || "xiaoshu",
+        title: proposal.title || "",
+        content: proposal.content,
+        weight: proposal.weight ?? 5,
+        due: proposal.due || "",
+        tags: proposal.tags || [],
+        source: "iooi-chat-proposal",
+      });
+      const saved = parseSummerJson<{ id?: string; status?: string }>(raw);
+      created.push({
+        ...proposal,
+        id: saved.id || proposal.id,
+        status: saved.status || "pending",
+      });
+    } catch {
+      created.push({
+        ...proposal,
+        status: "local",
+      });
+    }
+  }
+  return created;
 }
 
 function latestUserText(messages: Array<{ role: string; content?: string }>): string {
@@ -645,18 +683,21 @@ export async function POST(request: Request) {
 
     if (shouldSearchSummer(query)) {
       if (!summerExactDate || summerExactDate.includes("没有找到")) {
-        const cleanedSearch = cleanSummerSearchQuery(query);
         try {
-          const raw = await callSummerTool("search_structured", { query: normalizeSummerSearchQuery(cleanedSearch.query), limit: 5 });
+          const toolName = shouldReadSummerRef(query) ? "read_by_ref" : "search_clean";
+          const raw = await callSummerTool(toolName, toolName === "read_by_ref" ? { ref: query, limit: 8 } : { query, limit: 5 });
           const result = parseSummerJson<SummerStructuredResult>(raw);
           summerSearch = renderStructuredSearch(result);
+          const label = result.cleaned?.label || result.query || query.slice(0, 32);
+          const count = (result.results || result.items || []).length;
           summerCalls.push({
-            tool: "search_structured",
-            label: `检索 summer：${cleanedSearch.label}`,
-            status: (result.results || []).length > 0 ? "hit" : "miss",
-            count: (result.results || []).length,
+            tool: toolName,
+            label: `检索 summer：${label}`,
+            status: count > 0 ? "hit" : "miss",
+            count,
           });
         } catch {
+          const cleanedSearch = cleanSummerSearchQuery(query);
           summerSearch = await callSummerTool("search", { query: normalizeSummerSearchQuery(cleanedSearch.query), limit: 5 });
           summerCalls.push({
             tool: "search",
@@ -821,7 +862,7 @@ ${combinedDynamicPrompt}
 
     // Chat-origin writes are proposals only. They are shown to the user but
     // never committed here, which prevents duplicate hidden writes.
-    const summerWriteProposals = collectSummerWriteProposals(reply);
+    const summerWriteProposals = await createSummerProposals(collectSummerWriteProposals(reply));
     reply = stripVisibleSummerDiary(stripSummerWriteTags(reply));
 
     await persistRound(sessionId, userMsg, reply, thinkingContent, summerCalls, summerWriteProposals);

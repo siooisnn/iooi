@@ -91,6 +91,8 @@ type SummerCall = {
 };
 
 type SummerWriteProposal = {
+  id?: string;
+  status?: string;
   layer?: "xiazhi" | "xiaoshu" | "rain";
   title?: string;
   content?: string;
@@ -1487,6 +1489,8 @@ function ChatView({
     if (!proposal) return;
     setEditingProposalIndex(index);
     setProposalDraft({
+      id: proposal.id,
+      status: proposal.status,
       layer: proposal.layer || "xiaoshu",
       title: proposal.title || "",
       content: proposal.content || "",
@@ -1521,26 +1525,39 @@ function ChatView({
     const proposalContent = String(proposal.content || "").trim();
     if (!proposalContent) return;
     try {
-      const res = await apiFetch("/api/summer", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+      const body = proposal.id ? {
+        action: "commit_proposal",
+        proposal_id: proposal.id,
+        patch: {
           layer: proposal.layer || "xiaoshu",
           title: proposal.title || "",
           content: proposalContent,
           weight: proposal.weight ?? 5,
           due: proposal.due || "",
           tags: proposal.tags || [],
-          source: "iooi-chat-proposal",
-        }),
+        },
+      } : {
+        layer: proposal.layer || "xiaoshu",
+        title: proposal.title || "",
+        content: proposalContent,
+        weight: proposal.weight ?? 5,
+        due: proposal.due || "",
+        tags: proposal.tags || [],
+        source: "iooi-chat-proposal",
+      };
+      const res = await apiFetch("/api/summer", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
       });
       const json = await res.json();
       if (!res.ok || !json.ok) throw new Error(json.error || "summer 写入失败");
+      const committedProposal = { ...proposal, status: "committed" };
       replaceMessageAt(index, (old) => ({
         ...old,
         source: "summer_write_committed",
-        proposal,
-        content: proposalCardContent(proposal, "已加入"),
+        proposal: committedProposal,
+        content: proposalCardContent(committedProposal, "已加入"),
       }));
     } catch {
       replaceMessageAt(index, (old) => ({
@@ -1550,7 +1567,19 @@ function ChatView({
     }
   }
 
-  function ignoreSummerProposal(index: number) {
+  async function ignoreSummerProposal(message: Message, index: number) {
+    const proposal = proposalFromMessage(message);
+    if (proposal?.id) {
+      try {
+        await apiFetch("/api/summer", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "discard_proposal", proposal_id: proposal.id }),
+        });
+      } catch {
+        // Local removal is still useful; the pending proposal can be discarded later in summer.
+      }
+    }
     replaceMessageAt(index, () => null);
   }
 
@@ -1905,7 +1934,7 @@ function ChatView({
                             <div className="summer-proposal-actions">
                               <button onClick={() => startEditSummerProposal(message, index)}>编辑</button>
                               <button onClick={() => acceptSummerProposal(message, index)}>加入 summer</button>
-                              <button onClick={() => ignoreSummerProposal(index)}>忽略</button>
+                              <button onClick={() => ignoreSummerProposal(message, index)}>忽略</button>
                             </div>
                           )}
                         </>

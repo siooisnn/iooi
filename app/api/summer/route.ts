@@ -55,7 +55,17 @@ async function postSummerJson(path: string, body: unknown) {
 
 export async function GET(request: Request) {
   const url = new URL(request.url);
+  const mode = url.searchParams.get("mode");
   const q = url.searchParams.get("q");
+  const ref = url.searchParams.get("ref");
+  const limit = url.searchParams.get("limit") || "";
+  const limitPart = limit ? `&limit=${encodeURIComponent(limit)}` : "";
+  if (ref && ref.trim()) {
+    return readSummerJson(`/api/read_by_ref?ref=${encodeURIComponent(ref.trim())}${limitPart}`);
+  }
+  if (mode === "search_clean" && q && q.trim()) {
+    return readSummerJson(`/api/search_clean?q=${encodeURIComponent(q.trim())}${limitPart}`);
+  }
   if (q && q.trim()) {
     return readSummerJson(`/api/search?q=${encodeURIComponent(q.trim())}`);
   }
@@ -70,5 +80,19 @@ export async function POST(request: Request) {
   if (action === "sunny_file") return postSummerJson("/api/sunny_file", body);
   if (action === "rain") return postSummerJson("/api/rain", body);
   if (action === "daily_review") return postSummerJson("/api/daily_review", body);
+  if (action === "proposal") return postSummerJson("/api/proposal", body);
+  if (action === "commit_proposal") {
+    return postSummerJson("/api/proposal", {
+      action: "commit",
+      proposal_id: body.proposal_id,
+      patch: body.patch || {},
+    });
+  }
+  if (action === "discard_proposal") {
+    return postSummerJson("/api/proposal", {
+      action: "discard",
+      proposal_id: body.proposal_id,
+    });
+  }
   return postSummerJson("/api/remember", body);
 }
