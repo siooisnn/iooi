@@ -41,18 +41,41 @@ function messageKey(message: StoredMessage) {
   ].join("\u0001");
 }
 
+function proposalRank(message: StoredMessage) {
+  if (message.source === "summer_write_committed" || message.proposal?.status === "committed") return 3;
+  if (message.source === "summer_write_ignored" || message.proposal?.status === "discarded") return 2;
+  if (message.source === "summer_write_proposal" || message.proposal?.status === "pending") return 1;
+  return 0;
+}
+
+function preferMessage(current: StoredMessage, incoming: StoredMessage) {
+  if (current.proposal?.id && incoming.proposal?.id) {
+    const currentRank = proposalRank(current);
+    const incomingRank = proposalRank(incoming);
+    if (incomingRank >= currentRank) return { ...current, ...incoming };
+    return current;
+  }
+  return { ...current, ...incoming };
+}
+
 function mergeMessages(local: StoredMessage[] = [], incoming: StoredMessage[] = []) {
-  const merged = [...local];
-  const indexes = new Map(merged.map((message, index) => [messageKey(message), index]));
-  for (const message of incoming) {
+  const merged: StoredMessage[] = [];
+  const indexes = new Map<string, number>();
+  const pushOrReplace = (message: StoredMessage) => {
     const key = messageKey(message);
     const existingIndex = indexes.get(key);
     if (existingIndex === undefined) {
+      indexes.set(key, merged.length);
       merged.push(message);
-      indexes.set(key, merged.length - 1);
-    } else if (message.proposal?.id && message.source?.startsWith("summer_write_")) {
-      merged[existingIndex] = { ...merged[existingIndex], ...message };
+    } else {
+      merged[existingIndex] = preferMessage(merged[existingIndex], message);
     }
+  };
+  for (const message of local) {
+    pushOrReplace(message);
+  }
+  for (const message of incoming) {
+    pushOrReplace(message);
   }
   return merged;
 }

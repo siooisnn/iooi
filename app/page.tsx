@@ -369,6 +369,10 @@ function genId() {
 }
 
 function chatMessageKey(message: Message) {
+  const proposalId = message.proposal?.id;
+  if (proposalId && message.source?.startsWith("summer_write_")) {
+    return ["summer_proposal", proposalId].join("\u0001");
+  }
   const content = (message.content || "").trim().replace(/\s+/g, " ");
   if (message.role === "assistant" && content.length >= 20 && !message.image && !message.file) {
     return [message.role, message.source || "", content].join("\u0001");
@@ -384,15 +388,38 @@ function chatMessageKey(message: Message) {
   ].join("\u0001");
 }
 
+function proposalMessageRank(message: Message) {
+  if (message.source === "summer_write_committed" || message.proposal?.status === "committed") return 3;
+  if (message.source === "summer_write_ignored" || message.proposal?.status === "discarded") return 2;
+  if (message.source === "summer_write_proposal" || message.proposal?.status === "pending") return 1;
+  return 0;
+}
+
+function preferChatMessage(current: Message, incoming: Message) {
+  if (current.proposal?.id && incoming.proposal?.id) {
+    return proposalMessageRank(incoming) >= proposalMessageRank(current) ? { ...current, ...incoming } : current;
+  }
+  return { ...current, ...incoming };
+}
+
 function mergeChatMessages(current: Message[], incoming: Message[]) {
-  const merged = [...current];
-  const seen = new Set(merged.map(chatMessageKey));
-  for (const message of incoming) {
+  const merged: Message[] = [];
+  const indexes = new Map<string, number>();
+  const pushOrReplace = (message: Message) => {
     const key = chatMessageKey(message);
-    if (!seen.has(key)) {
+    const existingIndex = indexes.get(key);
+    if (existingIndex === undefined) {
+      indexes.set(key, merged.length);
       merged.push(message);
-      seen.add(key);
+    } else {
+      merged[existingIndex] = preferChatMessage(merged[existingIndex], message);
     }
+  };
+  for (const message of current) {
+    pushOrReplace(message);
+  }
+  for (const message of incoming) {
+    pushOrReplace(message);
   }
   return merged;
 }
