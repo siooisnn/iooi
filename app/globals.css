@@ -324,6 +324,23 @@ body {
   font-size: 12px;
   line-height: 1.65;
 }
+.summer-proposal-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+.summer-proposal-actions button {
+  border: 1px solid rgba(196, 134, 108, 0.28);
+  background: rgba(255, 250, 246, 0.78);
+  color: #9f725f;
+  border-radius: 12px;
+  padding: 6px 10px;
+  font-size: 12px;
+}
+.summer-proposal-actions button:first-child {
+  background: rgba(196, 134, 108, 0.14);
+  color: #8a5f4f;
+}
 
 .typing-dots { display: flex; gap: 5px; padding: 4px 2px; align-items: center; }
 .typing-dots span { width: 6px; height: 6px; border-radius: 50%; background: var(--text-light); animation: dotBounce 1.2s ease-in-out infinite; }

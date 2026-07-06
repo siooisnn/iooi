@@ -15,6 +15,7 @@ type Message = {
   file?: string;
   thinking?: string;
   source?: string;
+  proposal?: SummerWriteProposal;
 };
 
 type ChatSession = {
@@ -1434,6 +1435,79 @@ function ChatView({
     return prompt;
   }
 
+  function replaceMessageAt(index: number, updater: (message: Message) => Message | null) {
+    const current = sessionMessagesRef.current;
+    const next = current.flatMap((message, i) => {
+      if (i !== index) return [message];
+      const updated = updater(message);
+      return updated ? [updated] : [];
+    });
+    sessionMessagesRef.current = next;
+    updateMessages(() => next);
+  }
+
+  function proposalFromMessage(message: Message): SummerWriteProposal | null {
+    if (message.proposal?.content?.trim()) return message.proposal;
+    if (message.source !== "summer_write_proposal") return null;
+    const lines = message.content.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+    if (lines.length < 2) return null;
+    const headerParts = lines[0].split("·").map((part) => part.trim());
+    const layerText = headerParts.find((part) => part.includes("提议写入")) || "";
+    const layer =
+      layerText.includes("夏至") ? "xiazhi" :
+      layerText.includes("rain") ? "rain" :
+      "xiaoshu";
+    const weightText = headerParts.find((part) => part.startsWith("权重")) || "";
+    const weight = Number(weightText.replace(/\D+/g, "")) || 5;
+    return {
+      layer,
+      title: headerParts[2] || lines[1] || "",
+      content: lines.slice(1).join("\n").trim(),
+      weight,
+      tags: [],
+    };
+  }
+
+  async function acceptSummerProposal(message: Message, index: number) {
+    const proposal = proposalFromMessage(message);
+    if (!proposal?.content?.trim()) {
+      return;
+    }
+    const proposalContent = String(proposal.content || "").trim();
+    if (!proposalContent) return;
+    try {
+      const res = await apiFetch("/api/summer", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          layer: proposal.layer || "xiaoshu",
+          title: proposal.title || "",
+          content: proposalContent,
+          weight: proposal.weight ?? 5,
+          due: proposal.due || "",
+          tags: proposal.tags || [],
+          source: "iooi-chat-proposal",
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok || !json.ok) throw new Error(json.error || "summer 写入失败");
+      replaceMessageAt(index, (old) => ({
+        ...old,
+        source: "summer_write_committed",
+        content: old.content.replace(/^summer · 提议写入/, "summer · 已加入"),
+      }));
+    } catch {
+      replaceMessageAt(index, (old) => ({
+        ...old,
+        content: `${old.content}\n\n写入失败，稍后再试。`,
+      }));
+    }
+  }
+
+  function ignoreSummerProposal(index: number) {
+    replaceMessageAt(index, () => null);
+  }
+
   async function ensureSessionCache(allMessages: Message[]) {
     const cutoff = Math.max(0, allMessages.length - SESSION_CACHE_KEEP_MESSAGES);
     const summarizedUntil = session.summarizedUntil || 0;
@@ -1443,7 +1517,7 @@ function ChatView({
 
     const slice = allMessages
       .slice(summarizedUntil, cutoff)
-      .filter((m) => (m.role === "user" || m.role === "assistant") && m.source !== "summer_call" && m.source !== "summer_write_proposal")
+      .filter((m) => (m.role === "user" || m.role === "assistant") && !m.source?.startsWith("summer_"))
       .map((m) => ({ role: m.role, content: m.content }));
     if (slice.length < SESSION_CACHE_MIN_NEW_MESSAGES) {
       return { summary: session.summary || "", until: summarizedUntil, updated: false };
@@ -1499,7 +1573,7 @@ function ChatView({
       // 上下文组装：气泡合并 + 按轮数截取。
       type CtxMsg = { role: "user" | "assistant"; content: string; image?: string; file?: string };
       const allMsgs: CtxMsg[] = [
-        ...messagesWithUser.filter((m) => m.source !== "summer_call" && m.source !== "summer_write_proposal").map((m) => {
+        ...messagesWithUser.filter((m) => !m.source?.startsWith("summer_")).map((m) => {
           return {
             role: m.role, content: m.content,
             ...(m.image ? { image: m.image } : {}), ...(m.file ? { file: m.file } : {}),
@@ -1626,6 +1700,7 @@ function ChatView({
           role: "assistant" as const,
           source: "summer_write_proposal",
           content: `${meta}\n${String(proposal.content || "").trim()}`.trim(),
+          proposal,
           time: now,
           date: today,
         };
@@ -1744,7 +1819,7 @@ function ChatView({
                     </div>
                   ) : (
                     <div
-                      className={`msg-bubble ${message.role === "user" ? "msg-bubble-user" : "msg-bubble-ai"} ${message.source === "summer_call" ? "msg-bubble-summer-call" : ""} ${message.source === "summer_write_proposal" ? "msg-bubble-summer-write" : ""} ${heartBurst === index ? "bubble-hearted" : ""}`}
+                      className={`msg-bubble ${message.role === "user" ? "msg-bubble-user" : "msg-bubble-ai"} ${message.source === "summer_call" ? "msg-bubble-summer-call" : ""} ${message.source === "summer_write_proposal" || message.source === "summer_write_committed" ? "msg-bubble-summer-write" : ""} ${heartBurst === index ? "bubble-hearted" : ""}`}
                       onTouchStart={message.role === "assistant" ? () => startPress(index) : undefined}
                       onTouchEnd={message.role === "assistant" ? cancelPress : undefined}
                       onTouchMove={message.role === "assistant" ? cancelPress : undefined}
@@ -1754,6 +1829,12 @@ function ChatView({
                       onContextMenu={message.role === "assistant" ? (e) => e.preventDefault() : undefined}
                     >
                       {renderContent(message.content)}
+                      {message.source === "summer_write_proposal" && (
+                        <div className="summer-proposal-actions">
+                          <button onClick={() => acceptSummerProposal(message, index)}>加入 summer</button>
+                          <button onClick={() => ignoreSummerProposal(index)}>忽略</button>
+                        </div>
+                      )}
                       {heartBurst === index && <span className="heart-pop">💖</span>}
                     </div>
                   )}

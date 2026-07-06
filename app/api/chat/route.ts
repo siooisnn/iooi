@@ -16,7 +16,7 @@ function cstToday() {
 function cstDateStr() {
   return new Date().toLocaleDateString("zh-CN", { year: "numeric", month: "long", day: "numeric", weekday: "long", timeZone: "Asia/Shanghai" });
 }
-type StoreMsg = { role: string; content: string; time?: string; date?: string; thinking?: string; image?: string; file?: string; source?: string };
+type StoreMsg = { role: string; content: string; time?: string; date?: string; thinking?: string; image?: string; file?: string; source?: string; proposal?: SummerWrite };
 type TextBlock = {
   type: "text";
   text: string;
@@ -519,6 +519,7 @@ async function persistRound(
           role: "assistant",
           source: "summer_write_proposal",
           content: summerWriteProposalContent(proposal),
+          proposal,
           time: now,
           date: today,
         });
