@@ -1900,16 +1900,16 @@ function ChatView({
                 </div>
               )}
               <div className={`msg-row ${message.role === "user" ? "msg-row-user" : "msg-row-ai"} ${compactTop ? "msg-row-compact-top" : ""} ${compactBottom ? "msg-row-compact-bottom" : ""}`} style={{ animationDelay: `${Math.min(index * 0.03, 0.3)}s` }}>
-                {message.role === "assistant" && !compactTop && (
-                  settings.aiAvatar
-                    ? <img src={settings.aiAvatar} className="avatar avatar-img" alt="" />
-                    : <div className="avatar avatar-ai" />
+                {message.role === "assistant" && (
+                  <div className="msg-avatar-stack">
+                    {settings.aiAvatar
+                      ? <img src={settings.aiAvatar} className="avatar avatar-img" alt="" />
+                      : <div className="avatar avatar-ai" />
+                    }
+                    <span className="msg-avatar-time">{message.source === "heartbeat" ? "💬 " : ""}{message.time}</span>
+                  </div>
                 )}
-                {message.role === "assistant" && compactTop && <div className="avatar avatar-spacer" />}
                 <div className={message.role === "user" ? "msg-content-user" : "msg-content-ai"}>
-                  {!compactTop && (
-                    <span className="msg-time">{message.role === "assistant" ? `${settings.aiName} · ` : ""}{message.source === "heartbeat" ? "💬 " : ""}{message.time}</span>
-                  )}
                   {message.thinking && <ThinkingBlock content={message.thinking} />}
                   {message.image ? (
                     <div className={`msg-bubble msg-bubble-img ${message.role === "user" ? "msg-bubble-user" : "msg-bubble-ai"}`}>
@@ -1975,12 +1975,15 @@ function ChatView({
                     </div>
                   )}
                 </div>
-                {message.role === "user" && !compactTop && (
-                  settings.userAvatar
-                    ? <img src={settings.userAvatar} className="avatar avatar-img" alt="" />
-                    : <div className="avatar avatar-user" />
+                {message.role === "user" && (
+                  <div className="msg-avatar-stack">
+                    {settings.userAvatar
+                      ? <img src={settings.userAvatar} className="avatar avatar-img" alt="" />
+                      : <div className="avatar avatar-user" />
+                    }
+                    <span className="msg-avatar-time">{message.time}</span>
+                  </div>
                 )}
-                {message.role === "user" && compactTop && <div className="avatar avatar-spacer" />}
               </div>
             </div>
           );
