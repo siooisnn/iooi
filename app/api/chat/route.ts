@@ -230,6 +230,15 @@ function shouldSearchSummer(query: string): boolean {
   return /summer|记忆|日记|小暑|夏至|芒种|小满|立夏|rain|sunny|sea|之前|以前|那天|哪天|想起来|记得|回忆|说过|写过|发生过|找|查|搜|翻|\d{1,2}[.-]\d{1,2}|\d{1,2}月\d{1,2}日?|20\d{2}-\d{1,2}-\d{1,2}/i.test(text);
 }
 
+function isSummerWriteOnlyIntent(query: string): boolean {
+  const text = query.trim();
+  if (!text) return false;
+  const wantsWrite = /写进|写入|写到|记下|记住|存进|存到|加进|加到|放进|放到|收进|录入/.test(text);
+  if (!wantsWrite) return false;
+  const wantsSearch = /找|查|搜|翻|看.*日记|读.*日记|记不记得|还记得|想起来|之前|以前|那天|哪天|碎片\s*\d{1,3}|\d{1,2}[.-]\d{1,2}|\d{1,2}月\d{1,2}日?|20\d{2}-\d{1,2}-\d{1,2}/i.test(text);
+  return !wantsSearch;
+}
+
 function shouldReadSummerRef(query: string): boolean {
   return /(?:\u5c0f\u6691\s*)?\u788e\u7247\s*\d{1,3}|(?:^|\s)(?:rain|sea)(?:\s|$)/i.test(query);
 }
@@ -681,7 +690,7 @@ export async function POST(request: Request) {
       }
     }
 
-    if (shouldSearchSummer(query)) {
+    if (shouldSearchSummer(query) && !isSummerWriteOnlyIntent(query)) {
       if (!summerExactDate || summerExactDate.includes("没有找到")) {
         try {
           const toolName = shouldReadSummerRef(query) ? "read_by_ref" : "search_clean";
