@@ -222,7 +222,7 @@ body {
 .chat-messages::-webkit-scrollbar-track { background: transparent; }
 .chat-messages::-webkit-scrollbar-thumb { background: var(--border-soft); border-radius: 10px; }
 
-.msg-row { display: flex; align-items: flex-start; gap: 8px; animation: msgIn 0.35s ease-out both; }
+.msg-row { display: flex; align-items: flex-end; gap: 8px; animation: msgIn 0.35s ease-out both; }
 .msg-row-user { justify-content: flex-end; }
 .msg-row-ai { justify-content: flex-start; }
 .msg-row-compact-top { margin-top: -6px; }
@@ -238,8 +238,6 @@ body {
 .avatar-user { background: var(--avatar-user); border-color: rgba(200, 175, 155, 0.5); }
 .avatar-img { width: 28px; height: 28px; border-radius: 50%; flex-shrink: 0; object-fit: cover; border: 1.5px solid rgba(200, 175, 155, 0.4); box-shadow: 0 0 0 3px var(--accent-glow); }
 .avatar-spacer { visibility: hidden; box-shadow: none; border-color: transparent; }
-.msg-avatar-stack { width: 34px; flex-shrink: 0; display: flex; flex-direction: column; align-items: center; gap: 3px; padding-top: 1px; }
-.msg-avatar-time { font-size: 10px; line-height: 1; color: var(--text-light); white-space: nowrap; }
 
 /* Avatar Upload */
 .avatar-upload-row {

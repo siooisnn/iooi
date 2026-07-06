@@ -1901,15 +1901,12 @@ function ChatView({
               )}
               <div className={`msg-row ${message.role === "user" ? "msg-row-user" : "msg-row-ai"} ${compactTop ? "msg-row-compact-top" : ""} ${compactBottom ? "msg-row-compact-bottom" : ""}`} style={{ animationDelay: `${Math.min(index * 0.03, 0.3)}s` }}>
                 {message.role === "assistant" && (
-                  <div className="msg-avatar-stack">
-                    {settings.aiAvatar
-                      ? <img src={settings.aiAvatar} className="avatar avatar-img" alt="" />
-                      : <div className="avatar avatar-ai" />
-                    }
-                    <span className="msg-avatar-time">{message.source === "heartbeat" ? "💬 " : ""}{message.time}</span>
-                  </div>
+                  settings.aiAvatar
+                    ? <img src={settings.aiAvatar} className="avatar avatar-img" alt="" />
+                    : <div className="avatar avatar-ai" />
                 )}
                 <div className={message.role === "user" ? "msg-content-user" : "msg-content-ai"}>
+                  <span className="msg-time">{message.source === "heartbeat" ? "💬 " : ""}{message.time}</span>
                   {message.thinking && <ThinkingBlock content={message.thinking} />}
                   {message.image ? (
                     <div className={`msg-bubble msg-bubble-img ${message.role === "user" ? "msg-bubble-user" : "msg-bubble-ai"}`}>
@@ -1976,13 +1973,9 @@ function ChatView({
                   )}
                 </div>
                 {message.role === "user" && (
-                  <div className="msg-avatar-stack">
-                    {settings.userAvatar
-                      ? <img src={settings.userAvatar} className="avatar avatar-img" alt="" />
-                      : <div className="avatar avatar-user" />
-                    }
-                    <span className="msg-avatar-time">{message.time}</span>
-                  </div>
+                  settings.userAvatar
+                    ? <img src={settings.userAvatar} className="avatar avatar-img" alt="" />
+                    : <div className="avatar avatar-user" />
                 )}
               </div>
             </div>
