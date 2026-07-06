@@ -341,6 +341,33 @@ body {
   background: rgba(196, 134, 108, 0.14);
   color: #8a5f4f;
 }
+.summer-proposal-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.summer-proposal-editor-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 76px;
+  gap: 8px;
+}
+.summer-proposal-editor input,
+.summer-proposal-editor select,
+.summer-proposal-editor textarea {
+  width: 100%;
+  border: 1px solid rgba(137, 120, 103, 0.22);
+  background: rgba(255, 250, 246, 0.82);
+  color: #6b5b53;
+  border-radius: 10px;
+  padding: 8px 9px;
+  font-size: 12px;
+  line-height: 1.5;
+  outline: none;
+}
+.summer-proposal-editor textarea {
+  resize: vertical;
+  min-height: 120px;
+}
 
 .typing-dots { display: flex; gap: 5px; padding: 4px 2px; align-items: center; }
 .typing-dots span { width: 6px; height: 6px; border-radius: 50%; background: var(--text-light); animation: dotBounce 1.2s ease-in-out infinite; }

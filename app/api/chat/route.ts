@@ -228,6 +228,36 @@ function shouldSearchSummer(query: string): boolean {
   return /summer|记忆|日记|小暑|夏至|芒种|小满|立夏|rain|sunny|sea|之前|以前|那天|哪天|想起来|记得|回忆|说过|写过|发生过|找|查|搜|翻|\d{1,2}[.-]\d{1,2}|\d{1,2}月\d{1,2}日?|20\d{2}-\d{1,2}-\d{1,2}/i.test(text);
 }
 
+function cleanSummerSearchQuery(query: string): { query: string; label: string } {
+  const text = query.trim();
+  const fragments = new Set<string>();
+  for (const match of text.matchAll(/(?:小暑\s*)?碎片\s*(\d{1,3})(?:\s*(?:和|、|,|，|\/|及|跟)\s*(\d{1,3}))?/g)) {
+    fragments.add(match[1]);
+    if (match[2]) fragments.add(match[2]);
+  }
+  if (fragments.size) {
+    const nums = Array.from(fragments);
+    const label = `小暑碎片 ${nums.join("、")}`;
+    const expanded = nums.map((num) => `小暑碎片 ${num}`).join(" ");
+    return { query: expanded, label };
+  }
+
+  const dates = extractQueryDates(text);
+  if (dates.length) {
+    return { query: [...dates, text.includes("日记") ? "日记 xiaoshu" : "xiaoshu"].join(" "), label: dates.join("、") };
+  }
+
+  const quoted = text.match(/[“"']([^“”"']{2,40})[”"']/);
+  if (quoted?.[1]) return { query: quoted[1], label: quoted[1] };
+
+  const compact = text
+    .replace(/^(逗你了|好了|修好了|再试试|帮我|你|老公|宝宝|小k|看看|搜下|搜索|查一下|查下|翻翻|记不记得|还记得)[，,\s]*/g, "")
+    .replace(/[？?！!。~～]+/g, " ")
+    .trim();
+  const label = compact.length > 28 ? `${compact.slice(0, 28)}…` : compact;
+  return { query: compact || text, label: label || text.slice(0, 28) };
+}
+
 function normalizeSummerSearchQuery(query: string): string {
   const year = new Date().toLocaleDateString("zh-CN", { year: "numeric", timeZone: "Asia/Shanghai" }).replace(/\D/g, "") || "2026";
   const additions: string[] = [];
@@ -615,21 +645,22 @@ export async function POST(request: Request) {
 
     if (shouldSearchSummer(query)) {
       if (!summerExactDate || summerExactDate.includes("没有找到")) {
+        const cleanedSearch = cleanSummerSearchQuery(query);
         try {
-          const raw = await callSummerTool("search_structured", { query: normalizeSummerSearchQuery(query), limit: 5 });
+          const raw = await callSummerTool("search_structured", { query: normalizeSummerSearchQuery(cleanedSearch.query), limit: 5 });
           const result = parseSummerJson<SummerStructuredResult>(raw);
           summerSearch = renderStructuredSearch(result);
           summerCalls.push({
             tool: "search_structured",
-            label: `检索 summer：${query.slice(0, 24)}`,
+            label: `检索 summer：${cleanedSearch.label}`,
             status: (result.results || []).length > 0 ? "hit" : "miss",
             count: (result.results || []).length,
           });
         } catch {
-          summerSearch = await callSummerTool("search", { query: normalizeSummerSearchQuery(query), limit: 5 });
+          summerSearch = await callSummerTool("search", { query: normalizeSummerSearchQuery(cleanedSearch.query), limit: 5 });
           summerCalls.push({
             tool: "search",
-            label: `检索 summer：${query.slice(0, 24)}`,
+            label: `检索 summer：${cleanedSearch.label}`,
             status: summerSearch ? "fallback" : "miss",
             detail: "fallback",
           });

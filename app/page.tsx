@@ -1368,6 +1368,8 @@ function ChatView({
   const pressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [inputHint] = useState(() => INPUT_HINTS[Math.floor(Math.random() * INPUT_HINTS.length)]);
   const [weatherText, setWeatherText] = useState("");
+  const [editingProposalIndex, setEditingProposalIndex] = useState<number | null>(null);
+  const [proposalDraft, setProposalDraft] = useState<SummerWriteProposal | null>(null);
 
   useEffect(() => {
     if (!settings.city) { setWeatherText(""); return; }
@@ -1468,6 +1470,49 @@ function ChatView({
     };
   }
 
+  function proposalCardContent(proposal: SummerWriteProposal, status: "提议写入" | "已加入" = "提议写入") {
+    const layerName: Record<string, string> = { xiazhi: "夏至", xiaoshu: "小暑", rain: "rain" };
+    const layer = proposal.layer || "xiaoshu";
+    const title = proposal.title || "未命名";
+    const meta = [
+      `summer · ${status}${layerName[layer] || layer}`,
+      title,
+      typeof proposal.weight === "number" ? `权重 ${proposal.weight}` : "",
+    ].filter(Boolean).join(" · ");
+    return `${meta}\n${String(proposal.content || "").trim()}`.trim();
+  }
+
+  function startEditSummerProposal(message: Message, index: number) {
+    const proposal = proposalFromMessage(message);
+    if (!proposal) return;
+    setEditingProposalIndex(index);
+    setProposalDraft({
+      layer: proposal.layer || "xiaoshu",
+      title: proposal.title || "",
+      content: proposal.content || "",
+      weight: proposal.weight ?? 5,
+      due: proposal.due || "",
+      tags: proposal.tags || [],
+    });
+  }
+
+  function saveEditedSummerProposal(index: number) {
+    if (!proposalDraft?.content?.trim()) return;
+    const nextProposal: SummerWriteProposal = {
+      ...proposalDraft,
+      title: proposalDraft.title || "",
+      content: proposalDraft.content.trim(),
+      weight: proposalDraft.weight ?? 5,
+    };
+    replaceMessageAt(index, (old) => ({
+      ...old,
+      proposal: nextProposal,
+      content: proposalCardContent(nextProposal),
+    }));
+    setEditingProposalIndex(null);
+    setProposalDraft(null);
+  }
+
   async function acceptSummerProposal(message: Message, index: number) {
     const proposal = proposalFromMessage(message);
     if (!proposal?.content?.trim()) {
@@ -1494,7 +1539,8 @@ function ChatView({
       replaceMessageAt(index, (old) => ({
         ...old,
         source: "summer_write_committed",
-        content: old.content.replace(/^summer · 提议写入/, "summer · 已加入"),
+        proposal,
+        content: proposalCardContent(proposal, "已加入"),
       }));
     } catch {
       replaceMessageAt(index, (old) => ({
@@ -1687,19 +1733,11 @@ function ChatView({
           date: today,
         };
       });
-      const layerName: Record<string, string> = { xiazhi: "夏至", xiaoshu: "小暑", rain: "rain" };
       const summerWriteMsgs: Message[] = (data.cache?.summer_write_proposals || []).map((proposal: SummerWriteProposal) => {
-        const layer = proposal.layer || "xiaoshu";
-        const title = proposal.title || "未命名";
-        const meta = [
-          `summer · 提议写入${layerName[layer] || layer}`,
-          title,
-          typeof proposal.weight === "number" ? `权重 ${proposal.weight}` : "",
-        ].filter(Boolean).join(" · ");
         return {
           role: "assistant" as const,
           source: "summer_write_proposal",
-          content: `${meta}\n${String(proposal.content || "").trim()}`.trim(),
+          content: proposalCardContent(proposal),
           proposal,
           time: now,
           date: today,
@@ -1828,12 +1866,49 @@ function ChatView({
                       onMouseLeave={message.role === "assistant" ? cancelPress : undefined}
                       onContextMenu={message.role === "assistant" ? (e) => e.preventDefault() : undefined}
                     >
-                      {renderContent(message.content)}
-                      {message.source === "summer_write_proposal" && (
-                        <div className="summer-proposal-actions">
-                          <button onClick={() => acceptSummerProposal(message, index)}>加入 summer</button>
-                          <button onClick={() => ignoreSummerProposal(index)}>忽略</button>
+                      {message.source === "summer_write_proposal" && editingProposalIndex === index && proposalDraft ? (
+                        <div className="summer-proposal-editor">
+                          <div className="summer-proposal-editor-row">
+                            <select value={proposalDraft.layer || "xiaoshu"} onChange={(e) => setProposalDraft({ ...proposalDraft, layer: e.target.value as SummerWriteProposal["layer"] })}>
+                              <option value="xiaoshu">小暑</option>
+                              <option value="xiazhi">夏至</option>
+                              <option value="rain">rain</option>
+                            </select>
+                            <input
+                              type="number"
+                              min={1}
+                              max={10}
+                              value={proposalDraft.weight ?? 5}
+                              onChange={(e) => setProposalDraft({ ...proposalDraft, weight: Number(e.target.value) || 5 })}
+                            />
+                          </div>
+                          <input
+                            value={proposalDraft.title || ""}
+                            onChange={(e) => setProposalDraft({ ...proposalDraft, title: e.target.value })}
+                            placeholder="标题"
+                          />
+                          <textarea
+                            value={proposalDraft.content || ""}
+                            onChange={(e) => setProposalDraft({ ...proposalDraft, content: e.target.value })}
+                            rows={8}
+                            placeholder="内容"
+                          />
+                          <div className="summer-proposal-actions">
+                            <button onClick={() => saveEditedSummerProposal(index)}>保存修改</button>
+                            <button onClick={() => { setEditingProposalIndex(null); setProposalDraft(null); }}>取消</button>
+                          </div>
                         </div>
+                      ) : (
+                        <>
+                          {renderContent(message.content)}
+                          {message.source === "summer_write_proposal" && (
+                            <div className="summer-proposal-actions">
+                              <button onClick={() => startEditSummerProposal(message, index)}>编辑</button>
+                              <button onClick={() => acceptSummerProposal(message, index)}>加入 summer</button>
+                              <button onClick={() => ignoreSummerProposal(index)}>忽略</button>
+                            </div>
+                          )}
+                        </>
                       )}
                       {heartBurst === index && <span className="heart-pop">💖</span>}
                     </div>
