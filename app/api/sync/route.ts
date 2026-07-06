@@ -9,6 +9,7 @@ type StoredMessage = {
   file?: string;
   thinking?: string;
   source?: string;
+  proposal?: { id?: string; status?: string };
 };
 
 type StoredSession = {
@@ -21,6 +22,10 @@ type StoredSession = {
 };
 
 function messageKey(message: StoredMessage) {
+  const proposalId = message.proposal?.id;
+  if (proposalId && message.source?.startsWith("summer_write_")) {
+    return ["summer_proposal", proposalId].join("\u0001");
+  }
   const content = (message.content || "").trim().replace(/\s+/g, " ");
   if (message.role === "assistant" && content.length >= 20 && !message.image && !message.file) {
     return [message.role || "", message.source || "", content].join("\u0001");
@@ -38,12 +43,15 @@ function messageKey(message: StoredMessage) {
 
 function mergeMessages(local: StoredMessage[] = [], incoming: StoredMessage[] = []) {
   const merged = [...local];
-  const seen = new Set(merged.map(messageKey));
+  const indexes = new Map(merged.map((message, index) => [messageKey(message), index]));
   for (const message of incoming) {
     const key = messageKey(message);
-    if (!seen.has(key)) {
+    const existingIndex = indexes.get(key);
+    if (existingIndex === undefined) {
       merged.push(message);
-      seen.add(key);
+      indexes.set(key, merged.length - 1);
+    } else if (message.proposal?.id && message.source?.startsWith("summer_write_")) {
+      merged[existingIndex] = { ...merged[existingIndex], ...message };
     }
   }
   return merged;

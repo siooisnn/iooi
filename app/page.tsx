@@ -1580,7 +1580,11 @@ function ChatView({
         // Local removal is still useful; the pending proposal can be discarded later in summer.
       }
     }
-    replaceMessageAt(index, () => null);
+    replaceMessageAt(index, (old) => ({
+      ...old,
+      source: "summer_write_ignored",
+      proposal: proposal ? { ...proposal, status: "discarded" } : old.proposal,
+    }));
   }
 
   async function ensureSessionCache(allMessages: Message[]) {
@@ -1851,6 +1855,7 @@ function ChatView({
           <div className="empty-chat"><p>说点什么开始聊天吧</p></div>
         )}
         {session.messages.map((message, index) => {
+          if (message.source === "summer_write_ignored") return null;
           const prevDate = index > 0 ? session.messages[index - 1].date : null;
           const prevMsg = index > 0 ? session.messages[index - 1] : null;
           const nextMsg = index < session.messages.length - 1 ? session.messages[index + 1] : null;
