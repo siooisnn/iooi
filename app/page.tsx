@@ -94,7 +94,7 @@ type SummerCall = {
 type SummerWriteProposal = {
   id?: string;
   status?: string;
-  layer?: "xiazhi" | "xiaoshu" | "rain";
+  layer?: "xiazhi" | "xiaoshu" | "rain" | "ferry";
   title?: string;
   content?: string;
   weight?: number;
@@ -137,6 +137,7 @@ type SummerState = {
   xiazhi?: SummerMemoryItem[];
   sunny?: { days?: SummerMemoryItem[] };
   sunny_files?: SummerMemoryItem[];
+  ferry?: SummerMemoryItem[];
   rain?: SummerMemoryItem[];
   xiaoshu_recent?: SummerMemoryItem[];
   xiaoshu_tail?: SummerMemoryItem[];
@@ -1488,6 +1489,7 @@ function ChatView({
     const layer =
       layerText.includes("夏至") ? "xiazhi" :
       layerText.includes("rain") ? "rain" :
+      layerText.includes("渡口") || layerText.includes("ferry") ? "ferry" :
       "xiaoshu";
     const weightText = headerParts.find((part) => part.startsWith("权重")) || "";
     const weight = Number(weightText.replace(/\D+/g, "")) || 5;
@@ -1501,7 +1503,7 @@ function ChatView({
   }
 
   function proposalCardContent(proposal: SummerWriteProposal, status: "提议写入" | "已加入" = "提议写入") {
-    const layerName: Record<string, string> = { xiazhi: "夏至", xiaoshu: "小暑", rain: "rain" };
+    const layerName: Record<string, string> = { xiazhi: "夏至", xiaoshu: "小暑", rain: "rain", ferry: "渡口" };
     const layer = proposal.layer || "xiaoshu";
     const title = proposal.title || "未命名";
     const meta = [
@@ -2131,6 +2133,7 @@ function layerLabel(layer: string) {
     xiazhi: { title: "Summer Solstice", sub: "夏至" },
     xiaoshu: { title: "Minor Heat", sub: "小暑" },
     rain: { title: "rain", sub: "未了结" },
+    ferry: { title: "ferry", sub: "渡口" },
     sunny: { title: "sea", sub: "原文件" },
   };
   return labels[layer]?.title || layer;
@@ -2144,6 +2147,7 @@ function layerSub(layer: string) {
     xiazhi: "夏至",
     xiaoshu: "小暑",
     rain: "小雨淅淅沥沥",
+    ferry: "上一秒在这里，下一秒在那里",
     sunny: "海不会跑掉，我也不会",
   };
   return labels[layer] || "";
@@ -2181,7 +2185,7 @@ function SummerMemoryView() {
   const [hits, setHits] = useState<Array<{ source?: string; score?: number; text?: string }>>([]);
   const [searching, setSearching] = useState(false);
   const [writerOpen, setWriterOpen] = useState(false);
-  const [writeLayer, setWriteLayer] = useState<"xiazhi" | "xiaoshu" | "rain">("xiaoshu");
+  const [writeLayer, setWriteLayer] = useState<"xiazhi" | "xiaoshu" | "rain" | "ferry">("xiaoshu");
   const [writeTitle, setWriteTitle] = useState("");
   const [writeContent, setWriteContent] = useState("");
   const [writeWeight, setWriteWeight] = useState(6);
@@ -2369,13 +2373,15 @@ function SummerMemoryView() {
   const xiazhi = state?.xiazhi || [];
   const xiaoshu = (state?.xiaoshu_tail || []).slice().reverse();
   const rain = state?.rain || [];
+  const ferry = state?.ferry || [];
   const sunnyFiles = state?.sunny_files || [];
-  const layerOrder = ["lixia", "xiaoman", "mangzhong", "xiazhi", "xiaoshu", "rain", "sunny"];
+  const layerOrder = ["lixia", "xiaoman", "mangzhong", "xiazhi", "xiaoshu", "rain", "ferry", "sunny"];
   const mangzhongDocs = splitMangzhongDocs(layers.mangzhong || "");
   const sectionItems: Record<string, SummerMemoryItem[]> = {
     xiazhi: xiazhi.slice().reverse(),
     xiaoshu,
     rain,
+    ferry,
     sunny: sunnyFiles.slice().reverse(),
   };
   const counts: Record<string, string> = {
@@ -2385,6 +2391,7 @@ function SummerMemoryView() {
     xiazhi: `${xiazhi.length} 条`,
     xiaoshu: `${xiaoshu.length} 天`,
     rain: `${rain.length} 件`,
+    ferry: `${ferry.length} 条`,
     sunny: `${sunnyFiles.length} 份`,
   };
 
@@ -2433,10 +2440,11 @@ function SummerMemoryView() {
           <div className="summer-writer-row">
             <label>
               层
-              <select value={writeLayer} onChange={(e) => setWriteLayer(e.target.value as "xiazhi" | "xiaoshu" | "rain")}>
+              <select value={writeLayer} onChange={(e) => setWriteLayer(e.target.value as "xiazhi" | "xiaoshu" | "rain" | "ferry")}>
                 <option value="xiaoshu">xiaoshu</option>
                 <option value="xiazhi">xiazhi</option>
                 <option value="rain">rain</option>
+                <option value="ferry">ferry</option>
               </select>
             </label>
             <label>
