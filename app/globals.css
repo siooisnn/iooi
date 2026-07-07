@@ -324,6 +324,35 @@ body {
   font-size: 12px;
   line-height: 1.65;
 }
+.summer-collapse {
+  min-width: min(260px, 68vw);
+}
+.summer-collapse-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  border: none;
+  background: transparent;
+  color: #9f725f;
+  font: inherit;
+  font-size: 12px;
+  line-height: 1.45;
+  text-align: left;
+  padding: 0;
+}
+.summer-collapse-toggle span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.summer-collapse-content {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(137, 120, 103, 0.14);
+  color: #80695d;
+  white-space: pre-wrap;
+}
 .summer-proposal-actions {
   display: flex;
   gap: 8px;
