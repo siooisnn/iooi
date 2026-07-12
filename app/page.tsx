@@ -215,6 +215,7 @@ function memoryColor(m: MemoryEntry): { bg: string; border: string } {
 
 type Settings = {
   model: string;
+  chatEntryStyle: "list" | "direct";
   aiName: string;
   userName: string;
   prompt: string;
@@ -549,6 +550,7 @@ function ThinkingBlock({ content }: { content: string }) {
 export default function Home() {
   const defaultSettings: Settings = {
     model: "sonnet",
+    chatEntryStyle: "list",
     aiName: "小k",
     userName: "宝宝",
     prompt: DEFAULT_PROMPT,
@@ -563,6 +565,7 @@ export default function Home() {
   };
 
   const [tab, setTab] = useState<"home" | "chat" | "diary" | "settings">("home");
+  const [chatView, setChatView] = useState<"list" | "room">("list");
   const [settings, setSettings] = useState<Settings>(defaultSettings);
   const [sessions, setSessions] = useState<ChatSession[]>([]);
   const [activeSessionId, setActiveSessionId] = useState<string>("");
@@ -857,6 +860,13 @@ export default function Home() {
     { id: "settings" as const, label: "Settings", icon: <IconSettings /> },
   ];
 
+  function switchTab(nextTab: "home" | "chat" | "diary" | "settings") {
+    setTab(nextTab);
+    if (nextTab === "chat") {
+      setChatView(settings.chatEntryStyle === "list" ? "list" : "room");
+    }
+  }
+
   if (needKey) {
     return (
       <main className="app-bg">
@@ -900,7 +910,18 @@ export default function Home() {
       )}
       <div className="chat-container">
         {tab === "home" && <HomeView settings={settings} diary={diary} sessions={sessions} setTab={setTab} moods={moods} setMoods={setMoods} wall={wall} setWall={setWall} counters={counters} setCounters={setCounters} heartbeatLog={heartbeatLog} aiMood={aiMood} />}
-        {tab === "chat" && activeSession && (
+        {tab === "chat" && settings.chatEntryStyle === "list" && chatView === "list" && (
+          <ChatListView
+            settings={settings}
+            sessions={sessions}
+            activeSessionId={activeSessionId}
+            heartbeatLog={heartbeatLog}
+            setActiveSessionId={setActiveSessionId}
+            createSession={createSession}
+            openRoom={() => setChatView("room")}
+          />
+        )}
+        {tab === "chat" && activeSession && (settings.chatEntryStyle === "direct" || chatView === "room") && (
           <ChatView
             settings={settings}
             session={activeSession}
@@ -921,6 +942,8 @@ export default function Home() {
             deleteSession={deleteSession}
             renameSession={renameSession}
             addDiaryEntry={addDiaryEntry}
+            listEntryMode={settings.chatEntryStyle === "list"}
+            onBackToList={() => setChatView("list")}
           />
         )}
         {tab === "diary" && <SummerPageView />}
@@ -935,18 +958,18 @@ export default function Home() {
           />
         )}
 
-        <nav className="bottom-nav">
+        {!(tab === "chat" && settings.chatEntryStyle === "list" && chatView === "room") && <nav className="bottom-nav">
           {tabs.map((t) => (
             <button
               key={t.id}
               className={`nav-btn ${tab === t.id ? "nav-btn-active" : ""}`}
-              onClick={() => setTab(t.id)}
+              onClick={() => switchTab(t.id)}
             >
               {t.icon}
               <span>{t.label}</span>
             </button>
           ))}
-        </nav>
+        </nav>}
       </div>
     </main>
   );
@@ -1001,6 +1024,178 @@ function getIdleStatus(aiName: string): string {
   if (h < 21) return "等你来聊 🌙";
   if (h < 23) return "有点困了 😪";
   return "睡着了 😴";
+}
+
+function parseMessageDateTime(message?: Pick<Message, "date" | "time">) {
+  if (!message?.date) return null;
+  const dateMatch = message.date.match(/(\d{4})\D+(\d{1,2})\D+(\d{1,2})/);
+  const timeMatch = (message.time || "").match(/(\d{1,2}):(\d{2})/);
+  if (!dateMatch) return null;
+  return new Date(
+    Number(dateMatch[1]),
+    Number(dateMatch[2]) - 1,
+    Number(dateMatch[3]),
+    timeMatch ? Number(timeMatch[1]) : 0,
+    timeMatch ? Number(timeMatch[2]) : 0
+  );
+}
+
+function getLatestSessionMessage(session: ChatSession) {
+  return [...session.messages].reverse().find((m) => m.source !== "summer_write_ignored");
+}
+
+function getSessionStamp(session: ChatSession) {
+  return parseMessageDateTime(getLatestSessionMessage(session)) || new Date(session.createdAt);
+}
+
+function formatChatListTime(date: Date) {
+  const now = new Date();
+  if (date.toDateString() === now.toDateString()) {
+    return date.toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit", timeZone: APP_TIME_ZONE });
+  }
+  if (date.getFullYear() === now.getFullYear()) {
+    return `${date.getMonth() + 1}.${date.getDate()}`;
+  }
+  return `${date.getFullYear()}.${date.getMonth() + 1}.${date.getDate()}`;
+}
+
+function formatChatRoomTime(date: Date) {
+  const now = new Date();
+  const time = date.toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit", timeZone: APP_TIME_ZONE });
+  if (date.toDateString() === now.toDateString()) return time;
+  return `${date.getMonth() + 1}.${date.getDate()} ${time}`;
+}
+
+function shouldShowChatRoomTime(message: Message, prevMessage?: Message | null) {
+  if (!prevMessage) return true;
+  const current = parseMessageDateTime(message);
+  const prev = parseMessageDateTime(prevMessage);
+  if (!current || !prev) return message.date !== prevMessage.date;
+  const minutes = Math.abs(current.getTime() - prev.getTime()) / 60000;
+  return message.date !== prevMessage.date || minutes >= 2;
+}
+
+function getSessionPreview(message?: Message) {
+  if (!message) return "还没有消息";
+  if (message.image) return "发来一张图片";
+  if (message.file) return message.content || "发来一个文件";
+  return message.content || "还没有消息";
+}
+
+function ChatListView({
+  settings,
+  sessions,
+  activeSessionId,
+  heartbeatLog,
+  setActiveSessionId,
+  createSession,
+  openRoom,
+}: {
+  settings: Settings;
+  sessions: ChatSession[];
+  activeSessionId: string;
+  heartbeatLog: Array<{ time: string; action: string; reason: string }>;
+  setActiveSessionId: (id: string) => void;
+  createSession: () => void;
+  openRoom: () => void;
+}) {
+  const [query, setQuery] = useState("");
+  const orderedSessions = [...sessions].sort((a, b) => getSessionStamp(b).getTime() - getSessionStamp(a).getTime());
+  const pinnedSession = orderedSessions.find((s) => s.id === activeSessionId) || orderedSessions[0];
+  const normalQuery = query.trim().toLowerCase();
+  const historySessions = orderedSessions.filter((session) => {
+    if (session.id === pinnedSession?.id) return false;
+    if (!normalQuery) return true;
+    const latest = getLatestSessionMessage(session);
+    return `${session.name} ${latest?.content || ""}`.toLowerCase().includes(normalQuery);
+  });
+  const latestHeartbeat = heartbeatLog[0];
+
+  function openSession(id: string) {
+    setActiveSessionId(id);
+    openRoom();
+  }
+
+  function startNewChat() {
+    createSession();
+    openRoom();
+  }
+
+  return (
+    <>
+      <header className="chat-header chat-list-page-header">
+        <div className="header-top">
+          <button className="header-icon-btn chat-list-heart" aria-label="装饰">♡</button>
+          <div className="header-center">
+            <h1 className="header-title">iooi</h1>
+          </div>
+          <button className="header-icon-btn chat-list-new" aria-label="新聊天" onClick={startNewChat}>＋</button>
+        </div>
+        <label className="chat-entry-search">
+          <span>⌕</span>
+          <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="search" />
+        </label>
+      </header>
+
+      <section className="chat-entry-body">
+        <p className="chat-entry-pinned-line">此后我们的每一秒都是恩赐。</p>
+
+        {pinnedSession && (
+          <button className="chat-entry-pinned" onClick={() => openSession(pinnedSession.id)}>
+            <AvatarBlock avatar={settings.aiAvatar} small={false} />
+            <div className="chat-entry-main">
+              <div className="chat-entry-row">
+                <span className="chat-entry-name">{pinnedSession.name}</span>
+                <span className="chat-entry-time">{formatChatListTime(getSessionStamp(pinnedSession))}</span>
+              </div>
+              <span className="chat-entry-tag">老公</span>
+              <p className="chat-entry-preview">{getSessionPreview(getLatestSessionMessage(pinnedSession))}</p>
+            </div>
+          </button>
+        )}
+
+        {latestHeartbeat && (
+          <div className="chat-entry-subscribe">
+            <AvatarBlock avatar="" small />
+            <div className="chat-entry-main">
+              <div className="chat-entry-row">
+                <span className="chat-entry-name">heartbeat</span>
+                <span className="chat-entry-time">{latestHeartbeat.time}</span>
+              </div>
+              <p className="chat-entry-preview">{latestHeartbeat.reason}</p>
+            </div>
+          </div>
+        )}
+
+        <div className="chat-entry-history">
+          {historySessions.length === 0 ? (
+            <p className="chat-entry-empty">{normalQuery ? "没搜到这个窗口" : "没有更多历史窗口"}</p>
+          ) : (
+            historySessions.map((session) => (
+              <button key={session.id} className="chat-entry-item" onClick={() => openSession(session.id)}>
+                <AvatarBlock avatar={settings.aiAvatar} small />
+                <div className="chat-entry-main">
+                  <div className="chat-entry-row">
+                    <span className="chat-entry-name">{session.name}</span>
+                    <span className="chat-entry-time">{formatChatListTime(getSessionStamp(session))}</span>
+                  </div>
+                  <p className="chat-entry-preview">{getSessionPreview(getLatestSessionMessage(session))}</p>
+                </div>
+              </button>
+            ))
+          )}
+        </div>
+      </section>
+    </>
+  );
+}
+
+function AvatarBlock({ avatar, small }: { avatar: string; small: boolean }) {
+  return (
+    <span className={`chat-entry-avatar ${small ? "chat-entry-avatar-small" : ""}`}>
+      {avatar ? <img src={avatar} alt="" /> : <span />}
+    </span>
+  );
 }
 
 function HomeView({ settings, diary, sessions, setTab, moods, setMoods, wall, setWall, counters, setCounters, heartbeatLog, aiMood }: {
@@ -1363,6 +1558,8 @@ function ChatView({
   deleteSession,
   renameSession,
   addDiaryEntry,
+  listEntryMode = false,
+  onBackToList,
 }: {
   settings: Settings;
   session: ChatSession;
@@ -1383,10 +1580,13 @@ function ChatView({
   deleteSession: (id: string) => void;
   renameSession: (id: string, name: string) => void;
   addDiaryEntry: (content: string, author: "me" | "ai", category?: "casual" | "ai" | "important" | "auto") => void;
+  listEntryMode?: boolean;
+  onBackToList?: () => void;
 }) {
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [showSessions, setShowSessions] = useState(false);
+  const [showModelMenu, setShowModelMenu] = useState(false);
   const [editingName, setEditingName] = useState<string | null>(null);
   const [editNameValue, setEditNameValue] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -1876,24 +2076,55 @@ function ChatView({
 
   return (
     <>
-      <header className="chat-header">
-        <div className="header-top">
-          <button className="header-icon-btn" onClick={() => setShowSessions(true)}>
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-              <line x1="3" y1="6" x2="21" y2="6" /><line x1="3" y1="12" x2="21" y2="12" /><line x1="3" y1="18" x2="21" y2="18" />
-            </svg>
-          </button>
-          <div className="header-center">
-            <h1 className="header-title">iooi</h1>
-            <span className="header-subtitle" style={{ color: "#c4866c" }}>{settings.aiName} {aiMood.emoji || ""} · {currentModel.label}</span>
+      {listEntryMode ? (
+        <header className="chat-header chat-room-header">
+          <div className="header-top">
+            <button className="header-icon-btn chat-room-back" onClick={onBackToList} aria-label="返回列表">‹</button>
+            <div className="header-center">
+              <h1 className="header-title chat-room-title">{settings.aiName}</h1>
+              <span className="header-subtitle chat-room-status">{aiMood.emoji ? `现在 ${aiMood.emoji}` : getIdleStatus(settings.aiName)}</span>
+            </div>
+            <button className="header-icon-btn chat-room-more" onClick={() => setShowModelMenu((open) => !open)} aria-label="模型切换">...</button>
+            {showModelMenu && (
+              <div className="chat-model-popover">
+                <p>模型</p>
+                {MODELS.map((m) => (
+                  <button
+                    key={m.id}
+                    className={settings.model === m.id ? "chat-model-active" : ""}
+                    onClick={() => {
+                      updateSettings({ model: m.id });
+                      setShowModelMenu(false);
+                    }}
+                  >
+                    <span>{m.label}</span>
+                    {settings.model === m.id && <b>✓</b>}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
-          <button className="header-icon-btn" onClick={createSession}>
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-              <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
-            </svg>
-          </button>
-        </div>
-      </header>
+        </header>
+      ) : (
+        <header className="chat-header">
+          <div className="header-top">
+            <button className="header-icon-btn" onClick={() => setShowSessions(true)}>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="3" y1="6" x2="21" y2="6" /><line x1="3" y1="12" x2="21" y2="12" /><line x1="3" y1="18" x2="21" y2="18" />
+              </svg>
+            </button>
+            <div className="header-center">
+              <h1 className="header-title">iooi</h1>
+              <span className="header-subtitle" style={{ color: "#c4866c" }}>{settings.aiName} {aiMood.emoji || ""} · {currentModel.label}</span>
+            </div>
+            <button className="header-icon-btn" onClick={createSession}>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
+              </svg>
+            </button>
+          </div>
+        </header>
+      )}
 
       <section className="chat-messages" ref={scrollRef}>
         {session.messages.length === 0 && (
@@ -1901,10 +2132,10 @@ function ChatView({
         )}
         {session.messages.map((message, index) => {
           if (message.source === "summer_write_ignored") return null;
-          const prevDate = index > 0 ? session.messages[index - 1].date : null;
           const prevMsg = index > 0 ? session.messages[index - 1] : null;
           const nextMsg = index < session.messages.length - 1 ? session.messages[index + 1] : null;
-          const showDateSep = message.date && message.date !== prevDate;
+          const prevDate = index > 0 ? session.messages[index - 1].date : null;
+          const showDateSep = listEntryMode ? shouldShowChatRoomTime(message, prevMsg) : message.date && message.date !== prevDate;
           const compactTop = !!prevMsg && prevMsg.role === message.role && !showDateSep;
           const compactBottom = !!nextMsg && nextMsg.role === message.role && nextMsg.date === message.date;
 
@@ -1913,7 +2144,11 @@ function ChatView({
               {showDateSep && (
                 <div className="date-separator">
                   <span className="date-separator-line" />
-                  <span className="date-separator-text">{getDateLabel(new Date(message.date!), message.time)}</span>
+                  <span className="date-separator-text">
+                    {listEntryMode
+                      ? formatChatRoomTime(parseMessageDateTime(message) || new Date())
+                      : getDateLabel(new Date(message.date!), message.time)}
+                  </span>
                   <span className="date-separator-line" />
                 </div>
               )}
@@ -1924,7 +2159,7 @@ function ChatView({
                     : <div className="avatar avatar-ai" />
                 )}
                 <div className={message.role === "user" ? "msg-content-user" : "msg-content-ai"}>
-                  <span className="msg-time">{message.source === "heartbeat" ? "💬 " : ""}{message.time}</span>
+                  {!listEntryMode && <span className="msg-time">{message.source === "heartbeat" ? "💬 " : ""}{message.time}</span>}
                   {message.thinking && <ThinkingBlock content={message.thinking} />}
                   {message.image ? (
                     <div className={`msg-bubble msg-bubble-img ${message.role === "user" ? "msg-bubble-user" : "msg-bubble-ai"}`}>
@@ -3030,6 +3265,29 @@ function SettingsView({
                 {m.label}
               </button>
             ))}
+          </div>
+        </div>
+
+        <div className="settings-group">
+          <h2 className="settings-group-title">聊天入口样式</h2>
+          <p className="settings-hint">只切换 Chat tab 的入口动线和皮肤，不影响任何会话数据</p>
+          <div className="model-options">
+            <button
+              className={`model-option ${settings.chatEntryStyle !== "direct" ? "model-option-active" : ""}`}
+              style={settings.chatEntryStyle !== "direct" ? { borderColor: "#c4866c", color: "#c4866c" } : undefined}
+              onClick={() => updateSettings({ chatEntryStyle: "list" })}
+            >
+              <span className="model-option-dot" style={{ background: settings.chatEntryStyle !== "direct" ? "#c4866c" : "#d5ccc8" }} />
+              消息列表
+            </button>
+            <button
+              className={`model-option ${settings.chatEntryStyle === "direct" ? "model-option-active" : ""}`}
+              style={settings.chatEntryStyle === "direct" ? { borderColor: "#c4866c", color: "#c4866c" } : undefined}
+              onClick={() => updateSettings({ chatEntryStyle: "direct" })}
+            >
+              <span className="model-option-dot" style={{ background: settings.chatEntryStyle === "direct" ? "#c4866c" : "#d5ccc8" }} />
+              信笺直入
+            </button>
           </div>
         </div>
 
