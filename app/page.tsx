@@ -1241,10 +1241,12 @@ function ChatListView({
             <div className="chat-entry-main">
               <div className="chat-entry-row">
                 <span className="chat-entry-name">{settings.userName || "备忘"}</span>
-                <span className="chat-entry-time">{memoSession.messages.length > 0 ? formatChatListTime(getSessionStamp(memoSession)) : ""}</span>
               </div>
               <p className="chat-entry-preview">{memoSession.messages.length > 0 ? getSessionPreview(getLatestSessionMessage(memoSession)) : "只写给自己的地方"}</p>
             </div>
+            <span className="chat-entry-side">
+              <span className="chat-entry-time">{memoSession.messages.length > 0 ? formatChatListTime(getSessionStamp(memoSession)) : ""}</span>
+            </span>
           </button>
         )}
 
@@ -1270,10 +1272,12 @@ function ChatListView({
             <div className="chat-entry-main">
               <div className="chat-entry-row">
                 <span className="chat-entry-name">heartbeat</span>
-                <span className="chat-entry-time">{latestHeartbeat.time}</span>
               </div>
               <p className="chat-entry-preview">{latestHeartbeat.reason}</p>
             </div>
+            <span className="chat-entry-side">
+              <span className="chat-entry-time">{latestHeartbeat.time}</span>
+            </span>
           </button>
         )}
 

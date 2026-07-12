@@ -210,27 +210,24 @@ body {
 }
 
 .chat-entry-item + .chat-entry-item::before {
+  content: none;
+}
+
+.chat-entry-memo::after,
+.chat-entry-pinned::after,
+.chat-entry-subscribe::after,
+.chat-entry-history .chat-entry-item::after {
   content: "";
   position: absolute;
-  top: 0;
+  bottom: 0;
   left: 72px;
-  right: 0;
+  right: 18px;
   height: 1px;
   background: rgba(196, 134, 108, 0.12);
 }
 
 .chat-entry-subscribe {
   position: relative;
-}
-
-.chat-entry-subscribe::after {
-  content: "";
-  position: absolute;
-  bottom: 0;
-  left: 72px;
-  right: 0;
-  height: 1px;
-  background: rgba(196, 134, 108, 0.12);
 }
 
 .chat-entry-avatar {
@@ -269,7 +266,7 @@ body {
 .chat-entry-main {
   min-width: 0;
   flex: 1;
-  padding-right: 58px;
+  padding-right: 118px;
 }
 
 .chat-entry-row {
@@ -293,14 +290,16 @@ body {
   flex: 0 0 auto;
   font-size: 11px;
   color: var(--text-light);
+  text-align: right;
+  white-space: nowrap;
 }
 
 .chat-entry-side {
   position: absolute;
   top: 12px;
-  right: 16px;
+  right: 18px;
   bottom: 10px;
-  width: 42px;
+  width: 108px;
   display: flex;
   flex-direction: column;
   align-items: flex-end;
