@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
 import type { ReactNode } from "react";
@@ -1125,15 +1125,18 @@ function ChatListView({
     <>
       <header className="chat-header chat-list-page-header">
         <div className="header-top">
-          <button className="header-icon-btn chat-list-heart" aria-label="装饰">♡</button>
+          <button className="header-icon-btn chat-list-heart" aria-label="装饰">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M12 20.2C7.2 16.9 3.6 13.6 3.6 9.8c0-2.7 2.1-4.8 4.7-4.8 1.5 0 2.9.7 3.7 1.9.8-1.2 2.2-1.9 3.7-1.9 2.6 0 4.7 2.1 4.7 4.8 0 3.8-3.6 7.1-8.4 10.4z" />
+            </svg>
+          </button>
           <div className="header-center">
             <h1 className="header-title">iooi</h1>
           </div>
           <button className="header-icon-btn chat-list-new" aria-label="新聊天" onClick={startNewChat}>＋</button>
         </div>
         <label className="chat-entry-search">
-          <span>⌕</span>
-          <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="search" />
+          <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="⌕  search" />
         </label>
       </header>
 
@@ -2079,12 +2082,17 @@ function ChatView({
       {listEntryMode ? (
         <header className="chat-header chat-room-header">
           <div className="header-top">
-            <button className="header-icon-btn chat-room-back" onClick={onBackToList} aria-label="返回列表">‹</button>
+            <button className="header-icon-btn chat-room-back" onClick={onBackToList} aria-label="返回列表">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="14.5 5.5 8 12 14.5 18.5" />
+              </svg>
+            </button>
             <div className="header-center">
               <h1 className="header-title chat-room-title">{settings.aiName}</h1>
               <span className="header-subtitle chat-room-status">{aiMood.emoji ? `现在 ${aiMood.emoji}` : getIdleStatus(settings.aiName)}</span>
             </div>
-            <button className="header-icon-btn chat-room-more" onClick={() => setShowModelMenu((open) => !open)} aria-label="模型切换">...</button>
+            <button className="header-icon-btn chat-room-more" onClick={() => setShowModelMenu((open) => !open)} aria-label="模型切换">···</button>
+            {showModelMenu && <div className="chat-model-backdrop" onClick={() => setShowModelMenu(false)} />}
             {showModelMenu && (
               <div className="chat-model-popover">
                 <p>模型</p>
@@ -3278,7 +3286,7 @@ function SettingsView({
               onClick={() => updateSettings({ chatEntryStyle: "list" })}
             >
               <span className="model-option-dot" style={{ background: settings.chatEntryStyle !== "direct" ? "#c4866c" : "#d5ccc8" }} />
-              消息列表
+              RainLikeButter
             </button>
             <button
               className={`model-option ${settings.chatEntryStyle === "direct" ? "model-option-active" : ""}`}
@@ -3286,7 +3294,7 @@ function SettingsView({
               onClick={() => updateSettings({ chatEntryStyle: "direct" })}
             >
               <span className="model-option-dot" style={{ background: settings.chatEntryStyle === "direct" ? "#c4866c" : "#d5ccc8" }} />
-              信笺直入
+              GrassFromAfar
             </button>
           </div>
         </div>
