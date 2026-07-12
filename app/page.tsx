@@ -587,6 +587,7 @@ export default function Home() {
   const [needKey, setNeedKey] = useState(false);
   const [keyInput, setKeyInput] = useState("");
   const [mounted, setMounted] = useState(false);
+  const deletedSessionIds = useRef<Set<string>>(new Set(loadLocalRaw<string[]>("iooi-deleted-session-ids", [])));
 
   useEffect(() => {
     async function init() {
@@ -606,6 +607,7 @@ export default function Home() {
         s = serverData.settings ? { ...defaultSettings, ...serverData.settings } : loadLocal("iooi-settings", defaultSettings);
         s.prompt = normalizeSystemPrompt(s.prompt);
         sess = serverData.sessions?.length > 0 ? serverData.sessions : loadLocalRaw<ChatSession[]>("iooi-sessions", []);
+        sess = sess.filter((session: ChatSession) => session.kind === "memo" || !deletedSessionIds.current.has(session.id));
         d = serverData.diary || loadLocalRaw<DiaryEntry[]>("iooi-diary", []);
         setMemoryEntries([]);
         setMoods(serverData.moods || loadLocalRaw<Mood[]>("iooi-moods", []));
@@ -618,6 +620,7 @@ export default function Home() {
         s = { ...defaultSettings, ...loadLocal("iooi-settings", defaultSettings) };
         s.prompt = normalizeSystemPrompt(s.prompt);
         sess = loadLocalRaw<ChatSession[]>("iooi-sessions", []);
+        sess = sess.filter((session: ChatSession) => session.kind === "memo" || !deletedSessionIds.current.has(session.id));
         d = loadLocalRaw<DiaryEntry[]>("iooi-diary", []);
         setMemoryEntries([]);
         setMoods(loadLocalRaw<Mood[]>("iooi-moods", []));
@@ -805,6 +808,8 @@ export default function Home() {
   }, [mounted]);
 
   const deleteSession = useCallback((id: string) => {
+    deletedSessionIds.current.add(id);
+    saveLocal("iooi-deleted-session-ids", Array.from(deletedSessionIds.current));
     setSessions((prev) => {
       const target = prev.find((s) => s.id === id);
       if (target?.kind === "memo") return prev; // 备忘不可删
@@ -1087,6 +1092,12 @@ function formatChatRoomTime(date: Date) {
   return `${date.getMonth() + 1}.${date.getDate()} ${time}`;
 }
 
+function getChatStatusLabel(aiMood: { emoji: string; ts: number }, aiName: string) {
+  const raw = aiMood.emoji || getIdleStatus(aiName);
+  const label = raw.replace(/[^\p{Script=Han}A-Za-z0-9]+/gu, " ").trim().split(/\s+/)[0] || "期待";
+  return `[${label}…]`;
+}
+
 function shouldShowChatRoomTime(message: Message, prevMessage?: Message | null) {
   if (!prevMessage) return true;
   const current = parseMessageDateTime(message);
@@ -1101,6 +1112,12 @@ function getSessionPreview(message?: Message) {
   if (message.image) return "发来一张图片";
   if (message.file) return message.content || "发来一个文件";
   return message.content || "还没有消息";
+}
+
+function isSummerUtilityMessage(message: Message) {
+  return message.source === "summer_call" ||
+    message.source === "summer_write_proposal" ||
+    message.source === "summer_write_committed";
 }
 
 function ChatListView({
@@ -1206,7 +1223,8 @@ function ChatListView({
           <button className="header-icon-btn chat-list-new" aria-label="新聊天" onClick={startNewChat}>＋</button>
         </div>
         <label className="chat-entry-search">
-          <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="⌕  search" />
+          <span className="chat-entry-search-icon">⌕</span>
+          <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="search" />
         </label>
       </header>
 
@@ -1215,7 +1233,7 @@ function ChatListView({
 
         {memoSession && (
           <button className="chat-entry-item chat-entry-memo" onClick={() => openSession(memoSession.id)}>
-            <span className="chat-entry-avatar chat-entry-avatar-small chat-entry-avatar-memo">✎</span>
+            <AvatarBlock avatar={settings.aiAvatar} small />
             <div className="chat-entry-main">
               <div className="chat-entry-row">
                 <span className="chat-entry-name">备忘</span>
@@ -1231,7 +1249,7 @@ function ChatListView({
             <AvatarBlock avatar={settings.aiAvatar} small />
             <div className="chat-entry-main">
               <div className="chat-entry-row">
-                <span className="chat-entry-name">{pinnedSession.name}<span className="chat-entry-tag">老公</span></span>
+                <span className="chat-entry-name">{pinnedSession.name}</span>
                 <span className="chat-entry-time">{formatChatListTime(getSessionStamp(pinnedSession))}</span>
               </div>
               <p className="chat-entry-preview">{getSessionPreview(getLatestSessionMessage(pinnedSession))}</p>
@@ -1242,7 +1260,7 @@ function ChatListView({
 
         {latestHeartbeat && (
           <button className="chat-entry-item chat-entry-subscribe" onClick={() => setShowHbLog(true)}>
-            <span className="chat-entry-avatar chat-entry-avatar-small chat-entry-avatar-hb"><i /></span>
+            <span className="chat-entry-avatar chat-entry-avatar-small chat-entry-avatar-hb"><span>💗</span></span>
             <div className="chat-entry-main">
               <div className="chat-entry-row">
                 <span className="chat-entry-name">heartbeat</span>
@@ -2211,7 +2229,7 @@ function ChatView({
               <h1 className="header-title chat-room-title">{session.kind === "memo" ? "备忘" : settings.aiName}</h1>
               {session.kind === "memo"
                 ? <span className="header-subtitle chat-room-status">只写给自己的地方</span>
-                : <span className="header-subtitle chat-room-status">{aiMood.emoji ? `现在 ${aiMood.emoji}` : getIdleStatus(settings.aiName)}</span>}
+                : <span className="header-subtitle chat-room-status">{getChatStatusLabel(aiMood, settings.aiName)}</span>}
             </div>
             {session.kind === "memo" ? (
               <span className="header-icon-btn" aria-hidden="true" />
@@ -2266,6 +2284,7 @@ function ChatView({
         )}
         {session.messages.map((message, index) => {
           if (message.source === "summer_write_ignored") return null;
+          const isSummerUtility = listEntryMode && isSummerUtilityMessage(message);
           const prevMsg = index > 0 ? session.messages[index - 1] : null;
           const nextMsg = index < session.messages.length - 1 ? session.messages[index + 1] : null;
           const prevDate = index > 0 ? session.messages[index - 1].date : null;
@@ -2286,8 +2305,8 @@ function ChatView({
                   <span className="date-separator-line" />
                 </div>
               )}
-              <div className={`msg-row ${message.role === "user" ? "msg-row-user" : "msg-row-ai"} ${compactTop ? "msg-row-compact-top" : ""} ${compactBottom ? "msg-row-compact-bottom" : ""}`} style={{ animationDelay: `${Math.min(index * 0.03, 0.3)}s` }}>
-                {message.role === "assistant" && (
+              <div className={`msg-row ${message.role === "user" ? "msg-row-user" : "msg-row-ai"} ${isSummerUtility ? "msg-row-summer-utility" : ""} ${compactTop ? "msg-row-compact-top" : ""} ${compactBottom ? "msg-row-compact-bottom" : ""}`} style={{ animationDelay: `${Math.min(index * 0.03, 0.3)}s` }}>
+                {message.role === "assistant" && !isSummerUtility && (
                   settings.aiAvatar
                     ? <img src={settings.aiAvatar} className="avatar avatar-img" alt="" />
                     : <div className="avatar avatar-ai" />
@@ -2302,7 +2321,7 @@ function ChatView({
                     </div>
                   ) : (
                     <div
-                      className={`msg-bubble ${message.role === "user" ? "msg-bubble-user" : "msg-bubble-ai"} ${message.source === "summer_call" ? "msg-bubble-summer-call" : ""} ${message.source === "summer_write_proposal" || message.source === "summer_write_committed" ? "msg-bubble-summer-write" : ""} ${heartBurst === index ? "bubble-hearted" : ""}`}
+                      className={`msg-bubble ${message.role === "user" ? "msg-bubble-user" : "msg-bubble-ai"} ${isSummerUtility ? "msg-bubble-summer-utility" : ""} ${message.source === "summer_call" ? "msg-bubble-summer-call" : ""} ${message.source === "summer_write_proposal" || message.source === "summer_write_committed" ? "msg-bubble-summer-write" : ""} ${heartBurst === index ? "bubble-hearted" : ""}`}
                       onTouchStart={message.role === "assistant" ? () => startPress(index) : undefined}
                       onTouchEnd={message.role === "assistant" ? cancelPress : undefined}
                       onTouchMove={message.role === "assistant" ? cancelPress : undefined}
@@ -2364,7 +2383,7 @@ function ChatView({
                     </div>
                   )}
                 </div>
-                {message.role === "user" && (
+                {message.role === "user" && !isSummerUtility && (
                   settings.userAvatar
                     ? <img src={settings.userAvatar} className="avatar avatar-img" alt="" />
                     : <div className="avatar avatar-user" />
@@ -3403,8 +3422,8 @@ function SettingsView({
         </div>
 
         <div className="settings-group">
-          <h2 className="settings-group-title">聊天入口样式</h2>
-          <p className="settings-hint">只切换 Chat tab 的入口动线和皮肤，不影响任何会话数据</p>
+          <h2 className="settings-group-title">A or B？</h2>
+          <p className="settings-hint">My answer is “or”.</p>
           <div className="model-options">
             <button
               className={`model-option ${settings.chatEntryStyle !== "direct" ? "model-option-active" : ""}`}
