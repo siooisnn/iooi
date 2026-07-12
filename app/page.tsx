@@ -1237,10 +1237,10 @@ function ChatListView({
 
         {memoSession && (
           <button className="chat-entry-item chat-entry-memo" onClick={() => openSession(memoSession.id)}>
-            <AvatarBlock avatar={settings.aiAvatar} small />
+            <AvatarBlock avatar={settings.userAvatar} small />
             <div className="chat-entry-main">
               <div className="chat-entry-row">
-                <span className="chat-entry-name">备忘</span>
+                <span className="chat-entry-name">{settings.userName || "备忘"}</span>
                 <span className="chat-entry-time">{memoSession.messages.length > 0 ? formatChatListTime(getSessionStamp(memoSession)) : ""}</span>
               </div>
               <p className="chat-entry-preview">{memoSession.messages.length > 0 ? getSessionPreview(getLatestSessionMessage(memoSession)) : "只写给自己的地方"}</p>
@@ -1254,11 +1254,13 @@ function ChatListView({
             <div className="chat-entry-main">
               <div className="chat-entry-row">
                 <span className="chat-entry-name">{pinnedSession.name}</span>
-                <span className="chat-entry-time">{formatChatListTime(getSessionStamp(pinnedSession))}</span>
               </div>
               <p className="chat-entry-preview">{getSessionPreview(getLatestSessionMessage(pinnedSession))}</p>
             </div>
-            <EntryMenu session={pinnedSession} />
+            <span className="chat-entry-side">
+              <span className="chat-entry-time">{formatChatListTime(getSessionStamp(pinnedSession))}</span>
+              <EntryMenu session={pinnedSession} />
+            </span>
           </div>
         )}
 
@@ -1285,11 +1287,13 @@ function ChatListView({
                 <div className="chat-entry-main">
                   <div className="chat-entry-row">
                     <span className="chat-entry-name">{session.name}</span>
-                    <span className="chat-entry-time">{formatChatListTime(getSessionStamp(session))}</span>
                   </div>
                   <p className="chat-entry-preview">{getSessionPreview(getLatestSessionMessage(session))}</p>
                 </div>
-                <EntryMenu session={session} />
+                <span className="chat-entry-side">
+                  <span className="chat-entry-time">{formatChatListTime(getSessionStamp(session))}</span>
+                  <EntryMenu session={session} />
+                </span>
               </div>
             ))
           )}

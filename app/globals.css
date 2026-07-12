@@ -119,7 +119,8 @@ body {
   height: 38px;
   display: flex;
   align-items: center;
-  gap: 7px;
+  justify-content: center;
+  position: relative;
   padding: 0 13px;
   border: 1px solid rgba(196, 134, 108, 0.18);
   border-radius: 12px;
@@ -128,15 +129,18 @@ body {
 }
 
 .chat-entry-search-icon {
-  flex: 0 0 auto;
+  position: absolute;
+  left: calc(50% - 47px);
+  top: 50%;
+  transform: translateY(-50%);
   color: var(--text-light);
   font-size: 17px;
   line-height: 1;
+  pointer-events: none;
 }
 
 .chat-entry-search input {
-  flex: 1;
-  min-width: 0;
+  width: 100%;
   border: none;
   outline: none;
   background: transparent;
@@ -188,12 +192,12 @@ body {
 
 .chat-entry-pinned {
   position: relative;
-  background: #eadfd2;
+  background: transparent;
   cursor: pointer;
 }
 
 .chat-entry-pinned:active {
-  background: #e2d5c5;
+  background: rgba(240, 228, 218, 0.45);
 }
 
 .chat-entry-item {
@@ -265,7 +269,7 @@ body {
 .chat-entry-main {
   min-width: 0;
   flex: 1;
-  padding-right: 28px;
+  padding-right: 58px;
 }
 
 .chat-entry-row {
@@ -289,6 +293,19 @@ body {
   flex: 0 0 auto;
   font-size: 11px;
   color: var(--text-light);
+}
+
+.chat-entry-side {
+  position: absolute;
+  top: 12px;
+  right: 16px;
+  bottom: 10px;
+  width: 42px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  justify-content: space-between;
+  pointer-events: none;
 }
 
 .chat-entry-tag {
@@ -2263,10 +2280,9 @@ body {
 
 /* ---- 条目"更多"菜单 ---- */
 .chat-entry-menu-wrap {
-  position: absolute;
-  right: 12px;
-  bottom: 8px;
+  position: relative;
   z-index: 5;
+  pointer-events: auto;
 }
 .chat-entry-more {
   width: 28px;
