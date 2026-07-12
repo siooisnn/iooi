@@ -190,6 +190,54 @@ body {
   padding: 12px 16px;
 }
 
+.chat-swipe-shell {
+  position: relative;
+  width: 100%;
+  overflow: hidden;
+  background: var(--bg-chat);
+}
+
+.chat-swipe-shell .chat-entry-pinned,
+.chat-swipe-shell .chat-entry-item {
+  position: relative;
+  z-index: 2;
+  background: var(--bg-chat);
+  transition: transform 0.18s ease;
+  touch-action: pan-y;
+}
+
+.chat-swipe-open {
+  transform: translateX(-148px);
+}
+
+.chat-swipe-actions {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 1;
+  display: flex;
+  width: 148px;
+}
+
+.chat-swipe-action {
+  width: 74px;
+  border: none;
+  color: #fff;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.chat-swipe-rename {
+  background: #d3a184;
+}
+
+.chat-swipe-delete {
+  background: #d85d4f;
+}
+
 .chat-entry-pinned {
   position: relative;
   background: transparent;

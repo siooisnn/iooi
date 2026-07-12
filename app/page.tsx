@@ -1148,8 +1148,10 @@ function ChatListView({
   openRoom: () => void;
 }) {
   const [query, setQuery] = useState("");
-  const [menuFor, setMenuFor] = useState<string | null>(null);
+  const [openActionsFor, setOpenActionsFor] = useState<string | null>(null);
   const [showHbLog, setShowHbLog] = useState(false);
+  const swipeRef = useRef<{ id: string; startX: number; startY: number; dx: number; dragging: boolean } | null>(null);
+  const blockClickRef = useRef(false);
 
   const memoSession = sessions.find((s) => s.kind === "memo");
   const normalSessions = sessions
@@ -1166,7 +1168,7 @@ function ChatListView({
   const pinnedLine = settings.chatPinnedLine ?? "此后我们的每一秒都是恩赐。";
 
   function openSession(id: string) {
-    setMenuFor(null);
+    setOpenActionsFor(null);
     setActiveSessionId(id);
     openRoom();
   }
@@ -1182,33 +1184,83 @@ function ChatListView({
   }
 
   function handleRename(session: ChatSession) {
-    setMenuFor(null);
-    const next = window.prompt("窗口名字:", session.name);
+    setOpenActionsFor(null);
+    const next = window.prompt("Rename:", session.name);
     if (next && next.trim()) renameSession(session.id, next.trim());
   }
 
   function handleDelete(session: ChatSession) {
-    setMenuFor(null);
-    if (window.confirm(`删除「${session.name}」?这扇窗里的话会一起消失,不可恢复。`)) {
+    setOpenActionsFor(null);
+    if (window.confirm(`Delete "${session.name}"? This conversation cannot be restored.`)) {
       deleteSession(session.id);
     }
   }
 
-  function EntryMenu({ session }: { session: ChatSession }) {
+  function handleSwipeStart(session: ChatSession, e: React.PointerEvent<HTMLElement>) {
+    swipeRef.current = { id: session.id, startX: e.clientX, startY: e.clientY, dx: 0, dragging: false };
+    if (openActionsFor && openActionsFor !== session.id) setOpenActionsFor(null);
+    e.currentTarget.setPointerCapture?.(e.pointerId);
+  }
+
+  function handleSwipeMove(e: React.PointerEvent<HTMLElement>) {
+    const swipe = swipeRef.current;
+    if (!swipe) return;
+    swipe.dx = e.clientX - swipe.startX;
+    const dy = e.clientY - swipe.startY;
+    if (Math.abs(swipe.dx) > 8 && Math.abs(swipe.dx) > Math.abs(dy)) {
+      swipe.dragging = true;
+      e.preventDefault();
+    }
+  }
+
+  function handleSwipeEnd() {
+    const swipe = swipeRef.current;
+    if (!swipe) return;
+    if (swipe.dragging) {
+      blockClickRef.current = true;
+      window.setTimeout(() => { blockClickRef.current = false; }, 0);
+      if (swipe.dx < -38) setOpenActionsFor(swipe.id);
+      if (swipe.dx > 24) setOpenActionsFor(null);
+    }
+    swipeRef.current = null;
+  }
+
+  function handleSwipeClick(session: ChatSession) {
+    if (blockClickRef.current) return;
+    if (openActionsFor === session.id) {
+      setOpenActionsFor(null);
+      return;
+    }
+    openSession(session.id);
+  }
+
+  function SwipeSessionRow({ session, pinned = false }: { session: ChatSession; pinned?: boolean }) {
     return (
-      <span className="chat-entry-menu-wrap">
-        <button
-          className="chat-entry-more"
-          aria-label="更多"
-          onClick={(e) => { e.stopPropagation(); setMenuFor(menuFor === session.id ? null : session.id); }}
-        >⋯</button>
-        {menuFor === session.id && (
-          <span className="chat-entry-menu" onClick={(e) => e.stopPropagation()}>
-            <button onClick={() => handleRename(session)}>重命名</button>
-            <button className="chat-entry-menu-danger" onClick={() => handleDelete(session)}>删除</button>
+      <div className="chat-swipe-shell">
+        <div className="chat-swipe-actions" aria-hidden={openActionsFor !== session.id}>
+          <button className="chat-swipe-action chat-swipe-rename" onClick={(e) => { e.stopPropagation(); handleRename(session); }}>Rename</button>
+          <button className="chat-swipe-action chat-swipe-delete" onClick={(e) => { e.stopPropagation(); handleDelete(session); }}>Delete</button>
+        </div>
+        <div
+          className={`${pinned ? "chat-entry-pinned" : "chat-entry-item"} ${openActionsFor === session.id ? "chat-swipe-open" : ""}`}
+          onPointerDown={(e) => handleSwipeStart(session, e)}
+          onPointerMove={handleSwipeMove}
+          onPointerUp={handleSwipeEnd}
+          onPointerCancel={handleSwipeEnd}
+          onClick={(e) => { e.stopPropagation(); handleSwipeClick(session); }}
+        >
+          <AvatarBlock avatar={settings.aiAvatar} small />
+          <div className="chat-entry-main">
+            <div className="chat-entry-row">
+              <span className="chat-entry-name">{session.name}</span>
+            </div>
+            <p className="chat-entry-preview">{getSessionPreview(getLatestSessionMessage(session))}</p>
+          </div>
+          <span className="chat-entry-side">
+            <span className="chat-entry-time">{formatChatListTime(getSessionStamp(session))}</span>
           </span>
-        )}
-      </span>
+        </div>
+      </div>
     );
   }
 
@@ -1232,7 +1284,7 @@ function ChatListView({
         </label>
       </header>
 
-      <section className="chat-entry-body" onClick={() => setMenuFor(null)}>
+      <section className="chat-entry-body" onClick={() => setOpenActionsFor(null)}>
         <p className="chat-entry-pinned-line" onClick={editPinnedLine} title="点击修改">{pinnedLine}</p>
 
         {memoSession && (
@@ -1251,19 +1303,7 @@ function ChatListView({
         )}
 
         {pinnedSession && (
-          <div className="chat-entry-pinned" onClick={() => openSession(pinnedSession.id)}>
-            <AvatarBlock avatar={settings.aiAvatar} small />
-            <div className="chat-entry-main">
-              <div className="chat-entry-row">
-                <span className="chat-entry-name">{pinnedSession.name}</span>
-              </div>
-              <p className="chat-entry-preview">{getSessionPreview(getLatestSessionMessage(pinnedSession))}</p>
-            </div>
-            <span className="chat-entry-side">
-              <span className="chat-entry-time">{formatChatListTime(getSessionStamp(pinnedSession))}</span>
-              <EntryMenu session={pinnedSession} />
-            </span>
-          </div>
+          <SwipeSessionRow session={pinnedSession} pinned />
         )}
 
         {latestHeartbeat && (
@@ -1286,19 +1326,7 @@ function ChatListView({
             <p className="chat-entry-empty">{normalQuery ? "没搜到这个窗口" : "没有更多历史窗口"}</p>
           ) : (
             historySessions.map((session) => (
-              <div key={session.id} className="chat-entry-item" onClick={() => openSession(session.id)}>
-                <AvatarBlock avatar={settings.aiAvatar} small />
-                <div className="chat-entry-main">
-                  <div className="chat-entry-row">
-                    <span className="chat-entry-name">{session.name}</span>
-                  </div>
-                  <p className="chat-entry-preview">{getSessionPreview(getLatestSessionMessage(session))}</p>
-                </div>
-                <span className="chat-entry-side">
-                  <span className="chat-entry-time">{formatChatListTime(getSessionStamp(session))}</span>
-                  <EntryMenu session={session} />
-                </span>
-              </div>
+              <SwipeSessionRow key={session.id} session={session} />
             ))
           )}
         </div>
@@ -2238,10 +2266,8 @@ function ChatView({
               </svg>
             </button>
             <div className="header-center">
-              <h1 className="header-title chat-room-title">{session.kind === "memo" ? "备忘" : settings.aiName}</h1>
-              {session.kind === "memo"
-                ? <span className="header-subtitle chat-room-status">只写给自己的地方</span>
-                : <span className="header-subtitle chat-room-status">{getChatStatusLabel(aiMood, settings.aiName)}</span>}
+              <h1 className="header-title chat-room-title">{session.kind === "memo" ? settings.userName : settings.aiName}</h1>
+              {session.kind !== "memo" && <span className="header-subtitle chat-room-status">{getChatStatusLabel(aiMood, settings.aiName)}</span>}
             </div>
             {session.kind === "memo" ? (
               <span className="header-icon-btn" aria-hidden="true" />
