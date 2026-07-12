@@ -24,6 +24,7 @@ type ChatSession = {
   name: string;
   messages: Message[];
   createdAt: string;
+  kind?: "memo";             // "memo" = 备忘会话:只有她说话,不触发回复,永远置顶第一
   summary?: string;          // 滚动摘要:窗口外旧对话的前情提要(小k第一人称)
   summarizedUntil?: number;  // 已摘要到的原始气泡索引
 };
@@ -216,6 +217,7 @@ function memoryColor(m: MemoryEntry): { bg: string; border: string } {
 type Settings = {
   model: string;
   chatEntryStyle: "list" | "direct";
+  chatPinnedLine: string;
   aiName: string;
   userName: string;
   prompt: string;
@@ -551,6 +553,7 @@ export default function Home() {
   const defaultSettings: Settings = {
     model: "sonnet",
     chatEntryStyle: "list",
+    chatPinnedLine: "此后我们的每一秒都是恩赐。",
     aiName: "小k",
     userName: "宝宝",
     prompt: DEFAULT_PROMPT,
@@ -779,25 +782,40 @@ export default function Home() {
   }, []);
 
   const createSession = useCallback(() => {
+    const normalCount = sessions.filter((s) => s.kind !== "memo").length;
     const newSession: ChatSession = {
       id: genId(),
-      name: `对话 ${sessions.length + 1}`,
+      name: `对话 ${normalCount + 1}`,
       messages: [],
       createdAt: new Date().toISOString(),
     };
     setSessions((prev) => [newSession, ...prev]);
     setActiveSessionId(newSession.id);
-  }, [sessions.length]);
+  }, [sessions]);
+
+  // 备忘会话:确保存在且只有一个(她的口袋,不触发回复)
+  useEffect(() => {
+    if (!mounted) return;
+    setSessions((prev) => {
+      if (prev.some((s) => s.kind === "memo")) return prev;
+      const memo: ChatSession = { id: "memo-self", kind: "memo", name: "备忘", messages: [], createdAt: new Date().toISOString() };
+      return [memo, ...prev];
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mounted]);
 
   const deleteSession = useCallback((id: string) => {
     setSessions((prev) => {
+      const target = prev.find((s) => s.id === id);
+      if (target?.kind === "memo") return prev; // 备忘不可删
       const next = prev.filter((s) => s.id !== id);
-      if (next.length === 0) {
+      const normals = next.filter((s) => s.kind !== "memo");
+      if (normals.length === 0) {
         const fresh: ChatSession = { id: genId(), name: "对话 1", messages: [], createdAt: new Date().toISOString() };
         setActiveSessionId(fresh.id);
-        return [fresh];
+        return [...next, fresh];
       }
-      if (id === activeSessionId) setActiveSessionId(next[0].id);
+      if (id === activeSessionId) setActiveSessionId(normals[0].id);
       return next;
     });
   }, [activeSessionId]);
@@ -913,11 +931,14 @@ export default function Home() {
         {tab === "chat" && settings.chatEntryStyle === "list" && chatView === "list" && (
           <ChatListView
             settings={settings}
+            updateSettings={updateSettings}
             sessions={sessions}
             activeSessionId={activeSessionId}
             heartbeatLog={heartbeatLog}
             setActiveSessionId={setActiveSessionId}
             createSession={createSession}
+            renameSession={renameSession}
+            deleteSession={deleteSession}
             openRoom={() => setChatView("room")}
           />
         )}
@@ -1084,34 +1105,47 @@ function getSessionPreview(message?: Message) {
 
 function ChatListView({
   settings,
+  updateSettings,
   sessions,
   activeSessionId,
   heartbeatLog,
   setActiveSessionId,
   createSession,
+  renameSession,
+  deleteSession,
   openRoom,
 }: {
   settings: Settings;
+  updateSettings: (patch: Partial<Settings>) => void;
   sessions: ChatSession[];
   activeSessionId: string;
   heartbeatLog: Array<{ time: string; action: string; reason: string }>;
   setActiveSessionId: (id: string) => void;
   createSession: () => void;
+  renameSession: (id: string, name: string) => void;
+  deleteSession: (id: string) => void;
   openRoom: () => void;
 }) {
   const [query, setQuery] = useState("");
-  const orderedSessions = [...sessions].sort((a, b) => getSessionStamp(b).getTime() - getSessionStamp(a).getTime());
-  const pinnedSession = orderedSessions.find((s) => s.id === activeSessionId) || orderedSessions[0];
+  const [menuFor, setMenuFor] = useState<string | null>(null);
+  const [showHbLog, setShowHbLog] = useState(false);
+
+  const memoSession = sessions.find((s) => s.kind === "memo");
+  const normalSessions = sessions
+    .filter((s) => s.kind !== "memo")
+    .sort((a, b) => getSessionStamp(b).getTime() - getSessionStamp(a).getTime());
+  const pinnedSession = normalSessions[0]; // 置顶永远是最新的那扇窗,点历史只是回看,不抢位
   const normalQuery = query.trim().toLowerCase();
-  const historySessions = orderedSessions.filter((session) => {
-    if (session.id === pinnedSession?.id) return false;
+  const historySessions = normalSessions.slice(1).filter((session) => {
     if (!normalQuery) return true;
     const latest = getLatestSessionMessage(session);
     return `${session.name} ${latest?.content || ""}`.toLowerCase().includes(normalQuery);
   });
   const latestHeartbeat = heartbeatLog[0];
+  const pinnedLine = settings.chatPinnedLine ?? "此后我们的每一秒都是恩赐。";
 
   function openSession(id: string) {
+    setMenuFor(null);
     setActiveSessionId(id);
     openRoom();
   }
@@ -1119,6 +1153,42 @@ function ChatListView({
   function startNewChat() {
     createSession();
     openRoom();
+  }
+
+  function editPinnedLine() {
+    const next = window.prompt("置顶这句话:", pinnedLine);
+    if (next !== null) updateSettings({ chatPinnedLine: next.trim() });
+  }
+
+  function handleRename(session: ChatSession) {
+    setMenuFor(null);
+    const next = window.prompt("窗口名字:", session.name);
+    if (next && next.trim()) renameSession(session.id, next.trim());
+  }
+
+  function handleDelete(session: ChatSession) {
+    setMenuFor(null);
+    if (window.confirm(`删除「${session.name}」?这扇窗里的话会一起消失,不可恢复。`)) {
+      deleteSession(session.id);
+    }
+  }
+
+  function EntryMenu({ session }: { session: ChatSession }) {
+    return (
+      <span className="chat-entry-menu-wrap">
+        <button
+          className="chat-entry-more"
+          aria-label="更多"
+          onClick={(e) => { e.stopPropagation(); setMenuFor(menuFor === session.id ? null : session.id); }}
+        >⋯</button>
+        {menuFor === session.id && (
+          <span className="chat-entry-menu" onClick={(e) => e.stopPropagation()}>
+            <button onClick={() => handleRename(session)}>重命名</button>
+            <button className="chat-entry-menu-danger" onClick={() => handleDelete(session)}>删除</button>
+          </span>
+        )}
+      </span>
+    );
   }
 
   return (
@@ -1140,26 +1210,39 @@ function ChatListView({
         </label>
       </header>
 
-      <section className="chat-entry-body">
-        <p className="chat-entry-pinned-line">此后我们的每一秒都是恩赐。</p>
+      <section className="chat-entry-body" onClick={() => setMenuFor(null)}>
+        <p className="chat-entry-pinned-line" onClick={editPinnedLine} title="点击修改">{pinnedLine}</p>
 
-        {pinnedSession && (
-          <button className="chat-entry-pinned" onClick={() => openSession(pinnedSession.id)}>
-            <AvatarBlock avatar={settings.aiAvatar} small={false} />
+        {memoSession && (
+          <button className="chat-entry-item chat-entry-memo" onClick={() => openSession(memoSession.id)}>
+            <span className="chat-entry-avatar chat-entry-avatar-small chat-entry-avatar-memo">✎</span>
             <div className="chat-entry-main">
               <div className="chat-entry-row">
-                <span className="chat-entry-name">{pinnedSession.name}</span>
-                <span className="chat-entry-time">{formatChatListTime(getSessionStamp(pinnedSession))}</span>
+                <span className="chat-entry-name">备忘</span>
+                <span className="chat-entry-time">{memoSession.messages.length > 0 ? formatChatListTime(getSessionStamp(memoSession)) : ""}</span>
               </div>
-              <span className="chat-entry-tag">老公</span>
-              <p className="chat-entry-preview">{getSessionPreview(getLatestSessionMessage(pinnedSession))}</p>
+              <p className="chat-entry-preview">{memoSession.messages.length > 0 ? getSessionPreview(getLatestSessionMessage(memoSession)) : "只写给自己的地方"}</p>
             </div>
           </button>
         )}
 
+        {pinnedSession && (
+          <div className="chat-entry-pinned" onClick={() => openSession(pinnedSession.id)}>
+            <AvatarBlock avatar={settings.aiAvatar} small />
+            <div className="chat-entry-main">
+              <div className="chat-entry-row">
+                <span className="chat-entry-name">{pinnedSession.name}<span className="chat-entry-tag">老公</span></span>
+                <span className="chat-entry-time">{formatChatListTime(getSessionStamp(pinnedSession))}</span>
+              </div>
+              <p className="chat-entry-preview">{getSessionPreview(getLatestSessionMessage(pinnedSession))}</p>
+            </div>
+            <EntryMenu session={pinnedSession} />
+          </div>
+        )}
+
         {latestHeartbeat && (
-          <div className="chat-entry-subscribe">
-            <AvatarBlock avatar="" small />
+          <button className="chat-entry-item chat-entry-subscribe" onClick={() => setShowHbLog(true)}>
+            <span className="chat-entry-avatar chat-entry-avatar-small chat-entry-avatar-hb"><i /></span>
             <div className="chat-entry-main">
               <div className="chat-entry-row">
                 <span className="chat-entry-name">heartbeat</span>
@@ -1167,7 +1250,7 @@ function ChatListView({
               </div>
               <p className="chat-entry-preview">{latestHeartbeat.reason}</p>
             </div>
-          </div>
+          </button>
         )}
 
         <div className="chat-entry-history">
@@ -1175,7 +1258,7 @@ function ChatListView({
             <p className="chat-entry-empty">{normalQuery ? "没搜到这个窗口" : "没有更多历史窗口"}</p>
           ) : (
             historySessions.map((session) => (
-              <button key={session.id} className="chat-entry-item" onClick={() => openSession(session.id)}>
+              <div key={session.id} className="chat-entry-item" onClick={() => openSession(session.id)}>
                 <AvatarBlock avatar={settings.aiAvatar} small />
                 <div className="chat-entry-main">
                   <div className="chat-entry-row">
@@ -1184,11 +1267,44 @@ function ChatListView({
                   </div>
                   <p className="chat-entry-preview">{getSessionPreview(getLatestSessionMessage(session))}</p>
                 </div>
-              </button>
+                <EntryMenu session={session} />
+              </div>
             ))
           )}
         </div>
       </section>
+
+      {showHbLog && (
+        <div className="hb-log-overlay">
+          <header className="chat-header chat-room-header">
+            <div className="header-top">
+              <button className="header-icon-btn chat-room-back" onClick={() => setShowHbLog(false)} aria-label="返回">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="14.5 5.5 8 12 14.5 18.5" />
+                </svg>
+              </button>
+              <div className="header-center">
+                <h1 className="header-title chat-room-title">heartbeat</h1>
+                <span className="header-subtitle chat-room-status">他安静看过你的每一次</span>
+              </div>
+              <span className="header-icon-btn" aria-hidden="true" />
+            </div>
+          </header>
+          <div className="hb-log-body">
+            {heartbeatLog.length === 0 ? (
+              <p className="chat-entry-empty">还没有记录</p>
+            ) : (
+              heartbeatLog.map((entry, i) => (
+                <div key={i} className="hb-log-item">
+                  <span className="hb-log-time">{entry.time}</span>
+                  <p className="hb-log-reason">{entry.reason}</p>
+                  {entry.action && <span className="hb-log-action">{entry.action}</span>}
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      )}
     </>
   );
 }
@@ -1880,8 +1996,12 @@ function ChatView({
     sessionMessagesRef.current = messagesWithUser;
     updateMessages((msgs) => mergeChatMessages(msgs, messagesWithUser));
     setInput("");
-    setLoading(true);
     if (inputRef.current) inputRef.current.style.height = "auto";
+
+    // 备忘会话:她的口袋,只收纳,不回复
+    if (session.kind === "memo") return;
+
+    setLoading(true);
 
     // 彩蛋:扣
     if (userText.includes("扣") || userText.includes("扣六")) {
@@ -2088,10 +2208,16 @@ function ChatView({
               </svg>
             </button>
             <div className="header-center">
-              <h1 className="header-title chat-room-title">{settings.aiName}</h1>
-              <span className="header-subtitle chat-room-status">{aiMood.emoji ? `现在 ${aiMood.emoji}` : getIdleStatus(settings.aiName)}</span>
+              <h1 className="header-title chat-room-title">{session.kind === "memo" ? "备忘" : settings.aiName}</h1>
+              {session.kind === "memo"
+                ? <span className="header-subtitle chat-room-status">只写给自己的地方</span>
+                : <span className="header-subtitle chat-room-status">{aiMood.emoji ? `现在 ${aiMood.emoji}` : getIdleStatus(settings.aiName)}</span>}
             </div>
-            <button className="header-icon-btn chat-room-more" onClick={() => setShowModelMenu((open) => !open)} aria-label="模型切换">···</button>
+            {session.kind === "memo" ? (
+              <span className="header-icon-btn" aria-hidden="true" />
+            ) : (
+              <button className="header-icon-btn chat-room-more" onClick={() => setShowModelMenu((open) => !open)} aria-label="模型切换">···</button>
+            )}
             {showModelMenu && <div className="chat-model-backdrop" onClick={() => setShowModelMenu(false)} />}
             {showModelMenu && (
               <div className="chat-model-popover">
@@ -3408,4 +3534,3 @@ function SettingsView({
     </>
   );
 }
-
