@@ -604,6 +604,10 @@ export default function Home() {
       let d: DiaryEntry[];
 
       if (serverData && (serverData.sessions?.length > 0 || serverData.diary?.length > 0 || serverData.settings)) {
+        if (Array.isArray(serverData.deletedSessionIds)) {
+          deletedSessionIds.current = new Set([...deletedSessionIds.current, ...serverData.deletedSessionIds]);
+          saveLocal("iooi-deleted-session-ids", Array.from(deletedSessionIds.current));
+        }
         s = serverData.settings ? { ...defaultSettings, ...serverData.settings } : loadLocal("iooi-settings", defaultSettings);
         s.prompt = normalizeSystemPrompt(s.prompt);
         sess = serverData.sessions?.length > 0 ? serverData.sessions : loadLocalRaw<ChatSession[]>("iooi-sessions", []);
@@ -672,14 +676,14 @@ export default function Home() {
         // Sync to server immediately (bypass debounce)
         try {
           navigator.sendBeacon("/api/sync?t=" + encodeURIComponent(getToken()), new Blob(
-            [JSON.stringify({ sessions: d.sessions, diary: d.diary, settings: d.settings, moods: d.moods, wall: d.wall, counters: d.counters })],
+            [JSON.stringify({ sessions: d.sessions, deletedSessionIds: Array.from(deletedSessionIds.current), diary: d.diary, settings: d.settings, moods: d.moods, wall: d.wall, counters: d.counters })],
             { type: "application/json" }
           ));
         } catch {
           apiFetch("/api/sync", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ sessions: d.sessions, diary: d.diary, settings: d.settings, moods: d.moods, wall: d.wall, counters: d.counters }),
+            body: JSON.stringify({ sessions: d.sessions, deletedSessionIds: Array.from(deletedSessionIds.current), diary: d.diary, settings: d.settings, moods: d.moods, wall: d.wall, counters: d.counters }),
             keepalive: true,
           }).catch(() => {});
         }
@@ -716,7 +720,7 @@ export default function Home() {
   useEffect(() => {
     if (mounted) {
       saveLocal("iooi-sessions", sessions);
-      syncToServer({ sessions });
+      syncToServer({ sessions, deletedSessionIds: Array.from(deletedSessionIds.current) });
     }
   }, [sessions, mounted]);
 

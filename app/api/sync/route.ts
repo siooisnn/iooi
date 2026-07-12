@@ -17,9 +17,21 @@ type StoredSession = {
   name?: string;
   messages?: StoredMessage[];
   createdAt?: string;
+  kind?: string;
   summary?: string;
   summarizedUntil?: number;
 };
+
+function deletedIdSet(...lists: unknown[]) {
+  const ids = new Set<string>();
+  for (const list of lists) {
+    if (!Array.isArray(list)) continue;
+    for (const id of list) {
+      if (typeof id === "string" && id) ids.add(id);
+    }
+  }
+  return ids;
+}
 
 function messageKey(message: StoredMessage) {
   const proposalId = message.proposal?.id;
@@ -80,13 +92,15 @@ function mergeMessages(local: StoredMessage[] = [], incoming: StoredMessage[] = 
   return merged;
 }
 
-function mergeSessions(local: StoredSession[] = [], incoming: StoredSession[] = []) {
+function mergeSessions(local: StoredSession[] = [], incoming: StoredSession[] = [], deletedIds = new Set<string>()) {
   const byId = new Map<string, StoredSession>();
   for (const session of local) {
+    if (session?.id && session.kind !== "memo" && deletedIds.has(session.id)) continue;
     if (session?.id) byId.set(session.id, { ...session, messages: session.messages || [] });
   }
   for (const session of incoming) {
     if (!session?.id) continue;
+    if (session.kind !== "memo" && deletedIds.has(session.id)) continue;
     const current = byId.get(session.id);
     if (!current) {
       byId.set(session.id, { ...session, messages: session.messages || [] });
@@ -106,6 +120,7 @@ function mergeSessions(local: StoredSession[] = [], incoming: StoredSession[] = 
     .filter((id) => {
       if (used.has(id)) return false;
       used.add(id);
+      if (deletedIds.has(id)) return false;
       return byId.has(id);
     })
     .map((id) => byId.get(id));
@@ -124,8 +139,10 @@ export async function POST(request: Request) {
     const body = await request.json();
     await withStore((store) => {
       const next = { ...body };
+      const deletedIds = deletedIdSet(store.deletedSessionIds, body.deletedSessionIds);
+      next.deletedSessionIds = Array.from(deletedIds);
       if (Array.isArray(body.sessions)) {
-        next.sessions = mergeSessions(store.sessions as StoredSession[] | undefined, body.sessions);
+        next.sessions = mergeSessions(store.sessions as StoredSession[] | undefined, body.sessions, deletedIds);
       }
       Object.assign(store, next);
     });
