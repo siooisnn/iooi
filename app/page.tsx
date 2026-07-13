@@ -1244,7 +1244,7 @@ function ChatListView({
   function SwipeSessionRow({ session, pinned = false }: { session: ChatSession; pinned?: boolean }) {
     return (
       <div className="chat-swipe-shell">
-        <div className="chat-swipe-actions" aria-hidden={openActionsFor !== session.id}>
+        <div className={`chat-swipe-actions ${openActionsFor === session.id ? "chat-swipe-actions-open" : ""}`} aria-hidden={openActionsFor !== session.id}>
           <button className="chat-swipe-action chat-swipe-rename" onClick={(e) => { e.stopPropagation(); handleRename(session); }}>Rename</button>
           <button className="chat-swipe-action chat-swipe-delete" onClick={(e) => { e.stopPropagation(); handleDelete(session); }}>Delete</button>
         </div>

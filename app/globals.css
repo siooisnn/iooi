@@ -218,6 +218,14 @@ body {
   z-index: 1;
   display: flex;
   width: 148px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.08s ease;
+}
+
+.chat-swipe-actions-open {
+  opacity: 1;
+  pointer-events: auto;
 }
 
 .chat-swipe-action {
@@ -246,6 +254,11 @@ body {
 
 .chat-entry-pinned:active {
   background: rgba(240, 228, 218, 0.45);
+}
+
+.chat-swipe-shell .chat-entry-pinned:active,
+.chat-swipe-shell .chat-entry-item:active {
+  background: var(--bg-chat);
 }
 
 .chat-entry-item {
@@ -607,7 +620,7 @@ body {
 .msg-row { display: flex; align-items: flex-start; gap: 8px; animation: msgIn 0.35s ease-out both; }
 .msg-row-user { justify-content: flex-end; }
 .msg-row-ai { justify-content: flex-start; }
-.msg-row-summer-utility { padding-left: 38px; }
+.msg-row-summer-utility { padding-left: 44px; }
 .msg-row-compact-top { margin-top: -4px; }
 .msg-row-compact-bottom { margin-bottom: -2px; }
 
@@ -616,10 +629,10 @@ body {
   to { opacity: 1; transform: translateY(0); }
 }
 
-.avatar { width: 30px; height: 30px; border-radius: 9px; flex-shrink: 0; border: 1.5px solid; }
+.avatar { width: 36px; height: 36px; border-radius: 12px; flex-shrink: 0; border: 1.5px solid; }
 .avatar-ai { background: rgba(196, 134, 108, 0.19); border-color: rgba(196, 134, 108, 0.31); }
 .avatar-user { background: var(--avatar-user); border-color: rgba(200, 175, 155, 0.5); }
-.avatar-img { width: 30px; height: 30px; border-radius: 9px; flex-shrink: 0; object-fit: cover; border: 1.5px solid rgba(200, 175, 155, 0.4); }
+.avatar-img { width: 36px; height: 36px; border-radius: 12px; flex-shrink: 0; object-fit: cover; border: 1.5px solid rgba(200, 175, 155, 0.4); }
 .avatar-spacer { visibility: hidden; box-shadow: none; border-color: transparent; }
 
 /* Avatar Upload */
