@@ -835,15 +835,13 @@ body {
 .date-separator {
   display: flex;
   align-items: center;
-  gap: 12px;
+  justify-content: center;
   padding: 8px 0;
   margin: 4px 0;
 }
 
 .date-separator-line {
-  flex: 1;
-  height: 1px;
-  background: linear-gradient(to right, transparent, var(--border-soft), transparent);
+  display: none;
 }
 
 .date-separator-text {

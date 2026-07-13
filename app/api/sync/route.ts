@@ -39,7 +39,7 @@ function messageKey(message: StoredMessage) {
     return ["summer_proposal", proposalId].join("\u0001");
   }
   const content = (message.content || "").trim().replace(/\s+/g, " ");
-  if (message.role === "assistant" && content.length >= 20 && !message.image && !message.file) {
+  if (message.role === "assistant" && content.length >= 4 && !message.image && !message.file) {
     return [message.role || "", message.source || "", content].join("\u0001");
   }
   return [

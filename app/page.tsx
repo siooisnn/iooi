@@ -379,7 +379,7 @@ function chatMessageKey(message: Message) {
     return ["summer_proposal", proposalId].join("\u0001");
   }
   const content = (message.content || "").trim().replace(/\s+/g, " ");
-  if (message.role === "assistant" && content.length >= 20 && !message.image && !message.file) {
+  if (message.role === "assistant" && content.length >= 4 && !message.image && !message.file) {
     return [message.role, message.source || "", content].join("\u0001");
   }
   return [
@@ -427,6 +427,13 @@ function mergeChatMessages(current: Message[], incoming: Message[]) {
     pushOrReplace(message);
   }
   return merged;
+}
+
+function dedupeChatSessions(sessions: ChatSession[]) {
+  return sessions.map((session) => ({
+    ...session,
+    messages: mergeChatMessages([], session.messages || []),
+  }));
 }
 
 function hasLaterUserMessage(messages: Message[], userMsg: Message) {
@@ -611,7 +618,7 @@ export default function Home() {
         s = serverData.settings ? { ...defaultSettings, ...serverData.settings } : loadLocal("iooi-settings", defaultSettings);
         s.prompt = normalizeSystemPrompt(s.prompt);
         sess = serverData.sessions?.length > 0 ? serverData.sessions : loadLocalRaw<ChatSession[]>("iooi-sessions", []);
-        sess = sess.filter((session: ChatSession) => session.kind === "memo" || !deletedSessionIds.current.has(session.id));
+        sess = dedupeChatSessions(sess.filter((session: ChatSession) => session.kind === "memo" || !deletedSessionIds.current.has(session.id)));
         d = serverData.diary || loadLocalRaw<DiaryEntry[]>("iooi-diary", []);
         setMemoryEntries([]);
         setMoods(serverData.moods || loadLocalRaw<Mood[]>("iooi-moods", []));
@@ -624,7 +631,7 @@ export default function Home() {
         s = { ...defaultSettings, ...loadLocal("iooi-settings", defaultSettings) };
         s.prompt = normalizeSystemPrompt(s.prompt);
         sess = loadLocalRaw<ChatSession[]>("iooi-sessions", []);
-        sess = sess.filter((session: ChatSession) => session.kind === "memo" || !deletedSessionIds.current.has(session.id));
+        sess = dedupeChatSessions(sess.filter((session: ChatSession) => session.kind === "memo" || !deletedSessionIds.current.has(session.id)));
         d = loadLocalRaw<DiaryEntry[]>("iooi-diary", []);
         setMemoryEntries([]);
         setMoods(loadLocalRaw<Mood[]>("iooi-moods", []));
@@ -1150,7 +1157,7 @@ function ChatListView({
   const [query, setQuery] = useState("");
   const [openActionsFor, setOpenActionsFor] = useState<string | null>(null);
   const [showHbLog, setShowHbLog] = useState(false);
-  const swipeRef = useRef<{ id: string; startX: number; startY: number; dx: number; dragging: boolean } | null>(null);
+  const swipeRef = useRef<{ id: string; startX: number; startY: number; dx: number; dy: number; dragging: boolean } | null>(null);
   const blockClickRef = useRef(false);
 
   const memoSession = sessions.find((s) => s.kind === "memo");
@@ -1197,7 +1204,7 @@ function ChatListView({
   }
 
   function handleSwipeStart(session: ChatSession, e: React.PointerEvent<HTMLElement>) {
-    swipeRef.current = { id: session.id, startX: e.clientX, startY: e.clientY, dx: 0, dragging: false };
+    swipeRef.current = { id: session.id, startX: e.clientX, startY: e.clientY, dx: 0, dy: 0, dragging: false };
     if (openActionsFor && openActionsFor !== session.id) setOpenActionsFor(null);
     e.currentTarget.setPointerCapture?.(e.pointerId);
   }
@@ -1206,8 +1213,8 @@ function ChatListView({
     const swipe = swipeRef.current;
     if (!swipe) return;
     swipe.dx = e.clientX - swipe.startX;
-    const dy = e.clientY - swipe.startY;
-    if (Math.abs(swipe.dx) > 8 && Math.abs(swipe.dx) > Math.abs(dy)) {
+    swipe.dy = e.clientY - swipe.startY;
+    if (Math.abs(swipe.dx) > 18 && Math.abs(swipe.dx) > Math.abs(swipe.dy) * 1.6) {
       swipe.dragging = true;
       e.preventDefault();
     }
@@ -1219,8 +1226,8 @@ function ChatListView({
     if (swipe.dragging) {
       blockClickRef.current = true;
       window.setTimeout(() => { blockClickRef.current = false; }, 0);
-      if (swipe.dx < -38) setOpenActionsFor(swipe.id);
-      if (swipe.dx > 24) setOpenActionsFor(null);
+      if (swipe.dx < -72 && Math.abs(swipe.dx) > Math.abs(swipe.dy) * 1.6) setOpenActionsFor(swipe.id);
+      if (swipe.dx > 36) setOpenActionsFor(null);
     }
     swipeRef.current = null;
   }
@@ -1769,6 +1776,7 @@ function ChatView({
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const sessionMessagesRef = useRef<Message[]>(session.messages);
+  const sendingRef = useRef(false);
 
   // ── 巧思:长按贴贴 / 随机输入提示 / 扣6彩蛋 ──
   const [heartBurst, setHeartBurst] = useState<number | null>(null);
@@ -2046,7 +2054,8 @@ function ChatView({
   }
 
   async function sendMessage() {
-    if (!input.trim() || loading) return;
+    if (!input.trim() || loading || sendingRef.current) return;
+    sendingRef.current = true;
     const userText = input;
     const userMsg: Message = { role: "user", content: userText, time: getTime(), date: getTodayStr() };
     const baseMessages = sessionMessagesRef.current;
@@ -2057,7 +2066,10 @@ function ChatView({
     if (inputRef.current) inputRef.current.style.height = "auto";
 
     // 备忘会话:她的口袋,只收纳,不回复
-    if (session.kind === "memo") return;
+    if (session.kind === "memo") {
+      sendingRef.current = false;
+      return;
+    }
 
     setLoading(true);
 
@@ -2221,6 +2233,7 @@ function ChatView({
     } catch {
       updateMessages((msgs) => [...msgs, { role: "assistant", content: "连接失败了，再试一次？", time: getTime(), date: getTodayStr() }]);
     } finally {
+      sendingRef.current = false;
       setLoading(false);
     }
   }
@@ -2334,13 +2347,11 @@ function ChatView({
             <div key={index}>
               {showDateSep && (
                 <div className="date-separator">
-                  <span className="date-separator-line" />
                   <span className="date-separator-text">
                     {listEntryMode
                       ? formatChatRoomTime(parseMessageDateTime(message) || new Date())
                       : getDateLabel(new Date(message.date!), message.time)}
                   </span>
-                  <span className="date-separator-line" />
                 </div>
               )}
               <div className={`msg-row ${message.role === "user" ? "msg-row-user" : "msg-row-ai"} ${isSummerUtility ? "msg-row-summer-utility" : ""} ${compactTop ? "msg-row-compact-top" : ""} ${compactBottom ? "msg-row-compact-bottom" : ""}`} style={{ animationDelay: `${Math.min(index * 0.03, 0.3)}s` }}>

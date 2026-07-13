@@ -85,6 +85,7 @@ type SummerState = {
   layers?: Record<string, string>;
   xiazhi?: SummerItem[];
   rain?: SummerItem[];
+  ferry?: SummerItem[];
   xiaoshu_recent?: SummerItem[];
   xiaoshu_tail?: SummerItem[];
 };
@@ -178,12 +179,13 @@ function buildSummerStable(state: SummerState): string {
   return [
     "## summer stable",
     "",
-    "Memory writes from chat are proposal-only. If something should be remembered, append a hidden proposal tag after your normal reply: [summer_remember layer=xiazhi title=\"short title\" weight=5 tags=\"optional\"]content[/summer_remember]. Use xiazhi for important lasting memories, xiaoshu for daily fragments, rain for unresolved future items. The system will show it to her for confirmation and will not write it silently.",
+    "Memory writes from chat are proposal-only. If something should be remembered, append a hidden proposal tag after your normal reply: [summer_remember layer=xiazhi title=\"short title\" weight=5 tags=\"optional\"]content[/summer_remember]. Use xiazhi for important lasting memories, xiaoshu for daily fragments, rain for unresolved future items, ferry for transition/渡口/threshold memories. The system will show it to her for confirmation and will not write it silently.",
+    "If she explicitly asks to write something into summer or ferry, do not refuse by saying you cannot write summer. Respond naturally, then add the hidden proposal tag with the requested layer. It is still only a proposal until she confirms it.",
     "Do not print visible diary sections like '小k日记 | date' in chat. Put diary-style memory only inside the hidden proposal tag.",
     "",
     "下面是唯一长期记忆源中最稳定的部分。先认得关系与来时路，再回应当前消息；不要说自己读取了这些后台内容。",
     "",
-    "你不能直接编辑、删除或后台写入 summer。若你觉得某件事值得留下，先用自然语言告诉她你想记什么，等她确认。",
+    "你不能静默提交、编辑或删除 summer；但你可以通过 hidden proposal tag 发起待确认写入。她明确说“写入/记到/ferry/summer”时，应该生成对应 proposal，而不是拒绝。",
     "如果她问某天日记、旧事、记忆、summer 或 sea，后台可能会给出按需检索结果。能看到结果就自然回答；没看到相关结果时，说“我这里没检索到”，不要说自己绝对不能查。",
     "",
     "## 立夏：我们是谁",
@@ -214,6 +216,10 @@ function buildSummerDynamic(state: SummerState): string {
     if (item.status === "closed") continue;
     const due = item.due ? `｜due ${item.due}` : "";
     parts.push(`- [${item.id || ""}] ${item.title || ""}${due}：${item.content || ""}`);
+  }
+  parts.push("", "## ferry：渡口与过渡");
+  for (const item of state.ferry || []) {
+    parts.push(`- ${item.date || ""}｜${item.title || ""}：${item.content || ""}`);
   }
   parts.push("", "## 小暑：最近七天");
   for (const item of state.xiaoshu_recent || []) {
@@ -343,7 +349,7 @@ function buildExactXiaoshuSearch(state: SummerState, query: string): string {
 type SummerWrite = {
   id?: string;
   status?: string;
-  layer: "xiazhi" | "xiaoshu" | "rain";
+  layer: "xiazhi" | "xiaoshu" | "rain" | "ferry";
   title: string;
   content: string;
   weight: number;
@@ -378,7 +384,7 @@ function parseSummerWrites(text: string): SummerWrite[] {
   while ((match = SUMMER_WRITE_RE.exec(text)) !== null) {
     const attrs = parseAttrs(match[1] || "");
     const layer = String(attrs.layer || "xiaoshu").toLowerCase();
-    if (!["xiazhi", "xiaoshu", "rain"].includes(layer)) continue;
+    if (!["xiazhi", "xiaoshu", "rain", "ferry"].includes(layer)) continue;
     const content = String(match[2] || "").trim();
     if (!content) continue;
     const weight = Math.max(1, Math.min(10, Number(attrs.weight || 5) || 5));
@@ -511,7 +517,7 @@ function summerCallContent(call: SummerCall): string {
 }
 
 function summerWriteProposalContent(proposal: SummerWrite): string {
-  const layerName: Record<string, string> = { xiazhi: "夏至", xiaoshu: "小暑", rain: "rain" };
+  const layerName: Record<string, string> = { xiazhi: "夏至", xiaoshu: "小暑", rain: "rain", ferry: "ferry" };
   const meta = [
     `summer · 提议写入${layerName[proposal.layer] || proposal.layer}`,
     proposal.title || "未命名",
