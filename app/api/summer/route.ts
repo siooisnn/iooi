@@ -53,6 +53,27 @@ async function postSummerJson(path: string, body: unknown) {
   return Response.json({ ok: true, data });
 }
 
+const READONLY_LAYERS = new Set(["mangzhong", "sea", "sunny", "sunny_file"]);
+
+function normalizeLayer(value: unknown): string {
+  return String(value || "").trim().toLowerCase();
+}
+
+function readonlyLayerResponse(layer: string) {
+  const label = layer === "mangzhong" ? "芒种" : "sea";
+  return Response.json({ ok: false, error: `${label} 是只读层，不能写入或修改` }, { status: 403 });
+}
+
+function requestLayer(body: Record<string, unknown>) {
+  const patch = (body.patch && typeof body.patch === "object") ? body.patch as Record<string, unknown> : {};
+  return normalizeLayer(body.layer || patch.layer);
+}
+
+function rejectReadonlyLayer(body: Record<string, unknown>) {
+  const layer = requestLayer(body);
+  return READONLY_LAYERS.has(layer) ? readonlyLayerResponse(layer) : null;
+}
+
 export async function GET(request: Request) {
   const url = new URL(request.url);
   const mode = url.searchParams.get("mode");
@@ -73,15 +94,17 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const body = await request.json().catch(() => ({}));
+  const body = await request.json().catch(() => ({})) as Record<string, unknown>;
   const action = String(body.action || "remember");
-  if (action === "layer") return postSummerJson("/api/layer", body);
-  if (action === "item") return postSummerJson("/api/item", body);
-  if (action === "sunny_file") return postSummerJson("/api/sunny_file", body);
+  if (action === "layer") return rejectReadonlyLayer(body) || postSummerJson("/api/layer", body);
+  if (action === "item") return rejectReadonlyLayer(body) || postSummerJson("/api/item", body);
+  if (action === "sunny_file") return readonlyLayerResponse("sea");
   if (action === "rain") return postSummerJson("/api/rain", body);
   if (action === "daily_review") return postSummerJson("/api/daily_review", body);
-  if (action === "proposal") return postSummerJson("/api/proposal", body);
+  if (action === "proposal") return rejectReadonlyLayer(body) || postSummerJson("/api/proposal", body);
   if (action === "commit_proposal") {
+    const blocked = rejectReadonlyLayer(body);
+    if (blocked) return blocked;
     return postSummerJson("/api/proposal", {
       action: "commit",
       proposal_id: body.proposal_id,
@@ -94,5 +117,5 @@ export async function POST(request: Request) {
       proposal_id: body.proposal_id,
     });
   }
-  return postSummerJson("/api/remember", body);
+  return rejectReadonlyLayer(body) || postSummerJson("/api/remember", body);
 }

@@ -133,6 +133,8 @@ type SummerMemoryItem = {
   tags?: string[];
 };
 
+type SummerWritableLayer = "xiazhi" | "xiaoshu" | "rain" | "ferry";
+
 type SummerState = {
   layers?: Record<string, string>;
   xiazhi?: SummerMemoryItem[];
@@ -2386,6 +2388,7 @@ function ChatView({
                               <option value="xiaoshu">小暑</option>
                               <option value="xiazhi">夏至</option>
                               <option value="rain">rain</option>
+                              <option value="ferry">ferry</option>
                             </select>
                             <input
                               type="number"
@@ -2571,7 +2574,7 @@ function layerLabel(layer: string) {
     xiaoshu: { title: "Minor Heat", sub: "小暑" },
     rain: { title: "rain", sub: "未了结" },
     ferry: { title: "ferry", sub: "渡口" },
-    sunny: { title: "sea", sub: "原文件" },
+    sea: { title: "sea", sub: "只读" },
   };
   return labels[layer]?.title || layer;
 }
@@ -2585,7 +2588,7 @@ function layerSub(layer: string) {
     xiaoshu: "小暑",
     rain: "小雨淅淅沥沥",
     ferry: "上一秒在这里，下一秒在那里",
-    sunny: "海不会跑掉，我也不会",
+    sea: "海不会跑掉，我也不会",
   };
   return labels[layer] || "";
 }
@@ -2622,7 +2625,7 @@ function SummerMemoryView() {
   const [hits, setHits] = useState<Array<{ source?: string; score?: number; text?: string }>>([]);
   const [searching, setSearching] = useState(false);
   const [writerOpen, setWriterOpen] = useState(false);
-  const [writeLayer, setWriteLayer] = useState<"xiazhi" | "xiaoshu" | "rain" | "ferry">("xiaoshu");
+  const [writeLayer, setWriteLayer] = useState<SummerWritableLayer>("xiaoshu");
   const [writeTitle, setWriteTitle] = useState("");
   const [writeContent, setWriteContent] = useState("");
   const [writeWeight, setWriteWeight] = useState(6);
@@ -2702,6 +2705,10 @@ function SummerMemoryView() {
   }
 
   async function saveLayerDoc(layer: string) {
+    if (["mangzhong", "sea"].includes(layer)) {
+      setError(`${layerLabel(layer)} 是只读层`);
+      return;
+    }
     setSaving(true);
     setError("");
     try {
@@ -2722,6 +2729,10 @@ function SummerMemoryView() {
 
   async function saveItem(layer: string, item: SummerMemoryItem) {
     if (!item.id) return;
+    if (["mangzhong", "sea"].includes(layer)) {
+      setError(`${layerLabel(layer)} 是只读层`);
+      return;
+    }
     setSaving(true);
     setError("");
     try {
@@ -2755,6 +2766,10 @@ function SummerMemoryView() {
 
   async function deleteItem(layer: string, item: SummerMemoryItem) {
     if (!item.id || !confirm("确定删除这条吗？")) return;
+    if (["mangzhong", "sea"].includes(layer)) {
+      setError(`${layerLabel(layer)} 是只读层`);
+      return;
+    }
     setSaving(true);
     setError("");
     try {
@@ -2773,53 +2788,20 @@ function SummerMemoryView() {
     }
   }
 
-  async function uploadSunnyFile() {
-    const input = document.createElement("input");
-    input.type = "file";
-    input.accept = ".txt,.md,.json,.csv,text/*";
-    input.onchange = async (e) => {
-      const file = (e.target as HTMLInputElement).files?.[0];
-      if (!file) return;
-      setSaving(true);
-      setError("");
-      try {
-        const content = await file.text();
-        const res = await apiFetch("/api/summer", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            action: "sunny_file",
-            title: file.name.replace(/\.[^.]+$/, ""),
-            filename: file.name,
-            content,
-          }),
-        });
-        const json = await res.json();
-        if (!res.ok || !json.ok) throw new Error(json.error || "上传失败");
-        await loadSummer();
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "上传失败");
-      } finally {
-        setSaving(false);
-      }
-    };
-    input.click();
-  }
-
   const layers = state?.layers || {};
   const xiazhi = state?.xiazhi || [];
   const xiaoshu = (state?.xiaoshu_tail || []).slice().reverse();
   const rain = state?.rain || [];
   const ferry = state?.ferry || [];
-  const sunnyFiles = state?.sunny_files || [];
-  const layerOrder = ["lixia", "xiaoman", "mangzhong", "xiazhi", "xiaoshu", "rain", "ferry", "sunny"];
+  const sunnyFiles = state?.sunny_files || state?.sunny?.days || [];
+  const layerOrder = ["lixia", "xiaoman", "mangzhong", "xiazhi", "xiaoshu", "rain", "ferry", "sea"];
   const mangzhongDocs = splitMangzhongDocs(layers.mangzhong || "");
   const sectionItems: Record<string, SummerMemoryItem[]> = {
     xiazhi: xiazhi.slice().reverse(),
     xiaoshu,
     rain,
     ferry,
-    sunny: sunnyFiles.slice().reverse(),
+    sea: sunnyFiles.slice().reverse(),
   };
   const counts: Record<string, string> = {
     lixia: layers.lixia?.trim() ? "1 篇" : "0",
@@ -2829,7 +2811,7 @@ function SummerMemoryView() {
     xiaoshu: `${xiaoshu.length} 天`,
     rain: `${rain.length} 件`,
     ferry: `${ferry.length} 条`,
-    sunny: `${sunnyFiles.length} 份`,
+    sea: `${sunnyFiles.length} 份`,
   };
 
   useEffect(() => {
@@ -2856,7 +2838,6 @@ function SummerMemoryView() {
           {activeLayer && <button onClick={() => { setActiveLayer(null); setEditingItem(null); }}>返回</button>}
           <button onClick={loadSummer} disabled={loading}>刷新</button>
           {!activeLayer && <button className="summer-primary-btn" onClick={() => setWriterOpen((v) => !v)}>{writerOpen ? "收起" : "写入"}</button>}
-          {activeLayer === "sunny" && <button className="summer-primary-btn" onClick={uploadSunnyFile} disabled={saving}>上传</button>}
         </div>
       </div>
 
@@ -2877,7 +2858,7 @@ function SummerMemoryView() {
           <div className="summer-writer-row">
             <label>
               层
-              <select value={writeLayer} onChange={(e) => setWriteLayer(e.target.value as "xiazhi" | "xiaoshu" | "rain" | "ferry")}>
+              <select value={writeLayer} onChange={(e) => setWriteLayer(e.target.value as SummerWritableLayer)}>
                 <option value="xiaoshu">xiaoshu</option>
                 <option value="xiazhi">xiazhi</option>
                 <option value="rain">rain</option>
@@ -2964,14 +2945,15 @@ function SummerMemoryView() {
             </details>
           ) : (
             <SummerEditableList
-              layer={activeLayer === "sunny" ? "sunny_file" : activeLayer}
+              layer={activeLayer}
               items={sectionItems[activeLayer] || []}
-              empty={activeLayer === "sunny" ? "还没有上传 sea 原文件" : "还没有内容"}
+              empty={activeLayer === "sea" ? "sea 只读，还没有内容" : "还没有内容"}
               editingItem={editingItem}
               setEditingItem={setEditingItem}
               onSave={saveItem}
               onDelete={deleteItem}
               saving={saving}
+              readOnly={activeLayer === "sea"}
             />
           )}
         </section>
@@ -3001,6 +2983,7 @@ function SummerEditableList({
   onSave,
   onDelete,
   saving,
+  readOnly = false,
 }: {
   layer: string;
   items: SummerMemoryItem[];
@@ -3010,10 +2993,12 @@ function SummerEditableList({
   onSave: (layer: string, item: SummerMemoryItem) => void;
   onDelete: (layer: string, item: SummerMemoryItem) => void;
   saving: boolean;
+  readOnly?: boolean;
 }) {
   if (!items.length) {
     return <div className="summer-empty">{empty}</div>;
   }
+  const showFileContent = layer === "sea" || layer === "sunny_file";
   return (
     <div className="summer-card-list">
       {items.map((item, index) => (
@@ -3046,7 +3031,7 @@ function SummerEditableList({
                 {item.status && <span>{item.status}</span>}
               </div>
               {item.title && <h4>{item.title}</h4>}
-              {layer === "sunny_file" ? (
+              {showFileContent ? (
                 <details className="summer-card-content">
                   <summary>展开内容</summary>
                   <p>{item.content || ""}</p>
@@ -3059,10 +3044,12 @@ function SummerEditableList({
                   {item.tags.map((tag) => <span key={tag}>{tag}</span>)}
                 </div>
               )}
-              <div className="summer-card-actions">
-                <button onClick={() => setEditingItem({ ...item })}>修改</button>
-                <button onClick={() => onDelete(layer, item)}>删除</button>
-              </div>
+              {!readOnly && (
+                <div className="summer-card-actions">
+                  <button onClick={() => setEditingItem({ ...item })}>修改</button>
+                  <button onClick={() => onDelete(layer, item)}>删除</button>
+                </div>
+              )}
             </>
           )}
         </article>
