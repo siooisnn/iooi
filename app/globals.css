@@ -618,6 +618,7 @@ body {
 .chat-messages::-webkit-scrollbar-thumb { background: var(--border-soft); border-radius: 10px; }
 
 .msg-row { display: flex; align-items: flex-start; gap: 8px; animation: msgIn 0.35s ease-out both; }
+.msg-row-static { animation: none; }
 .msg-row-user { justify-content: flex-end; }
 .msg-row-ai { justify-content: flex-start; }
 .msg-row-summer-utility { padding-left: 44px; }

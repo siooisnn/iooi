@@ -798,6 +798,11 @@ export default function Home() {
   }, []);
 
   const createSession = useCallback(() => {
+    const existingDraft = sessions.find((session) => session.kind !== "memo" && session.messages.length === 0);
+    if (existingDraft) {
+      setActiveSessionId(existingDraft.id);
+      return;
+    }
     const normalCount = sessions.filter((s) => s.kind !== "memo").length;
     const newSession: ChatSession = {
       id: genId(),
@@ -962,6 +967,7 @@ export default function Home() {
         )}
         {tab === "chat" && activeSession && (settings.chatEntryStyle === "direct" || chatView === "room") && (
           <ChatView
+            key={activeSession.id}
             settings={settings}
             session={activeSession}
             sessions={sessions}
@@ -1164,7 +1170,7 @@ function ChatListView({
 
   const memoSession = sessions.find((s) => s.kind === "memo");
   const normalSessions = sessions
-    .filter((s) => s.kind !== "memo")
+    .filter((s) => s.kind !== "memo" && s.messages.length > 0)
     .sort((a, b) => getSessionStamp(b).getTime() - getSessionStamp(a).getTime());
   const pinnedSession = normalSessions[0]; // 置顶永远是最新的那扇窗,点历史只是回看,不抢位
   const normalQuery = query.trim().toLowerCase();
@@ -1779,6 +1785,7 @@ function ChatView({
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const sessionMessagesRef = useRef<Message[]>(session.messages);
   const sendingRef = useRef(false);
+  const [initialMessageCount] = useState(() => session.messages.length);
 
   // ── 巧思:长按贴贴 / 随机输入提示 / 扣6彩蛋 ──
   const [heartBurst, setHeartBurst] = useState<number | null>(null);
@@ -2338,6 +2345,7 @@ function ChatView({
         {session.messages.map((message, index) => {
           if (message.source === "summer_write_ignored") return null;
           const isSummerUtility = listEntryMode && isSummerUtilityMessage(message);
+          const animateMessage = !listEntryMode || index >= initialMessageCount;
           const prevMsg = index > 0 ? session.messages[index - 1] : null;
           const nextMsg = index < session.messages.length - 1 ? session.messages[index + 1] : null;
           const prevDate = index > 0 ? session.messages[index - 1].date : null;
@@ -2356,7 +2364,7 @@ function ChatView({
                   </span>
                 </div>
               )}
-              <div className={`msg-row ${message.role === "user" ? "msg-row-user" : "msg-row-ai"} ${isSummerUtility ? "msg-row-summer-utility" : ""} ${compactTop ? "msg-row-compact-top" : ""} ${compactBottom ? "msg-row-compact-bottom" : ""}`} style={{ animationDelay: `${Math.min(index * 0.03, 0.3)}s` }}>
+              <div className={`msg-row ${message.role === "user" ? "msg-row-user" : "msg-row-ai"} ${isSummerUtility ? "msg-row-summer-utility" : ""} ${compactTop ? "msg-row-compact-top" : ""} ${compactBottom ? "msg-row-compact-bottom" : ""} ${animateMessage ? "" : "msg-row-static"}`} style={animateMessage ? { animationDelay: `${Math.min(index * 0.03, 0.3)}s` } : undefined}>
                 {message.role === "assistant" && !isSummerUtility && (
                   settings.aiAvatar
                     ? <img src={settings.aiAvatar} className="avatar avatar-img" alt="" />
