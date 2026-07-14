@@ -275,9 +275,8 @@ body {
 }
 
 .chat-entry-memo::after,
-.chat-entry-pinned::after,
-.chat-entry-subscribe::after,
-.chat-entry-history .chat-entry-item::after {
+.chat-swipe-shell::after,
+.chat-entry-subscribe::after {
   content: "";
   position: absolute;
   bottom: 0;
@@ -285,6 +284,8 @@ body {
   right: 18px;
   height: 1px;
   background: rgba(196, 134, 108, 0.12);
+  z-index: 3;
+  pointer-events: none;
 }
 
 .chat-entry-subscribe {
