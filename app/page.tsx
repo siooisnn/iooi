@@ -1088,6 +1088,18 @@ function getSessionStamp(session: ChatSession) {
   return parseMessageDateTime(getLatestSessionMessage(session)) || new Date(session.createdAt);
 }
 
+function parseChatListTimestamp(value: string) {
+  const match = value.match(/(20\d{2})[\/.\-](\d{1,2})[\/.\-](\d{1,2})\s+(\d{1,2}):(\d{2})/);
+  if (!match) return 0;
+  return new Date(
+    Number(match[1]),
+    Number(match[2]) - 1,
+    Number(match[3]),
+    Number(match[4]),
+    Number(match[5]),
+  ).getTime();
+}
+
 function formatChatListTime(date: Date) {
   const now = new Date();
   if (date.toDateString() === now.toDateString()) {
@@ -1175,6 +1187,18 @@ function ChatListView({
     return `${session.name} ${latest?.content || ""}`.toLowerCase().includes(normalQuery);
   });
   const latestHeartbeat = heartbeatLog[0];
+  const timelineEntries = [
+    ...historySessions.map((session) => ({
+      kind: "session" as const,
+      session,
+      stamp: getSessionStamp(session).getTime(),
+    })),
+    ...(latestHeartbeat ? [{
+      kind: "heartbeat" as const,
+      heartbeat: latestHeartbeat,
+      stamp: parseChatListTimestamp(latestHeartbeat.time),
+    }] : []),
+  ].sort((a, b) => b.stamp - a.stamp);
   const pinnedLine = settings.chatPinnedLine ?? "此后我们的每一秒都是恩赐。";
 
   function openSession(id: string) {
@@ -1316,27 +1340,25 @@ function ChatListView({
           <SwipeSessionRow session={pinnedSession} pinned />
         )}
 
-        {latestHeartbeat && (
-          <button className="chat-entry-item chat-entry-subscribe" onClick={() => setShowHbLog(true)}>
-            <span className="chat-entry-avatar chat-entry-avatar-small chat-entry-avatar-hb"><span>💗</span></span>
-            <div className="chat-entry-main">
-              <div className="chat-entry-row">
-                <span className="chat-entry-name">heartbeat</span>
-              </div>
-              <p className="chat-entry-preview">{latestHeartbeat.reason}</p>
-            </div>
-            <span className="chat-entry-side">
-              <span className="chat-entry-time">{latestHeartbeat.time}</span>
-            </span>
-          </button>
-        )}
-
         <div className="chat-entry-history">
-          {historySessions.length === 0 ? (
+          {timelineEntries.length === 0 ? (
             <p className="chat-entry-empty">{normalQuery ? "没搜到这个窗口" : "没有更多历史窗口"}</p>
           ) : (
-            historySessions.map((session) => (
-              <SwipeSessionRow key={session.id} session={session} />
+            timelineEntries.map((entry) => entry.kind === "session" ? (
+              <SwipeSessionRow key={entry.session.id} session={entry.session} />
+            ) : (
+              <button key={`heartbeat-${entry.heartbeat.time}`} className="chat-entry-item chat-entry-subscribe" onClick={() => setShowHbLog(true)}>
+                <span className="chat-entry-avatar chat-entry-avatar-small chat-entry-avatar-hb"><span>💗</span></span>
+                <div className="chat-entry-main">
+                  <div className="chat-entry-row">
+                    <span className="chat-entry-name">heartbeat</span>
+                  </div>
+                  <p className="chat-entry-preview">{entry.heartbeat.reason}</p>
+                </div>
+                <span className="chat-entry-side">
+                  <span className="chat-entry-time">{entry.heartbeat.time}</span>
+                </span>
+              </button>
             ))
           )}
         </div>
