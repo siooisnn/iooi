@@ -798,11 +798,6 @@ export default function Home() {
   }, []);
 
   const createSession = useCallback(() => {
-    const existingDraft = sessions.find((session) => session.kind !== "memo" && session.messages.length === 0);
-    if (existingDraft) {
-      setActiveSessionId(existingDraft.id);
-      return;
-    }
     const normalCount = sessions.filter((s) => s.kind !== "memo").length;
     const newSession: ChatSession = {
       id: genId(),
@@ -1170,7 +1165,7 @@ function ChatListView({
 
   const memoSession = sessions.find((s) => s.kind === "memo");
   const normalSessions = sessions
-    .filter((s) => s.kind !== "memo" && s.messages.length > 0)
+    .filter((s) => s.kind !== "memo")
     .sort((a, b) => getSessionStamp(b).getTime() - getSessionStamp(a).getTime());
   const pinnedSession = normalSessions[0]; // 置顶永远是最新的那扇窗,点历史只是回看,不抢位
   const normalQuery = query.trim().toLowerCase();

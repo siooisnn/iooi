@@ -327,7 +327,6 @@ body {
 .chat-entry-main {
   min-width: 0;
   flex: 1;
-  padding-right: 118px;
 }
 
 .chat-entry-row {
@@ -335,6 +334,7 @@ body {
   align-items: center;
   justify-content: space-between;
   gap: 10px;
+  padding-right: 118px;
 }
 
 .chat-entry-name {
