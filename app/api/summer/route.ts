@@ -96,6 +96,7 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   const body = await request.json().catch(() => ({})) as Record<string, unknown>;
   const action = String(body.action || "remember");
+  if (action === "sea_file") return postSummerJson("/api/sea_file", body);
   if (action === "layer") return rejectReadonlyLayer(body) || postSummerJson("/api/layer", body);
   if (action === "item") return rejectReadonlyLayer(body) || postSummerJson("/api/item", body);
   if (action === "sunny_file") return readonlyLayerResponse("sea");

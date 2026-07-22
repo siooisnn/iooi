@@ -140,11 +140,22 @@ type SummerState = {
   xiazhi?: SummerMemoryItem[];
   sunny?: { days?: SummerMemoryItem[] };
   sunny_files?: SummerMemoryItem[];
+  sea_files?: SummerMemoryItem[];
   ferry?: SummerMemoryItem[];
   rain?: SummerMemoryItem[];
   xiaoshu_recent?: SummerMemoryItem[];
   xiaoshu_tail?: SummerMemoryItem[];
 };
+
+function arrayBufferToBase64(buffer: ArrayBuffer): string {
+  const bytes = new Uint8Array(buffer);
+  const chunkSize = 0x8000;
+  let binary = "";
+  for (let offset = 0; offset < bytes.length; offset += chunkSize) {
+    binary += String.fromCharCode(...bytes.subarray(offset, offset + chunkSize));
+  }
+  return btoa(binary);
+}
 
 // 遗忘曲线:分数 = 重要性 × 想起次数^0.3 × e^(-λ×天数) × (0.5 + 热度×0.5)
 // pinned 的记忆永远满分,不会被遗忘也不会被淘汰
@@ -2783,6 +2794,43 @@ function SummerMemoryView() {
     }
   }
 
+  function uploadSeaFile() {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = ".docx,.txt,.md,.json,.csv,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/*";
+    input.onchange = async (event) => {
+      const file = (event.target as HTMLInputElement).files?.[0];
+      if (!file) return;
+      if (file.size > 10 * 1024 * 1024) {
+        setError("sea 原文件不能超过 10 MB");
+        return;
+      }
+      setSaving(true);
+      setError("");
+      try {
+        const res = await apiFetch("/api/summer", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: "sea_file",
+            title: file.name.replace(/\.[^.]+$/, ""),
+            filename: file.name,
+            content_type: file.type,
+            data_base64: arrayBufferToBase64(await file.arrayBuffer()),
+          }),
+        });
+        const json = await res.json();
+        if (!res.ok || !json.ok) throw new Error(json.error || "sea 上传失败");
+        await loadSummer();
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "sea 上传失败");
+      } finally {
+        setSaving(false);
+      }
+    };
+    input.click();
+  }
+
   async function saveLayerDoc(layer: string) {
     if (["mangzhong", "sea"].includes(layer)) {
       setError(`${layerLabel(layer)} 是只读层`);
@@ -2872,7 +2920,7 @@ function SummerMemoryView() {
   const xiaoshu = (state?.xiaoshu_tail || []).slice().reverse();
   const rain = state?.rain || [];
   const ferry = state?.ferry || [];
-  const sunnyFiles = state?.sunny_files || state?.sunny?.days || [];
+  const seaFiles = state?.sea_files || state?.sunny_files || state?.sunny?.days || [];
   const layerOrder = ["lixia", "xiaoman", "mangzhong", "xiazhi", "xiaoshu", "rain", "ferry", "sea"];
   const mangzhongDocs = splitMangzhongDocs(layers.mangzhong || "");
   const sectionItems: Record<string, SummerMemoryItem[]> = {
@@ -2880,7 +2928,7 @@ function SummerMemoryView() {
     xiaoshu,
     rain,
     ferry,
-    sea: sunnyFiles.slice().reverse(),
+    sea: seaFiles.slice().reverse(),
   };
   const counts: Record<string, string> = {
     lixia: layers.lixia?.trim() ? "1 篇" : "0",
@@ -2890,7 +2938,7 @@ function SummerMemoryView() {
     xiaoshu: `${xiaoshu.length} 天`,
     rain: `${rain.length} 件`,
     ferry: `${ferry.length} 条`,
-    sea: `${sunnyFiles.length} 份`,
+    sea: `${seaFiles.length} 份`,
   };
 
   useEffect(() => {
@@ -2917,6 +2965,7 @@ function SummerMemoryView() {
           {activeLayer && <button onClick={() => { setActiveLayer(null); setEditingItem(null); }}>返回</button>}
           <button onClick={loadSummer} disabled={loading}>刷新</button>
           {!activeLayer && <button className="summer-primary-btn" onClick={() => setWriterOpen((v) => !v)}>{writerOpen ? "收起" : "写入"}</button>}
+          {activeLayer === "sea" && <button className="summer-primary-btn" onClick={uploadSeaFile} disabled={saving}>{saving ? "上传中" : "上传原文件"}</button>}
         </div>
       </div>
 
@@ -3026,7 +3075,7 @@ function SummerMemoryView() {
             <SummerEditableList
               layer={activeLayer}
               items={sectionItems[activeLayer] || []}
-              empty={activeLayer === "sea" ? "sea 只读，还没有内容" : "还没有内容"}
+              empty={activeLayer === "sea" ? "sea 只进不改，还没有原文件" : "还没有内容"}
               editingItem={editingItem}
               setEditingItem={setEditingItem}
               onSave={saveItem}
