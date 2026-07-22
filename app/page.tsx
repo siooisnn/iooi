@@ -1230,9 +1230,8 @@ function ChatListView({
   const normalSessions = sessions
     .filter((s) => s.kind !== "memo" && s.messages.length > 0)
     .sort((a, b) => getSessionStamp(b).getTime() - getSessionStamp(a).getTime());
-  const pinnedSession = normalSessions[0]; // 置顶永远是最新的那扇窗,点历史只是回看,不抢位
   const normalQuery = query.trim().toLowerCase();
-  const historySessions = normalSessions.slice(1).filter((session) => {
+  const historySessions = normalSessions.filter((session) => {
     if (!normalQuery) return true;
     const latest = getLatestSessionMessage(session);
     return `${session.name} ${latest?.content || ""}`.toLowerCase().includes(normalQuery);
@@ -1319,7 +1318,7 @@ function ChatListView({
     openSession(session.id);
   }
 
-  function SwipeSessionRow({ session, pinned = false }: { session: ChatSession; pinned?: boolean }) {
+  function SwipeSessionRow({ session }: { session: ChatSession }) {
     return (
       <div className="chat-swipe-shell">
         <div className={`chat-swipe-actions ${openActionsFor === session.id ? "chat-swipe-actions-open" : ""}`} aria-hidden={openActionsFor !== session.id}>
@@ -1327,7 +1326,7 @@ function ChatListView({
           <button className="chat-swipe-action chat-swipe-delete" onClick={(e) => { e.stopPropagation(); handleDelete(session); }}>Delete</button>
         </div>
         <div
-          className={`${pinned ? "chat-entry-pinned" : "chat-entry-item"} ${openActionsFor === session.id ? "chat-swipe-open" : ""}`}
+          className={`chat-entry-item ${openActionsFor === session.id ? "chat-swipe-open" : ""}`}
           onPointerDown={(e) => handleSwipeStart(session, e)}
           onPointerMove={handleSwipeMove}
           onPointerUp={handleSwipeEnd}
@@ -1385,10 +1384,6 @@ function ChatListView({
               <span className="chat-entry-time">{memoSession.messages.length > 0 ? formatChatListTime(getSessionStamp(memoSession)) : ""}</span>
             </span>
           </button>
-        )}
-
-        {pinnedSession && (
-          <SwipeSessionRow session={pinnedSession} pinned />
         )}
 
         <div className="chat-entry-history">

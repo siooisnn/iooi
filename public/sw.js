@@ -1,6 +1,6 @@
 // iooi service worker — push notifications
 
-const IOOI_SW_VERSION = "2026-07-22-chat-list-2";
+const IOOI_SW_VERSION = "2026-07-22-chat-list-3";
 
 self.addEventListener("install", () => {
   self.skipWaiting();
