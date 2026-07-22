@@ -539,14 +539,19 @@ function apiFetch(input: RequestInfo | URL, init: RequestInit = {}) {
 
 // Server sync with debounce
 let syncTimer: ReturnType<typeof setTimeout> | null = null;
+let pendingSyncData: Record<string, unknown> = {};
 function syncToServer(data: Record<string, unknown>) {
+  pendingSyncData = { ...pendingSyncData, ...data };
   if (syncTimer) clearTimeout(syncTimer);
   syncTimer = setTimeout(async () => {
+    const payload = pendingSyncData;
+    pendingSyncData = {};
+    syncTimer = null;
     try {
       await apiFetch("/api/sync", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
+        body: JSON.stringify(payload),
       });
     } catch {}
   }, 500);
@@ -839,6 +844,11 @@ export default function Home() {
   }, []);
 
   const createSession = useCallback(() => {
+    const existingDraft = sessions.find((session) => session.kind !== "memo" && session.messages.length === 0);
+    if (existingDraft) {
+      setActiveSessionId(existingDraft.id);
+      return;
+    }
     const normalCount = sessions.filter((s) => s.kind !== "memo").length;
     const newSession: ChatSession = {
       id: genId(),
@@ -1218,7 +1228,7 @@ function ChatListView({
 
   const memoSession = sessions.find((s) => s.kind === "memo");
   const normalSessions = sessions
-    .filter((s) => s.kind !== "memo")
+    .filter((s) => s.kind !== "memo" && s.messages.length > 0)
     .sort((a, b) => getSessionStamp(b).getTime() - getSessionStamp(a).getTime());
   const pinnedSession = normalSessions[0]; // 置顶永远是最新的那扇窗,点历史只是回看,不抢位
   const normalQuery = query.trim().toLowerCase();
@@ -2335,12 +2345,20 @@ function ChatView({
     input.click();
   }
 
+  function handleBackToList() {
+    const latestMessages = sessionMessagesRef.current;
+    if (latestMessages.length > 0) {
+      updateMessages((messages) => mergeChatMessages(messages, latestMessages));
+    }
+    onBackToList?.();
+  }
+
   return (
     <>
       {listEntryMode ? (
         <header className="chat-header chat-room-header">
           <div className="header-top">
-            <button className="header-icon-btn chat-room-back" onClick={onBackToList} aria-label="返回列表">
+            <button className="header-icon-btn chat-room-back" onClick={handleBackToList} aria-label="返回列表">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <polyline points="14.5 5.5 8 12 14.5 18.5" />
               </svg>

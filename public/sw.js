@@ -1,5 +1,7 @@
 // iooi service worker — push notifications
 
+const IOOI_SW_VERSION = "2026-07-22-chat-list-2";
+
 self.addEventListener("install", () => {
   self.skipWaiting();
 });
@@ -15,7 +17,7 @@ self.addEventListener("activate", (event) => {
       try {
         await client.navigate(client.url);
       } catch {
-        client.postMessage({ type: "IOOI_RELOAD_REQUIRED" });
+        client.postMessage({ type: "IOOI_RELOAD_REQUIRED", version: IOOI_SW_VERSION });
       }
     }));
   })());

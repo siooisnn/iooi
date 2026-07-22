@@ -92,14 +92,20 @@ function mergeMessages(local: StoredMessage[] = [], incoming: StoredMessage[] = 
   return merged;
 }
 
+function isEmptyNormalSession(session: StoredSession) {
+  return session.kind !== "memo" && (!Array.isArray(session.messages) || session.messages.length === 0);
+}
+
 function mergeSessions(local: StoredSession[] = [], incoming: StoredSession[] = [], deletedIds = new Set<string>()) {
   const byId = new Map<string, StoredSession>();
   for (const session of local) {
+    if (session && isEmptyNormalSession(session)) continue;
     if (session?.id && session.kind !== "memo" && deletedIds.has(session.id)) continue;
     if (session?.id) byId.set(session.id, { ...session, messages: session.messages || [] });
   }
   for (const session of incoming) {
     if (!session?.id) continue;
+    if (isEmptyNormalSession(session)) continue;
     if (session.kind !== "memo" && deletedIds.has(session.id)) continue;
     const current = byId.get(session.id);
     if (!current) {
