@@ -431,11 +431,46 @@ function mergeChatMessages(current: Message[], incoming: Message[]) {
   return merged;
 }
 
-function dedupeChatSessions(sessions: ChatSession[]) {
-  return sessions.map((session) => ({
-    ...session,
-    messages: mergeChatMessages([], session.messages || []),
-  }));
+function mergeChatSessionLists(
+  localSessions: ChatSession[],
+  serverSessions: ChatSession[],
+  deletedIds: Set<string>,
+) {
+  const localById = new Map(localSessions.map((session) => [session.id, session]));
+  const serverById = new Map(serverSessions.map((session) => [session.id, session]));
+  const orderedIds = [
+    ...serverSessions.map((session) => session.id),
+    ...localSessions.map((session) => session.id),
+  ];
+  const seen = new Set<string>();
+  const merged: ChatSession[] = [];
+
+  for (const id of orderedIds) {
+    if (seen.has(id)) continue;
+    seen.add(id);
+
+    const local = localById.get(id);
+    const server = serverById.get(id);
+    const session = server || local;
+    if (!session || (session.kind !== "memo" && deletedIds.has(id))) continue;
+
+    if (local && server) {
+      merged.push({
+        ...local,
+        ...server,
+        summary: server.summary || local.summary,
+        summarizedUntil: Math.max(local.summarizedUntil || 0, server.summarizedUntil || 0) || undefined,
+        messages: mergeChatMessages(local.messages || [], server.messages || []),
+      });
+    } else {
+      merged.push({
+        ...session,
+        messages: mergeChatMessages([], session.messages || []),
+      });
+    }
+  }
+
+  return merged;
 }
 
 function hasLaterUserMessage(messages: Message[], userMsg: Message) {
@@ -619,8 +654,8 @@ export default function Home() {
         }
         s = serverData.settings ? { ...defaultSettings, ...serverData.settings } : loadLocal("iooi-settings", defaultSettings);
         s.prompt = normalizeSystemPrompt(s.prompt);
-        sess = serverData.sessions?.length > 0 ? serverData.sessions : loadLocalRaw<ChatSession[]>("iooi-sessions", []);
-        sess = dedupeChatSessions(sess.filter((session: ChatSession) => session.kind === "memo" || !deletedSessionIds.current.has(session.id)));
+        const localSessions = loadLocalRaw<ChatSession[]>("iooi-sessions", []);
+        sess = mergeChatSessionLists(localSessions, serverData.sessions || [], deletedSessionIds.current);
         d = serverData.diary || loadLocalRaw<DiaryEntry[]>("iooi-diary", []);
         setMemoryEntries([]);
         setMoods(serverData.moods || loadLocalRaw<Mood[]>("iooi-moods", []));
@@ -632,8 +667,11 @@ export default function Home() {
       } else {
         s = { ...defaultSettings, ...loadLocal("iooi-settings", defaultSettings) };
         s.prompt = normalizeSystemPrompt(s.prompt);
-        sess = loadLocalRaw<ChatSession[]>("iooi-sessions", []);
-        sess = dedupeChatSessions(sess.filter((session: ChatSession) => session.kind === "memo" || !deletedSessionIds.current.has(session.id)));
+        sess = mergeChatSessionLists(
+          loadLocalRaw<ChatSession[]>("iooi-sessions", []),
+          [],
+          deletedSessionIds.current,
+        );
         d = loadLocalRaw<DiaryEntry[]>("iooi-diary", []);
         setMemoryEntries([]);
         setMoods(loadLocalRaw<Mood[]>("iooi-moods", []));
@@ -702,13 +740,16 @@ export default function Home() {
           .then((r) => r.json())
           .then((server) => {
             if (!server) return;
+            if (Array.isArray(server.deletedSessionIds)) {
+              deletedSessionIds.current = new Set([
+                ...deletedSessionIds.current,
+                ...server.deletedSessionIds,
+              ]);
+              saveLocal("iooi-deleted-session-ids", Array.from(deletedSessionIds.current));
+            }
             if (Array.isArray(server.sessions)) {
               setSessions((local) =>
-                local.map((ls) => {
-                  const ss = server.sessions.find((s: ChatSession) => s.id === ls.id);
-                  if (!ss || !Array.isArray(ss.messages)) return ls;
-                  return { ...ls, ...ss, messages: mergeChatMessages(ls.messages || [], ss.messages || []) };
-                })
+                mergeChatSessionLists(local, server.sessions, deletedSessionIds.current)
               );
             }
             if (Array.isArray(server.diary)) {

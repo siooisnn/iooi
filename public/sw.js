@@ -5,7 +5,20 @@ self.addEventListener("install", () => {
 });
 
 self.addEventListener("activate", (event) => {
-  event.waitUntil(self.clients.claim());
+  event.waitUntil((async () => {
+    await self.clients.claim();
+    const clients = await self.clients.matchAll({
+      type: "window",
+      includeUncontrolled: true,
+    });
+    await Promise.all(clients.map(async (client) => {
+      try {
+        await client.navigate(client.url);
+      } catch {
+        client.postMessage({ type: "IOOI_RELOAD_REQUIRED" });
+      }
+    }));
+  })());
 });
 
 // 收到推送 → 弹通知(iOS 要求每次 push 都必须展示通知)
