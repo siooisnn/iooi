@@ -3134,12 +3134,27 @@ function SummerEditableList({
           {editingItem?.id === item.id ? (
             <div className="summer-inline-editor">
               <input value={editingItem!.title || ""} onChange={(e) => setEditingItem({ ...editingItem!, title: e.target.value })} placeholder="标题" />
+              {layer === "xiazhi" && (
+                <label className="summer-writer-row">
+                  <span>权重（1–10）</span>
+                  <input
+                    type="number"
+                    min={1}
+                    max={10}
+                    value={editingItem!.weight ?? 5}
+                    onChange={(e) => setEditingItem({
+                      ...editingItem!,
+                      weight: Math.max(1, Math.min(10, Number(e.target.value) || 5)),
+                    })}
+                  />
+                </label>
+              )}
               {layer === "rain" && (
                 <div className="summer-writer-row">
                   <input value={editingItem!.due || ""} onChange={(e) => setEditingItem({ ...editingItem!, due: e.target.value })} placeholder="due，可空" />
                   <select value={editingItem!.status || "open"} onChange={(e) => setEditingItem({ ...editingItem!, status: e.target.value })}>
-                    <option value="open">open</option>
-                    <option value="closed">closed</option>
+                    <option value="open">未了结</option>
+                    <option value="closed">已了结</option>
                   </select>
                 </div>
               )}
@@ -3156,7 +3171,7 @@ function SummerEditableList({
               <div className="summer-card-meta">
                 <span>{item.date || item.due || item.filename || "summer"}</span>
                 {item.weight && <span>权重 {item.weight}</span>}
-                {item.status && <span>{item.status}</span>}
+                {layer === "rain" ? <span>{item.status === "closed" ? "已了结" : "未了结"}</span> : item.status && <span>{item.status}</span>}
               </div>
               {item.title && <h4>{item.title}</h4>}
               {showFileContent ? (
@@ -3174,6 +3189,18 @@ function SummerEditableList({
               )}
               {!readOnly && (
                 <div className="summer-card-actions">
+                  {layer === "rain" && item.status !== "closed" && (
+                    <button
+                      disabled={saving}
+                      onClick={() => {
+                        if (confirm("确定把这条 rain 标记为已了结吗？")) {
+                          onSave(layer, { ...item, status: "closed" });
+                        }
+                      }}
+                    >
+                      标记已了结
+                    </button>
+                  )}
                   <button onClick={() => setEditingItem({ ...item })}>修改</button>
                   <button onClick={() => onDelete(layer, item)}>删除</button>
                 </div>

@@ -1,6 +1,6 @@
 // iooi service worker — push notifications
 
-const IOOI_SW_VERSION = "2026-07-22-sea-upload-1";
+const IOOI_SW_VERSION = "2026-07-31-summer-edit-1";
 
 self.addEventListener("install", () => {
   self.skipWaiting();

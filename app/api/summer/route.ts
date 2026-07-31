@@ -74,6 +74,34 @@ function rejectReadonlyLayer(body: Record<string, unknown>) {
   return READONLY_LAYERS.has(layer) ? readonlyLayerResponse(layer) : null;
 }
 
+const EDIT_FIELDS = [
+  "content",
+  "title",
+  "source",
+  "weight",
+  "tags",
+  "due",
+  "status",
+  "state",
+  "ttl_hours",
+  "expires_at",
+] as const;
+
+function currentEditBody(operation: "add" | "update" | "delete", body: Record<string, unknown>) {
+  const patch = (body.patch && typeof body.patch === "object") ? body.patch as Record<string, unknown> : {};
+  const result: Record<string, unknown> = {
+    action: operation,
+    layer: body.layer ?? patch.layer,
+  };
+  const itemId = body.item_id ?? body.id ?? patch.item_id ?? patch.id;
+  if (itemId !== undefined) result.item_id = itemId;
+  for (const field of EDIT_FIELDS) {
+    const value = body[field] !== undefined ? body[field] : patch[field];
+    if (value !== undefined) result[field] = value;
+  }
+  return result;
+}
+
 export async function GET(request: Request) {
   const url = new URL(request.url);
   const mode = url.searchParams.get("mode");
@@ -97,26 +125,24 @@ export async function POST(request: Request) {
   const body = await request.json().catch(() => ({})) as Record<string, unknown>;
   const action = String(body.action || "remember");
   if (action === "sea_file") return postSummerJson("/api/sea_file", body);
-  if (action === "layer") return rejectReadonlyLayer(body) || postSummerJson("/api/layer", body);
-  if (action === "item") return rejectReadonlyLayer(body) || postSummerJson("/api/item", body);
   if (action === "sunny_file") return readonlyLayerResponse("sea");
-  if (action === "rain") return postSummerJson("/api/rain", body);
   if (action === "daily_review") return postSummerJson("/api/daily_review", body);
-  if (action === "proposal") return rejectReadonlyLayer(body) || postSummerJson("/api/proposal", body);
-  if (action === "commit_proposal") {
-    const blocked = rejectReadonlyLayer(body);
-    if (blocked) return blocked;
-    return postSummerJson("/api/proposal", {
-      action: "commit",
-      proposal_id: body.proposal_id,
-      patch: body.patch || {},
-    });
+  if (action === "discard_proposal") return Response.json({ ok: true, data: { discarded: true } });
+
+  const blocked = rejectReadonlyLayer(body);
+  if (blocked) return blocked;
+
+  if (action === "layer") return postSummerJson("/api/edit", currentEditBody("update", body));
+  if (action === "item") {
+    const operation = body.actionType === "delete" ? "delete" : "update";
+    return postSummerJson("/api/edit", currentEditBody(operation, body));
   }
-  if (action === "discard_proposal") {
-    return postSummerJson("/api/proposal", {
-      action: "discard",
-      proposal_id: body.proposal_id,
-    });
+  if (action === "rain") {
+    const operation = body.actionType === "delete" ? "delete" : (body.id || body.item_id ? "update" : "add");
+    return postSummerJson("/api/edit", currentEditBody(operation, { ...body, layer: "rain" }));
   }
-  return rejectReadonlyLayer(body) || postSummerJson("/api/remember", body);
+  if (action === "commit_proposal" || action === "proposal") {
+    return postSummerJson("/api/edit", currentEditBody("add", body));
+  }
+  return postSummerJson("/api/edit", currentEditBody("add", body));
 }
