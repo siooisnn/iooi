@@ -3241,8 +3241,14 @@ function SummerEditableList({
               </div>
               {item.title && <h4>{item.title}</h4>}
               {showFileContent ? (
-                <details className="summer-card-content">
-                  <summary>{layer === "xiaoshu" ? "展开正文" : "展开内容"}</summary>
+                <details className={`summer-card-content${layer === "xiaoshu" ? " summer-card-content-preview" : ""}`}>
+                  <summary>
+                    {layer === "xiaoshu" && <span className="summer-card-preview-text">{item.content || ""}</span>}
+                    <span className="summer-card-toggle-text">
+                      <span className="summer-card-toggle-open">{layer === "xiaoshu" ? "展开正文" : "展开内容"}</span>
+                      <span className="summer-card-toggle-close">收起正文</span>
+                    </span>
+                  </summary>
                   <p>{item.content || ""}</p>
                 </details>
               ) : (
