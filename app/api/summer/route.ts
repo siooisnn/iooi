@@ -11,10 +11,15 @@ function summerHeaders() {
 }
 
 async function readSummerJson(path: string) {
-  const res = await fetch(`${summerBaseUrl()}${path}`, {
-    headers: summerHeaders(),
-    cache: "no-store",
-  });
+  let res: Response;
+  try {
+    res = await fetchSummer(path, { headers: summerHeaders(), cache: "no-store" });
+  } catch (error) {
+    return Response.json(
+      { ok: false, error: error instanceof Error ? error.message : "summer request failed" },
+      { status: 504 }
+    );
+  }
   const text = await res.text();
   let data: unknown = null;
   try {
@@ -32,11 +37,19 @@ async function readSummerJson(path: string) {
 }
 
 async function postSummerJson(path: string, body: unknown) {
-  const res = await fetch(`${summerBaseUrl()}${path}`, {
-    method: "POST",
-    headers: summerHeaders(),
-    body: JSON.stringify(body || {}),
-  });
+  let res: Response;
+  try {
+    res = await fetchSummer(path, {
+      method: "POST",
+      headers: summerHeaders(),
+      body: JSON.stringify(body || {}),
+    });
+  } catch (error) {
+    return Response.json(
+      { ok: false, error: error instanceof Error ? error.message : "summer request failed" },
+      { status: 504 }
+    );
+  }
   const text = await res.text();
   let data: unknown = null;
   try {
@@ -53,14 +66,27 @@ async function postSummerJson(path: string, body: unknown) {
   return Response.json({ ok: true, data });
 }
 
-const READONLY_LAYERS = new Set(["mangzhong", "sea", "sunny", "sunny_file"]);
+async function fetchSummer(path: string, init: RequestInit, timeoutMs = 12_000) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(`${summerBaseUrl()}${path}`, { ...init, signal: controller.signal });
+  } catch (error) {
+    if (controller.signal.aborted) throw new Error("summer request timed out");
+    throw error;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+const READONLY_LAYERS = new Set(["sea", "sunny", "sunny_file"]);
 
 function normalizeLayer(value: unknown): string {
   return String(value || "").trim().toLowerCase();
 }
 
 function readonlyLayerResponse(layer: string) {
-  const label = layer === "mangzhong" ? "芒种" : "sea";
+  const label = layer.startsWith("sunny") ? "sea" : layer;
   return Response.json({ ok: false, error: `${label} 是只读层，不能写入或修改` }, { status: 403 });
 }
 
@@ -110,10 +136,10 @@ export async function GET(request: Request) {
   const limit = url.searchParams.get("limit") || "";
   const limitPart = limit ? `&limit=${encodeURIComponent(limit)}` : "";
   if (ref && ref.trim()) {
-    return readSummerJson(`/api/read_by_ref?ref=${encodeURIComponent(ref.trim())}${limitPart}`);
+    return readSummerJson(`/api/read?ref=${encodeURIComponent(ref.trim())}${limitPart}`);
   }
   if (mode === "search_clean" && q && q.trim()) {
-    return readSummerJson(`/api/search_clean?q=${encodeURIComponent(q.trim())}${limitPart}`);
+    return readSummerJson(`/api/search?q=${encodeURIComponent(q.trim())}${limitPart}`);
   }
   if (q && q.trim()) {
     return readSummerJson(`/api/search?q=${encodeURIComponent(q.trim())}`);

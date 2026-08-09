@@ -95,7 +95,7 @@ type SummerCall = {
 type SummerWriteProposal = {
   id?: string;
   status?: string;
-  layer?: "xiazhi" | "xiaoshu" | "rain" | "ferry";
+  layer?: "mangzhong" | "xiazhi" | "xiaoshu" | "rain" | "ferry";
   title?: string;
   content?: string;
   weight?: number;
@@ -133,7 +133,7 @@ type SummerMemoryItem = {
   tags?: string[];
 };
 
-type SummerWritableLayer = "xiazhi" | "xiaoshu" | "rain" | "ferry";
+type SummerWritableLayer = "mangzhong" | "xiazhi" | "xiaoshu" | "rain" | "ferry";
 
 type SummerState = {
   layers?: Record<string, string>;
@@ -546,6 +546,23 @@ function apiFetch(input: RequestInfo | URL, init: RequestInit = {}) {
     ...init,
     headers: { ...(init.headers || {}), "x-iooi-token": getToken() },
   });
+}
+
+async function apiFetchWithTimeout(
+  input: RequestInfo | URL,
+  init: RequestInit = {},
+  timeoutMs = 15_000
+) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await apiFetch(input, { ...init, signal: controller.signal });
+  } catch (error) {
+    if (controller.signal.aborted) throw new Error("summer 请求超时，请重试");
+    throw error;
+  } finally {
+    clearTimeout(timeout);
+  }
 }
 
 // Server sync with debounce
@@ -1955,6 +1972,7 @@ function ChatView({
     const headerParts = lines[0].split("·").map((part) => part.trim());
     const layerText = headerParts.find((part) => part.includes("提议写入")) || "";
     const layer =
+      layerText.includes("芒种") ? "mangzhong" :
       layerText.includes("夏至") ? "xiazhi" :
       layerText.includes("rain") ? "rain" :
       layerText.includes("渡口") || layerText.includes("ferry") ? "ferry" :
@@ -1971,7 +1989,7 @@ function ChatView({
   }
 
   function proposalCardContent(proposal: SummerWriteProposal, status: "提议写入" | "已加入" = "提议写入") {
-    const layerName: Record<string, string> = { xiazhi: "夏至", xiaoshu: "小暑", rain: "rain", ferry: "渡口" };
+    const layerName: Record<string, string> = { mangzhong: "芒种", xiazhi: "夏至", xiaoshu: "小暑", rain: "rain", ferry: "渡口" };
     const layer = proposal.layer || "xiaoshu";
     const title = proposal.title || "未命名";
     const meta = [
@@ -2475,6 +2493,7 @@ function ChatView({
                         <div className="summer-proposal-editor">
                           <div className="summer-proposal-editor-row">
                             <select value={proposalDraft.layer || "xiaoshu"} onChange={(e) => setProposalDraft({ ...proposalDraft, layer: e.target.value as SummerWriteProposal["layer"] })}>
+                              <option value="mangzhong">芒种</option>
                               <option value="xiaoshu">小暑</option>
                               <option value="xiazhi">夏至</option>
                               <option value="rain">rain</option>
@@ -2690,11 +2709,11 @@ function splitMangzhongDocs(content: string) {
   let currentLines: string[] = [];
 
   for (const line of lines) {
-    if (line.startsWith("## ")) {
+    if (/^#{1,2}\s+/.test(line)) {
       if (currentTitle) {
         docs.push({ title: currentTitle, content: currentLines.join("\n").trim() });
       }
-      currentTitle = line.replace(/^##\s+/, "").trim();
+      currentTitle = line.replace(/^#{1,2}\s+/, "").trim();
       currentLines = [];
     } else if (currentTitle) {
       currentLines.push(line);
@@ -2723,11 +2742,13 @@ function SummerMemoryView() {
   const [editingDoc, setEditingDoc] = useState("");
   const [editingItem, setEditingItem] = useState<SummerMemoryItem | null>(null);
 
-  const loadSummer = useCallback(async () => {
-    setLoading(true);
-    setError("");
+  const loadSummer = useCallback(async (quiet = false) => {
+    if (!quiet) {
+      setLoading(true);
+      setError("");
+    }
     try {
-      const res = await apiFetch("/api/summer", { cache: "no-store" });
+      const res = await apiFetchWithTimeout("/api/summer", { cache: "no-store" });
       const json = await res.json();
       if (!res.ok || !json.ok) throw new Error(json.error || "summer 读取失败");
       setState(json.data || {});
@@ -2737,12 +2758,24 @@ function SummerMemoryView() {
     } catch (err) {
       setError(err instanceof Error ? err.message : "summer 读取失败");
     } finally {
-      setLoading(false);
+      if (!quiet) setLoading(false);
     }
   }, [activeLayer]);
 
   useEffect(() => {
     loadSummer();
+  }, [loadSummer]);
+
+  useEffect(() => {
+    const refreshVisibleSummer = () => {
+      if (document.visibilityState === "visible") void loadSummer(true);
+    };
+    window.addEventListener("focus", refreshVisibleSummer);
+    document.addEventListener("visibilitychange", refreshVisibleSummer);
+    return () => {
+      window.removeEventListener("focus", refreshVisibleSummer);
+      document.removeEventListener("visibilitychange", refreshVisibleSummer);
+    };
   }, [loadSummer]);
 
   async function runSearch() {
@@ -2754,10 +2787,14 @@ function SummerMemoryView() {
     setSearching(true);
     setError("");
     try {
-      const res = await apiFetch(`/api/summer?q=${encodeURIComponent(q)}`, { cache: "no-store" });
+      const res = await apiFetchWithTimeout(`/api/summer?q=${encodeURIComponent(q)}`, { cache: "no-store" });
       const json = await res.json();
       if (!res.ok || !json.ok) throw new Error(json.error || "summer 检索失败");
-      setHits(json.data?.hits || []);
+      setHits((json.data?.results || json.data?.hits || []).map((hit: { layer?: string; source?: string; score?: number; title?: string; content?: string; text?: string }) => ({
+        source: hit.layer || hit.source,
+        score: hit.score,
+        text: hit.text || [hit.title, hit.content].filter(Boolean).join("\n"),
+      })));
     } catch (err) {
       setError(err instanceof Error ? err.message : "summer 检索失败");
     } finally {
@@ -2770,7 +2807,7 @@ function SummerMemoryView() {
     setSaving(true);
     setError("");
     try {
-      const res = await apiFetch("/api/summer", {
+      const res = await apiFetchWithTimeout("/api/summer", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -2786,7 +2823,7 @@ function SummerMemoryView() {
       setWriteTitle("");
       setWriteContent("");
       setWriterOpen(false);
-      await loadSummer();
+      void loadSummer(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : "summer 写入失败");
     } finally {
@@ -2808,7 +2845,7 @@ function SummerMemoryView() {
       setSaving(true);
       setError("");
       try {
-        const res = await apiFetch("/api/summer", {
+        const res = await apiFetchWithTimeout("/api/summer", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -2821,7 +2858,7 @@ function SummerMemoryView() {
         });
         const json = await res.json();
         if (!res.ok || !json.ok) throw new Error(json.error || "sea 上传失败");
-        await loadSummer();
+        void loadSummer(true);
       } catch (err) {
         setError(err instanceof Error ? err.message : "sea 上传失败");
       } finally {
@@ -2832,21 +2869,25 @@ function SummerMemoryView() {
   }
 
   async function saveLayerDoc(layer: string) {
-    if (["mangzhong", "sea"].includes(layer)) {
+    if (layer === "sea") {
       setError(`${layerLabel(layer)} 是只读层`);
       return;
     }
     setSaving(true);
     setError("");
     try {
-      const res = await apiFetch("/api/summer", {
+      const res = await apiFetchWithTimeout("/api/summer", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "layer", layer, content: editingDoc }),
       });
       const json = await res.json();
       if (!res.ok || !json.ok) throw new Error(json.error || "summer 保存失败");
-      await loadSummer();
+      setState((current) => current ? {
+        ...current,
+        layers: { ...(current.layers || {}), [layer]: editingDoc },
+      } : current);
+      void loadSummer(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : "summer 保存失败");
     } finally {
@@ -2856,14 +2897,14 @@ function SummerMemoryView() {
 
   async function saveItem(layer: string, item: SummerMemoryItem) {
     if (!item.id) return;
-    if (["mangzhong", "sea"].includes(layer)) {
+    if (layer === "sea") {
       setError(`${layerLabel(layer)} 是只读层`);
       return;
     }
     setSaving(true);
     setError("");
     try {
-      const res = await apiFetch("/api/summer", {
+      const res = await apiFetchWithTimeout("/api/summer", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -2883,7 +2924,7 @@ function SummerMemoryView() {
       const json = await res.json();
       if (!res.ok || !json.ok) throw new Error(json.error || "summer 保存失败");
       setEditingItem(null);
-      await loadSummer();
+      void loadSummer(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : "summer 保存失败");
     } finally {
@@ -2893,21 +2934,21 @@ function SummerMemoryView() {
 
   async function deleteItem(layer: string, item: SummerMemoryItem) {
     if (!item.id || !confirm("确定删除这条吗？")) return;
-    if (["mangzhong", "sea"].includes(layer)) {
+    if (layer === "sea") {
       setError(`${layerLabel(layer)} 是只读层`);
       return;
     }
     setSaving(true);
     setError("");
     try {
-      const res = await apiFetch("/api/summer", {
+      const res = await apiFetchWithTimeout("/api/summer", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "item", layer, id: item.id, actionType: "delete" }),
       });
       const json = await res.json();
       if (!res.ok || !json.ok) throw new Error(json.error || "summer 删除失败");
-      await loadSummer();
+      void loadSummer(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : "summer 删除失败");
     } finally {
@@ -2963,7 +3004,7 @@ function SummerMemoryView() {
         </div>
         <div className="summer-toolbar-actions">
           {activeLayer && <button onClick={() => { setActiveLayer(null); setEditingItem(null); }}>返回</button>}
-          <button onClick={loadSummer} disabled={loading}>刷新</button>
+          <button onClick={() => loadSummer()} disabled={loading}>刷新</button>
           {!activeLayer && <button className="summer-primary-btn" onClick={() => setWriterOpen((v) => !v)}>{writerOpen ? "收起" : "写入"}</button>}
           {activeLayer === "sea" && <button className="summer-primary-btn" onClick={uploadSeaFile} disabled={saving}>{saving ? "上传中" : "上传原文件"}</button>}
         </div>
@@ -2987,6 +3028,7 @@ function SummerMemoryView() {
             <label>
               层
               <select value={writeLayer} onChange={(e) => setWriteLayer(e.target.value as SummerWritableLayer)}>
+                <option value="mangzhong">mangzhong</option>
                 <option value="xiaoshu">xiaoshu</option>
                 <option value="xiazhi">xiazhi</option>
                 <option value="rain">rain</option>
@@ -3051,12 +3093,24 @@ function SummerMemoryView() {
         <section className="summer-section">
           {activeLayer === "mangzhong" ? (
             <div className="summer-doc-stack">
-              {splitMangzhongDocs(editingDoc || layers.mangzhong || "").map((doc) => (
-                <details className="summer-doc" key={doc.title}>
+              {splitMangzhongDocs(editingDoc || layers.mangzhong || "").map((doc, index) => (
+                <details className="summer-doc" key={`${doc.title}-${index}`}>
                   <summary>{doc.title}</summary>
                   <pre>{doc.content}</pre>
                 </details>
               ))}
+              <details className="summer-doc summer-editor-details">
+                <summary>编辑芒种全文</summary>
+                <div className="summer-doc-editor">
+                  <textarea value={editingDoc} onChange={(e) => setEditingDoc(e.target.value)} rows={20} />
+                  <div className="summer-writer-actions">
+                    <button onClick={() => setEditingDoc(layers.mangzhong || "")}>还原</button>
+                    <button className="summer-primary-btn" onClick={() => saveLayerDoc("mangzhong")} disabled={saving || !editingDoc.trim()}>
+                      {saving ? "保存中" : "保存"}
+                    </button>
+                  </div>
+                </div>
+              </details>
             </div>
           ) : ["lixia", "xiaoman"].includes(activeLayer) ? (
             <details className="summer-doc summer-editor-details" open={activeLayer !== "mangzhong"}>

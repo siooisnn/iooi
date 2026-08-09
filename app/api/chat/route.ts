@@ -50,6 +50,8 @@ function parseMcpPayload(raw: string): unknown {
 
 async function callSummerTool(name: string, args: Record<string, unknown>): Promise<string> {
   const token = process.env.SUMMER_TOKEN || "";
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 10_000);
   const res = await fetch(`${summerBaseUrl()}/mcp`, {
     method: "POST",
     headers: {
@@ -63,7 +65,8 @@ async function callSummerTool(name: string, args: Record<string, unknown>): Prom
       method: "tools/call",
       params: { name, arguments: args },
     }),
-  });
+    signal: controller.signal,
+  }).finally(() => clearTimeout(timeout));
   const data = parseMcpPayload(await res.text()) as { error?: { message?: string } };
   if (!res.ok || data.error) {
     throw new Error(data.error?.message || `summer ${name} failed`);
@@ -123,14 +126,30 @@ type SummerStructuredResult = {
   items?: SummerStructuredHit[];
 };
 
+type SummerReadResult = {
+  ref?: string;
+  cleaned?: { query?: string; label?: string; kind?: string };
+  results?: Array<{
+    layer?: string;
+    type?: string;
+    content?: string;
+    items?: SummerStructuredHit[];
+    count?: number;
+  }>;
+  count?: number;
+};
+
 async function readSummerState(): Promise<SummerState> {
   const token = process.env.SUMMER_TOKEN || "";
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 10_000);
   const res = await fetch(`${summerBaseUrl()}/api/state`, {
     headers: {
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
     cache: "no-store",
-  });
+    signal: controller.signal,
+  }).finally(() => clearTimeout(timeout));
   const data = await res.json();
   if (!res.ok) {
     throw new Error(data?.error || `summer state failed: ${res.status}`);
@@ -174,12 +193,30 @@ function renderStructuredSearch(result: SummerStructuredResult): string {
   ].join("\n\n");
 }
 
+function structuredFromRead(result: SummerReadResult): SummerStructuredResult {
+  const hits = (result.results || []).flatMap((entry) => {
+    if (entry.items?.length) {
+      return entry.items.map((item) => ({ ...item, layer: item.layer || entry.layer }));
+    }
+    if (entry.content?.trim()) {
+      return [{ layer: entry.layer, title: entry.layer, content: entry.content }];
+    }
+    return [];
+  });
+  return {
+    query: result.ref,
+    cleaned: result.cleaned,
+    results: hits,
+    count: hits.length,
+  };
+}
+
 function buildSummerStable(state: SummerState): string {
   const layers = state.layers || {};
   return [
     "## summer stable",
     "",
-    "Memory writes from chat are proposal-only. If something should be remembered, append a hidden proposal tag after your normal reply: [summer_remember layer=xiazhi title=\"short title\" weight=5 tags=\"optional\"]content[/summer_remember]. Use xiazhi for important lasting memories, xiaoshu for daily fragments, rain for unresolved future items, ferry for transition/渡口/threshold memories. Do not propose writes to mangzhong/芒种 or sea; they are read-only. The system will show it to her for confirmation and will not write it silently.",
+    "Memory writes from chat are proposal-only. If something should be remembered, append a hidden proposal tag after your normal reply: [summer_remember layer=xiazhi title=\"short title\" weight=5 tags=\"optional\"]content[/summer_remember]. Use mangzhong for titled chapters of the shared history, xiazhi for important lasting memories, xiaoshu for daily fragments, rain for unresolved future items, ferry for transition/渡口/threshold memories. Only sea is read-only. The system will show it to her for confirmation and will not write it silently.",
     "If she explicitly asks to write something into summer or ferry, do not refuse by saying you cannot write summer. Respond naturally, then add the hidden proposal tag with the requested layer. It is still only a proposal until she confirms it.",
     "Do not print visible diary sections like '小k日记 | date' in chat. Put diary-style memory only inside the hidden proposal tag.",
     "",
@@ -349,7 +386,7 @@ function buildExactXiaoshuSearch(state: SummerState, query: string): string {
 type SummerWrite = {
   id?: string;
   status?: string;
-  layer: "xiazhi" | "xiaoshu" | "rain" | "ferry";
+  layer: "mangzhong" | "xiazhi" | "xiaoshu" | "rain" | "ferry";
   title: string;
   content: string;
   weight: number;
@@ -384,7 +421,7 @@ function parseSummerWrites(text: string): SummerWrite[] {
   while ((match = SUMMER_WRITE_RE.exec(text)) !== null) {
     const attrs = parseAttrs(match[1] || "");
     const layer = String(attrs.layer || "xiaoshu").toLowerCase();
-    if (!["xiazhi", "xiaoshu", "rain", "ferry"].includes(layer)) continue;
+    if (!["mangzhong", "xiazhi", "xiaoshu", "rain", "ferry"].includes(layer)) continue;
     const content = String(match[2] || "").trim();
     if (!content) continue;
     const weight = Math.max(1, Math.min(10, Number(attrs.weight || 5) || 5));
@@ -431,33 +468,11 @@ function collectSummerWriteProposals(reply: string): SummerWrite[] {
 }
 
 async function createSummerProposals(proposals: SummerWrite[]): Promise<SummerWrite[]> {
-  if (!proposals.length) return [];
-  const created: SummerWrite[] = [];
-  for (const proposal of proposals) {
-    try {
-      const raw = await callSummerTool("propose_memory", {
-        layer: proposal.layer || "xiaoshu",
-        title: proposal.title || "",
-        content: proposal.content,
-        weight: proposal.weight ?? 5,
-        due: proposal.due || "",
-        tags: proposal.tags || [],
-        source: "iooi-chat-proposal",
-      });
-      const saved = parseSummerJson<{ id?: string; status?: string }>(raw);
-      created.push({
-        ...proposal,
-        id: saved.id || proposal.id,
-        status: saved.status || "pending",
-      });
-    } catch {
-      created.push({
-        ...proposal,
-        status: "local",
-      });
-    }
-  }
-  return created;
+  return proposals.map((proposal, index) => ({
+    ...proposal,
+    id: proposal.id || `iooi-proposal-${Date.now()}-${index}`,
+    status: "pending",
+  }));
 }
 
 function latestUserText(messages: Array<{ role: string; content?: string }>): string {
@@ -517,7 +532,7 @@ function summerCallContent(call: SummerCall): string {
 }
 
 function summerWriteProposalContent(proposal: SummerWrite): string {
-  const layerName: Record<string, string> = { xiazhi: "夏至", xiaoshu: "小暑", rain: "rain", ferry: "ferry" };
+  const layerName: Record<string, string> = { mangzhong: "芒种", xiazhi: "夏至", xiaoshu: "小暑", rain: "rain", ferry: "ferry" };
   const meta = [
     `summer · 提议写入${layerName[proposal.layer] || proposal.layer}`,
     proposal.title || "未命名",
@@ -682,11 +697,13 @@ export async function POST(request: Request) {
     const queryDates = extractQueryDates(query);
     if (queryDates.length) {
       try {
-        const raw = await callSummerTool("read_xiaoshu_by_date", { query });
-        const result = parseSummerJson<SummerDateResult>(raw);
+        const raw = await callSummerTool("read", { layers: ["xiaoshu"], date: queryDates[0], limit: 50 });
+        const readResult = parseSummerJson<SummerReadResult>(raw);
+        const items = (readResult.results || []).flatMap((entry) => entry.items || []);
+        const result: SummerDateResult = { dates: queryDates, items, count: items.length };
         summerExactDate = renderSummerDateResult(result);
         summerCalls.push({
-          tool: "read_xiaoshu_by_date",
+          tool: "read",
           label: `查小暑 ${((result.dates || queryDates).join("、"))}`,
           status: (result.count || 0) > 0 ? "hit" : "miss",
           count: result.count || 0,
@@ -694,7 +711,7 @@ export async function POST(request: Request) {
       } catch {
         summerExactDate = buildExactXiaoshuSearch(summerState, query);
         summerCalls.push({
-          tool: "read_xiaoshu_by_date",
+          tool: "read",
           label: `查小暑 ${queryDates.join("、")}`,
           status: summerExactDate ? "fallback" : "miss",
           detail: "fallback",
@@ -705,9 +722,11 @@ export async function POST(request: Request) {
     if (shouldSearchSummer(query) && !isSummerWriteOnlyIntent(query)) {
       if (!summerExactDate || summerExactDate.includes("没有找到")) {
         try {
-          const toolName = shouldReadSummerRef(query) ? "read_by_ref" : "search_clean";
-          const raw = await callSummerTool(toolName, toolName === "read_by_ref" ? { ref: query, limit: 8 } : { query, limit: 5 });
-          const result = parseSummerJson<SummerStructuredResult>(raw);
+          const toolName = shouldReadSummerRef(query) ? "read" : "search";
+          const raw = await callSummerTool(toolName, toolName === "read" ? { ref: query, limit: 8 } : { query, limit: 5 });
+          const result = toolName === "read"
+            ? structuredFromRead(parseSummerJson<SummerReadResult>(raw))
+            : parseSummerJson<SummerStructuredResult>(raw);
           summerSearch = renderStructuredSearch(result);
           const label = result.cleaned?.label || result.query || query.slice(0, 32);
           const count = (result.results || result.items || []).length;
