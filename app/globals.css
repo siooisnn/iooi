@@ -1475,6 +1475,47 @@ body {
   gap: 10px;
 }
 
+.summer-rain-groups {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.summer-rain-group {
+  border: 1px solid var(--border-soft);
+  border-radius: 16px;
+  background: rgba(255, 253, 250, 0.78);
+  overflow: hidden;
+}
+
+.summer-rain-group > summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 13px 15px;
+  cursor: pointer;
+  list-style: none;
+  color: var(--accent);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.summer-rain-group > summary::-webkit-details-marker {
+  display: none;
+}
+
+.summer-rain-group > summary span:last-child {
+  color: var(--text-light);
+  font-size: 12px;
+  font-weight: 400;
+}
+
+.summer-rain-group-body {
+  border-top: 1px solid var(--border-soft);
+  padding: 10px;
+}
+
 .summer-memory-card {
   background: linear-gradient(160deg, #fff, #faf5f0);
   border: 1px solid var(--border-soft);

@@ -2960,6 +2960,8 @@ function SummerMemoryView() {
   const xiazhi = state?.xiazhi || [];
   const xiaoshu = (state?.xiaoshu_tail || []).slice().reverse();
   const rain = state?.rain || [];
+  const openRain = rain.filter((item) => item.status !== "closed");
+  const closedRain = rain.filter((item) => item.status === "closed");
   const ferry = state?.ferry || [];
   const seaFiles = state?.sea_files || state?.sunny_files || state?.sunny?.days || [];
   const layerOrder = ["lixia", "xiaoman", "mangzhong", "xiazhi", "xiaoshu", "rain", "ferry", "sea"];
@@ -2977,7 +2979,7 @@ function SummerMemoryView() {
     mangzhong: `${mangzhongDocs.length || (layers.mangzhong?.trim() ? 1 : 0)} 篇`,
     xiazhi: `${xiazhi.length} 条`,
     xiaoshu: `${xiaoshu.length} 天`,
-    rain: `${rain.length} 件`,
+    rain: `${openRain.length} 未了结 · ${closedRain.length} 已了结`,
     ferry: `${ferry.length} 条`,
     sea: `${seaFiles.length} 份`,
   };
@@ -3125,6 +3127,16 @@ function SummerMemoryView() {
                 </div>
               </div>
             </details>
+          ) : activeLayer === "rain" ? (
+            <SummerRainGroups
+              openItems={openRain}
+              closedItems={closedRain}
+              editingItem={editingItem}
+              setEditingItem={setEditingItem}
+              onSave={saveItem}
+              onDelete={deleteItem}
+              saving={saving}
+            />
           ) : (
             <SummerEditableList
               layer={activeLayer}
@@ -3180,7 +3192,7 @@ function SummerEditableList({
   if (!items.length) {
     return <div className="summer-empty">{empty}</div>;
   }
-  const showFileContent = layer === "sea" || layer === "sunny_file";
+  const showFileContent = layer === "sea" || layer === "sunny_file" || layer === "xiaoshu";
   return (
     <div className="summer-card-list">
       {items.map((item, index) => (
@@ -3230,7 +3242,7 @@ function SummerEditableList({
               {item.title && <h4>{item.title}</h4>}
               {showFileContent ? (
                 <details className="summer-card-content">
-                  <summary>展开内容</summary>
+                  <summary>{layer === "xiaoshu" ? "展开正文" : "展开内容"}</summary>
                   <p>{item.content || ""}</p>
                 </details>
               ) : (
@@ -3262,6 +3274,63 @@ function SummerEditableList({
             </>
           )}
         </article>
+      ))}
+    </div>
+  );
+}
+
+function SummerRainGroups({
+  openItems,
+  closedItems,
+  editingItem,
+  setEditingItem,
+  onSave,
+  onDelete,
+  saving,
+}: {
+  openItems: SummerMemoryItem[];
+  closedItems: SummerMemoryItem[];
+  editingItem: SummerMemoryItem | null;
+  setEditingItem: React.Dispatch<React.SetStateAction<SummerMemoryItem | null>>;
+  onSave: (layer: string, item: SummerMemoryItem) => void;
+  onDelete: (layer: string, item: SummerMemoryItem) => void;
+  saving: boolean;
+}) {
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({ open: true, closed: false });
+  const groups = [
+    { key: "open", label: "未了结", items: openItems, empty: "没有未了结的 rain", initiallyOpen: true },
+    { key: "closed", label: "已了结", items: closedItems, empty: "还没有已了结的 rain", initiallyOpen: false },
+  ];
+
+  return (
+    <div className="summer-rain-groups">
+      {groups.map((group) => (
+        <details
+          className="summer-rain-group"
+          key={group.key}
+          open={expanded[group.key] ?? group.initiallyOpen}
+          onToggle={(event) => {
+            const isOpen = event.currentTarget.open;
+            setExpanded((current) => current[group.key] === isOpen ? current : { ...current, [group.key]: isOpen });
+          }}
+        >
+          <summary>
+            <span>{group.label}</span>
+            <span>{group.items.length} 条</span>
+          </summary>
+          <div className="summer-rain-group-body">
+            <SummerEditableList
+              layer="rain"
+              items={group.items}
+              empty={group.empty}
+              editingItem={editingItem}
+              setEditingItem={setEditingItem}
+              onSave={onSave}
+              onDelete={onDelete}
+              saving={saving}
+            />
+          </div>
+        </details>
       ))}
     </div>
   );
