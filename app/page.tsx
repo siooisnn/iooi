@@ -84,6 +84,18 @@ type CacheStats = {
   time?: string;
 };
 
+type ReplyRequestState = "idle" | "preparing" | "waiting" | "slow" | "very-slow" | "paused" | "failed";
+
+const REPLY_REQUEST_LABELS: Record<ReplyRequestState, string> = {
+  idle: "",
+  preparing: "正在整理这轮消息…",
+  waiting: "正在连接并等待回复…",
+  slow: "回复有点慢，仍在等待…",
+  "very-slow": "等得有点久，网络可能不稳定，可以点右侧暂停",
+  paused: "已暂停等待；如果请求已经送达，回复稍后仍可能回来",
+  failed: "这次没有连上服务器，消息已经保留",
+};
+
 type SummerCall = {
   tool?: string;
   label?: string;
@@ -1868,6 +1880,7 @@ function ChatView({
 }) {
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
+  const [replyRequestState, setReplyRequestState] = useState<ReplyRequestState>("idle");
   const [showSessions, setShowSessions] = useState(false);
   const [showModelMenu, setShowModelMenu] = useState(false);
   const [editingName, setEditingName] = useState<string | null>(null);
@@ -1876,6 +1889,10 @@ function ChatView({
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const sessionMessagesRef = useRef<Message[]>(session.messages);
   const sendingRef = useRef(false);
+  const replyRequestIdRef = useRef(0);
+  const pausedReplyRequestIdRef = useRef<number | null>(null);
+  const activeReplyRequestRef = useRef<{ id: number; controller: AbortController } | null>(null);
+  const replyStatusTimersRef = useRef<Array<ReturnType<typeof setTimeout>>>([]);
   const [initialMessageCount] = useState(() => session.messages.length);
 
   // ── 巧思:长按贴贴 / 随机输入提示 / 扣6彩蛋 ──
@@ -1916,6 +1933,31 @@ function ChatView({
   }
 
   const currentModel = MODELS.find((m) => m.id === settings.model) || MODELS[0];
+
+  function clearReplyStatusTimers() {
+    for (const timer of replyStatusTimersRef.current) clearTimeout(timer);
+    replyStatusTimersRef.current = [];
+  }
+
+  function pauseReply() {
+    const active = activeReplyRequestRef.current;
+    if (!active) return;
+    pausedReplyRequestIdRef.current = active.id;
+    clearReplyStatusTimers();
+    setReplyRequestState("paused");
+    active.controller.abort();
+  }
+
+  useEffect(() => {
+    return () => {
+      clearReplyStatusTimers();
+      const active = activeReplyRequestRef.current;
+      if (active) {
+        pausedReplyRequestIdRef.current = active.id;
+        active.controller.abort();
+      }
+    };
+  }, []);
 
   useEffect(() => {
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
@@ -2118,7 +2160,7 @@ function ChatView({
     }));
   }
 
-  async function ensureSessionCache(allMessages: Message[]) {
+  async function ensureSessionCache(allMessages: Message[], signal?: AbortSignal) {
     const cutoff = Math.max(0, allMessages.length - SESSION_CACHE_KEEP_MESSAGES);
     const summarizedUntil = session.summarizedUntil || 0;
     if (cutoff <= 0 || cutoff - summarizedUntil < SESSION_CACHE_MIN_NEW_MESSAGES) {
@@ -2144,6 +2186,7 @@ function ChatView({
           userName: settings.userName,
           modelId: currentModel.apiId,
         }),
+        signal,
       });
       const data = await res.json();
       if (data.ok && data.summary) {
@@ -2172,6 +2215,12 @@ function ChatView({
       return;
     }
 
+    const requestId = ++replyRequestIdRef.current;
+    const controller = new AbortController();
+    activeReplyRequestRef.current = { id: requestId, controller };
+    pausedReplyRequestIdRef.current = null;
+    clearReplyStatusTimers();
+    setReplyRequestState("preparing");
     setLoading(true);
 
     // 彩蛋:扣
@@ -2187,7 +2236,8 @@ function ChatView({
     }
 
     try {
-      const sessionCache = await ensureSessionCache(messagesWithUser);
+      const sessionCache = await ensureSessionCache(messagesWithUser, controller.signal);
+      if (controller.signal.aborted) return;
       // 上下文组装：气泡合并 + 按轮数截取。
       type CtxMsg = { role: "user" | "assistant"; content: string; image?: string; file?: string };
       const allMsgs: CtxMsg[] = [
@@ -2249,6 +2299,19 @@ function ChatView({
         memory_count: 0,
       };
 
+      setReplyRequestState("waiting");
+      replyStatusTimersRef.current = [
+        setTimeout(() => {
+          if (activeReplyRequestRef.current?.id === requestId && !controller.signal.aborted) {
+            setReplyRequestState("slow");
+          }
+        }, 25_000),
+        setTimeout(() => {
+          if (activeReplyRequestRef.current?.id === requestId && !controller.signal.aborted) {
+            setReplyRequestState("very-slow");
+          }
+        }, 60_000),
+      ];
       const res = await apiFetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -2262,6 +2325,7 @@ function ChatView({
           sessionId: session.id,
           userMsg,
         }),
+        signal: controller.signal,
       });
       const data = await res.json();
       if (data.cache) {
@@ -2328,14 +2392,32 @@ function ChatView({
       const finalMessages = [...messagesWithUser, ...summerCallMsgs, ...newMsgs, ...summerWriteMsgs];
       sessionMessagesRef.current = mergeChatMessages(sessionMessagesRef.current, finalMessages);
       updateMessages((msgs) => mergeChatMessages(msgs, finalMessages));
+      setReplyRequestState("idle");
 
       // Long-term memory now belongs to summer. iooi no longer auto-extracts
       // memoryEntries or writes rolling summaries after a reply.
-    } catch {
-      updateMessages((msgs) => [...msgs, { role: "assistant", content: "连接失败了，再试一次？", time: getTime(), date: getTodayStr() }]);
+    } catch (error) {
+      const wasPaused = controller.signal.aborted && pausedReplyRequestIdRef.current === requestId;
+      if (wasPaused) {
+        setReplyRequestState("paused");
+      } else {
+        setReplyRequestState("failed");
+        const failureText = typeof navigator !== "undefined" && !navigator.onLine
+          ? "现在网络断开了。刚才的消息已经保留，网络恢复后再发一次就好。"
+          : error instanceof SyntaxError
+            ? "服务器返回的内容不完整。刚才的消息已经保留，可以再试一次。"
+            : "这次没有连上服务器。刚才的消息已经保留，可以再试一次。";
+        updateMessages((msgs) => [...msgs, { role: "assistant", content: failureText, time: getTime(), date: getTodayStr() }]);
+      }
     } finally {
-      sendingRef.current = false;
-      setLoading(false);
+      clearReplyStatusTimers();
+      if (activeReplyRequestRef.current?.id === requestId) {
+        activeReplyRequestRef.current = null;
+      }
+      if (replyRequestIdRef.current === requestId) {
+        sendingRef.current = false;
+        setLoading(false);
+      }
     }
   }
 
@@ -2553,15 +2635,16 @@ function ChatView({
             </div>
           );
         })}
-        {loading && (
+        {(loading || replyRequestState === "paused") && (
           <div className="msg-row msg-row-ai">
             {settings.aiAvatar
               ? <img src={settings.aiAvatar} className="avatar avatar-img" alt="" />
               : <div className="avatar avatar-ai" />
             }
             <div className="msg-content-ai">
-              <div className="msg-bubble msg-bubble-ai">
-                <div className="typing-dots"><span /><span /><span /></div>
+              <div className={`msg-bubble msg-bubble-ai reply-status-bubble reply-status-${replyRequestState}`} aria-live="polite">
+                {loading && <div className="typing-dots"><span /><span /><span /></div>}
+                <span className="reply-status-text">{REPLY_REQUEST_LABELS[replyRequestState]}</span>
               </div>
             </div>
           </div>
@@ -2590,10 +2673,24 @@ function ChatView({
             onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); } }}
             placeholder={inputHint} rows={1} className="chat-input"
           />
-          <button onClick={sendMessage} disabled={loading || !input.trim()} className="send-btn" style={{ background: loading ? "#d5ccc8" : "#c4866c" }}>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <line x1="12" y1="19" x2="12" y2="5" /><polyline points="5 12 12 5 19 12" />
-            </svg>
+          <button
+            type="button"
+            onClick={loading ? pauseReply : sendMessage}
+            disabled={!loading && !input.trim()}
+            className={`send-btn${loading ? " pause-reply-btn" : ""}`}
+            aria-label={loading ? "暂停等待回复" : "发送消息"}
+            title={loading ? "暂停等待回复" : "发送"}
+          >
+            {loading ? (
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="white" aria-hidden="true">
+                <rect x="6" y="5" width="4" height="14" rx="1" />
+                <rect x="14" y="5" width="4" height="14" rx="1" />
+              </svg>
+            ) : (
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <line x1="12" y1="19" x2="12" y2="5" /><polyline points="5 12 12 5 19 12" />
+              </svg>
+            )}
           </button>
         </div>
       </footer>

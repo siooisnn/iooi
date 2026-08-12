@@ -838,6 +838,24 @@ body {
 .typing-dots span:nth-child(2) { animation-delay: 0.15s; }
 .typing-dots span:nth-child(3) { animation-delay: 0.3s; }
 
+.reply-status-bubble {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  max-width: min(78vw, 360px);
+}
+
+.reply-status-text {
+  color: var(--text-secondary);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.reply-status-paused {
+  border: 1px dashed rgba(196, 134, 108, 0.38);
+  background: rgba(255, 249, 245, 0.92);
+}
+
 @keyframes dotBounce {
   0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
   30% { transform: translateY(-5px); opacity: 1; }
@@ -900,6 +918,7 @@ body {
 .send-btn {
   width: 36px; height: 36px; border-radius: 50%; border: none;
   display: flex; align-items: center; justify-content: center;
+  background: #c4866c;
   cursor: pointer; flex-shrink: 0;
   transition: all 0.25s ease; opacity: 0.9;
   box-shadow: 0 2px 8px var(--accent-glow);
@@ -907,6 +926,17 @@ body {
 
 .send-btn:hover { opacity: 1; transform: scale(1.08); box-shadow: 0 3px 12px rgba(196, 134, 108, 0.3); }
 .send-btn:disabled { cursor: default; opacity: 0.4; transform: none; box-shadow: none; }
+
+.pause-reply-btn {
+  background: #aa9186;
+  opacity: 1;
+  box-shadow: 0 2px 8px rgba(110, 88, 78, 0.2);
+}
+
+.pause-reply-btn:hover {
+  background: #987d72;
+  box-shadow: 0 3px 12px rgba(110, 88, 78, 0.24);
+}
 
 /* Attach button */
 .attach-btn {
