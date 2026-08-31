@@ -1,3 +1,6 @@
+import { existsSync, readFileSync } from "fs";
+import { join } from "path";
+import * as iconv from "iconv-lite";
 import { withGptStore } from "@/app/lib/store";
 
 type StoreMessage = {
@@ -5,8 +8,19 @@ type StoreMessage = {
   content: string;
   time?: string;
   date?: string;
+  image?: string;
+  file?: string;
   source?: string;
   proposal?: SummerWrite;
+};
+
+type OpenRouterContentBlock =
+  | { type: "text"; text: string }
+  | { type: "image_url"; image_url: { url: string } };
+
+type OpenRouterMessage = {
+  role: string;
+  content: string | OpenRouterContentBlock[];
 };
 
 type SummerItem = {
@@ -41,6 +55,15 @@ type SummerWrite = {
 
 const SUMMER_WRITE_RE = /\[summer_remember([^\]]*)\]([\s\S]*?)\[\/summer_remember\]/gi;
 const REASONING_EFFORTS = new Set(["none", "low", "medium", "high", "xhigh", "max"]);
+const TEXT_EXTS = new Set(["txt", "md", "csv", "json", "js", "ts", "html", "css", "py", "java", "xml", "yml", "yaml", "log"]);
+const IMAGE_MIME_TYPES: Record<string, string> = {
+  jpg: "image/jpeg",
+  jpeg: "image/jpeg",
+  png: "image/png",
+  gif: "image/gif",
+  webp: "image/webp",
+};
+const OPENAI_CACHE_MIN_TOKENS = 1024;
 
 function cstTime() {
   return new Date().toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Shanghai" });
@@ -48,6 +71,49 @@ function cstTime() {
 
 function cstToday() {
   return new Date().toLocaleDateString("zh-CN", { timeZone: "Asia/Shanghai" });
+}
+
+function readTextFile(filepath: string): string {
+  const buffer = readFileSync(filepath);
+  if (buffer[0] === 0xFF && buffer[1] === 0xFE) return iconv.decode(buffer, "utf-16le");
+  if (buffer[0] === 0xFE && buffer[1] === 0xFF) return iconv.decode(buffer, "utf-16be");
+  const utf8 = buffer.toString("utf-8");
+  if (utf8.includes("\ufffd")) return iconv.decode(buffer, "gbk");
+  return utf8;
+}
+
+function prepareOpenRouterMessage(message: StoreMessage): OpenRouterMessage {
+  if (message.image) {
+    const filename = message.image.split("/").pop() || "";
+    const filepath = join(process.cwd(), "uploads", filename);
+    const ext = filename.split(".").pop()?.toLowerCase() || "";
+    const mediaType = IMAGE_MIME_TYPES[ext];
+    if (mediaType && existsSync(filepath)) {
+      const data = readFileSync(filepath).toString("base64");
+      return {
+        role: message.role,
+        content: [
+          { type: "text", text: message.content || "请查看这张图片。" },
+          { type: "image_url", image_url: { url: `data:${mediaType};base64,${data}` } },
+        ],
+      };
+    }
+  }
+
+  if (message.file) {
+    const filename = message.file.split("/").pop() || "";
+    const filepath = join(process.cwd(), "uploads", filename);
+    const ext = filename.split(".").pop()?.toLowerCase() || "";
+    if (existsSync(filepath)) {
+      if (TEXT_EXTS.has(ext)) {
+        const fileContent = readTextFile(filepath).slice(0, 10_000);
+        return { role: message.role, content: `${message.content}\n\n【文件内容】\n${fileContent}` };
+      }
+      return { role: message.role, content: `${message.content}（这是一个 ${ext || "未知格式"} 文件，暂时无法直接读取内容）` };
+    }
+  }
+
+  return { role: message.role, content: message.content };
 }
 
 function gptSummerBaseUrl() {
@@ -228,9 +294,31 @@ async function persistRound(
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const messages = (Array.isArray(body.messages) ? body.messages : [])
+    const rawMessages = (Array.isArray(body.messages) ? body.messages : []) as StoreMessage[];
+    const messages: OpenRouterMessage[] = rawMessages
       .filter((message: StoreMessage) => message?.role === "user" || message?.role === "assistant")
-      .map((message: StoreMessage) => ({ role: message.role, content: String(message.content || "") }));
+      .map((message: StoreMessage) => prepareOpenRouterMessage({
+        role: message.role,
+        content: String(message.content || ""),
+        ...(typeof message.image === "string" ? { image: message.image } : {}),
+        ...(typeof message.file === "string" ? { file: message.file } : {}),
+      }));
+    const dynamicPrompt = String(body.dynamicPrompt || "").trim();
+    if (dynamicPrompt) {
+      for (let i = messages.length - 1; i >= 0; i--) {
+        const message = messages[i];
+        if (message.role !== "user") continue;
+        const dynamicContext = `【后台动态上下文】\n${dynamicPrompt}\n【/后台动态上下文】\n\n【用户刚刚发来的消息】\n`;
+        if (typeof message.content === "string") {
+          message.content = `${dynamicContext}${message.content}`;
+        } else {
+          const textBlock = message.content.find((block) => block.type === "text");
+          if (textBlock?.type === "text") textBlock.text = `${dynamicContext}${textBlock.text}`;
+          else message.content.unshift({ type: "text", text: dynamicContext });
+        }
+        break;
+      }
+    }
     const userMessage = body.userMsg as StoreMessage | undefined;
     const summerState = await readGptSummerState().catch(() => null);
     const summerConfigured = Boolean(gptSummerBaseUrl());
@@ -240,7 +328,6 @@ export async function POST(request: Request) {
       summerConfigured
         ? "如果确实值得写入长期记忆，在正常回复末尾附加隐藏标签：[summer_remember layer=xiaoshu title=\"简短标题\" weight=5 tags=\"可选\"]内容[/summer_remember]。这只是待用户确认的提议，不会自动写入。"
         : "",
-      String(body.dynamicPrompt || "").trim(),
     ].filter(Boolean);
     const model = process.env.GPT_MODEL_ID || "openai/gpt-5.6-sol";
     const reasoningEffort = REASONING_EFFORTS.has(String(body.reasoningEffort || ""))
@@ -248,6 +335,7 @@ export async function POST(request: Request) {
       : "medium";
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 120_000);
+    const sessionId = typeof body.sessionId === "string" ? body.sessionId.slice(0, 256) : "";
     const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -264,6 +352,8 @@ export async function POST(request: Request) {
         ],
         max_tokens: 2048,
         reasoning_effort: reasoningEffort,
+        ...(sessionId ? { session_id: sessionId } : {}),
+        ...(body.webSearch ? { plugins: [{ id: "web" }] } : {}),
       }),
       signal: controller.signal,
     }).finally(() => clearTimeout(timeout));
@@ -280,6 +370,17 @@ export async function POST(request: Request) {
     const usage = data.usage || {};
     const promptTokens = usage.prompt_tokens || 0;
     const cacheRead = usage.prompt_tokens_details?.cached_tokens || 0;
+    const cacheWrite = usage.prompt_tokens_details?.cache_write_tokens || 0;
+    const cacheStatus = cacheRead > 0 ? "hit" : cacheWrite > 0 ? "write" : promptTokens > 0 ? "miss" : "unknown";
+    const cacheReason = cacheStatus === "hit"
+      ? "前面的稳定上下文被复用了"
+      : cacheStatus === "write"
+        ? "这轮写入了可复用前缀，下一轮更可能命中"
+        : promptTokens > 0 && promptTokens < OPENAI_CACHE_MIN_TOKENS
+          ? `本轮输入 ${promptTokens} token，尚未达到 ${OPENAI_CACHE_MIN_TOKENS} token 的缓存门槛`
+          : promptTokens >= OPENAI_CACHE_MIN_TOKENS
+            ? "已达到缓存门槛，但这轮没有读到相同前缀；连续在本窗口聊天后更可能命中"
+            : "接口没有返回可判断的缓存用量";
     return Response.json({
       reply,
       cache: {
@@ -287,9 +388,9 @@ export async function POST(request: Request) {
         prompt_tokens: promptTokens,
         total_input_tokens: promptTokens,
         cache_read: cacheRead,
-        cache_write: 0,
-        status: cacheRead > 0 ? "hit" : promptTokens > 0 ? "miss" : "unknown",
-        reason: summerConfigured ? "GPT 使用独立 summer" : "GPT summer 尚未配置；本轮仅使用独立会话",
+        cache_write: cacheWrite,
+        status: cacheStatus,
+        reason: cacheReason,
         reasoning_effort: reasoningEffort,
         summer_used: Boolean(summerState),
         summer_configured: summerConfigured,

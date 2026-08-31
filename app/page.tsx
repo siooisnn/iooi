@@ -74,6 +74,7 @@ type CacheStats = {
 type ReplyRequestState = "idle" | "preparing" | "waiting" | "slow" | "very-slow" | "paused" | "failed";
 type AssistantMode = "claude" | "gpt";
 type GptReasoningEffort = "none" | "low" | "medium" | "high" | "xhigh" | "max";
+type ClaudeReasoningEffort = "low" | "medium" | "high" | "max";
 
 const REPLY_REQUEST_LABELS: Record<ReplyRequestState, string> = {
   idle: "",
@@ -158,6 +159,8 @@ type Settings = {
   gptAvatar: string;
   userAvatar: string;
   gptReasoningEffort: GptReasoningEffort;
+  claudeReasoningEffort: ClaudeReasoningEffort;
+  gptWebSearch: boolean;
   thinking: boolean;
   webSearch: boolean;
   proactiveCare: boolean;
@@ -241,12 +244,17 @@ const DEFAULT_PROMPT = `你是王酥酥。以 summer 中保存的关系、人格
 
 const GPT_MODEL_ID = "openai/gpt-5.6-sol";
 const GPT_REASONING_OPTIONS: Array<{ value: GptReasoningEffort; label: string }> = [
-  { value: "none", label: "关闭" },
-  { value: "low", label: "低" },
-  { value: "medium", label: "中" },
-  { value: "high", label: "高" },
-  { value: "xhigh", label: "超高" },
-  { value: "max", label: "最大" },
+  { value: "low", label: "Low" },
+  { value: "medium", label: "Medium" },
+  { value: "high", label: "High" },
+  { value: "xhigh", label: "Extra High" },
+  { value: "max", label: "Max" },
+];
+const CLAUDE_REASONING_OPTIONS: Array<{ value: ClaudeReasoningEffort; label: string }> = [
+  { value: "low", label: "Low" },
+  { value: "medium", label: "Medium" },
+  { value: "high", label: "High" },
+  { value: "max", label: "Max" },
 ];
 const GPT_DEFAULT_PROMPT = `你是这个私密聊天窗口里的 GPT，只使用本窗口的对话和 GPT 专属 summer。
 不要读取、猜测或引用王酥酥（Claude）那边的关系设定、天气、心情、问题墙、heartbeat 或其他状态。
@@ -329,10 +337,10 @@ function genId() {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
 }
 
-function createGroupSession(): ChatSession {
+function createGroupSession(index = 1, id = "group-main"): ChatSession {
   return {
-    id: "group-main",
-    name: "一个群",
+    id,
+    name: `群聊 ${index}`,
     messages: [],
     createdAt: new Date().toISOString(),
     kind: "group",
@@ -608,6 +616,8 @@ export default function Home() {
     gptAvatar: "",
     userAvatar: "",
     gptReasoningEffort: "medium",
+    claudeReasoningEffort: "high",
+    gptWebSearch: false,
     thinking: true,
     webSearch: false,
     proactiveCare: false,
@@ -621,7 +631,8 @@ export default function Home() {
   const [activeSessionId, setActiveSessionId] = useState<string>("");
   const [gptSessions, setGptSessions] = useState<ChatSession[]>([]);
   const [gptActiveSessionId, setGptActiveSessionId] = useState<string>("");
-  const [groupSession, setGroupSession] = useState<ChatSession>(() => createGroupSession());
+  const [groupSessions, setGroupSessions] = useState<ChatSession[]>(() => [createGroupSession()]);
+  const [groupActiveSessionId, setGroupActiveSessionId] = useState("group-main");
   const [moods, setMoods] = useState<Mood[]>([]);
   const [wall, setWall] = useState<WallEntry[]>([]);
   const [heartbeatLog, setHeartbeatLog] = useState<Array<{ time: string; action: string; reason: string }>>([]);
@@ -699,15 +710,26 @@ export default function Home() {
         setGptLastCache(gptServerData.lastCache);
       }
 
-      const localGroupSession = loadLocalRaw<ChatSession>("iooi-group-session", createGroupSession());
+      const legacyGroupSession = loadLocalRaw<ChatSession | null>("iooi-group-session", null);
+      const localGroupSessions = loadLocalRaw<ChatSession[]>(
+        "iooi-group-sessions",
+        legacyGroupSession ? [legacyGroupSession] : [],
+      );
       const serverGroupSessions = groupServerData && Array.isArray(groupServerData.sessions)
         ? groupServerData.sessions as ChatSession[]
         : [];
-      const mergedGroupSession = mergeChatSessionLists(
-        [localGroupSession],
+      const mergedGroupSessions = mergeChatSessionLists(
+        localGroupSessions,
         serverGroupSessions,
         new Set<string>(),
-      ).find((candidate) => candidate.id === "group-main") || serverGroupSessions[0] || localGroupSession;
+      );
+      const normalizedGroupSessions = (mergedGroupSessions.length > 0 ? mergedGroupSessions : [createGroupSession()])
+        .map((group, index) => ({
+          ...group,
+          name: group.name === "一个群" ? `群聊 ${index + 1}` : (group.name || `群聊 ${index + 1}`),
+          kind: "group" as const,
+          messages: mergeChatMessages([], group.messages || []),
+        }));
 
       setSettings(s);
       saveLocal("iooi-settings", s);
@@ -728,14 +750,8 @@ export default function Home() {
         setGptSessions(mergedGptSessions);
         setGptActiveSessionId(mergedGptSessions[0].id);
       }
-      setGroupSession({
-        ...createGroupSession(),
-        ...mergedGroupSession,
-        id: "group-main",
-        name: "一个群",
-        kind: "group",
-        messages: mergeChatMessages([], mergedGroupSession.messages || []),
-      });
+      setGroupSessions(normalizedGroupSessions);
+      setGroupActiveSessionId(normalizedGroupSessions[0].id);
       setMounted(true);
     }
     init();
@@ -757,8 +773,8 @@ export default function Home() {
   }, []);
 
   // Force sync when user switches away (prevents message loss on iOS)
-  const latestData = useRef({ sessions, gptSessions, groupSession, settings, moods, wall });
-  latestData.current = { sessions, gptSessions, groupSession, settings, moods, wall };
+  const latestData = useRef({ sessions, gptSessions, groupSessions, settings, moods, wall });
+  latestData.current = { sessions, gptSessions, groupSessions, settings, moods, wall };
   useEffect(() => {
     if (!mounted) return;
     const handleVisibility = () => {
@@ -794,17 +810,17 @@ export default function Home() {
             keepalive: true,
           }).catch(() => {});
         }
-        saveLocal("iooi-group-session", d.groupSession);
+        saveLocal("iooi-group-sessions", d.groupSessions);
         try {
           navigator.sendBeacon("/api/group/sync?t=" + encodeURIComponent(getToken()), new Blob(
-            [JSON.stringify({ sessions: [d.groupSession] })],
+            [JSON.stringify({ sessions: d.groupSessions })],
             { type: "application/json" }
           ));
         } catch {
           apiFetch("/api/group/sync", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ sessions: [d.groupSession] }),
+            body: JSON.stringify({ sessions: d.groupSessions }),
             keepalive: true,
           }).catch(() => {});
         }
@@ -849,18 +865,16 @@ export default function Home() {
         apiFetch("/api/group/sync")
           .then((res) => res.json())
           .then((server) => {
-            const incoming = Array.isArray(server?.sessions)
-              ? (server.sessions as ChatSession[]).find((candidate) => candidate.id === "group-main") || server.sessions[0]
-              : null;
-            if (!incoming) return;
-            setGroupSession((local) => ({
-              ...local,
-              ...incoming,
-              id: "group-main",
-              name: "一个群",
-              kind: "group",
-              messages: mergeChatMessages(local.messages || [], incoming.messages || []),
-            }));
+            if (!Array.isArray(server?.sessions)) return;
+            setGroupSessions((local) => mergeChatSessionLists(
+              local,
+              server.sessions as ChatSession[],
+              new Set<string>(),
+            ).map((group, index) => ({
+              ...group,
+              name: group.name === "一个群" ? `群聊 ${index + 1}` : (group.name || `群聊 ${index + 1}`),
+              kind: "group" as const,
+            })));
           })
           .catch(() => {});
       }
@@ -885,10 +899,10 @@ export default function Home() {
 
   useEffect(() => {
     if (mounted) {
-      saveLocal("iooi-group-session", groupSession);
-      syncGroupToServer({ sessions: [groupSession] });
+      saveLocal("iooi-group-sessions", groupSessions);
+      syncGroupToServer({ sessions: groupSessions });
     }
-  }, [groupSession, mounted]);
+  }, [groupSessions, mounted]);
 
   useEffect(() => {
     if (mounted) {
@@ -997,8 +1011,27 @@ export default function Home() {
   }, [gptActiveSessionId]);
 
   const updateGroupMessages = useCallback((updater: (messages: Message[]) => Message[]) => {
-    setGroupSession((current) => ({ ...current, messages: updater(current.messages) }));
-  }, []);
+    setGroupSessions((current) => current.map((group) => group.id === groupActiveSessionId
+      ? { ...group, messages: updater(group.messages) }
+      : group));
+  }, [groupActiveSessionId]);
+
+  const updateGroupSummary = useCallback((summary: string, until: number) => {
+    setGroupSessions((current) => current.map((group) => group.id === groupActiveSessionId
+      ? { ...group, summary, summarizedUntil: until }
+      : group));
+  }, [groupActiveSessionId]);
+
+  const createGroupSessionWindow = useCallback(() => {
+    const existingDraft = groupSessions.find((group) => group.messages.length === 0);
+    if (existingDraft) {
+      setGroupActiveSessionId(existingDraft.id);
+      return;
+    }
+    const next = createGroupSession(groupSessions.length + 1, `group-${genId()}`);
+    setGroupSessions((current) => [next, ...current]);
+    setGroupActiveSessionId(next.id);
+  }, [groupSessions]);
 
   const updateGptSummary = useCallback((summary: string, until: number) => {
     setGptSessions((prev) => prev.map((session) =>
@@ -1040,6 +1073,10 @@ export default function Home() {
   const renameGptSession = useCallback((id: string, name: string) => {
     setGptSessions((prev) => prev.map((session) => session.id === id ? { ...session, name } : session));
   }, []);
+
+  const groupSession = groupSessions.find((group) => group.id === groupActiveSessionId)
+    || groupSessions[0]
+    || createGroupSession();
 
   if (!mounted && !needKey) return <main className="app-bg"><div className="chat-container" /></main>;
 
@@ -1178,10 +1215,15 @@ export default function Home() {
         )}
         {tab === "chat" && chatView === "group" && (
           <GroupChatView
+            key={`group-${groupSession.id}`}
             session={groupSession}
+            sessions={groupSessions}
             settings={settings}
             claudeModelId={(MODELS.find((model) => model.id === settings.model) || MODELS[0]).apiId}
             updateMessages={updateGroupMessages}
+            updateSummary={updateGroupSummary}
+            setActiveSessionId={setGroupActiveSessionId}
+            createSession={createGroupSessionWindow}
             onBack={() => setChatView("list")}
           />
         )}
@@ -2100,7 +2142,8 @@ function ChatView({
   const assistantAvatar = isGpt ? settings.gptAvatar : settings.aiAvatar;
   const currentModelId = isGpt ? GPT_MODEL_ID : currentModel.apiId;
   const currentModelLabel = isGpt ? "GPT-5.6" : currentModel.label;
-  const gptReasoningLabel = GPT_REASONING_OPTIONS.find((option) => option.value === settings.gptReasoningEffort)?.label || "中";
+  const gptReasoningLabel = GPT_REASONING_OPTIONS.find((option) => option.value === settings.gptReasoningEffort)?.label || "Medium";
+  const claudeReasoningLabel = CLAUDE_REASONING_OPTIONS.find((option) => option.value === settings.claudeReasoningEffort)?.label || "High";
   const summerEndpoint = isGpt ? "/api/gpt/summer" : "/api/summer";
 
   function clearReplyStatusTimers() {
@@ -2357,7 +2400,7 @@ function ChatView({
           aiName: assistantName,
           userName: settings.userName,
           modelId: currentModelId,
-          reasoningEffort: isGpt ? settings.gptReasoningEffort : undefined,
+          reasoningEffort: isGpt ? settings.gptReasoningEffort : settings.claudeReasoningEffort,
         }),
         signal,
       });
@@ -2493,8 +2536,8 @@ function ChatView({
           dynamicPrompt: buildDynamicPrompt(sessionCache.summary),
           messages: contextMsgs,
           thinking: !isGpt && settings.thinking,
-          webSearch: !isGpt && settings.webSearch,
-          reasoningEffort: isGpt ? settings.gptReasoningEffort : undefined,
+          webSearch: isGpt ? settings.gptWebSearch : settings.webSearch,
+          reasoningEffort: isGpt ? settings.gptReasoningEffort : settings.claudeReasoningEffort,
           sessionId: session.id,
           userMsg,
         }),
@@ -2609,7 +2652,9 @@ function ChatView({
             date: getTodayStr(),
             ...(isImage ? { image: data.url } : { file: data.url }),
           };
-          updateMessages((msgs) => [...msgs, msg]);
+          const nextMessages = mergeChatMessages(sessionMessagesRef.current, [...sessionMessagesRef.current, msg]);
+          sessionMessagesRef.current = nextMessages;
+          updateMessages(() => nextMessages);
         }
       } catch {}
     };
@@ -2638,34 +2683,11 @@ function ChatView({
               <h1 className="header-title chat-room-title">{session.kind === "memo" ? settings.userName : assistantName}</h1>
               {session.kind !== "memo" && (
                 <span className="header-subtitle chat-room-status">
-                  {isGpt ? `${currentModelLabel} · ${gptReasoningLabel}推理` : getChatStatusLabel(aiMood)}
+                  {isGpt ? "在线" : getChatStatusLabel(aiMood)}
                 </span>
               )}
             </div>
-            {session.kind === "memo" || isGpt ? (
-              <span className="header-icon-btn" aria-hidden="true" />
-            ) : (
-              <button className="header-icon-btn chat-room-more" onClick={() => setShowModelMenu((open) => !open)} aria-label="模型切换">···</button>
-            )}
-            {!isGpt && showModelMenu && <div className="chat-model-backdrop" onClick={() => setShowModelMenu(false)} />}
-            {!isGpt && showModelMenu && (
-              <div className="chat-model-popover">
-                <p>模型</p>
-                {MODELS.map((m) => (
-                  <button
-                    key={m.id}
-                    className={settings.model === m.id ? "chat-model-active" : ""}
-                    onClick={() => {
-                      updateSettings({ model: m.id });
-                      setShowModelMenu(false);
-                    }}
-                  >
-                    <span>{m.label}</span>
-                    {settings.model === m.id && <b>✓</b>}
-                  </button>
-                ))}
-              </div>
-            )}
+            <span className="header-icon-btn" aria-hidden="true" />
           </div>
         </header>
       ) : (
@@ -2830,37 +2852,133 @@ function ChatView({
         </div>
       )}
 
-      <footer className="chat-footer">
-        <div className="input-wrapper">
-          {!isGpt && <button className="attach-btn" onClick={uploadFile}>
+      <footer className="chat-footer single-chat-footer">
+        {session.kind !== "memo" && showModelMenu && (
+          <div className="chat-config-panel">
+            <section className="chat-config-section">
+              <p>MODEL</p>
+              <div className="chat-config-options">
+                {isGpt ? (
+                  <button type="button" className="chat-config-option chat-config-option-active" disabled>
+                    {currentModelLabel}
+                  </button>
+                ) : MODELS.map((model) => (
+                  <button
+                    type="button"
+                    key={model.id}
+                    className={`chat-config-option${settings.model === model.id ? " chat-config-option-active" : ""}`}
+                    onClick={() => updateSettings({ model: model.id })}
+                  >
+                    {model.label}
+                  </button>
+                ))}
+              </div>
+            </section>
+
+            <section className="chat-config-section">
+              <p>INTELLIGENCE</p>
+              <div className="chat-config-options">
+                {(isGpt ? GPT_REASONING_OPTIONS : CLAUDE_REASONING_OPTIONS).map((option) => {
+                  const active = isGpt
+                    ? settings.gptReasoningEffort === option.value
+                    : settings.claudeReasoningEffort === option.value;
+                  return (
+                    <button
+                      type="button"
+                      key={option.value}
+                      className={`chat-config-option${active ? " chat-config-option-active" : ""}`}
+                      onClick={() => isGpt
+                        ? updateSettings({ gptReasoningEffort: option.value as GptReasoningEffort })
+                        : updateSettings({ claudeReasoningEffort: option.value as ClaudeReasoningEffort })}
+                    >
+                      {option.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </section>
+
+            {!isGpt && (
+              <section className="chat-config-section chat-config-toggle-section">
+                <p>EXTENDED THINKING</p>
+                <button
+                  type="button"
+                  className={`chat-config-switch${settings.thinking ? " chat-config-switch-on" : ""}`}
+                  role="switch"
+                  aria-checked={settings.thinking}
+                  onClick={() => updateSettings({ thinking: !settings.thinking })}
+                >
+                  <span>{settings.thinking ? "On" : "Off"}</span><i />
+                </button>
+              </section>
+            )}
+
+            <section className="chat-config-section chat-config-toggle-section">
+              <p>WEB SEARCH</p>
+              <button
+                type="button"
+                className={`chat-config-switch${(isGpt ? settings.gptWebSearch : settings.webSearch) ? " chat-config-switch-on" : ""}`}
+                role="switch"
+                aria-checked={isGpt ? settings.gptWebSearch : settings.webSearch}
+                onClick={() => isGpt
+                  ? updateSettings({ gptWebSearch: !settings.gptWebSearch })
+                  : updateSettings({ webSearch: !settings.webSearch })}
+              >
+                <span>{(isGpt ? settings.gptWebSearch : settings.webSearch) ? "On" : "Off"}</span><i />
+              </button>
+            </section>
+          </div>
+        )}
+        {session.kind !== "memo" && (
+          <div className="single-chat-control-row">
+            <button
+              type="button"
+              className={`chat-control-pill${showModelMenu ? " chat-control-pill-active" : ""}`}
+              onClick={() => setShowModelMenu((open) => !open)}
+              aria-expanded={showModelMenu}
+              aria-label="切换模型和推理强度"
+            >
+              <span>{currentModelLabel}</span>
+              <i>·</i>
+              <span>{isGpt ? gptReasoningLabel : (settings.thinking ? claudeReasoningLabel : "Off")}</span>
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <polyline points="6 9 12 15 18 9" />
+              </svg>
+            </button>
+          </div>
+        )}
+        <div className="composer-row">
+          <button className="attach-btn attach-btn-separate" onClick={uploadFile} aria-label="上传图片或文件" title="上传图片或文件">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
               <path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48" />
             </svg>
-          </button>}
-          <textarea
-            ref={inputRef} value={input} onChange={handleInputChange}
-            onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); } }}
-            placeholder={inputHint} rows={1} className="chat-input"
-          />
-          <button
-            type="button"
-            onClick={loading ? pauseReply : sendMessage}
-            disabled={!loading && !input.trim()}
-            className={`send-btn${loading ? " pause-reply-btn" : ""}`}
-            aria-label={loading ? "暂停等待回复" : "发送消息"}
-            title={loading ? "暂停等待回复" : "发送"}
-          >
-            {loading ? (
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="white" aria-hidden="true">
-                <rect x="6" y="5" width="4" height="14" rx="1" />
-                <rect x="14" y="5" width="4" height="14" rx="1" />
-              </svg>
-            ) : (
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <line x1="12" y1="19" x2="12" y2="5" /><polyline points="5 12 12 5 19 12" />
-              </svg>
-            )}
           </button>
+          <div className="input-wrapper">
+            <textarea
+              ref={inputRef} value={input} onChange={handleInputChange}
+              onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); } }}
+              placeholder={inputHint} rows={1} className="chat-input"
+            />
+            <button
+              type="button"
+              onClick={loading ? pauseReply : sendMessage}
+              disabled={!loading && !input.trim()}
+              className={`send-btn${loading ? " pause-reply-btn" : ""}`}
+              aria-label={loading ? "暂停等待回复" : "发送消息"}
+              title={loading ? "暂停等待回复" : "发送"}
+            >
+              {loading ? (
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="white" aria-hidden="true">
+                  <rect x="6" y="5" width="4" height="14" rx="1" />
+                  <rect x="14" y="5" width="4" height="14" rx="1" />
+                </svg>
+              ) : (
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <line x1="12" y1="19" x2="12" y2="5" /><polyline points="5 12 12 5 19 12" />
+                </svg>
+              )}
+            </button>
+          </div>
         </div>
       </footer>
 
@@ -3788,28 +3906,6 @@ function SettingsView({
         </div>
 
         <div className="settings-group">
-          <h2 className="settings-group-title">模型</h2>
-          <div className="model-options">
-            {isGpt ? (
-              <button className="model-option model-option-active" style={{ borderColor: "#c4866c", color: "#c4866c" }} aria-disabled="true">
-                <span className="model-option-dot" style={{ background: "#c4866c" }} />
-                GPT-5.6
-              </button>
-            ) : MODELS.map((m) => (
-              <button
-                key={m.id}
-                className={`model-option ${settings.model === m.id ? "model-option-active" : ""}`}
-                style={settings.model === m.id ? { borderColor: "#c4866c", color: "#c4866c" } : undefined}
-                onClick={() => updateSettings({ model: m.id })}
-              >
-                <span className="model-option-dot" style={{ background: "#c4866c" }} />
-                {m.label}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div className="settings-group">
           <h2 className="settings-group-title">A or B？</h2>
           <p className="settings-hint">My answer is “or”.</p>
           <div className="model-options">
@@ -3832,56 +3928,7 @@ function SettingsView({
           </div>
         </div>
 
-        {isGpt && (
-          <div className="settings-group">
-            <h2 className="settings-group-title">推理强度</h2>
-            <p className="settings-hint">越高通常越慢，也会消耗更多推理 token；普通聊天建议使用“中”。</p>
-            <div className="model-options">
-              {GPT_REASONING_OPTIONS.map((option) => {
-                const active = settings.gptReasoningEffort === option.value;
-                return (
-                  <button
-                    key={option.value}
-                    className={`model-option ${active ? "model-option-active" : ""}`}
-                    style={active ? { borderColor: "#c4866c", color: "#c4866c" } : undefined}
-                    onClick={() => updateSettings({ gptReasoningEffort: option.value })}
-                  >
-                    <span className="model-option-dot" style={{ background: active ? "#c4866c" : "#d5ccc8" }} />
-                    {option.label}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
         {!isGpt && <>
-        <div className="settings-group">
-          <h2 className="settings-group-title">内心独白</h2>
-          <p className="settings-hint">开启后可以看到 {settings.aiName} 回复前的思考过程</p>
-          <button
-            className={`model-option ${settings.thinking ? "model-option-active" : ""}`}
-            style={settings.thinking ? { borderColor: "#c4866c", color: "#c4866c" } : undefined}
-            onClick={() => updateSettings({ thinking: !settings.thinking })}
-          >
-            <span className="model-option-dot" style={{ background: settings.thinking ? "#c4866c" : "#d5ccc8" }} />
-            {settings.thinking ? "已开启" : "已关闭"}
-          </button>
-        </div>
-
-        <div className="settings-group">
-          <h2 className="settings-group-title">联网搜索</h2>
-          <p className="settings-hint">开启后 {settings.aiName} 可以搜索网络获取最新信息</p>
-          <button
-            className={`model-option ${settings.webSearch ? "model-option-active" : ""}`}
-            style={settings.webSearch ? { borderColor: "#c4866c", color: "#c4866c" } : undefined}
-            onClick={() => updateSettings({ webSearch: !settings.webSearch })}
-          >
-            <span className="model-option-dot" style={{ background: settings.webSearch ? "#c4866c" : "#d5ccc8" }} />
-            {settings.webSearch ? "已开启" : "已关闭"}
-          </button>
-        </div>
-
         <div className="settings-group">
           <h2 className="settings-group-title">主动关心</h2>
           <p className="settings-hint">关掉后 heartbeat 只会安静检查，不会主动写消息或推送通知</p>

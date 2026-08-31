@@ -478,10 +478,16 @@ function latestUserText(messages: Array<{ role: string; content?: string }>): st
 
 function usesAdaptiveThinking(modelId: string | undefined) {
   const id = modelId || "";
-  return id.includes("claude-opus-4.7") ||
+  return id.includes("claude-sonnet-4.6") ||
+    id.includes("claude-opus-4.6") ||
+    id.includes("claude-opus-4.7") ||
     id.includes("claude-opus-4.8") ||
     id.includes("claude-sonnet-5") ||
     id.includes("claude-fable-5");
+}
+
+function normalizeClaudeEffort(value: unknown): "low" | "medium" | "high" | "max" {
+  return value === "low" || value === "medium" || value === "max" ? value : "high";
 }
 
 function chatTimeoutMs(modelId: string | undefined, thinking: boolean): number {
@@ -642,7 +648,7 @@ function readTextFile(filepath: string): string {
 }
 
 export async function POST(request: Request) {
-  const { messages, modelId, systemPrompt, dynamicPrompt, thinking, webSearch, sessionId, userMsg, groupUserText, skipPersist } = await request.json();
+  const { messages, modelId, systemPrompt, dynamicPrompt, thinking, webSearch, reasoningEffort, sessionId, userMsg, groupUserText, skipPersist } = await request.json();
   if (!skipPersist) {
     await persistUserMessage(sessionId, userMsg);
   }
@@ -828,9 +834,15 @@ ${combinedDynamicPrompt}
 
   // Enable thinking
   if (thinking) {
-    requestBody.thinking = usesAdaptiveThinking(String(modelId || ""))
-      ? { type: "adaptive" }
-      : { type: "enabled", budget_tokens: 4000 };
+    const effort = normalizeClaudeEffort(reasoningEffort);
+    if (usesAdaptiveThinking(String(modelId || ""))) {
+      requestBody.thinking = { type: "adaptive" };
+      requestBody.output_config = { effort };
+    } else {
+      const budgetTokens = { low: 1024, medium: 2048, high: 4000, max: 8000 }[effort];
+      requestBody.thinking = { type: "enabled", budget_tokens: budgetTokens };
+      requestBody.max_tokens = budgetTokens + 2048;
+    }
   }
 
   // Web search via OpenRouter server tool

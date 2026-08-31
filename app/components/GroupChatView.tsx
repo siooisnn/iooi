@@ -33,6 +33,8 @@ type GroupSession = {
   name: string;
   messages: GroupChatMessage[];
   createdAt: string;
+  summary?: string;
+  summarizedUntil?: number;
 };
 
 type GroupSettings = {
@@ -45,12 +47,20 @@ type GroupSettings = {
   prompt: string;
   thinking: boolean;
   gptReasoningEffort: string;
+  claudeReasoningEffort: string;
 };
 
-type ModelMessage = { role: "user" | "assistant"; content: string };
+type ModelMessage = {
+  role: "user" | "assistant";
+  content: string;
+  image?: string;
+  file?: string;
+};
 type ReplyState = "idle" | "preparing" | "waiting" | "slow" | "very-slow" | "paused";
 
 const GROUP_CONTEXT_ROUNDS = 18;
+const GROUP_SUMMARY_KEEP_MESSAGES = 36;
+const GROUP_SUMMARY_MIN_NEW_MESSAGES = 9;
 const GPT_GROUP_PROMPT = `你是 GPT，正在一个名为“一个群”的三人群聊里。群成员是用户、王酥酥（Claude）和你。
 你只能读取这间群聊的消息和属于 GPT 的独立 summer；不要读取、猜测或引用王酥酥（Claude）的私聊与 summer。`;
 
@@ -125,7 +135,12 @@ function buildModelMessages(messages: GroupChatMessage[], target: GroupSpeaker, 
     if (message.source?.startsWith("summer_")) continue;
     let next: ModelMessage;
     if (message.role === "user") {
-      next = { role: "user", content: `【${settings.userName || "用户"}在群里说】\n${message.content}` };
+      next = {
+        role: "user",
+        content: `【${settings.userName || "用户"}在群里说】\n${message.content || (message.image ? "请看这张图片。" : "请看这个文件。")}`,
+        ...(message.image ? { image: message.image } : {}),
+        ...(message.file ? { file: message.file } : {}),
+      };
     } else if (message.speaker === target) {
       next = { role: "assistant", content: message.content };
     } else {
@@ -133,7 +148,7 @@ function buildModelMessages(messages: GroupChatMessage[], target: GroupSpeaker, 
       next = { role: "user", content: `【${other}在群里说】\n${message.content}` };
     }
     const last = prepared[prepared.length - 1];
-    if (last?.role === next.role) last.content += `\n\n${next.content}`;
+    if (last?.role === next.role && !last.image && !last.file && !next.image && !next.file) last.content += `\n\n${next.content}`;
     else prepared.push(next);
   }
 
@@ -151,7 +166,10 @@ function buildModelMessages(messages: GroupChatMessage[], target: GroupSpeaker, 
   if (sliced[0]?.role === "assistant") {
     sliced.unshift({ role: "user", content: "【接续这间群之前的聊天】" });
   }
-  return sliced;
+  const keepMediaFrom = Math.max(0, sliced.length - 5);
+  return sliced.map((message, index) => index >= keepMediaFrom
+    ? message
+    : { role: message.role, content: message.content });
 }
 
 function groupSystemPrompt(speaker: GroupSpeaker, settings: GroupSettings) {
@@ -164,6 +182,14 @@ function groupSystemPrompt(speaker: GroupSpeaker, settings: GroupSettings) {
 只代表你自己说话，不要替另一位成员发言，不要模拟下一轮对话。每次只回复这一轮，然后停下。
 默认简洁自然，直接面向群里的人说话。你只能使用自己的 summer，绝不能声称看见另一位模型的私聊或 summer。
 如需长期记忆，只能提出写入你自己 summer 的待确认建议。`;
+}
+
+function groupSessionPreview(session: GroupSession) {
+  const latest = [...session.messages].reverse().find((message) => !message.source?.startsWith("summer_"));
+  if (!latest) return "还没有消息";
+  if (latest.image) return "[图片]";
+  if (latest.file) return latest.content || "[文件]";
+  return latest.content.replace(/\s+/g, " ").slice(0, 32) || "新消息";
 }
 
 function proposalContent(proposal: GroupSummerWriteProposal, speaker: GroupSpeaker, settings: GroupSettings, committed = false) {
@@ -186,27 +212,39 @@ function Avatar({ src, user = false }: { src: string; user?: boolean }) {
 
 export function GroupChatView({
   session,
+  sessions,
   settings,
   claudeModelId,
   updateMessages,
+  updateSummary,
+  setActiveSessionId,
+  createSession,
   onBack,
 }: {
   session: GroupSession;
+  sessions: GroupSession[];
   settings: GroupSettings;
   claudeModelId: string;
   updateMessages: (updater: (messages: GroupChatMessage[]) => GroupChatMessage[]) => void;
+  updateSummary: (summary: string, until: number) => void;
+  setActiveSessionId: (id: string) => void;
+  createSession: () => void;
   onBack: () => void;
 }) {
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const [replyState, setReplyState] = useState<ReplyState>("idle");
   const [activeSpeaker, setActiveSpeaker] = useState<GroupSpeaker | null>(null);
+  const [showSessions, setShowSessions] = useState(false);
+  const [summarizing, setSummarizing] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const messagesRef = useRef(session.messages);
   const sendingRef = useRef(false);
   const activeControllerRef = useRef<AbortController | null>(null);
   const timersRef = useRef<Array<ReturnType<typeof setTimeout>>>([]);
+  const summaryInFlightRef = useRef(false);
 
   const clearTimers = useCallback(() => {
     for (const timer of timersRef.current) clearTimeout(timer);
@@ -259,11 +297,15 @@ export function GroupChatView({
       body: JSON.stringify({
         modelId: speaker === "gpt" ? "openai/gpt-5.6-sol" : claudeModelId,
         systemPrompt: groupSystemPrompt(speaker, settings),
-        dynamicPrompt: `【当前时间】\n${currentContext()}\n\n这是群聊，不接入天气、心情墙或 heartbeat。`,
+        dynamicPrompt: [
+          `【当前时间】\n${currentContext()}`,
+          session.summary ? `【群聊较早内容的共享摘要】\n${session.summary}` : "",
+          "这是群聊，不接入天气、心情墙或 heartbeat。",
+        ].filter(Boolean).join("\n\n"),
         messages: buildModelMessages(messages, speaker, settings),
         thinking: speaker === "claude" && settings.thinking,
         webSearch: false,
-        reasoningEffort: speaker === "gpt" ? settings.gptReasoningEffort : undefined,
+        reasoningEffort: speaker === "gpt" ? settings.gptReasoningEffort : settings.claudeReasoningEffort,
         sessionId: `${session.id}-${speaker}`,
         userMsg: userMessage,
         groupUserText: userMessage.content,
@@ -304,9 +346,53 @@ export function GroupChatView({
     return [...utilityMessages, ...replyMessages, ...proposalMessages];
   }
 
+  async function refreshSharedSummary(messages: GroupChatMessage[]) {
+    if (summaryInFlightRef.current) return;
+    const until = Math.max(0, messages.length - GROUP_SUMMARY_KEEP_MESSAGES);
+    const already = session.summarizedUntil || 0;
+    if (until - already < GROUP_SUMMARY_MIN_NEW_MESSAGES) return;
+
+    const olderMessages = messages.slice(already, until)
+      .filter((message) => !message.source?.startsWith("summer_") && message.source !== "group_error")
+      .map((message) => ({
+        role: message.role,
+        speaker: message.speaker,
+        content: message.content || (message.image ? "[发送了一张图片]" : message.file ? "[发送了一个文件]" : ""),
+      }))
+      .filter((message) => message.content.trim());
+    if (olderMessages.length === 0) return;
+
+    summaryInFlightRef.current = true;
+    setSummarizing(true);
+    try {
+      const response = await groupFetch("/api/summary", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          mode: "group",
+          previousSummary: session.summary || "",
+          messages: olderMessages,
+          aiName: settings.aiName || "王酥酥",
+          gptName: settings.gptName || "GPT",
+          userName: settings.userName || "用户",
+          modelId: "anthropic/claude-sonnet-4.6",
+        }),
+      });
+      const data = await response.json();
+      if (response.ok && data.ok && data.summary) {
+        updateSummary(String(data.summary).trim(), until);
+      }
+    } catch {
+      // 摘要失败不影响当轮群聊，下次达到条件时会自动重试。
+    } finally {
+      summaryInFlightRef.current = false;
+      setSummarizing(false);
+    }
+  }
+
   async function sendMessage() {
     const text = input.trim();
-    if (!text || loading || sendingRef.current) return;
+    if (!text || loading || uploading || sendingRef.current) return;
     sendingRef.current = true;
     const previousMessages = messagesRef.current;
     const userMessage: GroupChatMessage = { role: "user", content: text, time: nowTime(), date: today() };
@@ -343,7 +429,10 @@ export function GroupChatView({
         messagesRef.current = working;
         updateMessages(() => working);
       }
-      if (!controller.signal.aborted) setReplyState("idle");
+      if (!controller.signal.aborted) {
+        setReplyState("idle");
+        void refreshSharedSummary(working);
+      }
     } catch {
       if (controller.signal.aborted) setReplyState("paused");
     } finally {
@@ -352,6 +441,51 @@ export function GroupChatView({
       sendingRef.current = false;
       setLoading(false);
     }
+  }
+
+  async function uploadFile() {
+    if (uploading || loading) return;
+    const picker = document.createElement("input");
+    picker.type = "file";
+    picker.accept = "image/*,application/pdf,.txt,.md,.csv";
+    picker.onchange = async (event) => {
+      const file = (event.target as HTMLInputElement).files?.[0];
+      if (!file) return;
+
+      const formData = new FormData();
+      formData.append("file", file);
+      setUploading(true);
+      try {
+        const response = await groupFetch("/api/upload", { method: "POST", body: formData });
+        const data = await response.json();
+        if (!response.ok || !data.url) throw new Error(data.error || "上传失败");
+        const isImage = file.type.startsWith("image/");
+        const message: GroupChatMessage = {
+          role: "user",
+          content: isImage ? "" : `📄 ${file.name}`,
+          time: nowTime(),
+          date: today(),
+          ...(isImage ? { image: data.url } : { file: data.url }),
+        };
+        const messages = [...messagesRef.current, message];
+        messagesRef.current = messages;
+        updateMessages(() => messages);
+      } catch {
+        const message: GroupChatMessage = {
+          role: "assistant",
+          source: "group_error",
+          content: "文件这次没有传上去，请再试一次。",
+          time: nowTime(),
+          date: today(),
+        };
+        const messages = [...messagesRef.current, message];
+        messagesRef.current = messages;
+        updateMessages(() => messages);
+      } finally {
+        setUploading(false);
+      }
+    };
+    picker.click();
   }
 
   async function acceptProposal(message: GroupChatMessage, index: number) {
@@ -438,13 +572,36 @@ export function GroupChatView({
               <polyline points="14.5 5.5 8 12 14.5 18.5" />
             </svg>
           </button>
-          <div className="header-center">
+          <button className="header-center group-session-title" type="button" onClick={() => setShowSessions((open) => !open)} aria-expanded={showSessions}>
             <h1 className="header-title chat-room-title">一个群</h1>
-            <span className="header-subtitle chat-room-status">不点名时都回复 · @名字可单独叫人</span>
-          </div>
-          <span className="header-icon-btn" aria-hidden="true" />
+            <span className="header-subtitle chat-room-status">
+              {session.name}{session.summary ? " · 已记住前情" : ""}{summarizing ? " · 整理前情中" : ""}
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9" /></svg>
+            </span>
+          </button>
+          <button className="header-icon-btn group-session-new" type="button" onClick={createSession} aria-label="新群聊">＋</button>
         </div>
       </header>
+
+      {showSessions && (
+        <div className="group-session-switcher">
+          {sessions.map((group) => (
+            <button
+              type="button"
+              key={group.id}
+              className={group.id === session.id ? "group-session-row group-session-row-active" : "group-session-row"}
+              onClick={() => {
+                setActiveSessionId(group.id);
+                setShowSessions(false);
+              }}
+            >
+              <span><b>{group.name}</b><small>{groupSessionPreview(group)}</small></span>
+              {group.id === session.id && <i>✓</i>}
+            </button>
+          ))}
+          <button type="button" className="group-session-create-row" onClick={() => { createSession(); setShowSessions(false); }}>＋ 新群聊</button>
+        </div>
+      )}
 
       <section className="chat-messages" ref={scrollRef}>
         {session.messages.length === 0 && (
@@ -475,6 +632,18 @@ export function GroupChatView({
                       )}
                       {message.source === "summer_write_ignored" && <div className="group-summer-state">已忽略</div>}
                     </div>
+                  ) : message.image ? (
+                    <div className={`msg-bubble msg-bubble-img ${isUser ? "msg-bubble-user" : "msg-bubble-ai"}`}>
+                      <img src={message.image} className="msg-image" alt="" onClick={() => window.open(message.image, "_blank")} />
+                      {message.content && <p className="msg-image-caption">{message.content}</p>}
+                    </div>
+                  ) : message.file ? (
+                    <a className={`msg-bubble group-file-bubble ${isUser ? "msg-bubble-user" : "msg-bubble-ai"}`} href={message.file} target="_blank" rel="noreferrer">
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                        <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" /><polyline points="14 2 14 8 20 8" />
+                      </svg>
+                      <span>{message.content || "打开文件"}</span>
+                    </a>
                   ) : (
                     <div className={`msg-bubble ${isUser ? "msg-bubble-user" : "msg-bubble-ai"} ${message.source === "group_error" ? "group-error-bubble" : ""}`}>
                       {message.content.split("\n").map((line, lineIndex) => <span key={lineIndex}>{line}{lineIndex < message.content.split("\n").length - 1 && <br />}</span>)}
@@ -504,38 +673,56 @@ export function GroupChatView({
           <button type="button" onClick={() => insertMention("claude")}>@{settings.aiName || "王酥酥"}</button>
           <button type="button" onClick={() => insertMention("gpt")}>@{settings.gptName || "GPT"}</button>
         </div>
-        <div className="input-wrapper">
-          <textarea
-            ref={inputRef}
-            value={input}
-            onChange={(event) => {
-              setInput(event.target.value);
-              event.target.style.height = "auto";
-              event.target.style.height = `${Math.min(event.target.scrollHeight, 120)}px`;
-            }}
-            onKeyDown={(event) => {
-              if (event.key === "Enter" && !event.shiftKey) {
-                event.preventDefault();
-                void sendMessage();
-              }
-            }}
-            placeholder="和他们说点什么…"
-            rows={1}
-            className="chat-input"
-          />
+        <div className="composer-row">
           <button
             type="button"
-            onClick={loading ? pauseReply : () => void sendMessage()}
-            disabled={!loading && !input.trim()}
-            className={`send-btn${loading ? " pause-reply-btn" : ""}`}
-            aria-label={loading ? "暂停等待回复" : "发送消息"}
+            className={`attach-btn attach-btn-separate${uploading ? " attach-btn-uploading" : ""}`}
+            onClick={() => void uploadFile()}
+            disabled={uploading || loading}
+            aria-label={uploading ? "正在上传" : "上传图片或文件"}
+            title={uploading ? "正在上传" : "上传图片或文件"}
           >
-            {loading ? (
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="white" aria-hidden="true"><rect x="6" y="5" width="4" height="14" rx="1" /><rect x="14" y="5" width="4" height="14" rx="1" /></svg>
+            {uploading ? (
+              <span className="attach-upload-spinner" />
             ) : (
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><line x1="12" y1="19" x2="12" y2="5" /><polyline points="5 12 12 5 19 12" /></svg>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48" />
+              </svg>
             )}
           </button>
+          <div className="input-wrapper">
+            <textarea
+              ref={inputRef}
+              value={input}
+              onChange={(event) => {
+                setInput(event.target.value);
+                event.target.style.height = "auto";
+                event.target.style.height = `${Math.min(event.target.scrollHeight, 120)}px`;
+              }}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" && !event.shiftKey) {
+                  event.preventDefault();
+                  void sendMessage();
+                }
+              }}
+              placeholder="和他们说点什么…"
+              rows={1}
+              className="chat-input"
+            />
+            <button
+              type="button"
+              onClick={loading ? pauseReply : () => void sendMessage()}
+              disabled={!loading && (!input.trim() || uploading)}
+              className={`send-btn${loading ? " pause-reply-btn" : ""}`}
+              aria-label={loading ? "暂停等待回复" : "发送消息"}
+            >
+              {loading ? (
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="white" aria-hidden="true"><rect x="6" y="5" width="4" height="14" rx="1" /><rect x="14" y="5" width="4" height="14" rx="1" /></svg>
+              ) : (
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><line x1="12" y1="19" x2="12" y2="5" /><polyline points="5 12 12 5 19 12" /></svg>
+              )}
+            </button>
+          </div>
         </div>
       </footer>
     </>
