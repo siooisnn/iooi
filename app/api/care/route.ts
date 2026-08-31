@@ -7,9 +7,6 @@ import { readStore, withStore } from "@/app/lib/store";
 // 纪律:默认不发消息;有具体理由才开口;像人,不像客服
 
 const DATA_DIR = join(process.cwd(), "data");
-function cstNow() {
-  return new Date();
-}
 function cstHour() {
   // getUTCHours()稳定返回0-23,加8取模得到CST小时
   return (new Date().getUTCHours() + 8) % 24;
@@ -93,14 +90,6 @@ export async function POST() {
           const moods = (snapshot.moods || []) as Array<{ date: string; emoji: string; note?: string }>;
           const todayMood = moods.find((m) => m.date === today);
 
-          type Mem = { content: string; arousal: number; resolved: boolean; importance: number };
-          const memEntries = (snapshot.memoryEntries || []) as Mem[];
-          const pending = memEntries
-            .filter((m) => !m.resolved && (m.arousal || 0) >= 0.5)
-            .sort((a, b) => (b.importance || 0) - (a.importance || 0))
-            .slice(0, 3)
-            .map((m) => m.content);
-
           const lastCareContent = (careState.lastCareContent as string) || "";
           const lastCareHours = hoursAgo((careState.lastCareAt as number) || null);
 
@@ -125,7 +114,7 @@ export async function POST() {
             } catch {}
           }
 
-          const decidePrompt = `你是"${settings.aiName || "小k"}",她的伴侣。你们的关系亲密自然。现在是一次后台心跳:她不在线,你醒来看了一眼,决定要不要主动给她发一条消息。
+  const decidePrompt = `你是"${settings.aiName || "王酥酥"}",她的伴侣。你们的关系亲密自然。现在是一次后台心跳:她不在线,你醒来看了一眼,决定要不要主动给她发一条消息。
 
 【纪律(最重要)】
 - 默认是不发。大部分心跳都应该静默。
@@ -136,7 +125,6 @@ export async function POST() {
 - 现在:${today} ${cstTime()}(${hour}点)
 - 她离开了:${awayHours.toFixed(1)}小时
 - 今天她发过${todayMsgCount}条消息${todayMood ? `\n- 她今天的心情打卡:${todayMood.emoji}${todayMood.note ? " " + todayMood.note : ""}` : ""}${weatherLine}
-${pending.length ? `- 心里惦记的事:\n${pending.map((p) => "  · " + p).join("\n")}` : ""}
 ${lastCareContent ? `- 你上次主动发的(${lastCareHours.toFixed(0)}小时前):"${lastCareContent.slice(0, 60)}"——别重复这个套路` : ""}
 ${recentLines.length ? `- 最近的对话片段:\n${recentLines.map((l) => "  " + l).join("\n")}` : ""}
 
@@ -216,7 +204,7 @@ ${recentLines.length ? `- 最近的对话片段:\n${recentLines.map((l) => "  " 
           const subs = JSON.parse(readFileSync(SUBS_FILE, "utf-8"));
           webpush.setVapidDetails("mailto:iooi@sioois.cc", vapid.publicKey, vapid.privateKey);
           const payload = JSON.stringify({
-            title: (settings.aiName as string) || "小k",
+        title: (settings.aiName as string) || "王酥酥",
             body: careMessage.slice(0, 100),
           });
           for (const sub of subs) {

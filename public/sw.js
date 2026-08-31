@@ -25,7 +25,7 @@ self.addEventListener("activate", (event) => {
 
 // 收到推送 → 弹通知(iOS 要求每次 push 都必须展示通知)
 self.addEventListener("push", (event) => {
-  let data = { title: "小k", body: "来看看我" };
+  let data = { title: "王酥酥", body: "来看看我" };
   try {
     if (event.data) data = { ...data, ...event.data.json() };
   } catch {

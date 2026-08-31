@@ -5,7 +5,7 @@ type SummaryMessage = {
 
 export async function POST(request: Request) {
   try {
-    const { previousSummary, messages, aiName, userName, modelId } = await request.json();
+    const { previousSummary, messages, aiName, userName, modelId, reasoningEffort } = await request.json();
     const usableMessages = (Array.isArray(messages) ? messages : [])
       .filter((m: SummaryMessage) => m && (m.role === "user" || m.role === "assistant") && String(m.content || "").trim())
       .slice(0, 80);
@@ -14,7 +14,7 @@ export async function POST(request: Request) {
       return Response.json({ ok: false, reason: "no messages" });
     }
 
-    const me = aiName || "小k";
+  const me = aiName || "王酥酥";
     const her = userName || "宝宝";
     const chatText = usableMessages
       .map((m: SummaryMessage) => `${m.role === "user" ? her : me}：${String(m.content).trim()}`)
@@ -47,6 +47,9 @@ ${chatText}
         model: modelId || "anthropic/claude-sonnet-4.6",
         messages: [{ role: "user", content: prompt }],
         max_tokens: 1100,
+        ...(String(modelId || "").includes("gpt-5.6") && ["none", "low", "medium", "high", "xhigh", "max"].includes(reasoningEffort)
+          ? { reasoning_effort: reasoningEffort }
+          : {}),
       }),
     });
 

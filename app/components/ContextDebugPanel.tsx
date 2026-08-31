@@ -7,8 +7,6 @@ type ContextDebugPanelProps = {
   cache: CacheStats | null;
   sessionMessageCount: number;
   sessionUserTurns: number;
-  summaryChars: number;
-  memoryCount: number;
 };
 
 export function ContextDebugPanel({

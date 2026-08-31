@@ -14,7 +14,6 @@ export type CacheStats = {
   context_truncated?: boolean;
   context_omitted_messages?: number;
   summary_used?: boolean;
-  memory_count?: number;
   summer_used?: boolean;
   time?: string;
 };

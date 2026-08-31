@@ -13,9 +13,6 @@ function cstTime() {
 function cstToday() {
   return new Date().toLocaleDateString("zh-CN", { timeZone: "Asia/Shanghai" });
 }
-function cstDateStr() {
-  return new Date().toLocaleDateString("zh-CN", { year: "numeric", month: "long", day: "numeric", weekday: "long", timeZone: "Asia/Shanghai" });
-}
 type StoreMsg = { role: string; content: string; time?: string; date?: string; thinking?: string; image?: string; file?: string; source?: string; proposal?: SummerWrite };
 type TextBlock = {
   type: "text";
@@ -218,7 +215,7 @@ function buildSummerStable(state: SummerState): string {
     "",
     "Memory writes from chat are proposal-only. If something should be remembered, append a hidden proposal tag after your normal reply: [summer_remember layer=xiazhi title=\"short title\" weight=5 tags=\"optional\"]content[/summer_remember]. Use mangzhong for titled chapters of the shared history, xiazhi for important lasting memories, xiaoshu for daily fragments, rain for unresolved future items, ferry for transition/渡口/threshold memories. Only sea is read-only. The system will show it to her for confirmation and will not write it silently.",
     "If she explicitly asks to write something into summer or ferry, do not refuse by saying you cannot write summer. Respond naturally, then add the hidden proposal tag with the requested layer. It is still only a proposal until she confirms it.",
-    "Do not print visible diary sections like '小k日记 | date' in chat. Put diary-style memory only inside the hidden proposal tag.",
+    "Do not print visible diary sections like '王酥酥日记 | date' in chat. Put diary-style memory only inside the hidden proposal tag.",
     "",
     "下面是唯一长期记忆源中最稳定的部分。先认得关系与来时路，再回应当前消息；不要说自己读取了这些后台内容。",
     "",
@@ -315,7 +312,7 @@ function cleanSummerSearchQuery(query: string): { query: string; label: string }
   if (quoted?.[1]) return { query: quoted[1], label: quoted[1] };
 
   const compact = text
-    .replace(/^(逗你了|好了|修好了|再试试|帮我|你|老公|宝宝|小k|看看|搜下|搜索|查一下|查下|翻翻|记不记得|还记得)[，,\s]*/g, "")
+    .replace(/^(逗你了|好了|修好了|再试试|帮我|你|老公|宝宝|王酥酥|看看|搜下|搜索|查一下|查下|翻翻|记不记得|还记得)[，,\s]*/g, "")
     .replace(/[？?！!。~～]+/g, " ")
     .trim();
   const label = compact.length > 28 ? `${compact.slice(0, 28)}…` : compact;
@@ -395,7 +392,7 @@ type SummerWrite = {
 };
 
 const SUMMER_WRITE_RE = /\[summer_remember([^\]]*)\]([\s\S]*?)\[\/summer_remember\]/gi;
-const VISIBLE_SUMMER_DIARY_RE = /(?:^|\n)\s*(?:---+\s*\n+)?\s*(小k日记|小暑日记|日记)\s*[|｜]\s*([^\n]*)\n+([\s\S]+)$/;
+const VISIBLE_SUMMER_DIARY_RE = /(?:^|\n)\s*(?:---+\s*\n+)?\s*(王酥酥日记|小暑日记|日记)\s*[|｜]\s*([^\n]*)\n+([\s\S]+)$/;
 
 function parseAttrs(raw: string): Record<string, string> {
   const attrs: Record<string, string> = {};
@@ -451,16 +448,12 @@ function parseVisibleSummerDiary(text: string): SummerWrite[] {
   if (!content || content.length < 12) return [];
   return [{
     layer: "xiaoshu",
-    title: rawDate ? `小k日记 | ${rawDate}` : "小k日记",
+    title: rawDate ? `王酥酥日记 | ${rawDate}` : "王酥酥日记",
     content: content.slice(0, 2400),
     weight: 5,
     due: "",
     tags: ["chat-diary"],
   }];
-}
-
-function summerChatWriteEnabled(): boolean {
-  return process.env.SUMMER_CHAT_WRITE_ENABLED === "1";
 }
 
 function collectSummerWriteProposals(reply: string): SummerWrite[] {
@@ -552,9 +545,6 @@ async function persistRound(
   if (!sessionId || !reply) return;
   try {
     const diaryRegex = /\[日记\]([\s\S]*?)\[\/日记\]/g;
-    const diaryTexts: string[] = [];
-    let dm;
-    while ((dm = diaryRegex.exec(reply)) !== null) diaryTexts.push(dm[1].trim());
     const cleanReply = reply.replace(diaryRegex, "").replace(/\[心情[:：].+?\]/g, "").trim();
     const parts = cleanReply.split(/\n{2,}/).filter((p) => p.trim());
     const now = cstTime();
@@ -579,20 +569,6 @@ async function persistRound(
 
       if (hasLaterUserMessage(msgs, userMsg)) {
         return;
-      }
-
-      const diary = (store.diary || (store.diary = [])) as Array<Record<string, unknown>>;
-      for (const content of diaryTexts) {
-        const key = content.slice(0, 80);
-        const dup = diary.slice(0, 20).some(
-          (e) => e.author === "ai" && String(e.content).trim().slice(0, 80) === key
-        );
-        if (!dup) {
-          diary.unshift({
-            id: Date.now().toString(36) + Math.random().toString(36).slice(2, 7),
-            date: cstDateStr(), time: cstTime(), content, author: "ai", category: "ai",
-          });
-        }
       }
 
       const tailKeys = new Set(msgs.slice(-16).filter((m) => m.role === "assistant").map(storeMessageKey));
@@ -666,11 +642,13 @@ function readTextFile(filepath: string): string {
 }
 
 export async function POST(request: Request) {
-  const { messages, modelId, systemPrompt, dynamicPrompt, thinking, webSearch, sessionId, userMsg } = await request.json();
-  await persistUserMessage(sessionId, userMsg);
+  const { messages, modelId, systemPrompt, dynamicPrompt, thinking, webSearch, sessionId, userMsg, groupUserText, skipPersist } = await request.json();
+  if (!skipPersist) {
+    await persistUserMessage(sessionId, userMsg);
+  }
 
   // --- System 数组里只放稳定部分,带 cache_control ---
-  // dynamicPrompt(summary/memory/diary/mood/时间/unresolved cares)每轮都变,
+  // dynamicPrompt(summary/mood/时间/unresolved cares)每轮都变,
   // 一旦塞进 system 会污染后面所有历史的缓存前缀。所以它走另一条路:注入到最新 user message。
   const system: TextBlock[] = [];
   if (systemPrompt) {
@@ -682,7 +660,7 @@ export async function POST(request: Request) {
   let summerExactDate = "";
   const summerCalls: SummerCall[] = [];
   try {
-    const query = latestUserText(messages || []);
+    const query = String(groupUserText || latestUserText(messages || []));
     const summerState = await readSummerState();
     const summerStable = buildSummerStable(summerState);
     const summerDynamic = buildSummerDynamic(summerState);
@@ -905,7 +883,9 @@ ${combinedDynamicPrompt}
     const summerWriteProposals = await createSummerProposals(collectSummerWriteProposals(reply));
     reply = stripVisibleSummerDiary(stripSummerWriteTags(reply));
 
-    await persistRound(sessionId, userMsg, reply, thinkingContent, summerCalls, summerWriteProposals);
+    if (!skipPersist) {
+      await persistRound(sessionId, userMsg, reply, thinkingContent, summerCalls, summerWriteProposals);
+    }
 
     const usage = data.usage || {};
     const promptTokens =

@@ -2,42 +2,55 @@ import { readFileSync, writeFileSync, existsSync, mkdirSync, renameSync } from "
 import { join } from "path";
 
 const DATA_DIR = join(process.cwd(), "data");
-const DATA_FILE = join(DATA_DIR, "store.json");
-const TMP_FILE = join(DATA_DIR, "store.tmp.json");
 
 function ensureDir() {
   if (!existsSync(DATA_DIR)) mkdirSync(DATA_DIR, { recursive: true });
 }
 
-let writeLock: Promise<void> = Promise.resolve();
+function createJsonStore(filename: string) {
+  const dataFile = join(DATA_DIR, filename);
+  const tmpFile = join(DATA_DIR, filename.replace(/\.json$/i, ".tmp.json"));
+  let writeLock: Promise<void> = Promise.resolve();
 
-export function readStore(): Record<string, unknown> | null {
-  ensureDir();
-  if (!existsSync(DATA_FILE)) return null;
-  try {
-    return JSON.parse(readFileSync(DATA_FILE, "utf-8"));
-  } catch {
-    return null;
-  }
-}
-
-export async function withStore<T>(
-  fn: (store: Record<string, unknown>) => T
-): Promise<T> {
-  let resolve!: () => void;
-  const next = new Promise<void>((r) => { resolve = r; });
-  const prev = writeLock;
-  writeLock = next;
-
-  try {
-    await prev;
+  function read(): Record<string, unknown> | null {
     ensureDir();
-    const store = readStore() || {};
-    const result = fn(store);
-    writeFileSync(TMP_FILE, JSON.stringify(store, null, 2), "utf-8");
-    renameSync(TMP_FILE, DATA_FILE);
-    return result;
-  } finally {
-    resolve();
+    if (!existsSync(dataFile)) return null;
+    try {
+      return JSON.parse(readFileSync(dataFile, "utf-8"));
+    } catch {
+      return null;
+    }
   }
+
+  async function write<T>(fn: (store: Record<string, unknown>) => T): Promise<T> {
+    let resolve!: () => void;
+    const next = new Promise<void>((r) => { resolve = r; });
+    const prev = writeLock;
+    writeLock = next;
+
+    try {
+      await prev;
+      ensureDir();
+      const store = read() || {};
+      const result = fn(store);
+      writeFileSync(tmpFile, JSON.stringify(store, null, 2), "utf-8");
+      renameSync(tmpFile, dataFile);
+      return result;
+    } finally {
+      resolve();
+    }
+  }
+
+  return { read, write };
 }
+
+const mainStore = createJsonStore("store.json");
+const gptStore = createJsonStore("gpt-store.json");
+const groupStore = createJsonStore("group-store.json");
+
+export const readStore = mainStore.read;
+export const withStore = mainStore.write;
+export const readGptStore = gptStore.read;
+export const withGptStore = gptStore.write;
+export const readGroupStore = groupStore.read;
+export const withGroupStore = groupStore.write;
