@@ -95,6 +95,13 @@ body {
 
 .header-icon-btn:hover { background: rgba(240, 228, 218, 0.5); }
 
+.header-icon-spacer {
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  pointer-events: none;
+}
+
 .chat-list-page-header {
   padding-bottom: 14px;
   border-bottom: none;
@@ -1603,6 +1610,28 @@ body {
   color: var(--text-light);
 }
 
+.fragment-home-card .home-card-header {
+  justify-content: space-between;
+}
+
+.fragment-home-card {
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.96), rgba(249, 242, 235, 0.94)),
+    var(--bg-chat);
+}
+
+.fragment-home-line {
+  color: #7f6c63;
+  letter-spacing: 0.02em;
+}
+
+.fragment-home-count {
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: rgba(196, 134, 108, 0.09);
+  color: #aa7a65;
+}
+
 /* Session rename */
 .session-rename-input {
   flex: 1;
@@ -2376,6 +2405,323 @@ body {
 }
 .wall-title { font-size: 16px; font-weight: 600; color: var(--text-primary); margin: 0; }
 .wall-body { flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 18px; }
+
+/* ── 碎片写作 ── */
+.fragment-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 340;
+  display: flex;
+  flex-direction: column;
+  background:
+    radial-gradient(circle at 85% 8%, rgba(220, 190, 169, 0.13), transparent 28%),
+    #fcf8f3;
+  animation: fragmentIn 0.24s ease;
+}
+
+@keyframes fragmentIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: none; }
+}
+
+.fragment-header {
+  flex-shrink: 0;
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr) 44px;
+  align-items: center;
+  gap: 8px;
+  min-height: 68px;
+  padding: calc(env(safe-area-inset-top) + 10px) 16px 10px;
+  border-bottom: 1px solid rgba(222, 205, 192, 0.62);
+  background: rgba(255, 252, 248, 0.84);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+}
+
+.fragment-round-button {
+  width: 40px;
+  height: 40px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(211, 185, 168, 0.2);
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.76);
+  color: #816f66;
+  font: inherit;
+  font-size: 23px;
+  cursor: pointer;
+  box-shadow: 0 3px 14px rgba(115, 88, 74, 0.07);
+}
+
+.fragment-add-button {
+  color: var(--accent);
+  font-weight: 300;
+}
+
+.fragment-page-heading {
+  min-width: 0;
+  text-align: center;
+}
+
+.fragment-page-heading h2 {
+  color: var(--text-primary);
+  font-size: 17px;
+  font-weight: 650;
+  letter-spacing: 0.16em;
+}
+
+.fragment-page-heading p {
+  margin-top: 2px;
+  overflow: hidden;
+  color: #a18c81;
+  font-size: 10px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fragment-list-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 20px 18px calc(28px + env(safe-area-inset-bottom));
+}
+
+.fragment-pages {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.fragment-page-card {
+  position: relative;
+  width: 100%;
+  min-height: 132px;
+  padding: 20px 22px 16px 26px;
+  overflow: hidden;
+  border: 1px solid rgba(221, 203, 190, 0.68);
+  border-radius: 5px 17px 17px 5px;
+  background:
+    linear-gradient(90deg, rgba(196, 134, 108, 0.075) 0 3px, transparent 3px),
+    rgba(255, 253, 249, 0.96);
+  color: var(--text-primary);
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+  box-shadow: 0 5px 18px rgba(119, 91, 76, 0.075);
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.fragment-page-card:active {
+  transform: scale(0.988);
+}
+
+.fragment-page-card::before {
+  content: "";
+  position: absolute;
+  top: 12px;
+  bottom: 12px;
+  left: 12px;
+  width: 1px;
+  background: rgba(196, 134, 108, 0.14);
+}
+
+.fragment-page-number {
+  display: block;
+  margin-bottom: 9px;
+  color: #b48a77;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+}
+
+.fragment-page-card p {
+  display: -webkit-box;
+  overflow: hidden;
+  color: #5f514b;
+  font-size: 14px;
+  line-height: 1.75;
+  white-space: pre-wrap;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 4;
+}
+
+.fragment-page-card time {
+  display: block;
+  margin-top: 13px;
+  color: #b0a099;
+  font-size: 10px;
+}
+
+.fragment-empty {
+  min-height: 72%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
+.fragment-empty-visual {
+  position: relative;
+  width: 190px;
+  margin-bottom: 12px;
+}
+
+.fragment-empty-visual svg {
+  width: 100%;
+  stroke: #c7a995;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  opacity: 0.72;
+}
+
+.fragment-empty-visual span {
+  position: absolute;
+  top: 4px;
+  right: 26px;
+  font-size: 31px;
+  filter: saturate(0.55);
+  transform: rotate(9deg);
+}
+
+.fragment-empty h3 {
+  color: #6c5b53;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.fragment-empty p {
+  margin-top: 6px;
+  color: #aa9990;
+  font-size: 12px;
+}
+
+.fragment-empty button {
+  margin-top: 22px;
+  padding: 8px 16px;
+  border: 1px solid rgba(196, 134, 108, 0.27);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.72);
+  color: var(--accent);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.fragment-editor-overlay {
+  background: #fffdf9;
+}
+
+.fragment-editor-header {
+  grid-template-columns: 44px minmax(0, 1fr) auto;
+  background: rgba(255, 254, 251, 0.91);
+}
+
+.fragment-editor-heading {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+}
+
+.fragment-editor-heading b {
+  color: #5d4f49;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+}
+
+.fragment-editor-heading span {
+  color: #b0a099;
+  font-size: 9px;
+  white-space: nowrap;
+}
+
+.fragment-editor-actions {
+  display: inline-flex;
+  align-items: center;
+  overflow: hidden;
+  border: 1px solid rgba(211, 185, 168, 0.22);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.76);
+  box-shadow: 0 3px 14px rgba(115, 88, 74, 0.06);
+}
+
+.fragment-editor-actions button {
+  width: 36px;
+  height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: transparent;
+  color: #78655c;
+  font: inherit;
+  font-size: 17px;
+  cursor: pointer;
+}
+
+.fragment-paper {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.fragment-book-spine {
+  position: absolute;
+  z-index: 1;
+  top: 18px;
+  bottom: 18px;
+  left: 22px;
+  width: 1px;
+  background: linear-gradient(to bottom, transparent, rgba(196, 134, 108, 0.2) 8%, rgba(196, 134, 108, 0.2) 92%, transparent);
+  pointer-events: none;
+}
+
+.fragment-paper textarea {
+  width: 100%;
+  height: 100%;
+  padding: 28px 26px 80px 38px;
+  overflow-y: auto;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: #49403c;
+  font-family: inherit;
+  font-size: 16px;
+  line-height: 1.9;
+  resize: none;
+  caret-color: var(--accent);
+}
+
+.fragment-paper textarea::placeholder {
+  color: #cabcb4;
+}
+
+.fragment-save-state {
+  position: absolute;
+  right: 20px;
+  bottom: calc(13px + env(safe-area-inset-bottom));
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 9px;
+  border-radius: 999px;
+  background: rgba(255, 253, 249, 0.84);
+  color: #aa9b93;
+  font-size: 9px;
+  box-shadow: 0 2px 12px rgba(100, 78, 68, 0.06);
+  pointer-events: none;
+}
+
+.fragment-save-state i {
+  font-style: normal;
+  font-size: 11px;
+  filter: saturate(0.55);
+}
 .wall-daily {
   background: var(--bg-chat); border: 1px solid var(--border-soft);
   border-radius: 20px; padding: 18px; box-shadow: var(--shadow-soft);

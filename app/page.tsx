@@ -49,6 +49,13 @@ type WallEntry = {
   aiAnswer?: string;
 };
 
+type FragmentEntry = {
+  id: string;
+  content: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
 type CacheStats = {
   model?: string;
   reasoning_effort?: GptReasoningEffort;
@@ -335,6 +342,20 @@ function getNowContext() {
 
 function genId() {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+}
+
+function mergeFragments(local: FragmentEntry[], incoming: FragmentEntry[]) {
+  const byId = new Map<string, FragmentEntry>();
+  for (const fragment of [...local, ...incoming]) {
+    if (!fragment?.id) continue;
+    const current = byId.get(fragment.id);
+    const currentStamp = current ? new Date(current.updatedAt || current.createdAt).getTime() : 0;
+    const nextStamp = new Date(fragment.updatedAt || fragment.createdAt).getTime();
+    if (!current || nextStamp >= currentStamp) byId.set(fragment.id, fragment);
+  }
+  return Array.from(byId.values()).sort((a, b) =>
+    new Date(b.updatedAt || b.createdAt).getTime() - new Date(a.updatedAt || a.createdAt).getTime()
+  );
 }
 
 function createGroupSession(index = 1, id = "group-main"): ChatSession {
@@ -635,6 +656,7 @@ export default function Home() {
   const [groupActiveSessionId, setGroupActiveSessionId] = useState("group-main");
   const [moods, setMoods] = useState<Mood[]>([]);
   const [wall, setWall] = useState<WallEntry[]>([]);
+  const [fragments, setFragments] = useState<FragmentEntry[]>([]);
   const [heartbeatLog, setHeartbeatLog] = useState<Array<{ time: string; action: string; reason: string }>>([]);
   const [aiMood, setAiMood] = useState<{ emoji: string; ts: number }>(() =>
     loadLocalRaw<{ emoji: string; ts: number }>("iooi-ai-mood", { emoji: "", ts: 0 })
@@ -667,7 +689,7 @@ export default function Home() {
 
       let s: Settings;
       let sess: ChatSession[];
-      if (serverData && (serverData.sessions?.length > 0 || serverData.settings)) {
+      if (serverData && (serverData.sessions?.length > 0 || serverData.settings || Array.isArray(serverData.fragments))) {
         if (Array.isArray(serverData.deletedSessionIds)) {
           deletedSessionIds.current = new Set([...deletedSessionIds.current, ...serverData.deletedSessionIds]);
           saveLocal("iooi-deleted-session-ids", Array.from(deletedSessionIds.current));
@@ -679,6 +701,10 @@ export default function Home() {
         sess = mergeChatSessionLists(localSessions, serverData.sessions || [], deletedSessionIds.current);
         setMoods(serverData.moods || loadLocalRaw<Mood[]>("iooi-moods", []));
         setWall(serverData.wall || loadLocalRaw<WallEntry[]>("iooi-wall", []));
+        setFragments(mergeFragments(
+          loadLocalRaw<FragmentEntry[]>("iooi-fragments", []),
+          Array.isArray(serverData.fragments) ? serverData.fragments : [],
+        ));
         setHeartbeatLog(serverData.careState?.log || []);
         setAiMood(serverData.aiMood || loadLocalRaw<{ emoji: string; ts: number }>("iooi-ai-mood", { emoji: "", ts: 0 }));
         setLastCache(serverData.lastCache || loadLocalRaw<CacheStats | null>("iooi-last-cache", null));
@@ -691,6 +717,7 @@ export default function Home() {
         );
         setMoods(loadLocalRaw<Mood[]>("iooi-moods", []));
         setWall(loadLocalRaw<WallEntry[]>("iooi-wall", []));
+        setFragments(loadLocalRaw<FragmentEntry[]>("iooi-fragments", []));
       }
 
       if (gptServerData && Array.isArray(gptServerData.deletedSessionIds)) {
@@ -773,8 +800,8 @@ export default function Home() {
   }, []);
 
   // Force sync when user switches away (prevents message loss on iOS)
-  const latestData = useRef({ sessions, gptSessions, groupSessions, settings, moods, wall });
-  latestData.current = { sessions, gptSessions, groupSessions, settings, moods, wall };
+  const latestData = useRef({ sessions, gptSessions, groupSessions, settings, moods, wall, fragments });
+  latestData.current = { sessions, gptSessions, groupSessions, settings, moods, wall, fragments };
   useEffect(() => {
     if (!mounted) return;
     const handleVisibility = () => {
@@ -785,14 +812,14 @@ export default function Home() {
         // Sync to server immediately (bypass debounce)
         try {
           navigator.sendBeacon("/api/sync?t=" + encodeURIComponent(getToken()), new Blob(
-            [JSON.stringify({ sessions: d.sessions, deletedSessionIds: Array.from(deletedSessionIds.current), settings: d.settings, moods: d.moods, wall: d.wall })],
+            [JSON.stringify({ sessions: d.sessions, deletedSessionIds: Array.from(deletedSessionIds.current), settings: d.settings, moods: d.moods, wall: d.wall, fragments: d.fragments })],
             { type: "application/json" }
           ));
         } catch {
           apiFetch("/api/sync", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ sessions: d.sessions, deletedSessionIds: Array.from(deletedSessionIds.current), settings: d.settings, moods: d.moods, wall: d.wall }),
+            body: JSON.stringify({ sessions: d.sessions, deletedSessionIds: Array.from(deletedSessionIds.current), settings: d.settings, moods: d.moods, wall: d.wall, fragments: d.fragments }),
             keepalive: true,
           }).catch(() => {});
         }
@@ -841,6 +868,9 @@ export default function Home() {
               setSessions((local) =>
                 mergeChatSessionLists(local, server.sessions, deletedSessionIds.current)
               );
+            }
+            if (Array.isArray(server.fragments)) {
+              setFragments((local) => mergeFragments(local, server.fragments));
             }
           })
           .catch(() => {});
@@ -917,6 +947,13 @@ export default function Home() {
       syncToServer({ wall });
     }
   }, [wall, mounted]);
+
+  useEffect(() => {
+    if (mounted) {
+      saveLocal("iooi-fragments", fragments);
+      syncToServer({ fragments });
+    }
+  }, [fragments, mounted]);
 
   useEffect(() => {
     if (mounted && aiMood.emoji) {
@@ -1023,15 +1060,10 @@ export default function Home() {
   }, [groupActiveSessionId]);
 
   const createGroupSessionWindow = useCallback(() => {
-    const existingDraft = groupSessions.find((group) => group.messages.length === 0);
-    if (existingDraft) {
-      setGroupActiveSessionId(existingDraft.id);
-      return;
-    }
-    const next = createGroupSession(groupSessions.length + 1, `group-${genId()}`);
-    setGroupSessions((current) => [next, ...current]);
-    setGroupActiveSessionId(next.id);
-  }, [groupSessions]);
+    const nextId = `group-${genId()}`;
+    setGroupSessions((current) => [createGroupSession(current.length + 1, nextId), ...current]);
+    setGroupActiveSessionId(nextId);
+  }, []);
 
   const updateGptSummary = useCallback((summary: string, until: number) => {
     setGptSessions((prev) => prev.map((session) =>
@@ -1136,7 +1168,7 @@ export default function Home() {
         </div>
       )}
       <div className="chat-container">
-        {tab === "home" && <HomeView settings={settings} wall={wall} setWall={setWall} heartbeatLog={heartbeatLog} aiMood={aiMood} />}
+        {tab === "home" && <HomeView settings={settings} wall={wall} setWall={setWall} fragments={fragments} setFragments={setFragments} heartbeatLog={heartbeatLog} aiMood={aiMood} />}
         {tab === "chat" && settings.chatEntryStyle === "list" && chatView === "list" && (
           <ChatListView
             assistantMode="claude"
@@ -1657,7 +1689,7 @@ function ChatListView({
                 <h1 className="header-title chat-room-title">heartbeat</h1>
                 <span className="header-subtitle chat-room-status">他安静看过你的每一次</span>
               </div>
-              <span className="header-icon-btn" aria-hidden="true" />
+              <span className="header-icon-spacer" aria-hidden="true" />
             </div>
           </header>
           <div className="hb-log-body">
@@ -1708,15 +1740,18 @@ function GroupAvatarStack({
   );
 }
 
-function HomeView({ settings, wall, setWall, heartbeatLog, aiMood }: {
+function HomeView({ settings, wall, setWall, fragments, setFragments, heartbeatLog, aiMood }: {
   settings: Settings;
   wall: WallEntry[]; setWall: React.Dispatch<React.SetStateAction<WallEntry[]>>;
+  fragments: FragmentEntry[];
+  setFragments: React.Dispatch<React.SetStateAction<FragmentEntry[]>>;
   heartbeatLog: Array<{ time: string; action: string; reason: string }>;
   aiMood: { emoji: string; ts: number };
 }) {
   const [now, setNow] = useState(Date.now());
   const [showWall, setShowWall] = useState(false);
   const [showLogs, setShowLogs] = useState(false);
+  const [showFragments, setShowFragments] = useState(false);
 
   useEffect(() => {
     const timer = setInterval(() => setNow(Date.now()), 1000);
@@ -1797,6 +1832,14 @@ function HomeView({ settings, wall, setWall, heartbeatLog, aiMood }: {
         <div className="home-quote">
           <p>此后我们的每一秒都是恩赐。</p>
         </div>
+        {/* 碎片写作入口 */}
+        <button className="home-card fragment-home-card" onClick={() => setShowFragments(true)}>
+          <div className="home-card-header">
+            <span className="home-card-title">碎片🧩</span>
+            <span className="home-card-meta fragment-home-count">{fragments.length > 0 ? `${fragments.length} 片` : "新"}</span>
+          </div>
+          <p className="home-card-content fragment-home-line">碎片化时代，我选择碎片化写作。</p>
+        </button>
         {/* Heartbeat 日志预览 */}
         <button className="home-card heartbeat-card" onClick={() => setShowLogs(true)} style={{ textAlign: "left", cursor: "pointer", width: "100%" }}>
           <div className="home-card-header">
@@ -1846,7 +1889,177 @@ function HomeView({ settings, wall, setWall, heartbeatLog, aiMood }: {
           onClose={() => setShowLogs(false)}
         />
       )}
+
+      {showFragments && (
+        <FragmentsView
+          fragments={fragments}
+          setFragments={setFragments}
+          onClose={() => setShowFragments(false)}
+        />
+      )}
     </>
+  );
+}
+
+function formatFragmentDate(value: string, withTime = false) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "刚刚";
+  return new Intl.DateTimeFormat("zh-CN", {
+    timeZone: APP_TIME_ZONE,
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+    ...(withTime ? { hour: "2-digit", minute: "2-digit" } : {}),
+  }).format(date);
+}
+
+function FragmentsView({ fragments, setFragments, onClose }: {
+  fragments: FragmentEntry[];
+  setFragments: React.Dispatch<React.SetStateAction<FragmentEntry[]>>;
+  onClose: () => void;
+}) {
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [shareState, setShareState] = useState("");
+  const activeFragment = fragments.find((fragment) => fragment.id === editingId) || null;
+  const orderedFragments = [...fragments].sort((a, b) =>
+    new Date(b.updatedAt || b.createdAt).getTime() - new Date(a.updatedAt || a.createdAt).getTime()
+  );
+
+  function createFragment() {
+    const now = new Date().toISOString();
+    const fragment: FragmentEntry = {
+      id: `fragment-${genId()}`,
+      content: "",
+      createdAt: now,
+      updatedAt: now,
+    };
+    setFragments((current) => [fragment, ...current]);
+    setEditingId(fragment.id);
+    setShareState("");
+  }
+
+  function updateFragment(content: string) {
+    if (!editingId) return;
+    const updatedAt = new Date().toISOString();
+    setFragments((current) => current.map((fragment) => fragment.id === editingId
+      ? { ...fragment, content, updatedAt }
+      : fragment));
+  }
+
+  function closeEditor() {
+    if (activeFragment && !activeFragment.content.trim()) {
+      setFragments((current) => current.filter((fragment) => fragment.id !== activeFragment.id));
+    }
+    setEditingId(null);
+    setShareState("");
+  }
+
+  function deleteFragment() {
+    if (!activeFragment) return;
+    if (!window.confirm("要丢掉这片文字吗？删除后不能恢复。")) return;
+    setFragments((current) => current.filter((fragment) => fragment.id !== activeFragment.id));
+    setEditingId(null);
+    setShareState("");
+  }
+
+  async function shareFragment() {
+    if (!activeFragment?.content.trim()) return;
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: "碎片", text: activeFragment.content });
+        setShareState("已分享");
+      } else {
+        await navigator.clipboard.writeText(activeFragment.content);
+        setShareState("已复制");
+      }
+    } catch (error) {
+      if (error instanceof Error && error.name === "AbortError") return;
+      try {
+        await navigator.clipboard.writeText(activeFragment.content);
+        setShareState("已复制");
+      } catch {
+        setShareState("分享失败");
+      }
+    }
+  }
+
+  if (activeFragment) {
+    return (
+      <div className="fragment-overlay fragment-editor-overlay">
+        <header className="fragment-header fragment-editor-header">
+          <button type="button" className="fragment-round-button" onClick={closeEditor} aria-label="返回碎片列表">
+            <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6" /></svg>
+          </button>
+          <div className="fragment-editor-heading">
+            <b>碎片</b>
+            <span>{formatFragmentDate(activeFragment.updatedAt, true)}</span>
+          </div>
+          <div className="fragment-editor-actions">
+            <button type="button" onClick={() => void shareFragment()} aria-label="分享碎片">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3v12" /><polyline points="7 8 12 3 17 8" /><path d="M5 12v7a2 2 0 002 2h10a2 2 0 002-2v-7" /></svg>
+            </button>
+            <button type="button" onClick={deleteFragment} aria-label="删除碎片">···</button>
+          </div>
+        </header>
+        <main className="fragment-paper">
+          <div className="fragment-book-spine" aria-hidden />
+          <textarea
+            autoFocus
+            value={activeFragment.content}
+            onChange={(event) => updateFragment(event.target.value)}
+            placeholder="捡起一片……"
+            aria-label="碎片正文"
+          />
+        </main>
+        <footer className="fragment-save-state">
+          <span>{shareState || "已自动保存"}</span><i>🧩</i>
+        </footer>
+      </div>
+    );
+  }
+
+  return (
+    <div className="fragment-overlay">
+      <header className="fragment-header">
+        <button type="button" className="fragment-round-button" onClick={onClose} aria-label="返回首页">
+          <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6" /></svg>
+        </button>
+        <div className="fragment-page-heading">
+          <h2>碎片</h2>
+          <p>碎片化时代，我选择碎片化写作。</p>
+        </div>
+        <button type="button" className="fragment-round-button fragment-add-button" onClick={createFragment} aria-label="新建碎片">＋</button>
+      </header>
+
+      <main className="fragment-list-body">
+        {orderedFragments.length === 0 ? (
+          <div className="fragment-empty">
+            <div className="fragment-empty-visual" aria-hidden>
+              <svg viewBox="0 0 180 110" fill="none">
+                <path d="M18 34c25-9 47-5 72 11v49c-25-14-48-18-72-9V34z" />
+                <path d="M162 34c-25-9-47-5-72 11v49c25-14 48-18 72-9V34z" />
+                <path d="M90 45v49" />
+                <path d="M30 47c17-4 32-1 47 7M30 59c17-4 32-1 47 7M150 47c-17-4-32-1-47 7" />
+              </svg>
+              <span>🧩</span>
+            </div>
+            <h3>还没有碎片。</h3>
+            <p>先捡起一片，慢慢拼成一本书。</p>
+            <button type="button" onClick={createFragment}>捡起一片 🧩</button>
+          </div>
+        ) : (
+          <div className="fragment-pages">
+            {orderedFragments.map((fragment, index) => (
+              <button type="button" className="fragment-page-card" key={fragment.id} onClick={() => { setEditingId(fragment.id); setShareState(""); }}>
+                <span className="fragment-page-number">🧩 {String(orderedFragments.length - index).padStart(2, "0")}</span>
+                <p>{fragment.content || "未写完的这一片……"}</p>
+                <time>{formatFragmentDate(fragment.updatedAt || fragment.createdAt)}</time>
+              </button>
+            ))}
+          </div>
+        )}
+      </main>
+    </div>
   );
 }
 
@@ -2687,7 +2900,7 @@ function ChatView({
                 </span>
               )}
             </div>
-            <span className="header-icon-btn" aria-hidden="true" />
+            <span className="header-icon-spacer" aria-hidden="true" />
           </div>
         </header>
       ) : (
