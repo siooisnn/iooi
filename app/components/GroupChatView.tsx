@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useRef, useState } from "react";
+import { useChatScrollPosition } from "../lib/use-chat-scroll-position";
 
 export type GroupSpeaker = "claude" | "gpt";
 
@@ -46,6 +47,8 @@ type GroupSettings = {
   userAvatar: string;
   prompt: string;
   thinking: boolean;
+  webSearch: boolean;
+  gptWebSearch: boolean;
   gptReasoningEffort: string;
   claudeReasoningEffort: string;
 };
@@ -192,6 +195,33 @@ function groupSessionPreview(session: GroupSession) {
   return latest.content.replace(/\s+/g, " ").slice(0, 32) || "新消息";
 }
 
+function renderGroupInline(text: string) {
+  const parts = text.split(/(\*\*[^*\n]+?\*\*|\*[^*\n]+?\*|\[[^\]\n]+\]\(https?:\/\/[^)\s]+\))/g);
+  return parts.filter(Boolean).map((part, index) => {
+    const link = part.match(/^\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)$/);
+    if (link) {
+      return (
+        <a key={index} className="group-message-link" href={link[2]} target="_blank" rel="noopener noreferrer">
+          {link[1]}
+        </a>
+      );
+    }
+    if (part.startsWith("**") && part.endsWith("**")) return <strong key={index}>{part.slice(2, -2)}</strong>;
+    if (part.startsWith("*") && part.endsWith("*")) return <em key={index}>{part.slice(1, -1)}</em>;
+    return <span key={index}>{part}</span>;
+  });
+}
+
+function renderGroupContent(text: string) {
+  const lines = text.split("\n");
+  return lines.map((line, index) => (
+    <Fragment key={index}>
+      {renderGroupInline(line)}
+      {index < lines.length - 1 && <br />}
+    </Fragment>
+  ));
+}
+
 function proposalContent(proposal: GroupSummerWriteProposal, speaker: GroupSpeaker, settings: GroupSettings, committed = false) {
   const layerNames: Record<string, string> = {
     mangzhong: "芒种",
@@ -215,6 +245,7 @@ export function GroupChatView({
   sessions,
   settings,
   claudeModelId,
+  updateSettings,
   updateMessages,
   updateSummary,
   setActiveSessionId,
@@ -225,6 +256,7 @@ export function GroupChatView({
   sessions: GroupSession[];
   settings: GroupSettings;
   claudeModelId: string;
+  updateSettings: (partial: Partial<Pick<GroupSettings, "webSearch" | "gptWebSearch">>) => void;
   updateMessages: (updater: (messages: GroupChatMessage[]) => GroupChatMessage[]) => void;
   updateSummary: (summary: string, until: number) => void;
   setActiveSessionId: (id: string) => void;
@@ -237,14 +269,18 @@ export function GroupChatView({
   const [replyState, setReplyState] = useState<ReplyState>("idle");
   const [activeSpeaker, setActiveSpeaker] = useState<GroupSpeaker | null>(null);
   const [showSessions, setShowSessions] = useState(false);
+  const [showWebSearchMenu, setShowWebSearchMenu] = useState(false);
   const [summarizing, setSummarizing] = useState(false);
-  const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const messagesRef = useRef(session.messages);
   const sendingRef = useRef(false);
   const activeControllerRef = useRef<AbortController | null>(null);
   const timersRef = useRef<Array<ReturnType<typeof setTimeout>>>([]);
   const summaryInFlightRef = useRef(false);
+  const { scrollRef, handleScroll, followLatest } = useChatScrollPosition(
+    `iooi-scroll-group-${session.id}`,
+    session.messages.length,
+  );
 
   const clearTimers = useCallback(() => {
     for (const timer of timersRef.current) clearTimeout(timer);
@@ -253,7 +289,6 @@ export function GroupChatView({
 
   useEffect(() => {
     messagesRef.current = session.messages;
-    if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
   }, [session.messages]);
 
   useEffect(() => () => {
@@ -304,7 +339,7 @@ export function GroupChatView({
         ].filter(Boolean).join("\n\n"),
         messages: buildModelMessages(messages, speaker, settings),
         thinking: speaker === "claude" && settings.thinking,
-        webSearch: false,
+        webSearch: speaker === "gpt" ? settings.gptWebSearch : settings.webSearch,
         reasoningEffort: speaker === "gpt" ? settings.gptReasoningEffort : settings.claudeReasoningEffort,
         sessionId: `${session.id}-${speaker}`,
         userMsg: userMessage,
@@ -394,12 +429,14 @@ export function GroupChatView({
     const text = input.trim();
     if (!text || loading || uploading || sendingRef.current) return;
     sendingRef.current = true;
+    followLatest();
     const previousMessages = messagesRef.current;
     const userMessage: GroupChatMessage = { role: "user", content: text, time: nowTime(), date: today() };
     let working = [...previousMessages, userMessage];
     messagesRef.current = working;
     updateMessages(() => working);
     setInput("");
+    setShowWebSearchMenu(false);
     if (inputRef.current) inputRef.current.style.height = "auto";
 
     const controller = new AbortController();
@@ -459,6 +496,7 @@ export function GroupChatView({
         const response = await groupFetch("/api/upload", { method: "POST", body: formData });
         const data = await response.json();
         if (!response.ok || !data.url) throw new Error(data.error || "上传失败");
+        followLatest();
         const isImage = file.type.startsWith("image/");
         const message: GroupChatMessage = {
           role: "user",
@@ -603,7 +641,7 @@ export function GroupChatView({
         </div>
       )}
 
-      <section className="chat-messages" ref={scrollRef}>
+      <section className="chat-messages" ref={scrollRef} onScroll={handleScroll}>
         {session.messages.length === 0 && (
           <div className="empty-chat"><p>你、{settings.aiName || "王酥酥"}和{settings.gptName || "GPT"}都在这里</p></div>
         )}
@@ -646,7 +684,7 @@ export function GroupChatView({
                     </a>
                   ) : (
                     <div className={`msg-bubble ${isUser ? "msg-bubble-user" : "msg-bubble-ai"} ${message.source === "group_error" ? "group-error-bubble" : ""}`}>
-                      {message.content.split("\n").map((line, lineIndex) => <span key={lineIndex}>{line}{lineIndex < message.content.split("\n").length - 1 && <br />}</span>)}
+                      {renderGroupContent(message.content)}
                     </div>
                   )}
                 </div>
@@ -669,9 +707,48 @@ export function GroupChatView({
       </section>
 
       <footer className="chat-footer group-chat-footer">
+        {showWebSearchMenu && (
+          <div className="group-web-search-panel" aria-label="Web Search 设置">
+            <div className="group-web-search-option">
+              <span>{settings.aiName || "王酥酥"}</span>
+              <button
+                type="button"
+                className={`chat-config-switch${settings.webSearch ? " chat-config-switch-on" : ""}`}
+                role="switch"
+                aria-checked={settings.webSearch}
+                onClick={() => updateSettings({ webSearch: !settings.webSearch })}
+                disabled={loading}
+              >
+                <span>{settings.webSearch ? "On" : "Off"}</span><i />
+              </button>
+            </div>
+            <div className="group-web-search-option">
+              <span>王郁郁</span>
+              <button
+                type="button"
+                className={`chat-config-switch${settings.gptWebSearch ? " chat-config-switch-on" : ""}`}
+                role="switch"
+                aria-checked={settings.gptWebSearch}
+                onClick={() => updateSettings({ gptWebSearch: !settings.gptWebSearch })}
+                disabled={loading}
+              >
+                <span>{settings.gptWebSearch ? "On" : "Off"}</span><i />
+              </button>
+            </div>
+          </div>
+        )}
         <div className="group-mention-row">
           <button type="button" onClick={() => insertMention("claude")}>@{settings.aiName || "王酥酥"}</button>
           <button type="button" onClick={() => insertMention("gpt")}>@{settings.gptName || "GPT"}</button>
+          <button
+            type="button"
+            className={`group-web-search-trigger${showWebSearchMenu || settings.webSearch || settings.gptWebSearch ? " group-web-search-trigger-active" : ""}`}
+            aria-expanded={showWebSearchMenu}
+            onClick={() => setShowWebSearchMenu((open) => !open)}
+            disabled={loading}
+          >
+            Web Search
+          </button>
         </div>
         <div className="composer-row">
           <button
@@ -698,12 +775,6 @@ export function GroupChatView({
                 setInput(event.target.value);
                 event.target.style.height = "auto";
                 event.target.style.height = `${Math.min(event.target.scrollHeight, 120)}px`;
-              }}
-              onKeyDown={(event) => {
-                if (event.key === "Enter" && !event.shiftKey) {
-                  event.preventDefault();
-                  void sendMessage();
-                }
               }}
               placeholder="和他们说点什么…"
               rows={1}

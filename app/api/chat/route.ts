@@ -267,13 +267,9 @@ function buildSummerDynamic(state: SummerState): string {
 function shouldSearchSummer(query: string): boolean {
   const text = query.trim();
   if (!text) return false;
-  const memoryTarget = /summer|记忆|日记|小暑|夏至|芒种|小满|立夏|rain|sea|碎片/i;
+  const memoryTarget = /summer|记忆|日记|小暑|夏至|芒种|小满|立夏|rain|sea|碎片|之前|以前|那天|哪天|说过|写过|发生过/i;
   const explicitLookup = /找|查|搜|翻|检索|打开|调出|看一下|看看|读一下|读读/i;
-  const recallLookup = /记不记得|还记得|想起来|想不想得起来|回忆|之前|以前|那天|哪天|说过|写过|发生过/i;
-  const exactRef = /(?:小暑\s*)?碎片\s*\d{1,3}|\d{1,2}[.-]\d{1,2}\s*日记|\d{1,2}月\d{1,2}日?\s*日记|20\d{2}-\d{1,2}-\d{1,2}\s*日记/i;
-  return exactRef.test(text) ||
-    recallLookup.test(text) ||
-    (explicitLookup.test(text) && memoryTarget.test(text));
+  return explicitLookup.test(text) && memoryTarget.test(text);
 }
 
 function isSummerWriteOnlyIntent(query: string): boolean {
@@ -678,7 +674,8 @@ export async function POST(request: Request) {
       system.push({ type: "text", text: summerDynamic, cache_control: cacheControl() });
     }
 
-    const queryDates = extractQueryDates(query);
+    const summerSearchRequested = shouldSearchSummer(query) && !isSummerWriteOnlyIntent(query);
+    const queryDates = summerSearchRequested ? extractQueryDates(query) : [];
     if (queryDates.length) {
       try {
         const raw = await callSummerTool("read", { layers: ["xiaoshu"], date: queryDates[0], limit: 50 });
@@ -703,7 +700,7 @@ export async function POST(request: Request) {
       }
     }
 
-    if (shouldSearchSummer(query) && !isSummerWriteOnlyIntent(query)) {
+    if (summerSearchRequested) {
       if (!summerExactDate || summerExactDate.includes("没有找到")) {
         try {
           const toolName = shouldReadSummerRef(query) ? "read" : "search";

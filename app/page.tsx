@@ -6,6 +6,7 @@ import { CacheStatusPanel } from "./components/CacheStatusPanel";
 import { ContextDebugPanel } from "./components/ContextDebugPanel";
 import { GroupChatView } from "./components/GroupChatView";
 import { NotificationButton } from "./components/NotificationButton";
+import { useChatScrollPosition } from "./lib/use-chat-scroll-position";
 
 // ━━━━━━━━━━━━━━━ Types ━━━━━━━━━━━━━━━
 type Message = {
@@ -608,7 +609,7 @@ function ThinkingBlock({ content }: { content: string }) {
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ transform: open ? "rotate(90deg)" : "none", transition: "transform 0.2s" }}>
           <polyline points="9 18 15 12 9 6" />
         </svg>
-        <span>老公的内心</span>
+        <span>Thought Process</span>
       </button>
       {open && (
         <div className="thinking-content">
@@ -1252,6 +1253,7 @@ export default function Home() {
             sessions={groupSessions}
             settings={settings}
             claudeModelId={(MODELS.find((model) => model.id === settings.model) || MODELS[0]).apiId}
+            updateSettings={updateSettings}
             updateMessages={updateGroupMessages}
             updateSummary={updateGroupSummary}
             setActiveSessionId={setGroupActiveSessionId}
@@ -2303,7 +2305,6 @@ function ChatView({
   const [showModelMenu, setShowModelMenu] = useState(false);
   const [editingName, setEditingName] = useState<string | null>(null);
   const [editNameValue, setEditNameValue] = useState("");
-  const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const sessionMessagesRef = useRef<Message[]>(session.messages);
   const sendingRef = useRef(false);
@@ -2312,6 +2313,10 @@ function ChatView({
   const activeReplyRequestRef = useRef<{ id: number; controller: AbortController } | null>(null);
   const replyStatusTimersRef = useRef<Array<ReturnType<typeof setTimeout>>>([]);
   const [initialMessageCount] = useState(() => session.messages.length);
+  const { scrollRef, handleScroll, followLatest } = useChatScrollPosition(
+    `iooi-scroll-${assistantMode}-${session.id}`,
+    session.messages.length,
+  );
 
   // ── 巧思:长按贴贴 / 随机输入提示 / 扣6彩蛋 ──
   const [heartBurst, setHeartBurst] = useState<number | null>(null);
@@ -2383,10 +2388,6 @@ function ChatView({
       }
     };
   }, []);
-
-  useEffect(() => {
-    if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-  }, [session.messages]);
 
   useEffect(() => {
     sessionMessagesRef.current = session.messages;
@@ -2631,6 +2632,7 @@ function ChatView({
     sendingRef.current = true;
     const userText = input;
     const userMsg: Message = { role: "user", content: userText, time: getTime(), date: getTodayStr() };
+    followLatest();
     const baseMessages = sessionMessagesRef.current;
     const messagesWithUser = [...baseMessages, userMsg];
     sessionMessagesRef.current = messagesWithUser;
@@ -2857,6 +2859,7 @@ function ChatView({
         const res = await apiFetch("/api/upload", { method: "POST", body: formData });
         const data = await res.json();
         if (data.url) {
+          followLatest();
           const isImage = file.type.startsWith("image/");
           const msg: Message = {
             role: "user",
@@ -2924,7 +2927,7 @@ function ChatView({
         </header>
       )}
 
-      <section className="chat-messages" ref={scrollRef}>
+      <section className="chat-messages" ref={scrollRef} onScroll={handleScroll}>
         {session.messages.length === 0 && (
           <div className="empty-chat"><p>说点什么开始聊天吧</p></div>
         )}
@@ -2950,6 +2953,11 @@ function ChatView({
                   </span>
                 </div>
               )}
+              {message.thinking && (
+                <div className="thinking-row">
+                  <ThinkingBlock content={message.thinking} />
+                </div>
+              )}
               <div className={`msg-row ${message.role === "user" ? "msg-row-user" : "msg-row-ai"} ${isSummerUtility ? "msg-row-summer-utility" : ""} ${compactTop ? "msg-row-compact-top" : ""} ${compactBottom ? "msg-row-compact-bottom" : ""} ${animateMessage ? "" : "msg-row-static"}`} style={animateMessage ? { animationDelay: `${Math.min(index * 0.03, 0.3)}s` } : undefined}>
                 {message.role === "assistant" && !isSummerUtility && (
                   assistantAvatar
@@ -2958,7 +2966,6 @@ function ChatView({
                 )}
                 <div className={message.role === "user" ? "msg-content-user" : "msg-content-ai"}>
                   {!listEntryMode && <span className="msg-time">{message.source === "heartbeat" ? "💬 " : ""}{message.time}</span>}
-                  {message.thinking && <ThinkingBlock content={message.thinking} />}
                   {message.image ? (
                     <div className={`msg-bubble msg-bubble-img ${message.role === "user" ? "msg-bubble-user" : "msg-bubble-ai"}`}>
                       <img src={message.image} className="msg-image" alt="" onClick={() => window.open(message.image, "_blank")} />
@@ -3169,7 +3176,6 @@ function ChatView({
           <div className="input-wrapper">
             <textarea
               ref={inputRef} value={input} onChange={handleInputChange}
-              onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); } }}
               placeholder={inputHint} rows={1} className="chat-input"
             />
             <button
