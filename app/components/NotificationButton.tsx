@@ -10,9 +10,11 @@ export function NotificationButton({ onSubscribe }: NotificationButtonProps) {
   const [status, setStatus] = useState<"unknown" | "granted" | "denied" | "subscribing" | "done">("unknown");
 
   useEffect(() => {
-    if (typeof window !== "undefined" && "Notification" in window) {
+    if (!("Notification" in window)) return;
+    const frame = window.requestAnimationFrame(() => {
       setStatus(Notification.permission === "granted" ? "granted" : "unknown");
-    }
+    });
+    return () => window.cancelAnimationFrame(frame);
   }, []);
 
   async function enableNotifications() {

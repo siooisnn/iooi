@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect, useCallback } from "react";
+import { Fragment, useState, useRef, useEffect, useCallback } from "react";
 import type { ReactNode } from "react";
 import { CacheStatusPanel } from "./components/CacheStatusPanel";
 import { ContextDebugPanel } from "./components/ContextDebugPanel";
@@ -369,6 +369,18 @@ function createGroupSession(index = 1, id = "group-main"): ChatSession {
   };
 }
 
+function ensureMemoSession(sessions: ChatSession[]) {
+  if (sessions.some((session) => session.kind === "memo")) return sessions;
+  const memo: ChatSession = {
+    id: "memo-self",
+    kind: "memo",
+    name: "备忘",
+    messages: [],
+    createdAt: new Date().toISOString(),
+  };
+  return [memo, ...sessions];
+}
+
 function chatMessageKey(message: Message) {
   const proposalId = message.proposal?.id;
   if (proposalId && message.source?.startsWith("summer_write_")) {
@@ -593,11 +605,26 @@ const fetchGroupFromServer = groupServerSync.fetch;
 
 // ── Markdown ──
 function renderContent(text: string) {
-  const parts = text.split(/(\*\*.*?\*\*|\*.*?\*)/g);
-  return parts.map((part, i) => {
-    if (part.startsWith("**") && part.endsWith("**")) return <strong key={i}>{part.slice(2, -2)}</strong>;
-    if (part.startsWith("*") && part.endsWith("*")) return <em key={i}>{part.slice(1, -1)}</em>;
-    return <span key={i}>{part}</span>;
+  return text.split("\n").map((line, lineIndex) => {
+    const parts = line.split(/(\*\*[^*\n]+?\*\*|\*[^*\n]+?\*|\[[^\]\n]+\]\(https?:\/\/[^)\s]+\))/g);
+    return (
+      <Fragment key={lineIndex}>
+        {parts.filter(Boolean).map((part, partIndex) => {
+          const link = part.match(/^\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)$/);
+          if (link) {
+            return (
+              <a key={partIndex} className="chat-message-link" href={link[2]} target="_blank" rel="noopener noreferrer">
+                {link[1]}
+              </a>
+            );
+          }
+          if (part.startsWith("**") && part.endsWith("**")) return <strong key={partIndex}>{part.slice(2, -2)}</strong>;
+          if (part.startsWith("*") && part.endsWith("*")) return <em key={partIndex}>{part.slice(1, -1)}</em>;
+          return <span key={partIndex}>{part}</span>;
+        })}
+        {lineIndex < text.split("\n").length - 1 && <br />}
+      </Fragment>
+    );
   });
 }
 
@@ -762,14 +789,15 @@ export default function Home() {
       setSettings(s);
       saveLocal("iooi-settings", s);
       syncToServer({ settings: s });
-      if (sess.length === 0) {
+      let initialSessions = sess;
+      let initialActiveSessionId = sess[0]?.id || "";
+      if (initialSessions.length === 0) {
         const first: ChatSession = { id: genId(), name: "对话 1", messages: [], createdAt: new Date().toISOString() };
-        setSessions([first]);
-        setActiveSessionId(first.id);
-      } else {
-        setSessions(sess);
-        setActiveSessionId(sess[0].id);
+        initialSessions = [first];
+        initialActiveSessionId = first.id;
       }
+      setSessions(ensureMemoSession(initialSessions));
+      setActiveSessionId(initialActiveSessionId);
       if (mergedGptSessions.length === 0) {
         const firstGpt: ChatSession = { id: `gpt-${genId()}`, name: "GPT 对话 1", messages: [], createdAt: new Date().toISOString() };
         setGptSessions([firstGpt]);
@@ -802,7 +830,9 @@ export default function Home() {
 
   // Force sync when user switches away (prevents message loss on iOS)
   const latestData = useRef({ sessions, gptSessions, groupSessions, settings, moods, wall, fragments });
-  latestData.current = { sessions, gptSessions, groupSessions, settings, moods, wall, fragments };
+  useEffect(() => {
+    latestData.current = { sessions, gptSessions, groupSessions, settings, moods, wall, fragments };
+  }, [sessions, gptSessions, groupSessions, settings, moods, wall, fragments]);
   useEffect(() => {
     if (!mounted) return;
     const handleVisibility = () => {
@@ -1009,16 +1039,6 @@ export default function Home() {
     setSessions((prev) => [newSession, ...prev]);
     setActiveSessionId(newSession.id);
   }, [sessions]);
-
-  // 备忘会话:确保存在且只有一个(她的口袋,不触发回复)
-  useEffect(() => {
-    if (!mounted) return;
-    setSessions((prev) => {
-      if (prev.some((s) => s.kind === "memo")) return prev;
-      const memo: ChatSession = { id: "memo-self", kind: "memo", name: "备忘", messages: [], createdAt: new Date().toISOString() };
-      return [memo, ...prev];
-    });
-  }, [mounted]);
 
   const deleteSession = useCallback((id: string) => {
     deletedSessionIds.current.add(id);
@@ -1750,18 +1770,23 @@ function HomeView({ settings, wall, setWall, fragments, setFragments, heartbeatL
   heartbeatLog: Array<{ time: string; action: string; reason: string }>;
   aiMood: { emoji: string; ts: number };
 }) {
-  const [now, setNow] = useState(Date.now());
+  const [now, setNow] = useState<number | null>(null);
   const [showWall, setShowWall] = useState(false);
   const [showLogs, setShowLogs] = useState(false);
   const [showFragments, setShowFragments] = useState(false);
 
   useEffect(() => {
-    const timer = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(timer);
+    const updateNow = () => setNow(Date.now());
+    const frame = window.requestAnimationFrame(updateNow);
+    const timer = window.setInterval(updateNow, 1000);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      window.clearInterval(timer);
+    };
   }, []);
 
   const start = new Date(settings.startDate).getTime();
-  const diff = now - start;
+  const diff = now === null ? 0 : Math.max(0, now - start);
   const days = Math.floor(diff / (1000 * 60 * 60 * 24));
   const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
   const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
@@ -1773,8 +1798,8 @@ function HomeView({ settings, wall, setWall, fragments, setFragments, heartbeatL
   const latestHeartbeat = heartbeatLog[0];
 
   // 纪念日花瓣:上弦节4.19 / iooi生日6.5
-  const d = new Date();
-  const mmdd = `${d.getMonth() + 1}.${d.getDate()}`;
+  const currentDate = now === null ? null : new Date(now);
+  const mmdd = currentDate ? `${currentDate.getMonth() + 1}.${currentDate.getDate()}` : "";
   const isAnniversary = mmdd === "4.19" || mmdd === "6.5";
 
   return (
@@ -1803,7 +1828,7 @@ function HomeView({ settings, wall, setWall, fragments, setFragments, heartbeatL
           <p style={{ fontSize: "13px", color: "#a09088", marginTop: "6px", textAlign: "center" }}>
             {settings.aiName}
             {" "}
-            {aiMood.emoji && (Date.now() - aiMood.ts) < 3600000
+            {aiMood.emoji && now !== null && (now - aiMood.ts) < 3600000
               ? `现在 ${aiMood.emoji}`
               : getIdleStatus()}
           </p>
@@ -3367,7 +3392,8 @@ function SummerMemoryView({ assistantMode }: { assistantMode: AssistantMode }) {
   }, [activeLayer, summerEndpoint]);
 
   useEffect(() => {
-    loadSummer();
+    const frame = window.requestAnimationFrame(() => void loadSummer());
+    return () => window.cancelAnimationFrame(frame);
   }, [loadSummer]);
 
   useEffect(() => {
@@ -3588,11 +3614,13 @@ function SummerMemoryView({ assistantMode }: { assistantMode: AssistantMode }) {
     sea: `${seaFiles.length} 份`,
   };
 
-  useEffect(() => {
-    if (activeLayer && ["lixia", "xiaoman", "mangzhong"].includes(activeLayer)) {
-      setEditingDoc(layers[activeLayer] || "");
+  function openLayer(layer: string) {
+    setActiveLayer(layer);
+    setEditingItem(null);
+    if (["lixia", "xiaoman", "mangzhong"].includes(layer)) {
+      setEditingDoc(layers[layer] || "");
     }
-  }, [activeLayer, layers]);
+  }
 
   return (
     <div className="summer-native">
@@ -3758,7 +3786,7 @@ function SummerMemoryView({ assistantMode }: { assistantMode: AssistantMode }) {
       ) : (
         <div className="summer-layer-list">
           {layerOrder.map((layer) => (
-            <button className="summer-layer-card" key={layer} onClick={() => setActiveLayer(layer)}>
+            <button className="summer-layer-card" key={layer} onClick={() => openLayer(layer)}>
               <div>
                 <h3>{layerLabel(layer)}</h3>
                 <p>{layerSub(layer)}</p>

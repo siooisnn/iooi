@@ -132,9 +132,55 @@ function speakerName(speaker: GroupSpeaker, settings: GroupSettings) {
   return speaker === "gpt" ? (settings.gptName || "GPT") : (settings.aiName || "王酥酥");
 }
 
+function stripLeakedThinking(text: string, startsInsideThinking = false) {
+  const markerPattern = /<\/?(?:antml:)?thinking(?:\s[^>]*)?>|(?:^|\n)[ \t]*antml:thinking[ \t]*(?=\n|$)/gi;
+  let content = "";
+  let cursor = 0;
+  let insideThinking = startsInsideThinking;
+  let match: RegExpExecArray | null;
+
+  while ((match = markerPattern.exec(text)) !== null) {
+    if (!insideThinking) content += text.slice(cursor, match.index);
+    insideThinking = !match[0].trim().startsWith("</");
+    cursor = match.index + match[0].length;
+  }
+  if (!insideThinking) content += text.slice(cursor);
+
+  return {
+    content: content.replace(/[ \t]+\n/g, "\n").replace(/\n{3,}/g, "\n\n").trim(),
+    insideThinking,
+  };
+}
+
+function visibleGroupMessages(messages: GroupChatMessage[]) {
+  const visible: Array<{ message: GroupChatMessage; originalIndex: number }> = [];
+  let insideClaudeThinking = false;
+
+  messages.forEach((message, originalIndex) => {
+    const isClaudeReply = message.role === "assistant"
+      && message.speaker === "claude"
+      && !message.source?.startsWith("summer_");
+    if (!isClaudeReply) {
+      insideClaudeThinking = false;
+      visible.push({ message, originalIndex });
+      return;
+    }
+
+    const sanitized = stripLeakedThinking(message.content, insideClaudeThinking);
+    insideClaudeThinking = sanitized.insideThinking;
+    if (!sanitized.content && !message.image && !message.file) return;
+    visible.push({
+      message: sanitized.content === message.content ? message : { ...message, content: sanitized.content },
+      originalIndex,
+    });
+  });
+
+  return visible;
+}
+
 function buildModelMessages(messages: GroupChatMessage[], target: GroupSpeaker, settings: GroupSettings) {
   const prepared: ModelMessage[] = [];
-  for (const message of messages) {
+  for (const { message } of visibleGroupMessages(messages)) {
     if (message.source?.startsWith("summer_")) continue;
     let next: ModelMessage;
     if (message.role === "user") {
@@ -188,7 +234,7 @@ function groupSystemPrompt(speaker: GroupSpeaker, settings: GroupSettings) {
 }
 
 function groupSessionPreview(session: GroupSession) {
-  const latest = [...session.messages].reverse().find((message) => !message.source?.startsWith("summer_"));
+  const latest = visibleGroupMessages(session.messages).reverse().find(({ message }) => !message.source?.startsWith("summer_"))?.message;
   if (!latest) return "还没有消息";
   if (latest.image) return "[图片]";
   if (latest.file) return latest.content || "[文件]";
@@ -201,7 +247,7 @@ function renderGroupInline(text: string) {
     const link = part.match(/^\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)$/);
     if (link) {
       return (
-        <a key={index} className="group-message-link" href={link[2]} target="_blank" rel="noopener noreferrer">
+        <a key={index} className="chat-message-link" href={link[2]} target="_blank" rel="noopener noreferrer">
           {link[1]}
         </a>
       );
@@ -353,7 +399,9 @@ export function GroupChatView({
 
     const timestamp = nowTime();
     const date = today();
-    const rawReply = String(data.reply || "...").replace(/\[心情[:：].+?\]/g, "").trim();
+    const rawReply = stripLeakedThinking(
+      String(data.reply || "...").replace(/\[心情[:：].+?\]/g, ""),
+    ).content || "...";
     const utilityMessages: GroupChatMessage[] = (data.cache?.summer_calls || []).map((call: { label?: string; tool?: string; count?: number }) => ({
       role: "assistant",
       speaker,
@@ -387,9 +435,9 @@ export function GroupChatView({
     const already = session.summarizedUntil || 0;
     if (until - already < GROUP_SUMMARY_MIN_NEW_MESSAGES) return;
 
-    const olderMessages = messages.slice(already, until)
-      .filter((message) => !message.source?.startsWith("summer_") && message.source !== "group_error")
-      .map((message) => ({
+    const olderMessages = visibleGroupMessages(messages)
+      .filter(({ message, originalIndex }) => originalIndex >= already && originalIndex < until && !message.source?.startsWith("summer_") && message.source !== "group_error")
+      .map(({ message }) => ({
         role: message.role,
         speaker: message.speaker,
         content: message.content || (message.image ? "[发送了一张图片]" : message.file ? "[发送了一个文件]" : ""),
@@ -601,6 +649,8 @@ export function GroupChatView({
     requestAnimationFrame(() => inputRef.current?.focus());
   }
 
+  const displayedMessages = visibleGroupMessages(session.messages);
+
   return (
     <>
       <header className="chat-header chat-room-header">
@@ -642,15 +692,15 @@ export function GroupChatView({
       )}
 
       <section className="chat-messages" ref={scrollRef} onScroll={handleScroll}>
-        {session.messages.length === 0 && (
+        {displayedMessages.length === 0 && (
           <div className="empty-chat"><p>你、{settings.aiName || "王酥酥"}和{settings.gptName || "GPT"}都在这里</p></div>
         )}
-        {session.messages.map((message, index) => {
+        {displayedMessages.map(({ message, originalIndex: index }, displayedIndex) => {
           const isUser = message.role === "user";
           const isUtility = message.source?.startsWith("summer_");
           const owner = message.speaker ? speakerName(message.speaker, settings) : "";
           const avatar = message.speaker === "gpt" ? settings.gptAvatar : settings.aiAvatar;
-          const showDate = index === 0 || message.date !== session.messages[index - 1]?.date;
+          const showDate = displayedIndex === 0 || message.date !== displayedMessages[displayedIndex - 1]?.message.date;
           return (
             <div key={`${message.time}-${index}`}>
               {showDate && message.date && <div className="date-separator"><span className="date-separator-text">{message.date}</span></div>}

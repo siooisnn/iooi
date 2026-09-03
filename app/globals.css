@@ -856,7 +856,7 @@ body {
   font-weight: 650;
 }
 
-.group-message-link {
+.chat-message-link {
   color: #a87561;
   font-weight: 600;
   text-decoration: underline;
