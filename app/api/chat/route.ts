@@ -145,12 +145,12 @@ type SummerItem = {
 };
 
 type SummerState = {
-  layers?: Record<string, string>;
-  xiazhi?: SummerItem[];
-  rain?: SummerItem[];
-  ferry?: SummerItem[];
-  xiaoshu_recent?: SummerItem[];
   xiaoshu_tail?: SummerItem[];
+};
+
+type SummerWakeParts = {
+  stable?: string;
+  dynamic?: string;
 };
 
 type SummerCall = {
@@ -217,6 +217,24 @@ async function readSummerState(): Promise<SummerState> {
   return data as SummerState;
 }
 
+async function readSummerWake(): Promise<SummerWakeParts> {
+  const token = process.env.SUMMER_TOKEN || "";
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 10_000);
+  const res = await fetch(`${summerBaseUrl()}/api/wake`, {
+    headers: {
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    cache: "no-store",
+    signal: controller.signal,
+  }).finally(() => clearTimeout(timeout));
+  const data = await res.json();
+  if (!res.ok) {
+    throw new Error(data?.error || `summer wake failed: ${res.status}`);
+  }
+  return data as SummerWakeParts;
+}
+
 function parseSummerJson<T>(raw: string): T {
   return JSON.parse(raw) as T;
 }
@@ -271,10 +289,9 @@ function structuredFromRead(result: SummerReadResult): SummerStructuredResult {
   };
 }
 
-function buildSummerStable(state: SummerState): string {
-  const layers = state.layers || {};
+function buildSummerBridgeStable(): string {
   return [
-    "## summer stable",
+    "## summer bridge",
     "",
     "Memory writes from chat are proposal-only. If something should be remembered, append a hidden proposal tag after your normal reply: [summer_remember layer=xiazhi title=\"short title\" weight=5 tags=\"optional\"]content[/summer_remember]. Use mangzhong for titled chapters of the shared history, xiazhi for important lasting memories, xiaoshu for daily fragments, rain for unresolved future items, ferry for transition/渡口/threshold memories. Only sea is read-only. The system will show it to her for confirmation and will not write it silently.",
     "If she explicitly asks to write something into summer or ferry, do not refuse by saying you cannot write summer. Respond naturally, then add the hidden proposal tag with the requested layer. It is still only a proposal until she confirms it.",
@@ -284,47 +301,7 @@ function buildSummerStable(state: SummerState): string {
     "",
     "你不能静默提交、编辑或删除 summer；但你可以通过 hidden proposal tag 发起待确认写入。她明确说“写入/记到/ferry/summer”时，应该生成对应 proposal，而不是拒绝。",
     "如果她问某天日记、旧事、记忆、summer 或 sea，后台可能会给出按需检索结果。能看到结果就自然回答；没看到相关结果时，说“我这里没检索到”，不要说自己绝对不能查。",
-    "",
-    "## 立夏：我们是谁",
-    (layers.lixia || "").trim(),
-    "",
-    "## 小满：我们是怎样的人",
-    (layers.xiaoman || "").trim(),
-    "",
-    "## 芒种：来时路",
-    (layers.mangzhong || "").trim(),
   ].join("\n").trim();
-}
-
-function buildSummerDynamic(state: SummerState): string {
-  const parts = [
-    "## summer current",
-    "",
-    "下面是会变化的近期记忆：夏至只保留权重 6 以上，rain 是未了结，小暑是最近一周。",
-    "",
-    "## 夏至：稳定后的深刻",
-  ];
-  for (const item of state.xiazhi || []) {
-    if (Number(item.weight || 5) < 6) continue;
-    parts.push(`- ${item.date || ""}｜${item.title || ""}：${item.content || ""}`);
-  }
-  parts.push("", "## rain：未了结的事");
-  for (const item of state.rain || []) {
-    if (item.status === "closed") continue;
-    const due = item.due ? `｜due ${item.due}` : "";
-    parts.push(`- [${item.id || ""}] ${item.title || ""}${due}：${item.content || ""}`);
-  }
-  parts.push("", "## ferry：渡口与过渡");
-  for (const item of state.ferry || []) {
-    parts.push(`- ${item.date || ""}｜${item.title || ""}：${item.content || ""}`);
-  }
-  parts.push("", "## 小暑：最近七天");
-  for (const item of state.xiaoshu_recent || []) {
-    parts.push(`### ${item.date || ""}｜${item.title || "小暑日常"}`);
-    parts.push(String(item.content || "").trim());
-  }
-  parts.push("", "## 回应规则", "不要总结这份材料，不要说自己读到了记忆。直接对小姿说话，先认得她，再回应当下。");
-  return parts.join("\n").trim();
 }
 
 function shouldSearchSummer(query: string): boolean {
@@ -727,9 +704,11 @@ export async function POST(request: Request) {
   const summerCalls: SummerCall[] = [];
   try {
     const query = String(groupUserText || latestUserText(requestMessages));
-    const summerState = await readSummerState();
-    const summerStable = buildSummerStable(summerState);
-    const summerDynamic = buildSummerDynamic(summerState);
+    const summerWake = await readSummerWake();
+    const summerStable = [buildSummerBridgeStable(), String(summerWake.stable || "").trim()]
+      .filter(Boolean)
+      .join("\n\n");
+    const summerDynamic = String(summerWake.dynamic || "").trim();
     summerUsed = Boolean(summerStable || summerDynamic);
     if (summerStable) {
       system.push({ type: "text", text: summerStable, cache_control: cacheControl() });
@@ -754,6 +733,7 @@ export async function POST(request: Request) {
           count: result.count || 0,
         });
       } catch {
+        const summerState = await readSummerState();
         summerExactDate = buildExactXiaoshuSearch(summerState, query);
         summerCalls.push({
           tool: "read",
