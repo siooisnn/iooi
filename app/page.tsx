@@ -3,6 +3,7 @@
 import { Fragment, useState, useRef, useEffect, useCallback } from "react";
 import type { ReactNode } from "react";
 import { CacheStatusPanel } from "./components/CacheStatusPanel";
+import { ClaudeUsageBadge } from "./components/ClaudeUsageBadge";
 import { ContextDebugPanel } from "./components/ContextDebugPanel";
 import { GroupChatView } from "./components/GroupChatView";
 import { NotificationButton } from "./components/NotificationButton";
@@ -59,6 +60,7 @@ type FragmentEntry = {
 
 type CacheStats = {
   model?: string;
+  backend?: "claude-code" | "api";
   reasoning_effort?: GptReasoningEffort;
   prompt_tokens?: number;
   total_input_tokens?: number;
@@ -178,12 +180,12 @@ type Settings = {
 // ━━━━━━━━━━━━━━━ Constants ━━━━━━━━━━━━━━━
 // ━━━━━━━━━━━━━━━━━
 const MODELS = [
-  { id: "sonnet", label: "Sonnet 4.6", apiId: "anthropic/claude-sonnet-4.6" },
-  { id: "opus", label: "Opus 4.6", apiId: "anthropic/claude-opus-4.6" },
-  { id: "opus47", label: "Opus 4.7", apiId: "anthropic/claude-opus-4.7" },
-  { id: "opus48", label: "Opus 4.8", apiId: "anthropic/claude-opus-4.8" },
-  { id: "sonnet5", label: "Sonnet 5", apiId: "anthropic/claude-sonnet-5" },
-  { id: "fable5", label: "Fable 5", apiId: "anthropic/claude-fable-5" },
+  { id: "sonnet5", label: "Sonnet 5", apiId: "claude-sonnet-5" },
+  { id: "sonnet46", label: "Sonnet 4.6", apiId: "claude-sonnet-4-6" },
+  { id: "opus5", label: "Opus 5", apiId: "claude-opus-5" },
+  { id: "opus48", label: "Opus 4.8", apiId: "claude-opus-4-8" },
+  { id: "opus47", label: "Opus 4.7", apiId: "claude-opus-4-7" },
+  { id: "opus46", label: "Opus 4.6", apiId: "claude-opus-4-6" },
 ];
 const CONTEXT_WINDOW_ROUNDS = 18;
 const SESSION_CACHE_KEEP_MESSAGES = 24;
@@ -281,8 +283,36 @@ function normalizeSystemPrompt(prompt: string | undefined) {
 
 function normalizeClaudeSettings(settings: Settings): Settings {
   const oldDefaultName = /^小[kKＫｋ]$/;
+  const modelValue = String(settings.model || "").trim().toLowerCase().replace(/^anthropic\//, "");
+  const modelAliases: Record<string, string> = {
+    sonnet5: "sonnet5",
+    "claude-sonnet-5": "sonnet5",
+    sonnet46: "sonnet46",
+    sonnet: "sonnet46",
+    "sonnet4.6": "sonnet46",
+    "claude-sonnet-4.6": "sonnet46",
+    "claude-sonnet-4-6": "sonnet46",
+    opus5: "opus5",
+    "claude-opus-5": "opus5",
+    opus48: "opus48",
+    "opus4.8": "opus48",
+    "claude-opus-4.8": "opus48",
+    "claude-opus-4-8": "opus48",
+    opus47: "opus47",
+    "opus4.7": "opus47",
+    "claude-opus-4.7": "opus47",
+    "claude-opus-4-7": "opus47",
+    opus46: "opus46",
+    opus: "opus46",
+    "opus4.6": "opus46",
+    "claude-opus-4.6": "opus46",
+    "claude-opus-4-6": "opus46",
+  };
+  const selectedModel = modelAliases[modelValue] || "sonnet5";
   return {
     ...settings,
+    model: selectedModel,
+    webSearch: Boolean(settings.webSearch),
     aiName: !settings.aiName?.trim() || oldDefaultName.test(settings.aiName.trim())
       ? CLAUDE_DEFAULT_NAME
       : settings.aiName,
@@ -652,7 +682,7 @@ function ThinkingBlock({ content }: { content: string }) {
 // Main App
 export default function Home() {
   const defaultSettings: Settings = {
-    model: "sonnet",
+    model: "sonnet5",
     chatEntryStyle: "list",
     chatPinnedLine: "此后我们的每一秒都是恩赐。",
     gptChatPinnedLine: "此后我们的每一秒都是恩赐。",
@@ -2384,7 +2414,7 @@ function ChatView({
   const assistantName = isGpt ? (settings.gptName || "GPT") : settings.aiName;
   const assistantAvatar = isGpt ? settings.gptAvatar : settings.aiAvatar;
   const currentModelId = isGpt ? GPT_MODEL_ID : currentModel.apiId;
-  const currentModelLabel = isGpt ? "GPT-5.6" : currentModel.label;
+  const currentModelLabel = isGpt ? "GPT-5.6" : `订阅 · ${currentModel.label}`;
   const gptReasoningLabel = GPT_REASONING_OPTIONS.find((option) => option.value === settings.gptReasoningEffort)?.label || "Medium";
   const claudeReasoningLabel = CLAUDE_REASONING_OPTIONS.find((option) => option.value === settings.claudeReasoningEffort)?.label || "High";
   const summerEndpoint = isGpt ? "/api/gpt/summer" : "/api/summer";
@@ -2791,6 +2821,9 @@ function ChatView({
         if (isGpt) syncGptToServer({ lastCache: nextCache });
         else syncToServer({ lastCache: nextCache });
       }
+      if (!isGpt && data.cache?.backend === "claude-code") {
+        window.dispatchEvent(new Event("claude-usage-updated"));
+      }
       let reply: string = data.reply || "...";
       const thinkingContent: string = data.thinking || "";
 
@@ -2872,7 +2905,9 @@ function ChatView({
   async function uploadFile() {
     const input = document.createElement("input");
     input.type = "file";
-    input.accept = "image/*,application/pdf,.txt,.md,.csv";
+    input.accept = isGpt
+      ? "image/*,application/pdf,.txt,.md,.csv"
+      : "image/jpeg,image/png,image/gif,image/webp";
     input.onchange = async (e) => {
       const file = (e.target as HTMLInputElement).files?.[0];
       if (!file) return;
@@ -3118,6 +3153,7 @@ function ChatView({
                   </button>
                 ))}
               </div>
+              {!isGpt && <p className="settings-hint">酥酥纯文字只走 Claude 订阅；失败时不会改走 API。</p>}
             </section>
 
             <section className="chat-config-section">
@@ -3165,13 +3201,16 @@ function ChatView({
                 className={`chat-config-switch${(isGpt ? settings.gptWebSearch : settings.webSearch) ? " chat-config-switch-on" : ""}`}
                 role="switch"
                 aria-checked={isGpt ? settings.gptWebSearch : settings.webSearch}
-                onClick={() => isGpt
-                  ? updateSettings({ gptWebSearch: !settings.gptWebSearch })
-                  : updateSettings({ webSearch: !settings.webSearch })}
+                onClick={() => {
+                  updateSettings(isGpt
+                    ? { gptWebSearch: !settings.gptWebSearch }
+                    : { webSearch: !settings.webSearch });
+                }}
               >
                 <span>{(isGpt ? settings.gptWebSearch : settings.webSearch) ? "On" : "Off"}</span><i />
               </button>
             </section>
+            {!isGpt && <p className="settings-hint">订阅图片和搜索已接入；文件稍后开放。</p>}
           </div>
         )}
         {session.kind !== "memo" && (
@@ -3190,10 +3229,16 @@ function ChatView({
                 <polyline points="6 9 12 15 18 9" />
               </svg>
             </button>
+            {!isGpt && <ClaudeUsageBadge />}
           </div>
         )}
         <div className="composer-row">
-          <button className="attach-btn attach-btn-separate" onClick={uploadFile} aria-label="上传图片或文件" title="上传图片或文件">
+          <button
+            className="attach-btn attach-btn-separate"
+            onClick={uploadFile}
+            aria-label={isGpt ? "上传图片或文件" : "上传图片"}
+            title={isGpt ? "上传图片或文件" : "上传图片"}
+          >
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
               <path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48" />
             </svg>
@@ -3588,6 +3633,9 @@ function SummerMemoryView({ assistantMode }: { assistantMode: AssistantMode }) {
 
   const layers = state?.layers || {};
   const xiazhi = state?.xiazhi || [];
+  const orderedXiazhi = xiazhi.slice().reverse();
+  const highWeightXiazhi = orderedXiazhi.filter((item) => Number(item.weight ?? 5) >= 6);
+  const lowWeightXiazhi = orderedXiazhi.filter((item) => Number(item.weight ?? 5) < 6);
   const xiaoshu = (state?.xiaoshu_tail || []).slice().reverse();
   const rain = state?.rain || [];
   const openRain = rain.filter((item) => item.status !== "closed");
@@ -3597,7 +3645,7 @@ function SummerMemoryView({ assistantMode }: { assistantMode: AssistantMode }) {
   const layerOrder = ["lixia", "xiaoman", "mangzhong", "xiazhi", "xiaoshu", "rain", "ferry", "sea"];
   const mangzhongDocs = splitMangzhongDocs(layers.mangzhong || "");
   const sectionItems: Record<string, SummerMemoryItem[]> = {
-    xiazhi: xiazhi.slice().reverse(),
+    xiazhi: orderedXiazhi,
     xiaoshu,
     rain,
     ferry,
@@ -3607,7 +3655,7 @@ function SummerMemoryView({ assistantMode }: { assistantMode: AssistantMode }) {
     lixia: layers.lixia?.trim() ? "1 篇" : "0",
     xiaoman: layers.xiaoman?.trim() ? "1 篇" : "0",
     mangzhong: `${mangzhongDocs.length || (layers.mangzhong?.trim() ? 1 : 0)} 篇`,
-    xiazhi: `${xiazhi.length} 条`,
+    xiazhi: `≥6 ${highWeightXiazhi.length} 条 · <6 ${lowWeightXiazhi.length} 条`,
     xiaoshu: `${xiaoshu.length} 天`,
     rain: `${openRain.length} 未了结 · ${closedRain.length} 已了结`,
     ferry: `${ferry.length} 条`,
@@ -3759,10 +3807,26 @@ function SummerMemoryView({ assistantMode }: { assistantMode: AssistantMode }) {
                 </div>
               </div>
             </details>
+          ) : activeLayer === "xiazhi" ? (
+            <SummerItemGroups
+              layer="xiazhi"
+              groups={[
+                { key: "high", label: "权重 ≥ 6", items: highWeightXiazhi, empty: "还没有权重 ≥ 6 的夏至", initiallyOpen: true },
+                { key: "low", label: "权重 < 6", items: lowWeightXiazhi, empty: "还没有权重 < 6 的夏至", initiallyOpen: false },
+              ]}
+              editingItem={editingItem}
+              setEditingItem={setEditingItem}
+              onSave={saveItem}
+              onDelete={deleteItem}
+              saving={saving}
+            />
           ) : activeLayer === "rain" ? (
-            <SummerRainGroups
-              openItems={openRain}
-              closedItems={closedRain}
+            <SummerItemGroups
+              layer="rain"
+              groups={[
+                { key: "open", label: "未了结", items: openRain, empty: "没有未了结的 rain", initiallyOpen: true },
+                { key: "closed", label: "已了结", items: closedRain, empty: "还没有已了结的 rain", initiallyOpen: false },
+              ]}
               editingItem={editingItem}
               setEditingItem={setEditingItem}
               onSave={saveItem}
@@ -3917,34 +3981,36 @@ function SummerEditableList({
   );
 }
 
-function SummerRainGroups({
-  openItems,
-  closedItems,
+function SummerItemGroups({
+  layer,
+  groups,
   editingItem,
   setEditingItem,
   onSave,
   onDelete,
   saving,
 }: {
-  openItems: SummerMemoryItem[];
-  closedItems: SummerMemoryItem[];
+  layer: string;
+  groups: Array<{
+    key: string;
+    label: string;
+    items: SummerMemoryItem[];
+    empty: string;
+    initiallyOpen: boolean;
+  }>;
   editingItem: SummerMemoryItem | null;
   setEditingItem: React.Dispatch<React.SetStateAction<SummerMemoryItem | null>>;
   onSave: (layer: string, item: SummerMemoryItem) => void;
   onDelete: (layer: string, item: SummerMemoryItem) => void;
   saving: boolean;
 }) {
-  const [expanded, setExpanded] = useState<Record<string, boolean>>({ open: true, closed: false });
-  const groups = [
-    { key: "open", label: "未了结", items: openItems, empty: "没有未了结的 rain", initiallyOpen: true },
-    { key: "closed", label: "已了结", items: closedItems, empty: "还没有已了结的 rain", initiallyOpen: false },
-  ];
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
 
   return (
-    <div className="summer-rain-groups">
+    <div className="summer-memory-groups">
       {groups.map((group) => (
         <details
-          className="summer-rain-group"
+          className="summer-memory-group"
           key={group.key}
           open={expanded[group.key] ?? group.initiallyOpen}
           onToggle={(event) => {
@@ -3956,9 +4022,9 @@ function SummerRainGroups({
             <span>{group.label}</span>
             <span>{group.items.length} 条</span>
           </summary>
-          <div className="summer-rain-group-body">
+          <div className="summer-memory-group-body">
             <SummerEditableList
-              layer="rain"
+              layer={layer}
               items={group.items}
               empty={group.empty}
               editingItem={editingItem}

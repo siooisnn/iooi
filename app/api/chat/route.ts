@@ -1,9 +1,9 @@
-import { readFileSync, existsSync } from "fs";
-import { join } from "path";
-import * as iconv from "iconv-lite";
 import { withStore } from "@/app/lib/store";
+import { isClaudeCodeEnabled, normalizeClaudeCodeModel, runClaudeCodeChat } from "@/app/lib/claude-code";
+import { existsSync, readFileSync } from "fs";
+import { basename, extname, resolve, sep } from "path";
 
-const TEXT_EXTS = new Set(["txt", "md", "csv", "json", "js", "ts", "html", "css", "py", "java", "xml", "yml", "yaml", "log"]);
+export const runtime = "nodejs";
 
 // ── 服务端落地:回复生成后直接写库,不依赖前端存活 ──
 // 就算她发完消息立刻锁屏,回复也稳稳躺在服务器上
@@ -19,6 +19,69 @@ type TextBlock = {
   text: string;
   cache_control?: { type: "ephemeral"; ttl?: "1h" };
 };
+type ImageBlock = {
+  type: "image";
+  source: {
+    type: "base64";
+    media_type: "image/jpeg" | "image/png" | "image/gif" | "image/webp";
+    data: string;
+  };
+};
+type ChatRequestMessage = {
+  role: string;
+  content?: string;
+  image?: string;
+  file?: string;
+};
+
+const CLAUDE_IMAGE_TYPES: Record<string, ImageBlock["source"]["media_type"]> = {
+  ".jpg": "image/jpeg",
+  ".jpeg": "image/jpeg",
+  ".png": "image/png",
+  ".gif": "image/gif",
+  ".webp": "image/webp",
+};
+const CLAUDE_IMAGE_BASE64_LIMIT = 10 * 1024 * 1024;
+const CLAUDE_IMAGE_TOTAL_LIMIT = 20 * 1024 * 1024;
+const CLAUDE_IMAGE_COUNT_LIMIT = 3;
+
+function loadClaudeImage(url: string): ImageBlock {
+  const uploadsDir = resolve(process.cwd(), "uploads");
+  let pathname = "";
+  try {
+    pathname = decodeURIComponent(new URL(url, "http://iooi.local").pathname);
+  } catch {
+    throw new Error("图片地址无效");
+  }
+  if (!pathname.startsWith("/uploads/")) throw new Error("图片地址无效");
+  const filename = basename(pathname);
+  const filepath = resolve(uploadsDir, filename);
+  if (!filepath.startsWith(`${uploadsDir}${sep}`) || !existsSync(filepath)) {
+    throw new Error("图片已经不存在，请重新上传");
+  }
+  const mediaType = CLAUDE_IMAGE_TYPES[extname(filename).toLowerCase()];
+  if (!mediaType) throw new Error("Claude 订阅仅支持 JPG、PNG、GIF 和 WebP 图片");
+  const data = readFileSync(filepath).toString("base64");
+  if (Buffer.byteLength(data, "utf8") > CLAUDE_IMAGE_BASE64_LIMIT) {
+    throw new Error("图片编码后超过 Claude 的 10MB 上限，请换一张更小的图片");
+  }
+  return { type: "image", source: { type: "base64", media_type: mediaType, data } };
+}
+
+function collectClaudeImages(messages: ChatRequestMessage[]) {
+  const images = new Map<string, ImageBlock>();
+  let totalSize = 0;
+  for (const message of [...messages].reverse()) {
+    const url = String(message.image || "");
+    if (!url || images.has(url) || images.size >= CLAUDE_IMAGE_COUNT_LIMIT) continue;
+    const image = loadClaudeImage(url);
+    const size = Buffer.byteLength(image.source.data, "utf8");
+    if (totalSize + size > CLAUDE_IMAGE_TOTAL_LIMIT) continue;
+    images.set(url, image);
+    totalSize += size;
+  }
+  return images;
+}
 
 function cacheControl(): { type: "ephemeral"; ttl?: "1h" } {
   return process.env.LLM_CACHE_TTL === "5m" ? { type: "ephemeral" } : { type: "ephemeral", ttl: "1h" };
@@ -268,8 +331,7 @@ function shouldSearchSummer(query: string): boolean {
   const text = query.trim();
   if (!text) return false;
   const memoryTarget = /summer|记忆|日记|小暑|夏至|芒种|小满|立夏|rain|sea|碎片|之前|以前|那天|哪天|说过|写过|发生过/i;
-  const explicitLookup = /找|查|搜|翻|检索|打开|调出|看一下|看看|读一下|读读/i;
-  return explicitLookup.test(text) && memoryTarget.test(text);
+  return /搜/.test(text) && memoryTarget.test(text);
 }
 
 function isSummerWriteOnlyIntent(query: string): boolean {
@@ -472,28 +534,24 @@ function latestUserText(messages: Array<{ role: string; content?: string }>): st
   return "";
 }
 
-function usesAdaptiveThinking(modelId: string | undefined) {
-  const id = modelId || "";
-  return id.includes("claude-sonnet-4.6") ||
-    id.includes("claude-opus-4.6") ||
-    id.includes("claude-opus-4.7") ||
-    id.includes("claude-opus-4.8") ||
-    id.includes("claude-sonnet-5") ||
-    id.includes("claude-fable-5");
-}
-
-function normalizeClaudeEffort(value: unknown): "low" | "medium" | "high" | "max" {
-  return value === "low" || value === "medium" || value === "max" ? value : "high";
-}
-
-function chatTimeoutMs(modelId: string | undefined, thinking: boolean): number {
-  const id = modelId || "";
-  if (id.includes("claude-opus") || id.includes("claude-fable")) return thinking ? 150000 : 90000;
-  return thinking ? 120000 : 70000;
-}
-
 function isAbortError(error: unknown): boolean {
   return error instanceof Error && error.name === "AbortError";
+}
+
+function claudeSubscriptionFailure(error: unknown, searchEnabled = false): string {
+  const message = error instanceof Error ? error.message.toLowerCase() : "";
+  if (message.includes("当前请求较多") || message.includes("queue")) {
+    return "Claude 订阅通道现在有一条请求正在处理，请稍后再试；这条消息没有转用 API。";
+  }
+  if (message.includes("rate limit") || message.includes("usage limit") || message.includes("hit your limit")) {
+    return "Claude 订阅额度暂时到限；这条消息没有转用 API。";
+  }
+  if (message.includes("model") && (message.includes("not found") || message.includes("invalid") || message.includes("unavailable") || message.includes("unsupported"))) {
+    return "所选 Claude 具体模型当前不可用；这条消息没有转用 API。";
+  }
+  return searchEnabled
+    ? "Claude 订阅搜索这轮没有完成；这条消息没有转用 API，请稍后再试。"
+    : "Claude 订阅通道这轮没有完成；这条消息没有转用 API，请稍后再试。";
 }
 
 function sameUserMessage(a: StoreMsg, b: StoreMsg) {
@@ -634,19 +692,25 @@ async function persistUserMessage(sessionId: string | undefined, userMsg: StoreM
   }
 }
 
-function readTextFile(filepath: string): string {
-  const buffer = readFileSync(filepath);
-  if (buffer[0] === 0xFF && buffer[1] === 0xFE) return iconv.decode(buffer, "utf-16le");
-  if (buffer[0] === 0xFE && buffer[1] === 0xFF) return iconv.decode(buffer, "utf-16be");
-  const utf8 = buffer.toString("utf-8");
-  if (utf8.includes("\ufffd")) return iconv.decode(buffer, "gbk");
-  return utf8;
-}
-
 export async function POST(request: Request) {
   const { messages, modelId, systemPrompt, dynamicPrompt, thinking, webSearch, reasoningEffort, sessionId, userMsg, groupUserText, skipPersist } = await request.json();
+  const requestMessages: ChatRequestMessage[] = Array.isArray(messages) ? messages : [];
   if (!skipPersist) {
     await persistUserMessage(sessionId, userMsg);
+  }
+
+  if (requestMessages.some((message) => message.file)) {
+    return Response.json({ reply: "酥酥的订阅文件还在接入中；这条消息没有转用 API。" }, { status: 422 });
+  }
+  if (!isClaudeCodeEnabled()) {
+    return Response.json({ reply: "Claude 订阅通道暂时不可用；这条消息没有转用 API。" }, { status: 503 });
+  }
+  let imageBlocks = new Map<string, ImageBlock>();
+  try {
+    imageBlocks = collectClaudeImages(requestMessages);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "图片读取失败";
+    return Response.json({ reply: `${message}；这条消息没有转用 API。` }, { status: 422 });
   }
 
   // --- System 数组里只放稳定部分,带 cache_control ---
@@ -662,7 +726,7 @@ export async function POST(request: Request) {
   let summerExactDate = "";
   const summerCalls: SummerCall[] = [];
   try {
-    const query = String(groupUserText || latestUserText(messages || []));
+    const query = String(groupUserText || latestUserText(requestMessages));
     const summerState = await readSummerState();
     const summerStable = buildSummerStable(summerState);
     const summerDynamic = buildSummerDynamic(summerState);
@@ -731,7 +795,7 @@ export async function POST(request: Request) {
     }
   } catch (error) {
     const message = error instanceof Error ? error.message : "unknown error";
-    return Response.json({ reply: `summer ????${message}` }, { status: 502 });
+    return Response.json({ reply: `summer 暂时无法读取：${message}` }, { status: 502 });
   }
 
   const combinedDynamicPrompt = [
@@ -740,38 +804,17 @@ export async function POST(request: Request) {
     summerSearch,
   ].filter(Boolean).join("\n\n");
 
-  // --- Process conversation messages into Anthropic format ---
-  const anthropicMessages = messages.map((msg: { role: string; content: string; image?: string; file?: string }) => {
-    if (msg.image) {
-      const filename = msg.image.split("/").pop() || "";
-      const filepath = join(process.cwd(), "uploads", filename);
-      if (existsSync(filepath)) {
-        const imageData = readFileSync(filepath).toString("base64");
-        const ext = filename.split(".").pop()?.toLowerCase() || "jpeg";
-        const mimeMap: Record<string, string> = { jpg: "image/jpeg", jpeg: "image/jpeg", png: "image/png", gif: "image/gif", webp: "image/webp" };
-        return {
-          role: msg.role,
-          content: [
-            { type: "image", source: { type: "base64", media_type: mimeMap[ext] || "image/jpeg", data: imageData } },
-            { type: "text", text: msg.content || "(she sent you an image)" },
-          ],
-        };
-      }
-    }
-    if (msg.file) {
-      const filename = msg.file.split("/").pop() || "";
-      const filepath = join(process.cwd(), "uploads", filename);
-      const ext = filename.split(".").pop()?.toLowerCase() || "";
-      if (existsSync(filepath)) {
-        if (TEXT_EXTS.has(ext)) {
-          const fileContent = readTextFile(filepath).slice(0, 10000);
-          return { role: msg.role, content: `${msg.content}\n\n【文件内容】\n${fileContent}` };
-        } else {
-          return { role: msg.role, content: `${msg.content}（这是一个${ext}文件，无法直接读取内容）` };
-        }
-      }
-    }
-    return { role: msg.role, content: msg.content };
+  // 图片只从 iooi 自己的 uploads 目录读取并交给 Claude 订阅；文件仍明确拒绝，不会切换到 API。
+  const anthropicMessages: Array<{ role: string; content: string | Array<TextBlock | ImageBlock> }> = requestMessages.map((msg) => {
+    const image = msg.image ? imageBlocks.get(msg.image) : undefined;
+    if (!image) return { role: msg.role, content: String(msg.content || "") };
+    return {
+      role: msg.role,
+      content: [
+        image,
+        { type: "text", text: String(msg.content || "请看这张图片。") },
+      ],
+    };
   });
 
   // --- 把 dynamicPrompt 注入到最新一条 user message 里,作为本轮临时上下文 ---
@@ -793,8 +836,8 @@ ${combinedDynamicPrompt}
       if (typeof last.content === "string") {
         last.content = `${dynamicContext}${last.content}`;
       } else if (Array.isArray(last.content)) {
-        const textBlock = last.content.find((b: { type: string; text?: string }) => b.type === "text");
-        if (textBlock && typeof textBlock.text === "string") {
+        const textBlock = last.content.find((block): block is TextBlock => block.type === "text");
+        if (textBlock) {
           textBlock.text = `${dynamicContext}${textBlock.text}`;
         } else {
           last.content.push({ type: "text", text: dynamicContext });
@@ -817,75 +860,22 @@ ${combinedDynamicPrompt}
       };
     } else if (Array.isArray(msg.content)) {
       const lastBlock = msg.content[msg.content.length - 1];
-      lastBlock.cache_control = cacheControl();
+      if (lastBlock?.type === "text") lastBlock.cache_control = cacheControl();
     }
-  }
-
-  // --- Build request body (Anthropic Messages format) ---
-  const requestBody: Record<string, unknown> = {
-    model: modelId || "anthropic/claude-sonnet-4.6",
-    ...(system.length > 0 ? { system } : {}),
-    messages: anthropicMessages,
-    max_tokens: thinking ? 4096 : 1536,
-  };
-
-  // Enable thinking
-  if (thinking) {
-    const effort = normalizeClaudeEffort(reasoningEffort);
-    if (usesAdaptiveThinking(String(modelId || ""))) {
-      requestBody.thinking = { type: "adaptive" };
-      requestBody.output_config = { effort };
-    } else {
-      const budgetTokens = { low: 1024, medium: 2048, high: 4000, max: 8000 }[effort];
-      requestBody.thinking = { type: "enabled", budget_tokens: budgetTokens };
-      requestBody.max_tokens = budgetTokens + 2048;
-    }
-  }
-
-  // Web search via OpenRouter server tool
-  if (webSearch) {
-    requestBody.tools = [
-      { type: "openrouter:web_search" },
-    ];
   }
 
   try {
-    // Use Anthropic Messages API endpoint on OpenRouter
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), chatTimeoutMs(String(modelId || ""), Boolean(thinking)));
-    const res = await fetch("https://openrouter.ai/api/v1/messages", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`,
-        "HTTP-Referer": "https://iooi.chat",
-        "X-Title": "iooi",
-        ...(sessionId ? { "x-session-id": sessionId } : {}),
-      },
-      body: JSON.stringify(requestBody),
-      signal: controller.signal,
-    }).finally(() => clearTimeout(timeout));
-    const data = await res.json();
-
-    if (data.error) {
-      return Response.json({ reply: `接口出错了：${data.error.message || JSON.stringify(data.error)}` }, { status: 500 });
-    }
-
-    // Anthropic Messages format: data.content is an array of blocks
-    let reply = "";
-    let thinkingContent = "";
-
-    if (data.content) {
-      for (const block of data.content) {
-        if (block.type === "thinking") {
-          thinkingContent += (thinkingContent ? "\n" : "") + block.thinking;
-        } else if (block.type === "text") {
-          reply += (reply ? "\n\n" : "") + block.text;
-        }
-      }
-    }
-
-    if (!reply) reply = "没有收到回复";
+    const requestedModel = normalizeClaudeCodeModel(String(modelId || "claude-sonnet-5"));
+    const data = await runClaudeCodeChat({
+      systemPrompt: system.map((block) => block.text).join("\n\n"),
+      messages: anthropicMessages,
+      modelId: requestedModel,
+      reasoningEffort: thinking ? reasoningEffort : "low",
+      webSearch: Boolean(webSearch),
+      signal: request.signal,
+    });
+    let reply = data.reply || "没有收到回复";
+    const thinkingContent = "";
 
     // Chat-origin writes are proposals only. They are shown to the user but
     // never committed here, which prevents duplicate hidden writes.
@@ -896,23 +886,11 @@ ${combinedDynamicPrompt}
       await persistRound(sessionId, userMsg, reply, thinkingContent, summerCalls, summerWriteProposals);
     }
 
-    const usage = data.usage || {};
-    const promptTokens =
-      usage.input_tokens ??
-      usage.prompt_tokens ??
-      usage.total_tokens;
-    const cacheRead =
-      usage.cache_read_input_tokens ??
-      usage.prompt_tokens_details?.cached_tokens ??
-      0;
-    const cacheWrite =
-      usage.cache_creation_input_tokens ??
-      usage.cache_creation?.input_tokens ??
-      0;
-    const totalInputTokens =
-      usage.total_input_tokens ??
-      usage.total_tokens ??
-      ((promptTokens || 0) + cacheRead + cacheWrite);
+    const usage = data.usage;
+    const promptTokens = usage.input_tokens;
+    const cacheRead = usage.cache_read_input_tokens;
+    const cacheWrite = usage.cache_creation_input_tokens;
+    const totalInputTokens = promptTokens + cacheRead + cacheWrite;
     const cacheStatus =
       cacheRead > 0 ? "hit" :
       cacheWrite > 0 ? "write" :
@@ -927,6 +905,8 @@ ${combinedDynamicPrompt}
       reply,
       thinking: thinkingContent,
       cache: {
+        model: data.model,
+        backend: "claude-code",
         prompt_tokens: promptTokens,
         total_input_tokens: totalInputTokens,
         cache_read: cacheRead,
@@ -937,12 +917,13 @@ ${combinedDynamicPrompt}
         summer_writes: 0,
         summer_write_proposals: summerWriteProposals,
         summer_calls: summerCalls,
+        web_search_used: Boolean(webSearch),
       },
     });
   } catch (error) {
     if (isAbortError(error)) {
-      return Response.json({ reply: "???????????????????????????????????", cache: { status: "unknown", reason: "??????", summer_used: true } }, { status: 504 });
+      return Response.json({ reply: "已暂停等待；如果请求已经送达，回复稍后仍可能回来。", cache: { status: "unknown", reason: "请求已暂停", summer_used: true } }, { status: 504 });
     }
-    return Response.json({ reply: "????????????" }, { status: 500 });
+    return Response.json({ reply: claudeSubscriptionFailure(error, Boolean(webSearch)) }, { status: 502 });
   }
 }

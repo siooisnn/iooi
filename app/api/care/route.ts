@@ -2,6 +2,9 @@ import { readFileSync, existsSync } from "fs";
 import { join } from "path";
 import webpush from "web-push";
 import { readStore, withStore } from "@/app/lib/store";
+import { isClaudeCodeEnabled, runClaudeCodeChat } from "@/app/lib/claude-code";
+
+export const runtime = "nodejs";
 
 // ── Heartbeat:每30分钟醒来看一眼,绝大多数时候静默 ──
 // 纪律:默认不发消息;有具体理由才开口;像人,不像客服
@@ -136,24 +139,24 @@ ${recentLines.length ? `- 最近的对话片段:\n${recentLines.map((l) => "  " 
 输出严格JSON(不要代码块):
 {"send": false, "reason": "为什么不发"} 或 {"send": true, "reason": "为什么发", "message": "消息内容"}`;
 
-          const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`,
-              "HTTP-Referer": "https://iooi.chat",
-              "X-Title": "iooi",
-            },
-            body: JSON.stringify({
-              model: "anthropic/claude-sonnet-4.6",
-              messages: [{ role: "user", content: decidePrompt }],
-              max_tokens: 500,
-            }),
-          });
-          const data = await res.json();
-          const raw = data.choices?.[0]?.message?.content;
+          let raw = "";
+          if (!isClaudeCodeEnabled()) {
+            reason = "Claude 订阅通道未启用，保持静默";
+          } else {
+            try {
+              const result = await runClaudeCodeChat({
+                systemPrompt: "这是后台心跳判断。严格按要求只输出 JSON，不要使用工具。",
+                messages: [{ role: "user", content: decidePrompt }],
+                modelId: "claude-sonnet-5",
+                reasoningEffort: "low",
+              });
+              raw = result.reply;
+            } catch {
+              reason = "Claude 订阅决策未完成，保持静默";
+            }
+          }
           if (!raw) {
-            reason = "决策无响应";
+            if (!reason) reason = "决策无响应";
           } else {
             let decision: { send?: boolean; reason?: string; message?: string };
             try {

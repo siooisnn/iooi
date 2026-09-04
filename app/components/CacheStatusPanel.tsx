@@ -1,6 +1,8 @@
 "use client";
 
 export type CacheStats = {
+  model?: string;
+  backend?: "claude-code" | "api";
   prompt_tokens?: number;
   total_input_tokens?: number;
   cache_read?: number;
@@ -45,6 +47,8 @@ export function CacheStatusPanel({ cache }: { cache: CacheStats | null }) {
       <h2 className="settings-group-title">缓存命中</h2>
       {cache ? (
         <div style={{ fontSize: "13px", color: "#6b5b53", lineHeight: 2 }}>
+          {cache.model && <div>实际模型:<span style={{ marginLeft: "8px", color: "#8a7d75" }}>{cache.model}</span></div>}
+          {cache.backend && <div>通道:<span style={{ marginLeft: "8px", color: cache.backend === "claude-code" ? "#5b8a6b" : "#8a7d75" }}>{cache.backend === "claude-code" ? "Claude 订阅" : "API"}</span></div>}
           <div>状态:<span style={{ marginLeft: "8px", color: getCacheStatusColor(cache) }}>{getCacheStatusLabel(cache)}</span></div>
           {cache.reason && <div>说明:<span style={{ marginLeft: "8px", color: "#8a7d75" }}>{cache.reason}</span></div>}
           <div>summer:<span style={{ marginLeft: "8px", color: cache.summer_used ? "#5b8a6b" : "#b5aca6" }}>{cache.summer_used ? "已接管长期记忆" : "未接入"}</span></div>
@@ -67,7 +71,9 @@ export function CacheStatusPanel({ cache }: { cache: CacheStats | null }) {
             </div>
           )}
           <p className="settings-hint" style={{ marginTop: "6px" }}>
-            这里显示 API 返回的原始 token。OpenRouter 控制台按计费口径统计，数字可能不同。
+            {cache.backend === "claude-code"
+              ? "这里显示订阅通道返回的 token；酥酥不会自动切换到 API。"
+              : "这里显示模型返回的原始 token；供应商面板按计费口径统计，数字可能不同。"}
           </p>
         </div>
       ) : (

@@ -1,3 +1,7 @@
+import { isClaudeCodeEnabled, runClaudeCodeChat } from "@/app/lib/claude-code";
+
+export const runtime = "nodejs";
+
 type SummaryMessage = {
   role: "user" | "assistant";
   content: string;
@@ -52,35 +56,58 @@ ${chatText}
 - 合并进已有缓存，整体不超过900字。
 - 直接输出缓存正文。`;
 
-    const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`,
-        "HTTP-Referer": "https://iooi.chat",
-        "X-Title": "iooi",
-      },
-      body: JSON.stringify({
-        model: modelId || "anthropic/claude-sonnet-4.6",
-        messages: [{ role: "user", content: prompt }],
-        max_tokens: isGroup ? 1500 : 1100,
-        ...(String(modelId || "").includes("gpt-5.6") && ["none", "low", "medium", "high", "xhigh", "max"].includes(reasoningEffort)
-          ? { reasoning_effort: reasoningEffort }
-          : {}),
-      }),
-    });
+    const isGpt = String(modelId || "").includes("gpt-5.6");
+    let summary = "";
 
-    const data = await res.json();
-    if (data.error) {
-      return Response.json({ ok: false, reason: data.error.message || "model error" }, { status: 502 });
+    if (isGpt) {
+      const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`,
+          "HTTP-Referer": "https://iooi.chat",
+          "X-Title": "iooi",
+        },
+        body: JSON.stringify({
+          model: "openai/gpt-5.6-sol",
+          messages: [{ role: "user", content: prompt }],
+          max_tokens: isGroup ? 1500 : 1100,
+          ...(["none", "low", "medium", "high", "xhigh", "max"].includes(reasoningEffort)
+            ? { reasoning_effort: reasoningEffort }
+            : {}),
+        }),
+      });
+      const data = await res.json() as {
+        error?: { message?: string };
+        choices?: Array<{ message?: { content?: string } }>;
+      };
+      if (data.error) {
+        return Response.json({ ok: false, reason: data.error.message || "model error" }, { status: 502 });
+      }
+      summary = String(data.choices?.[0]?.message?.content || "").trim();
+    } else {
+      if (!isClaudeCodeEnabled()) {
+        return Response.json({ ok: false, reason: "Claude 订阅通道暂时不可用；摘要没有转用 API。" }, { status: 503 });
+      }
+      try {
+        const result = await runClaudeCodeChat({
+          systemPrompt: "只完成会话摘要任务，严格遵守用户给出的格式和边界，直接输出摘要正文。",
+          messages: [{ role: "user", content: prompt }],
+          modelId: "claude-sonnet-5",
+          reasoningEffort: "low",
+          signal: request.signal,
+        });
+        summary = result.reply.trim();
+      } catch {
+        return Response.json({ ok: false, reason: "Claude 订阅摘要这轮没有完成；没有转用 API。" }, { status: 502 });
+      }
     }
 
-    const summary = data.choices?.[0]?.message?.content;
     if (!summary) {
       return Response.json({ ok: false, reason: "no summary result" });
     }
 
-    return Response.json({ ok: true, summary: String(summary).trim() });
+    return Response.json({ ok: true, summary });
   } catch {
     return Response.json({ ok: false, reason: "summary error" }, { status: 500 });
   }

@@ -458,7 +458,7 @@ export function GroupChatView({
           aiName: settings.aiName || "王酥酥",
           gptName: settings.gptName || "GPT",
           userName: settings.userName || "用户",
-          modelId: "anthropic/claude-sonnet-4.6",
+          modelId: "claude-sonnet-5",
         }),
       });
       const data = await response.json();
@@ -502,11 +502,14 @@ export function GroupChatView({
           working = [...working, ...additions];
         } catch (error) {
           if (controller.signal.aborted) throw error;
+          const reason = error instanceof Error ? error.message : "";
           working = [...working, {
             role: "assistant",
             speaker,
             source: "group_error",
-            content: `${speakerName(speaker, settings)} 这次没有连上，另一位会继续回复。`,
+            content: speaker === "claude" && reason.includes("没有转用 API")
+              ? reason
+              : `${speakerName(speaker, settings)} 这次没有连上，另一位会继续回复。`,
             time: nowTime(),
             date: today(),
           }];
