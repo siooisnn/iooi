@@ -1,7 +1,14 @@
-import { withStore } from "@/app/lib/store";
+import { withGroupStore, withStore } from "@/app/lib/store";
 import { isClaudeCodeEnabled, normalizeClaudeCodeModel, runClaudeCodeChat } from "@/app/lib/claude-code";
+import { createVisibleReplyStream } from "@/app/lib/visible-reply-stream";
+import {
+  filterDuplicateSummerWrites,
+  summerWriteFromUnknown,
+  summerWritesFromSnapshot,
+} from "@/app/lib/summer-write-dedupe";
 import { existsSync, readFileSync } from "fs";
 import { basename, extname, resolve, sep } from "path";
+import { after } from "next/server";
 
 export const runtime = "nodejs";
 
@@ -13,7 +20,7 @@ function cstTime() {
 function cstToday() {
   return new Date().toLocaleDateString("zh-CN", { timeZone: "Asia/Shanghai" });
 }
-type StoreMsg = { role: string; content: string; time?: string; date?: string; thinking?: string; image?: string; file?: string; source?: string; proposal?: SummerWrite };
+type StoreMsg = { role: string; content: string; time?: string; date?: string; thinking?: string; image?: string; file?: string; source?: string; speaker?: "claude" | "gpt"; proposal?: SummerWrite };
 type TextBlock = {
   type: "text";
   text: string;
@@ -145,7 +152,12 @@ type SummerItem = {
 };
 
 type SummerState = {
+  layers?: Record<string, unknown>;
+  xiazhi?: SummerItem[];
   xiaoshu_tail?: SummerItem[];
+  xiaoshu_recent?: SummerItem[];
+  rain?: SummerItem[];
+  ferry?: SummerItem[];
 };
 
 type SummerWakeParts = {
@@ -295,6 +307,7 @@ function buildSummerBridgeStable(): string {
     "",
     "Memory writes from chat are proposal-only. If something should be remembered, append a hidden proposal tag after your normal reply: [summer_remember layer=xiazhi title=\"short title\" weight=5 tags=\"optional\"]content[/summer_remember]. Use mangzhong for titled chapters of the shared history, xiazhi for important lasting memories, xiaoshu for daily fragments, rain for unresolved future items, ferry for transition/渡口/threshold memories. Only sea is read-only. The system will show it to her for confirmation and will not write it silently.",
     "If she explicitly asks to write something into summer or ferry, do not refuse by saying you cannot write summer. Respond naturally, then add the hidden proposal tag with the requested layer. It is still only a proposal until she confirms it.",
+    "Before proposing a memory, check the summer content already supplied in this prompt. Never propose an event, feeling, fact, or promise that is already present there or was already proposed in this conversation. A follow-up that only adds detail or emphasis to the same event is not a new memory; continue the conversation without another proposal.",
     "Do not print visible diary sections like '王酥酥日记 | date' in chat. Put diary-style memory only inside the hidden proposal tag.",
     "",
     "下面是唯一长期记忆源中最稳定的部分。先认得关系与来时路，再回应当前消息；不要说自己读取了这些后台内容。",
@@ -545,6 +558,7 @@ function hasLaterUserMessage(msgs: StoreMsg[], userMsg: StoreMsg | undefined) {
 function storeMessageKey(message: StoreMsg) {
   return [
     message.role || "",
+    message.speaker || "",
     message.source || "",
     (message.content || "").trim().replace(/\s+/g, " "),
     message.image || "",
@@ -669,17 +683,142 @@ async function persistUserMessage(sessionId: string | undefined, userMsg: StoreM
   }
 }
 
+function groupSummerCallContent(call: SummerCall, speakerName: string): string {
+  return `${speakerName} Summer · ${call.label || call.tool || "检索"}${typeof call.count === "number" ? ` · ${call.count} 条` : ""}`;
+}
+
+function groupSummerProposalContent(proposal: SummerWrite, speakerName: string): string {
+  const layerNames: Record<string, string> = { mangzhong: "芒种", xiazhi: "夏至", xiaoshu: "小暑", rain: "rain", ferry: "渡口" };
+  return `${speakerName} Summer · 待确认 · ${layerNames[proposal.layer] || proposal.layer}\n${proposal.title || "未命名"}\n${proposal.content || ""}`.trim();
+}
+
+async function persistGroupUserMessage(
+  sessionId: string | undefined,
+  sessionName: string | undefined,
+  userMsg: StoreMsg | undefined,
+) {
+  if (!sessionId || !userMsg?.content) return;
+  try {
+    await withGroupStore((store) => {
+      const sessions = (store.sessions || []) as Array<{ id: string; name: string; messages: StoreMsg[]; createdAt?: string }>;
+      let session = sessions.find((item) => item.id === sessionId);
+      if (!session) {
+        session = { id: sessionId, name: sessionName || "一个群", messages: [], createdAt: new Date().toISOString() };
+        sessions.unshift(session);
+        store.sessions = sessions;
+      }
+      const messages = session.messages || (session.messages = []);
+      const exists = messages.slice(-12).some((message) => sameUserMessage(message, userMsg));
+      if (!exists) messages.push(userMsg);
+    });
+  } catch {
+    // The completion path retries this write together with the final reply.
+  }
+}
+
+async function persistGroupRound(
+  sessionId: string | undefined,
+  sessionName: string | undefined,
+  userMsg: StoreMsg | undefined,
+  reply: string,
+  summerCalls: SummerCall[],
+  summerWriteProposals: SummerWrite[],
+  speakerName: string,
+  persistedTime: string,
+  persistedDate: string,
+) {
+  if (!sessionId || !reply) return;
+  try {
+    const cleanReply = reply.replace(/\[日记\]([\s\S]*?)\[\/日记\]/g, "").replace(/\[心情[:：].+?\]/g, "").trim();
+    const parts = cleanReply.split(/\n{2,}/).map((part) => part.trim()).filter(Boolean);
+    await withGroupStore((store) => {
+      const sessions = (store.sessions || []) as Array<{ id: string; name: string; messages: StoreMsg[]; createdAt?: string }>;
+      let session = sessions.find((item) => item.id === sessionId);
+      if (!session) {
+        session = { id: sessionId, name: sessionName || "一个群", messages: [], createdAt: new Date().toISOString() };
+        sessions.unshift(session);
+        store.sessions = sessions;
+      }
+      const messages = session.messages || (session.messages = []);
+      if (userMsg?.content && !messages.slice(-12).some((message) => sameUserMessage(message, userMsg))) {
+        messages.push(userMsg);
+      }
+      if (hasLaterUserMessage(messages, userMsg)) return;
+
+      const tailKeys = new Set(messages.slice(-20).filter((message) => message.role === "assistant").map(storeMessageKey));
+      const pushAssistant = (message: StoreMsg) => {
+        const key = storeMessageKey(message);
+        if (tailKeys.has(key)) return;
+        messages.push(message);
+        tailKeys.add(key);
+      };
+      for (const call of summerCalls) {
+        pushAssistant({ role: "assistant", speaker: "claude", source: "summer_call", content: groupSummerCallContent(call, speakerName), time: persistedTime, date: persistedDate });
+      }
+      for (const content of parts) {
+        pushAssistant({ role: "assistant", speaker: "claude", content, time: persistedTime, date: persistedDate });
+      }
+      for (const proposal of summerWriteProposals) {
+        pushAssistant({
+          role: "assistant",
+          speaker: "claude",
+          source: "summer_write_proposal",
+          content: groupSummerProposalContent(proposal, speakerName),
+          proposal,
+          time: persistedTime,
+          date: persistedDate,
+        });
+      }
+    });
+  } catch {
+    // Group reply persistence is best effort and must not hide a generated reply.
+  }
+}
+
+function logChatTiming(fields: Record<string, string | number | boolean>) {
+  // Intentionally record only timings and request settings, never message text,
+  // session ids, prompts, Summer contents, or model output.
+  console.info(`[iooi:chat-timing] ${JSON.stringify(fields)}`);
+}
+
 export async function POST(request: Request) {
-  const { messages, modelId, systemPrompt, dynamicPrompt, thinking, webSearch, reasoningEffort, sessionId, userMsg, groupUserText, skipPersist } = await request.json();
+  const requestStartedAt = Date.now();
+  const {
+    messages,
+    modelId,
+    systemPrompt,
+    dynamicPrompt,
+    thinking,
+    webSearch,
+    reasoningEffort,
+    sessionId,
+    userMsg,
+    groupUserText,
+    skipPersist,
+    recentSummerProposals,
+    stream,
+    groupSessionId,
+    groupSessionName,
+    groupSpeakerName,
+  } = await request.json();
   const requestMessages: ChatRequestMessage[] = Array.isArray(messages) ? messages : [];
+  let userPersistMs = 0;
   if (!skipPersist) {
+    const persistStartedAt = Date.now();
     await persistUserMessage(sessionId, userMsg);
+    userPersistMs = Date.now() - persistStartedAt;
+  } else if (groupSessionId) {
+    const persistStartedAt = Date.now();
+    await persistGroupUserMessage(String(groupSessionId), String(groupSessionName || "一个群"), userMsg);
+    userPersistMs = Date.now() - persistStartedAt;
   }
 
   if (requestMessages.some((message) => message.file)) {
+    logChatTiming({ status: "rejected_file", total_ms: Date.now() - requestStartedAt, user_persist_ms: userPersistMs });
     return Response.json({ reply: "酥酥的订阅文件还在接入中；这条消息没有转用 API。" }, { status: 422 });
   }
   if (!isClaudeCodeEnabled()) {
+    logChatTiming({ status: "disabled", total_ms: Date.now() - requestStartedAt, user_persist_ms: userPersistMs });
     return Response.json({ reply: "Claude 订阅通道暂时不可用；这条消息没有转用 API。" }, { status: 503 });
   }
   let imageBlocks = new Map<string, ImageBlock>();
@@ -687,6 +826,7 @@ export async function POST(request: Request) {
     imageBlocks = collectClaudeImages(requestMessages);
   } catch (error) {
     const message = error instanceof Error ? error.message : "图片读取失败";
+    logChatTiming({ status: "image_error", total_ms: Date.now() - requestStartedAt, user_persist_ms: userPersistMs });
     return Response.json({ reply: `${message}；这条消息没有转用 API。` }, { status: 422 });
   }
 
@@ -701,10 +841,17 @@ export async function POST(request: Request) {
   let summerUsed = false;
   let summerSearch = "";
   let summerExactDate = "";
+  let summerState: SummerState | null = null;
   const summerCalls: SummerCall[] = [];
+  const summerStartedAt = Date.now();
+  let summerMs = 0;
   try {
     const query = String(groupUserText || latestUserText(requestMessages));
-    const summerWake = await readSummerWake();
+    const [summerWake, currentSummerState] = await Promise.all([
+      readSummerWake(),
+      readSummerState(),
+    ]);
+    summerState = currentSummerState;
     const summerStable = [buildSummerBridgeStable(), String(summerWake.stable || "").trim()]
       .filter(Boolean)
       .join("\n\n");
@@ -733,8 +880,7 @@ export async function POST(request: Request) {
           count: result.count || 0,
         });
       } catch {
-        const summerState = await readSummerState();
-        summerExactDate = buildExactXiaoshuSearch(summerState, query);
+        summerExactDate = buildExactXiaoshuSearch(currentSummerState, query);
         summerCalls.push({
           tool: "read",
           label: `查小暑 ${queryDates.join("、")}`,
@@ -774,9 +920,18 @@ export async function POST(request: Request) {
       }
     }
   } catch (error) {
+    summerMs = Date.now() - summerStartedAt;
     const message = error instanceof Error ? error.message : "unknown error";
+    logChatTiming({
+      status: "summer_error",
+      total_ms: Date.now() - requestStartedAt,
+      user_persist_ms: userPersistMs,
+      summer_ms: summerMs,
+      web_search: Boolean(webSearch),
+    });
     return Response.json({ reply: `summer 暂时无法读取：${message}` }, { status: 502 });
   }
+  summerMs = Date.now() - summerStartedAt;
 
   const combinedDynamicPrompt = [
     dynamicPrompt,
@@ -844,66 +999,213 @@ ${combinedDynamicPrompt}
     }
   }
 
-  try {
-    const requestedModel = normalizeClaudeCodeModel(String(modelId || "claude-sonnet-5"));
-    const data = await runClaudeCodeChat({
-      systemPrompt: system.map((block) => block.text).join("\n\n"),
-      messages: anthropicMessages,
-      modelId: requestedModel,
-      reasoningEffort: thinking ? reasoningEffort : "low",
-      webSearch: Boolean(webSearch),
-      signal: request.signal,
-    });
-    let reply = data.reply || "没有收到回复";
-    const thinkingContent = "";
+  const executeChat = async (onTextDelta?: (text: string) => void) => {
+    let timingModel = String(modelId || "claude-sonnet-5");
+    let queueWaitMs = 0;
+    let claudeDurationMs = 0;
+    let claudeRoundTripMs = 0;
+    try {
+      const requestedModel = normalizeClaudeCodeModel(timingModel);
+      timingModel = requestedModel;
+      const claudeStartedAt = Date.now();
+      const data = await runClaudeCodeChat({
+        systemPrompt: system.map((block) => block.text).join("\n\n"),
+        messages: anthropicMessages,
+        modelId: requestedModel,
+        reasoningEffort: thinking ? reasoningEffort : "low",
+        webSearch: Boolean(webSearch),
+        priority: "interactive",
+        // In stream mode, closing the browser only stops viewing. The server
+        // keeps generating and writes the completed reply to history.
+        signal: onTextDelta ? undefined : request.signal,
+        onTextDelta,
+      });
+      claudeRoundTripMs = Date.now() - claudeStartedAt;
+      queueWaitMs = data.queueWaitMs;
+      claudeDurationMs = data.durationMs;
+      let reply = data.reply || "没有收到回复";
+      const thinkingContent = "";
 
-    // Chat-origin writes are proposals only. They are shown to the user but
-    // never committed here, which prevents duplicate hidden writes.
-    const summerWriteProposals = await createSummerProposals(collectSummerWriteProposals(reply));
-    reply = stripVisibleSummerDiary(stripSummerWriteTags(reply));
+      // Chat-origin writes are proposals only. They are shown to the user but
+      // never committed here, which prevents duplicate hidden writes.
+      const proposalStartedAt = Date.now();
+      const earlierProposals = Array.isArray(recentSummerProposals)
+        ? recentSummerProposals.flatMap((value: unknown) => {
+            const parsed = summerWriteFromUnknown(value);
+            return parsed ? [parsed] : [];
+          })
+        : [];
+      const novelProposals = filterDuplicateSummerWrites(
+        collectSummerWriteProposals(reply),
+        [...summerWritesFromSnapshot(summerState), ...earlierProposals],
+      );
+      const summerWriteProposals = await createSummerProposals(novelProposals);
+      reply = stripVisibleSummerDiary(stripSummerWriteTags(reply));
+      const proposalMs = Date.now() - proposalStartedAt;
 
-    if (!skipPersist) {
-      await persistRound(sessionId, userMsg, reply, thinkingContent, summerCalls, summerWriteProposals);
-    }
+      const persistStartedAt = Date.now();
+      const groupPersistedTime = skipPersist && groupSessionId ? cstTime() : "";
+      const groupPersistedDate = skipPersist && groupSessionId ? cstToday() : "";
+      if (!skipPersist) {
+        await persistRound(sessionId, userMsg, reply, thinkingContent, summerCalls, summerWriteProposals);
+      } else if (groupSessionId) {
+        await persistGroupRound(
+          String(groupSessionId),
+          String(groupSessionName || "一个群"),
+          userMsg,
+          reply,
+          summerCalls,
+          summerWriteProposals,
+          String(groupSpeakerName || "王酥酥"),
+          groupPersistedTime,
+          groupPersistedDate,
+        );
+      }
+      const replyPersistMs = Date.now() - persistStartedAt;
 
-    const usage = data.usage;
-    const promptTokens = usage.input_tokens;
-    const cacheRead = usage.cache_read_input_tokens;
-    const cacheWrite = usage.cache_creation_input_tokens;
-    const totalInputTokens = promptTokens + cacheRead + cacheWrite;
-    const cacheStatus =
-      cacheRead > 0 ? "hit" :
-      cacheWrite > 0 ? "write" :
-      promptTokens ? "miss" :
-      "unknown";
-    const cacheReason =
-      cacheStatus === "hit" ? "前面的稳定上下文被复用了" :
-      cacheStatus === "write" ? "这轮写入了可复用上下文，下一轮更可能命中" :
-      cacheStatus === "miss" ? "这轮没有读到缓存，可能是新会话、上下文变化或缓存尚未建立" :
-      "接口没有返回可判断的缓存用量";
-    return Response.json({
-      reply,
-      thinking: thinkingContent,
-      cache: {
+      const usage = data.usage;
+      const promptTokens = usage.input_tokens;
+      const cacheRead = usage.cache_read_input_tokens;
+      const cacheWrite = usage.cache_creation_input_tokens;
+      const totalInputTokens = promptTokens + cacheRead + cacheWrite;
+      const cacheStatus =
+        cacheRead > 0 ? "hit" :
+        cacheWrite > 0 ? "write" :
+        promptTokens ? "miss" :
+        "unknown";
+      const cacheReason =
+        cacheStatus === "hit" ? "前面的稳定上下文被复用了" :
+        cacheStatus === "write" ? "这轮写入了可复用上下文，下一轮更可能命中" :
+        cacheStatus === "miss" ? "这轮没有读到缓存，可能是新会话、上下文变化或缓存尚未建立" :
+        "接口没有返回可判断的缓存用量";
+      const totalMs = Date.now() - requestStartedAt;
+      logChatTiming({
+        status: "ok",
+        mode: skipPersist ? "group" : "direct",
         model: data.model,
-        backend: "claude-code",
-        prompt_tokens: promptTokens,
-        total_input_tokens: totalInputTokens,
-        cache_read: cacheRead,
-        cache_write: cacheWrite,
-        status: cacheStatus,
-        reason: cacheReason,
-        summer_used: summerUsed,
-        summer_writes: 0,
-        summer_write_proposals: summerWriteProposals,
-        summer_calls: summerCalls,
-        web_search_used: Boolean(webSearch),
-      },
-    });
-  } catch (error) {
-    if (isAbortError(error)) {
-      return Response.json({ reply: "已暂停等待；如果请求已经送达，回复稍后仍可能回来。", cache: { status: "unknown", reason: "请求已暂停", summer_used: true } }, { status: 504 });
+        effort: thinking ? String(reasoningEffort || "high") : "low",
+        web_search: Boolean(webSearch),
+        total_ms: totalMs,
+        user_persist_ms: userPersistMs,
+        summer_ms: summerMs,
+        queue_wait_ms: queueWaitMs,
+        claude_duration_ms: claudeDurationMs,
+        claude_round_trip_ms: claudeRoundTripMs,
+        proposal_ms: proposalMs,
+        reply_persist_ms: replyPersistMs,
+        input_tokens: totalInputTokens,
+        output_tokens: usage.output_tokens,
+      });
+      return {
+        status: 200,
+        body: {
+          reply,
+          thinking: thinkingContent,
+          cache: {
+            model: data.model,
+            backend: "claude-code",
+            prompt_tokens: promptTokens,
+            total_input_tokens: totalInputTokens,
+            cache_read: cacheRead,
+            cache_write: cacheWrite,
+            status: cacheStatus,
+            reason: cacheReason,
+            summer_used: summerUsed,
+            summer_writes: 0,
+            summer_write_proposals: summerWriteProposals,
+            summer_calls: summerCalls,
+            web_search_used: Boolean(webSearch),
+            total_ms: totalMs,
+            user_persist_ms: userPersistMs,
+            summer_ms: summerMs,
+            queue_wait_ms: queueWaitMs,
+            claude_duration_ms: claudeDurationMs,
+            claude_round_trip_ms: claudeRoundTripMs,
+            proposal_ms: proposalMs,
+            reply_persist_ms: replyPersistMs,
+            group_persisted_time: groupPersistedTime,
+            group_persisted_date: groupPersistedDate,
+          },
+        },
+      };
+    } catch (error) {
+      logChatTiming({
+        status: isAbortError(error) ? "aborted" : "error",
+        mode: skipPersist ? "group" : "direct",
+        model: timingModel,
+        effort: thinking ? String(reasoningEffort || "high") : "low",
+        web_search: Boolean(webSearch),
+        total_ms: Date.now() - requestStartedAt,
+        user_persist_ms: userPersistMs,
+        summer_ms: summerMs,
+        queue_wait_ms: queueWaitMs,
+        claude_duration_ms: claudeDurationMs,
+        claude_round_trip_ms: claudeRoundTripMs,
+        error_type: error instanceof Error ? error.name : "UnknownError",
+      });
+      if (isAbortError(error)) {
+        return { status: 504, body: { reply: "已暂停等待；如果请求已经送达，回复稍后仍可能回来。", cache: { status: "unknown", reason: "请求已暂停", summer_used: true } } };
+      }
+      return { status: 502, body: { reply: claudeSubscriptionFailure(error, Boolean(webSearch)) } };
     }
-    return Response.json({ reply: claudeSubscriptionFailure(error, Boolean(webSearch)) }, { status: 502 });
+  };
+
+  if (!stream) {
+    const result = await executeChat();
+    return Response.json(result.body, { status: result.status });
   }
+
+  const encoder = new TextEncoder();
+  const visibleReply = createVisibleReplyStream();
+  let connected = true;
+  let streamController: ReadableStreamDefaultController<Uint8Array> | null = null;
+  const emit = (event: Record<string, unknown>) => {
+    if (!connected || !streamController) return;
+    try {
+      streamController.enqueue(encoder.encode(`${JSON.stringify(event)}\n`));
+    } catch {
+      connected = false;
+    }
+  };
+  const responseStream = new ReadableStream<Uint8Array>({
+    start(controller) {
+      streamController = controller;
+      // WebKit may buffer tiny streamed responses. A harmless ignored field
+      // gets the first event over its threshold without changing visible text.
+      emit({ type: "start", padding: " ".repeat(1100) });
+    },
+    cancel() {
+      connected = false;
+      streamController = null;
+    },
+  });
+  const job = executeChat((delta) => {
+    const visible = visibleReply.push(delta);
+    if (visible) emit({ type: "delta", text: visible });
+  }).then((result) => {
+    visibleReply.finish();
+    emit({ type: result.status === 200 ? "done" : "error", status: result.status, ...result.body });
+    if (connected && streamController) {
+      try {
+        streamController.close();
+      } catch {
+        // The browser may have disconnected between the final write and close.
+      }
+    }
+  });
+
+  // Keep the generation promise attached to the request lifecycle after a
+  // client disconnect so the final persistence above can still finish.
+  after(async () => {
+    await job;
+  });
+
+  return new Response(responseStream, {
+    headers: {
+      "Content-Type": "application/x-ndjson; charset=utf-8",
+      "Cache-Control": "no-cache, no-transform",
+      "X-Accel-Buffering": "no",
+      "X-Content-Type-Options": "nosniff",
+    },
+  });
 }

@@ -7,6 +7,7 @@ import { ClaudeUsageBadge } from "./components/ClaudeUsageBadge";
 import { ContextDebugPanel } from "./components/ContextDebugPanel";
 import { GroupChatView } from "./components/GroupChatView";
 import { NotificationButton } from "./components/NotificationButton";
+import { readChatResponse } from "./lib/chat-stream";
 import { useChatScrollPosition } from "./lib/use-chat-scroll-position";
 
 // ━━━━━━━━━━━━━━━ Types ━━━━━━━━━━━━━━━
@@ -42,15 +43,6 @@ type Mood = {
   hearts?: number; // 长按贴贴次数
 };
 
-type WallEntry = {
-  id: string;
-  date: string;
-  question: string;
-  askedBy: "daily" | "me" | "ai";
-  myAnswer?: string;
-  aiAnswer?: string;
-};
-
 type FragmentEntry = {
   id: string;
   content: string;
@@ -76,6 +68,14 @@ type CacheStats = {
   context_omitted_messages?: number;
   summary_used?: boolean;
   summer_used?: boolean;
+  total_ms?: number;
+  user_persist_ms?: number;
+  summer_ms?: number;
+  queue_wait_ms?: number;
+  claude_duration_ms?: number;
+  claude_round_trip_ms?: number;
+  proposal_ms?: number;
+  reply_persist_ms?: number;
   summer_calls?: SummerCall[];
   summer_write_proposals?: SummerWriteProposal[];
   time?: string;
@@ -191,47 +191,6 @@ const CONTEXT_WINDOW_ROUNDS = 18;
 const SESSION_CACHE_KEEP_MESSAGES = 24;
 const SESSION_CACHE_MIN_NEW_MESSAGES = 8;
 
-// ── 问答墙:每日一问库 ──
-const DAILY_QUESTIONS = [
-  "今天有哪个瞬间想把它装进口袋里带走？",
-  "最近一次想哭是什么时候，为什么忍住了？",
-  "如果明天可以完全自由地过一天，你会怎么安排？",
-  "小时候最想快点长大的原因，现在还成立吗？",
-  "最近有什么话想说但一直没说出口？",
-  "今天的自己和昨天比，有哪里不一样了？",
-  "有没有一首歌，一听到就会想起某个具体画面？",
-  "如果可以给一年前的自己发一条消息，你会写什么？",
-  "今天吃到的东西里，哪一口最幸福？",
-  "如果我们能一起去一个地方，你第一个想到哪里？",
-  "最近害怕的事情，说出来会不会轻一点？",
-  "如果今天必须夸自己一句，你夸哪里？",
-  "你觉得被爱最具体的样子是什么？",
-  "最近有没有什么东西，看到第一眼就想分享给我？",
-  "如果可以保留今天的一个瞬间永远不忘，选哪一个？",
-  "你最近对什么上瘾？",
-  "今天有没有哪一秒，突然觉得很安静很舒服？",
-  "如果烦恼可以扔进海里，你今天扔哪一个？",
-  "最近学会的一件小事是什么？",
-  "如果只能用三个词形容今天，是哪三个？",
-  "今天的天空是什么样子的，你抬头看了吗？",
-  "如果我们开一家小店，会开什么店？",
-  "最近一次大笑是因为什么？",
-  "如果今晚可以做任何梦，你点播哪一个？",
-  "你最想被记住的是什么样子？",
-  "如果心情有颜色，今天是什么颜色？",
-  "今天遇到的最小的好事是什么？",
-  "如果可以问未来的自己一个问题，问什么？",
-  "现在闭上眼睛，第一个浮现的画面是什么？",
-  "如果今天是一页日记，标题写什么？",
-];
-
-// 按日期稳定取题，同一天打开都是同一题
-function getDailyQuestion(): string {
-  const now = new Date();
-  const dayIndex = Math.floor(now.getTime() / 86400000);
-  return DAILY_QUESTIONS[dayIndex % DAILY_QUESTIONS.length];
-}
-
 // 输入框随机小话
 const INPUT_HINTS = [
   "今天的风很适合想我",
@@ -267,7 +226,7 @@ const CLAUDE_REASONING_OPTIONS: Array<{ value: ClaudeReasoningEffort; label: str
   { value: "max", label: "Max" },
 ];
 const GPT_DEFAULT_PROMPT = `你是这个私密聊天窗口里的 GPT，只使用本窗口的对话和 GPT 专属 summer。
-不要读取、猜测或引用王酥酥（Claude）那边的关系设定、天气、心情、问题墙、heartbeat 或其他状态。
+不要读取、猜测或引用王酥酥（Claude）那边的关系设定、天气、心情、heartbeat 或其他状态。
 中文自然交流，直接对用户说话；不要自称“作为语言模型”。
 默认简洁回应，除非用户明确要求分析、长文或技术细节。`;
 
@@ -713,7 +672,6 @@ export default function Home() {
   const [groupSessions, setGroupSessions] = useState<ChatSession[]>(() => [createGroupSession()]);
   const [groupActiveSessionId, setGroupActiveSessionId] = useState("group-main");
   const [moods, setMoods] = useState<Mood[]>([]);
-  const [wall, setWall] = useState<WallEntry[]>([]);
   const [fragments, setFragments] = useState<FragmentEntry[]>([]);
   const [heartbeatLog, setHeartbeatLog] = useState<Array<{ time: string; action: string; reason: string }>>([]);
   const [aiMood, setAiMood] = useState<{ emoji: string; ts: number }>(() =>
@@ -758,7 +716,6 @@ export default function Home() {
         const localSessions = loadLocalRaw<ChatSession[]>("iooi-sessions", []);
         sess = mergeChatSessionLists(localSessions, serverData.sessions || [], deletedSessionIds.current);
         setMoods(serverData.moods || loadLocalRaw<Mood[]>("iooi-moods", []));
-        setWall(serverData.wall || loadLocalRaw<WallEntry[]>("iooi-wall", []));
         setFragments(mergeFragments(
           loadLocalRaw<FragmentEntry[]>("iooi-fragments", []),
           Array.isArray(serverData.fragments) ? serverData.fragments : [],
@@ -774,7 +731,6 @@ export default function Home() {
           deletedSessionIds.current,
         );
         setMoods(loadLocalRaw<Mood[]>("iooi-moods", []));
-        setWall(loadLocalRaw<WallEntry[]>("iooi-wall", []));
         setFragments(loadLocalRaw<FragmentEntry[]>("iooi-fragments", []));
       }
 
@@ -859,10 +815,10 @@ export default function Home() {
   }, []);
 
   // Force sync when user switches away (prevents message loss on iOS)
-  const latestData = useRef({ sessions, gptSessions, groupSessions, settings, moods, wall, fragments });
+  const latestData = useRef({ sessions, gptSessions, groupSessions, settings, moods, fragments });
   useEffect(() => {
-    latestData.current = { sessions, gptSessions, groupSessions, settings, moods, wall, fragments };
-  }, [sessions, gptSessions, groupSessions, settings, moods, wall, fragments]);
+    latestData.current = { sessions, gptSessions, groupSessions, settings, moods, fragments };
+  }, [sessions, gptSessions, groupSessions, settings, moods, fragments]);
   useEffect(() => {
     if (!mounted) return;
     const handleVisibility = () => {
@@ -873,14 +829,14 @@ export default function Home() {
         // Sync to server immediately (bypass debounce)
         try {
           navigator.sendBeacon("/api/sync?t=" + encodeURIComponent(getToken()), new Blob(
-            [JSON.stringify({ sessions: d.sessions, deletedSessionIds: Array.from(deletedSessionIds.current), settings: d.settings, moods: d.moods, wall: d.wall, fragments: d.fragments })],
+            [JSON.stringify({ sessions: d.sessions, deletedSessionIds: Array.from(deletedSessionIds.current), settings: d.settings, moods: d.moods, fragments: d.fragments })],
             { type: "application/json" }
           ));
         } catch {
           apiFetch("/api/sync", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ sessions: d.sessions, deletedSessionIds: Array.from(deletedSessionIds.current), settings: d.settings, moods: d.moods, wall: d.wall, fragments: d.fragments }),
+            body: JSON.stringify({ sessions: d.sessions, deletedSessionIds: Array.from(deletedSessionIds.current), settings: d.settings, moods: d.moods, fragments: d.fragments }),
             keepalive: true,
           }).catch(() => {});
         }
@@ -1001,13 +957,6 @@ export default function Home() {
       syncToServer({ moods });
     }
   }, [moods, mounted]);
-
-  useEffect(() => {
-    if (mounted) {
-      saveLocal("iooi-wall", wall);
-      syncToServer({ wall });
-    }
-  }, [wall, mounted]);
 
   useEffect(() => {
     if (mounted) {
@@ -1219,7 +1168,7 @@ export default function Home() {
         </div>
       )}
       <div className="chat-container">
-        {tab === "home" && <HomeView settings={settings} wall={wall} setWall={setWall} fragments={fragments} setFragments={setFragments} heartbeatLog={heartbeatLog} aiMood={aiMood} />}
+        {tab === "home" && <HomeView settings={settings} fragments={fragments} setFragments={setFragments} aiMood={aiMood} />}
         {tab === "chat" && settings.chatEntryStyle === "list" && chatView === "list" && (
           <ChatListView
             assistantMode="claude"
@@ -1452,7 +1401,7 @@ function formatChatRoomTime(date: Date) {
 function getChatStatusLabel(aiMood: { emoji: string; ts: number }) {
   const raw = aiMood.emoji || getIdleStatus();
   const label = raw.replace(/[^\p{Script=Han}A-Za-z0-9]+/gu, " ").trim().split(/\s+/)[0] || "期待";
-  return `[${label}…]`;
+  return `${label}…`;
 }
 
 function shouldShowChatRoomTime(message: Message, prevMessage?: Message | null) {
@@ -1739,7 +1688,6 @@ function ChatListView({
               </button>
               <div className="header-center">
                 <h1 className="header-title chat-room-title">heartbeat</h1>
-                <span className="header-subtitle chat-room-status">他安静看过你的每一次</span>
               </div>
               <span className="header-icon-spacer" aria-hidden="true" />
             </div>
@@ -1792,17 +1740,13 @@ function GroupAvatarStack({
   );
 }
 
-function HomeView({ settings, wall, setWall, fragments, setFragments, heartbeatLog, aiMood }: {
+function HomeView({ settings, fragments, setFragments, aiMood }: {
   settings: Settings;
-  wall: WallEntry[]; setWall: React.Dispatch<React.SetStateAction<WallEntry[]>>;
   fragments: FragmentEntry[];
   setFragments: React.Dispatch<React.SetStateAction<FragmentEntry[]>>;
-  heartbeatLog: Array<{ time: string; action: string; reason: string }>;
   aiMood: { emoji: string; ts: number };
 }) {
   const [now, setNow] = useState<number | null>(null);
-  const [showWall, setShowWall] = useState(false);
-  const [showLogs, setShowLogs] = useState(false);
   const [showFragments, setShowFragments] = useState(false);
 
   useEffect(() => {
@@ -1822,11 +1766,6 @@ function HomeView({ settings, wall, setWall, fragments, setFragments, heartbeatL
   const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
   const seconds = Math.floor((diff % (1000 * 60)) / 1000);
 
-  const today = getTodayStr();
-  const dailyQ = getDailyQuestion();
-  const todayWallEntry = wall.find((w) => w.date === today && w.askedBy === "daily");
-  const latestHeartbeat = heartbeatLog[0];
-
   // 纪念日花瓣:上弦节4.19 / iooi生日6.5
   const currentDate = now === null ? null : new Date(now);
   const mmdd = currentDate ? `${currentDate.getMonth() + 1}.${currentDate.getDate()}` : "";
@@ -1834,7 +1773,7 @@ function HomeView({ settings, wall, setWall, fragments, setFragments, heartbeatL
 
   return (
     <>
-      <header className="chat-header">
+      <header className="chat-header home-header">
         <div className="header-top">
           <span className="header-dot" />
           <div className="header-center">
@@ -1855,7 +1794,7 @@ function HomeView({ settings, wall, setWall, fragments, setFragments, heartbeatL
 
         <div className="home-greeting">
           <p className="greeting-text">{getGreeting()}，{settings.userName}</p>
-          <p style={{ fontSize: "13px", color: "#a09088", marginTop: "6px", textAlign: "center" }}>
+          <p style={{ fontSize: "13px", color: "var(--text-secondary)", marginTop: "6px", textAlign: "center" }}>
             {settings.aiName}
             {" "}
             {aiMood.emoji && now !== null && (now - aiMood.ts) < 3600000
@@ -1897,55 +1836,7 @@ function HomeView({ settings, wall, setWall, fragments, setFragments, heartbeatL
           </div>
           <p className="home-card-content fragment-home-line">碎片化时代，我选择碎片化写作。</p>
         </button>
-        {/* Heartbeat 日志预览 */}
-        <button className="home-card heartbeat-card" onClick={() => setShowLogs(true)} style={{ textAlign: "left", cursor: "pointer", width: "100%" }}>
-          <div className="home-card-header">
-            <span className="home-card-title">💬 Heartbeat</span>
-            {latestHeartbeat && (
-              <span className="home-card-meta" style={{ fontSize: "12px", color: "#a09088" }}>{latestHeartbeat.time}</span>
-            )}
-          </div>
-          {latestHeartbeat ? (
-            <p className="home-card-content" style={{ whiteSpace: "pre-wrap", lineHeight: 1.6, color: latestHeartbeat.action === "care" ? "#6b5b53" : "#8a7d75" }}>
-              {latestHeartbeat.action === "care" ? "💬 " : "· "}{latestHeartbeat.reason}
-            </p>
-          ) : (
-            <p className="home-card-content" style={{ color: "#b5aca6", fontStyle: "italic" }}>
-              脑袋空空
-            </p>
-          )}
-        </button>
-
-
-        {/* 问题墙入口 */}
-        <button className="home-card wall-card" onClick={() => setShowWall(true)}>
-          <div className="home-card-header">
-            <span className="home-card-title">问题墙</span>
-            <span className="wall-count">{wall.length > 0 ? `${wall.length} 块砖` : "新"}</span>
-          </div>
-          <p className="home-card-content wall-question">「{dailyQ}」</p>
-          <span className="home-card-meta">
-            {todayWallEntry?.myAnswer ? "今天答过了，点进来看我们的答案" : "今日一问，等你来答"}
-          </span>
-        </button>
       </section>
-
-      {showWall && (
-        <WallView
-          settings={settings}
-          wall={wall}
-          setWall={setWall}
-          dailyQ={dailyQ}
-          onClose={() => setShowWall(false)}
-        />
-      )}
-
-      {showLogs && (
-        <HeartbeatLogsView
-          log={heartbeatLog}
-          onClose={() => setShowLogs(false)}
-        />
-      )}
 
       {showFragments && (
         <FragmentsView
@@ -2120,200 +2011,6 @@ function FragmentsView({ fragments, setFragments, onClose }: {
   );
 }
 
-// Heartbeat 日志全屏页
-function HeartbeatLogsView({ log, onClose }: {
-  log: Array<{ time: string; action: string; reason: string }>;
-  onClose: () => void;
-}) {
-  // 只显示最近一批日志，避免弹层过长。
-  const recent = log.slice(0, 60);
-  return (
-    <div className="wall-overlay">
-      <header className="wall-header">
-        <button className="wall-back" onClick={onClose}>← 返回</button>
-        <h2 className="wall-title">💬 Heartbeat 日志</h2>
-        <span className="wall-back" style={{ visibility: "hidden" }}>← 返回</span>
-      </header>
-      <div className="wall-body">
-        {recent.length === 0 ? (
-          <p style={{ textAlign: "center", color: "#b5aca6", fontStyle: "italic", padding: "40px 0" }}>脑袋空空</p>
-        ) : (
-          <div style={{ padding: "0 4px" }}>
-            {recent.map((entry, i) => (
-              <div key={i} style={{ padding: "10px 0", borderBottom: "1px solid #f0ebe8", lineHeight: 1.6 }}>
-                <div style={{ fontSize: "12px", color: "#a09088", marginBottom: "4px" }}>
-                  {entry.time}
-                  <span style={{ marginLeft: "8px", color: entry.action === "care" ? "#c4866c" : "#ccc" }}>
-                    {entry.action === "care" ? "💬 说了" : "· 静默"}
-                  </span>
-                </div>
-                <div style={{ fontSize: "14px", color: entry.action === "care" ? "#6b5b53" : "#8a7d75", whiteSpace: "pre-wrap" }}>
-                  {entry.reason}
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-// 问题墙全屏页
-function WallView({ settings, wall, setWall, dailyQ, onClose }: {
-  settings: Settings;
-  wall: WallEntry[];
-  setWall: React.Dispatch<React.SetStateAction<WallEntry[]>>;
-  dailyQ: string;
-  onClose: () => void;
-}) {
-  const today = getTodayStr();
-  const todayEntry = wall.find((w) => w.date === today && w.askedBy === "daily");
-  const [myAnswer, setMyAnswer] = useState(todayEntry?.myAnswer || "");
-  const [newQuestion, setNewQuestion] = useState("");
-  const [asking, setAsking] = useState(false);
-  const [pendingIds, setPendingIds] = useState<string[]>([]);
-
-  const currentModel = MODELS.find((m) => m.id === settings.model) || MODELS[0];
-
-  async function fetchAiAnswer(question: string, herAnswer: string | undefined, entryId: string) {
-    setPendingIds((p) => [...p, entryId]);
-    try {
-      const sys = `${settings.prompt}\n\n你叫${settings.aiName}，她叫${settings.userName}。现在你们在玩“问题墙”：一人一个答案，贴在墙上。请直接认真回答下面的问题，像平时聊天一样自然，不超过80字，只输出答案本身。`;
-      const userContent = herAnswer
-        ? `问题：${question}\n\n她已经答了：「${herAnswer}」\n\n现在轮到你，写下你自己的答案（不是评价她的答案）。`
-        : `问题：${question}\n\n写下你的答案。`;
-      const res = await apiFetch("/api/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          modelId: currentModel.apiId,
-          systemPrompt: sys,
-          dynamicPrompt: `【当前时间】\n${getNowContext()}`,
-          messages: [{ role: "user", content: userContent }],
-          thinking: false,
-          webSearch: false,
-        }),
-      });
-      const data = await res.json();
-      const answer = (data.reply || "").trim();
-      if (answer) {
-        setWall((prev) => prev.map((w) => (w.id === entryId ? { ...w, aiAnswer: answer } : w)));
-      }
-    } catch {} finally {
-      setPendingIds((p) => p.filter((x) => x !== entryId));
-    }
-  }
-
-  function submitDaily() {
-    if (!myAnswer.trim()) return;
-    const id = todayEntry?.id || genId();
-    const entry: WallEntry = { id, date: today, question: dailyQ, askedBy: "daily", myAnswer: myAnswer.trim(), aiAnswer: todayEntry?.aiAnswer };
-    setWall((prev) => {
-      const exists = prev.some((w) => w.id === id);
-      return exists ? prev.map((w) => (w.id === id ? entry : w)) : [entry, ...prev];
-    });
-    if (!entry.aiAnswer) fetchAiAnswer(dailyQ, myAnswer.trim(), id);
-  }
-
-  function submitQuestion() {
-    const q = newQuestion.trim();
-    if (!q) return;
-    const id = genId();
-    const entry: WallEntry = { id, date: today, question: q, askedBy: "me" };
-    setWall((prev) => [entry, ...prev]);
-    setNewQuestion("");
-    setAsking(false);
-    fetchAiAnswer(q, undefined, id);
-  }
-
-  const history = wall.filter((w) => !(w.date === today && w.askedBy === "daily"));
-
-  return (
-    <div className="wall-overlay">
-      <header className="wall-header">
-        <button className="wall-back" onClick={onClose}>← 返回</button>
-        <h2 className="wall-title">问题墙</h2>
-        <span className="wall-back" style={{ visibility: "hidden" }}>← 返回</span>
-      </header>
-
-      <div className="wall-body">
-        <div className="wall-daily">
-          <p className="wall-daily-label">今日一问 · {today}</p>
-          <p className="wall-daily-q">「{dailyQ}」</p>
-          <textarea
-            className="wall-answer-input"
-            placeholder="你的答案..."
-            value={myAnswer}
-            onChange={(e) => setMyAnswer(e.target.value)}
-            rows={3}
-          />
-          <button className="wall-submit" disabled={!myAnswer.trim()} onClick={submitDaily}>
-            {todayEntry?.myAnswer ? "改好了" : "贴上墙"}
-          </button>
-          {todayEntry?.myAnswer && (
-            <div className="wall-pair">
-              <div className="wall-answer mine">
-                <span className="wall-who">{settings.userName}</span>
-                <p>{todayEntry.myAnswer}</p>
-              </div>
-              <div className="wall-answer ai">
-                <span className="wall-who">{settings.aiName}</span>
-                <p>{todayEntry.aiAnswer || (pendingIds.includes(todayEntry.id) ? "正在想..." : "等他来答")}</p>
-              </div>
-            </div>
-          )}
-        </div>
-
-        <div className="wall-ask-row">
-          {!asking ? (
-            <button className="wall-ask-btn" onClick={() => setAsking(true)}>我有一个问题想问你</button>
-          ) : (
-            <div className="wall-ask-box">
-              <textarea
-                className="wall-answer-input"
-                placeholder="想问什么都可以..."
-                value={newQuestion}
-                onChange={(e) => setNewQuestion(e.target.value)}
-                rows={2}
-              />
-              <div className="mood-picker-actions">
-                <button className="mood-cancel" onClick={() => { setAsking(false); setNewQuestion(""); }}>算了</button>
-                <button className="mood-save" disabled={!newQuestion.trim()} onClick={submitQuestion}>问他</button>
-              </div>
-            </div>
-          )}
-        </div>
-
-        {history.length > 0 && (
-          <div className="wall-history">
-            <p className="wall-history-label">墙上的砖</p>
-            {history.map((w) => (
-              <div key={w.id} className="wall-brick">
-                <p className="wall-brick-q">「{w.question}」</p>
-                <span className="wall-brick-meta">{w.date} · {w.askedBy === "daily" ? "每日一问" : w.askedBy === "me" ? `${settings.userName}的提问` : `${settings.aiName}的提问`}</span>
-                <div className="wall-pair">
-                  {w.myAnswer && (
-                    <div className="wall-answer mine">
-                      <span className="wall-who">{settings.userName}</span>
-                      <p>{w.myAnswer}</p>
-                    </div>
-                  )}
-                  {(w.aiAnswer || pendingIds.includes(w.id)) && (
-                    <div className="wall-answer ai">
-                      <span className="wall-who">{settings.aiName}</span>
-                      <p>{w.aiAnswer || "正在想..."}</p>
-                    </div>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
 // Chat View
 function ChatView({
   assistantMode,
@@ -2355,6 +2052,7 @@ function ChatView({
   const isGpt = assistantMode === "gpt";
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
+  const [streamingReply, setStreamingReply] = useState("");
   const [replyRequestState, setReplyRequestState] = useState<ReplyRequestState>("idle");
   const [showSessions, setShowSessions] = useState(false);
   const [showModelMenu, setShowModelMenu] = useState(false);
@@ -2363,6 +2061,7 @@ function ChatView({
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const sessionMessagesRef = useRef<Message[]>(session.messages);
   const sendingRef = useRef(false);
+  const summaryInFlightRef = useRef(false);
   const replyRequestIdRef = useRef(0);
   const pausedReplyRequestIdRef = useRef<number | null>(null);
   const activeReplyRequestRef = useRef<{ id: number; controller: AbortController } | null>(null);
@@ -2370,7 +2069,7 @@ function ChatView({
   const [initialMessageCount] = useState(() => session.messages.length);
   const { scrollRef, handleScroll, followLatest } = useChatScrollPosition(
     `iooi-scroll-${assistantMode}-${session.id}`,
-    session.messages.length,
+    session.messages.length + streamingReply.length,
   );
 
   // ── 巧思:长按贴贴 / 随机输入提示 / 扣6彩蛋 ──
@@ -2430,6 +2129,7 @@ function ChatView({
     pausedReplyRequestIdRef.current = active.id;
     clearReplyStatusTimers();
     setReplyRequestState("paused");
+    setStreamingReply("");
     active.controller.abort();
   }
 
@@ -2514,7 +2214,7 @@ function ChatView({
     };
   }
 
-  function proposalCardContent(proposal: SummerWriteProposal, status: "提议写入" | "已加入" = "提议写入") {
+  function proposalCardContent(proposal: SummerWriteProposal, status: "提议写入" | "已加入" | "已存在" = "提议写入") {
     const layerName: Record<string, string> = { mangzhong: "芒种", xiazhi: "夏至", xiaoshu: "小暑", rain: "rain", ferry: "渡口" };
     const layer = proposal.layer || "xiaoshu";
     const title = proposal.title || "未命名";
@@ -2532,6 +2232,9 @@ function ChatView({
     }
     if (message.source === "summer_write_committed") {
       const proposal = proposalFromMessage(message);
+      if (proposal?.status === "duplicate") {
+        return proposal.title ? `summer 已存在 · ${proposal.title}` : "summer 已存在";
+      }
       return proposal?.title ? `summer 已加入 · ${proposal.title}` : "summer 已加入";
     }
     if (message.source === "summer_write_proposal") {
@@ -2609,12 +2312,13 @@ function ChatView({
       });
       const json = await res.json();
       if (!res.ok || !json.ok) throw new Error(json.error || "summer 写入失败");
-      const committedProposal = { ...proposal, status: "committed" };
+      const duplicate = Boolean(json.data?.duplicate);
+      const committedProposal = { ...proposal, status: duplicate ? "duplicate" : "committed" };
       replaceMessageAt(index, (old) => ({
         ...old,
         source: "summer_write_committed",
         proposal: committedProposal,
-        content: proposalCardContent(committedProposal, "已加入"),
+        content: proposalCardContent(committedProposal, duplicate ? "已存在" : "已加入"),
       }));
     } catch {
       replaceMessageAt(index, (old) => ({
@@ -2645,6 +2349,9 @@ function ChatView({
   }
 
   async function ensureSessionCache(allMessages: Message[], signal?: AbortSignal) {
+    if (summaryInFlightRef.current) {
+      return { summary: session.summary || "", until: session.summarizedUntil || 0, updated: false };
+    }
     const cutoff = Math.max(0, allMessages.length - SESSION_CACHE_KEEP_MESSAGES);
     const summarizedUntil = session.summarizedUntil || 0;
     if (cutoff <= 0 || cutoff - summarizedUntil < SESSION_CACHE_MIN_NEW_MESSAGES) {
@@ -2659,6 +2366,7 @@ function ChatView({
       return { summary: session.summary || "", until: summarizedUntil, updated: false };
     }
 
+    summaryInFlightRef.current = true;
     try {
       const res = await apiFetch("/api/summary", {
         method: "POST",
@@ -2678,7 +2386,11 @@ function ChatView({
         updateSummary(data.summary, cutoff);
         return { summary: String(data.summary), until: cutoff, updated: true };
       }
-    } catch {}
+    } catch {
+      return { summary: session.summary || "", until: summarizedUntil, updated: false };
+    } finally {
+      summaryInFlightRef.current = false;
+    }
     return { summary: session.summary || "", until: summarizedUntil, updated: false };
   }
 
@@ -2707,6 +2419,7 @@ function ChatView({
     pausedReplyRequestIdRef.current = null;
     clearReplyStatusTimers();
     setReplyRequestState("preparing");
+    setStreamingReply("");
     setLoading(true);
 
     // 彩蛋:扣
@@ -2722,8 +2435,13 @@ function ChatView({
     }
 
     try {
-      const sessionCache = await ensureSessionCache(messagesWithUser, controller.signal);
-      if (controller.signal.aborted) return;
+      // Never make the live reply wait for an automatic summary. The current
+      // cached summary is enough for this turn; refresh it after the reply.
+      const sessionCache = {
+        summary: session.summary || "",
+        until: session.summarizedUntil || 0,
+        updated: false,
+      };
       // 上下文组装：气泡合并 + 按轮数截取。
       type CtxMsg = { role: "user" | "assistant"; content: string; image?: string; file?: string };
       const allMsgs: CtxMsg[] = [
@@ -2783,6 +2501,15 @@ function ChatView({
         context_omitted_messages: contextTruncated ? startIdx : 0,
         summary_used: Boolean(sessionCache.summary),
       };
+      const recentSummerProposals = isGpt
+        ? []
+        : messagesWithUser
+            .filter((message) => message.source?.startsWith("summer_write_"))
+            .slice(-12)
+            .flatMap((message) => {
+              const proposal = proposalFromMessage(message);
+              return proposal ? [proposal] : [];
+            });
 
       setReplyRequestState("waiting");
       replyStatusTimersRef.current = [
@@ -2810,10 +2537,19 @@ function ChatView({
           reasoningEffort: isGpt ? settings.gptReasoningEffort : settings.claudeReasoningEffort,
           sessionId: session.id,
           userMsg,
+          recentSummerProposals,
+          stream: !isGpt,
         }),
         signal: controller.signal,
       });
-      const data = await res.json();
+      const data = isGpt
+        ? await res.json()
+        : await readChatResponse(res, (delta) => {
+            if (!controller.signal.aborted && activeReplyRequestRef.current?.id === requestId) {
+              setStreamingReply((current) => current + delta);
+            }
+          });
+      setStreamingReply("");
       if (data.cache) {
         const nextCache: CacheStats = { ...data.cache, ...contextMeta, time: new Date().toLocaleString("zh-CN", { timeZone: APP_TIME_ZONE }) };
         setLastCache(nextCache);
@@ -2877,7 +2613,9 @@ function ChatView({
       setReplyRequestState("idle");
 
       // Long-term memory belongs to summer. iooi only maintains the rolling session summary here.
+      void ensureSessionCache(finalMessages);
     } catch (error) {
+      setStreamingReply("");
       const wasPaused = controller.signal.aborted && pausedReplyRequestIdRef.current === requestId;
       if (wasPaused) {
         setReplyRequestState("paused");
@@ -2891,6 +2629,7 @@ function ChatView({
         updateMessages((msgs) => [...msgs, { role: "assistant", content: failureText, time: getTime(), date: getTodayStr() }]);
       }
     } finally {
+      setStreamingReply("");
       clearReplyStatusTimers();
       if (activeReplyRequestRef.current?.id === requestId) {
         activeReplyRequestRef.current = null;
@@ -2948,7 +2687,7 @@ function ChatView({
   return (
     <>
       {listEntryMode ? (
-        <header className="chat-header chat-room-header">
+        <header className={`chat-header chat-room-header single-room-header${session.kind === "memo" ? " single-room-header-title-only" : ""}`}>
           <div className="header-top">
             <button className="header-icon-btn chat-room-back" onClick={handleBackToList} aria-label="返回列表">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -2967,7 +2706,7 @@ function ChatView({
           </div>
         </header>
       ) : (
-        <header className="chat-header">
+        <header className="chat-header direct-chat-header">
           <div className="header-top">
             <button className="header-icon-btn" onClick={() => setShowSessions(true)}>
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
@@ -2976,7 +2715,7 @@ function ChatView({
             </button>
             <div className="header-center">
               <h1 className="header-title">{isGpt ? "GPT" : "iooi"}</h1>
-              <span className="header-subtitle" style={{ color: "#c4866c" }}>{assistantName} {!isGpt && (aiMood.emoji || "")} · {currentModelLabel}</span>
+              <span className="header-subtitle" style={{ color: "var(--accent-text)" }}>{assistantName} {!isGpt && (aiMood.emoji || "")} · {currentModelLabel}</span>
             </div>
             <button className="header-icon-btn" onClick={createSession}>
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
@@ -3106,7 +2845,20 @@ function ChatView({
             </div>
           );
         })}
-        {(loading || replyRequestState === "paused") && (
+        {streamingReply && (
+          <div className="msg-row msg-row-ai msg-row-streaming">
+            {assistantAvatar
+              ? <img src={assistantAvatar} className="avatar avatar-img" alt="" />
+              : <div className="avatar avatar-ai" />
+            }
+            <div className="msg-content-ai">
+              <div className="msg-bubble msg-bubble-ai msg-bubble-streaming" aria-live="polite">
+                {renderContent(streamingReply)}
+              </div>
+            </div>
+          </div>
+        )}
+        {((loading && !streamingReply) || replyRequestState === "paused") && (
           <div className="msg-row msg-row-ai">
             {assistantAvatar
               ? <img src={assistantAvatar} className="avatar avatar-img" alt="" />
@@ -4044,12 +3796,12 @@ function SummerPageView({ assistantMode, assistantName }: { assistantMode: Assis
   const isGpt = assistantMode === "gpt";
   return (
     <>
-      <header className="chat-header">
+      <header className="chat-header compact-section-header">
         <div className="header-top">
           <span className="header-dot" />
           <div className="header-center">
             <h1 className="header-title">summer</h1>
-            <span className="header-subtitle" style={{ color: "#c4866c" }}>
+            <span className="header-subtitle" style={{ color: "var(--accent-text)" }}>
               {isGpt ? "GPT · 独立记忆" : `${assistantName} · 这不是档案，是我们活过的痕迹`}
             </span>
           </div>
@@ -4172,12 +3924,12 @@ function SettingsView({
 
   return (
     <>
-      <header className="chat-header">
+      <header className="chat-header compact-section-header">
         <div className="header-top">
           <span className="header-dot" />
           <div className="header-center">
             <h1 className="header-title">设置</h1>
-            <span className="header-subtitle" style={{ color: "#c4866c" }}>Settings · {isGpt ? "GPT" : (settings.aiName || CLAUDE_DEFAULT_NAME)}</span>
+            <span className="header-subtitle" style={{ color: "var(--accent-text)" }}>Settings · {isGpt ? "GPT" : (settings.aiName || CLAUDE_DEFAULT_NAME)}</span>
           </div>
           <span className="header-dot" />
         </div>

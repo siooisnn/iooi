@@ -1,6 +1,7 @@
 "use client";
 
 import { Fragment, useCallback, useEffect, useRef, useState } from "react";
+import { readChatResponse } from "../lib/chat-stream";
 import { useChatScrollPosition } from "../lib/use-chat-scroll-position";
 
 export type GroupSpeaker = "claude" | "gpt";
@@ -268,7 +269,12 @@ function renderGroupContent(text: string) {
   ));
 }
 
-function proposalContent(proposal: GroupSummerWriteProposal, speaker: GroupSpeaker, settings: GroupSettings, committed = false) {
+function proposalContent(
+  proposal: GroupSummerWriteProposal,
+  speaker: GroupSpeaker,
+  settings: GroupSettings,
+  state: "pending" | "committed" | "duplicate" = "pending",
+) {
   const layerNames: Record<string, string> = {
     mangzhong: "芒种",
     xiazhi: "夏至",
@@ -277,7 +283,7 @@ function proposalContent(proposal: GroupSummerWriteProposal, speaker: GroupSpeak
     ferry: "渡口",
   };
   const owner = `${speakerName(speaker, settings)} Summer`;
-  const status = committed ? "已加入" : "待确认";
+  const status = state === "duplicate" ? "已存在" : state === "committed" ? "已加入" : "待确认";
   return `${owner} · ${status} · ${layerNames[proposal.layer || "xiaoshu"] || proposal.layer}\n${proposal.title || "未命名"}\n${proposal.content || ""}`.trim();
 }
 
@@ -311,6 +317,7 @@ export function GroupChatView({
 }) {
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
+  const [streamingReply, setStreamingReply] = useState<{ speaker: GroupSpeaker; text: string } | null>(null);
   const [uploading, setUploading] = useState(false);
   const [replyState, setReplyState] = useState<ReplyState>("idle");
   const [activeSpeaker, setActiveSpeaker] = useState<GroupSpeaker | null>(null);
@@ -325,7 +332,7 @@ export function GroupChatView({
   const summaryInFlightRef = useRef(false);
   const { scrollRef, handleScroll, followLatest } = useChatScrollPosition(
     `iooi-scroll-group-${session.id}`,
-    session.messages.length,
+    session.messages.length + (streamingReply?.text.length || 0),
   );
 
   const clearTimers = useCallback(() => {
@@ -362,6 +369,7 @@ export function GroupChatView({
     if (!activeControllerRef.current) return;
     clearTimers();
     setReplyState("paused");
+    setStreamingReply(null);
     activeControllerRef.current.abort();
   }
 
@@ -372,6 +380,7 @@ export function GroupChatView({
     signal: AbortSignal,
   ) {
     beginSpeakerStatus(speaker);
+    setStreamingReply(null);
     const response = await groupFetch(speaker === "gpt" ? "/api/gpt/chat" : "/api/chat", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -390,15 +399,31 @@ export function GroupChatView({
         sessionId: `${session.id}-${speaker}`,
         userMsg: userMessage,
         groupUserText: userMessage.content,
+        recentSummerProposals: messages
+          .filter((message) => message.speaker === speaker && message.source?.startsWith("summer_write_") && message.proposal)
+          .slice(-12)
+          .map((message) => message.proposal),
         skipPersist: true,
+        stream: speaker === "claude",
+        groupSessionId: session.id,
+        groupSessionName: session.name,
+        groupSpeakerName: speakerName(speaker, settings),
       }),
       signal,
     });
-    const data = await response.json();
-    if (!response.ok) throw new Error(data.reply || "模型请求失败");
+    const data = speaker === "claude"
+      ? await readChatResponse(response, (delta) => {
+          if (!signal.aborted) {
+            setStreamingReply((current) => ({ speaker, text: `${current?.speaker === speaker ? current.text : ""}${delta}` }));
+          }
+        })
+      : await response.json();
+    setStreamingReply(null);
+    const responseStatus = typeof data.status === "number" ? data.status : response.status;
+    if (responseStatus >= 400) throw new Error(data.reply || "模型请求失败");
 
-    const timestamp = nowTime();
-    const date = today();
+    const timestamp = String(data.cache?.group_persisted_time || nowTime());
+    const date = String(data.cache?.group_persisted_date || today());
     const rawReply = stripLeakedThinking(
       String(data.reply || "...").replace(/\[心情[:：].+?\]/g, ""),
     ).content || "...";
@@ -501,6 +526,7 @@ export function GroupChatView({
           if (controller.signal.aborted) break;
           working = [...working, ...additions];
         } catch (error) {
+          setStreamingReply(null);
           if (controller.signal.aborted) throw error;
           const reason = error instanceof Error ? error.message : "";
           working = [...working, {
@@ -524,6 +550,7 @@ export function GroupChatView({
     } catch {
       if (controller.signal.aborted) setReplyState("paused");
     } finally {
+      setStreamingReply(null);
       clearTimers();
       activeControllerRef.current = null;
       sendingRef.current = false;
@@ -609,11 +636,12 @@ export function GroupChatView({
       });
       const data = await response.json();
       if (!response.ok || !data.ok) throw new Error("summer 写入失败");
+      const duplicate = Boolean(data.data?.duplicate);
       replaceMessage(index, (old) => ({
         ...old,
         source: "summer_write_committed",
-        proposal: { ...proposal, status: "committed" },
-        content: proposalContent(proposal, message.speaker!, settings, true),
+        proposal: { ...proposal, status: duplicate ? "duplicate" : "committed" },
+        content: proposalContent(proposal, message.speaker!, settings, duplicate ? "duplicate" : "committed"),
       }));
     } catch {
       replaceMessage(index, (old) => ({ ...old, content: `${old.content}\n\n写入失败，稍后再试。` }));
@@ -653,6 +681,8 @@ export function GroupChatView({
   }
 
   const displayedMessages = visibleGroupMessages(session.messages);
+  const groupOrdinal = session.name.match(/(\d+)\s*$/)?.[1]
+    || String(Math.max(1, sessions.findIndex((group) => group.id === session.id) + 1));
 
   return (
     <>
@@ -663,11 +693,23 @@ export function GroupChatView({
               <polyline points="14.5 5.5 8 12 14.5 18.5" />
             </svg>
           </button>
-          <button className="header-center group-session-title" type="button" onClick={() => setShowSessions((open) => !open)} aria-expanded={showSessions}>
+          <button
+            className="header-center group-session-title"
+            type="button"
+            onClick={() => setShowSessions((open) => !open)}
+            aria-expanded={showSessions}
+            aria-label={`${session.name}${session.summary ? "，已记住前情" : ""}${summarizing ? "，整理前情中" : ""}`}
+          >
             <h1 className="header-title chat-room-title">一个群</h1>
             <span className="header-subtitle chat-room-status">
-              {session.name}{session.summary ? " · 已记住前情" : ""}{summarizing ? " · 整理前情中" : ""}
-              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9" /></svg>
+              <svg className="group-session-people" width="17" height="17" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                <circle cx="8.5" cy="7.5" r="3.25" />
+                <circle cx="16.5" cy="8.5" r="2.5" />
+                <path d="M2.5 19c0-3.55 2.7-6.1 6-6.1s6 2.55 6 6.1v.5h-12V19Z" />
+                <path d="M14 19c0-2.12-.78-3.94-2.12-5.25a6.2 6.2 0 0 1 4.3-1.68c3 0 5.32 2.25 5.32 5.43v2H14V19Z" />
+              </svg>
+              <span>{groupOrdinal}</span>
+              <svg className="group-session-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9" /></svg>
             </span>
           </button>
           <button className="header-icon-btn group-session-new" type="button" onClick={() => { createSession(); setShowSessions(false); }} aria-label="新群聊">＋</button>
@@ -746,7 +788,18 @@ export function GroupChatView({
             </div>
           );
         })}
-        {(loading || replyState === "paused") && (
+        {streamingReply?.text && (
+          <div className="msg-row msg-row-ai msg-row-streaming">
+            <Avatar src={streamingReply.speaker === "gpt" ? settings.gptAvatar : settings.aiAvatar} />
+            <div className="msg-content-ai">
+              <span className="msg-time group-speaker-meta">{speakerName(streamingReply.speaker, settings)}</span>
+              <div className="msg-bubble msg-bubble-ai msg-bubble-streaming" aria-live="polite">
+                {renderGroupContent(streamingReply.text)}
+              </div>
+            </div>
+          </div>
+        )}
+        {((loading && !streamingReply?.text) || replyState === "paused") && (
           <div className="msg-row msg-row-ai">
             {activeSpeaker && <Avatar src={activeSpeaker === "gpt" ? settings.gptAvatar : settings.aiAvatar} />}
             <div className="msg-content-ai">

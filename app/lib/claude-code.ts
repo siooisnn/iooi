@@ -32,6 +32,7 @@ type ClaudeCodeJsonResult = {
 export type ClaudeCodeChatResult = {
   reply: string;
   durationMs: number;
+  queueWaitMs: number;
   model: string;
   usage: {
     input_tokens: number;
@@ -41,7 +42,19 @@ export type ClaudeCodeChatResult = {
   };
 };
 
-let queueTail: Promise<void> = Promise.resolve();
+export type ClaudeCodePriority = "interactive" | "background";
+
+type QueueEntry = {
+  priority: ClaudeCodePriority;
+  enqueuedAt: number;
+  start: () => void;
+  reject: (error: Error) => void;
+};
+
+const interactiveQueue: QueueEntry[] = [];
+const backgroundQueue: QueueEntry[] = [];
+let queueRunning = false;
+let backgroundStartTimer: ReturnType<typeof setTimeout> | null = null;
 let queuedRequests = 0;
 
 function positiveInt(value: string | undefined, fallback: number) {
@@ -149,20 +162,80 @@ function parseResult(stdout: string): ClaudeCodeJsonResult {
   }
 }
 
-async function runQueued<T>(task: () => Promise<T>): Promise<T> {
-  const maxQueue = positiveInt(process.env.CLAUDE_CODE_MAX_QUEUE, 2);
-  if (queuedRequests >= maxQueue) throw new Error("Claude Code 当前请求较多，请稍后再试");
-  queuedRequests += 1;
-  const previous = queueTail;
-  let release!: () => void;
-  queueTail = new Promise<void>((resolve) => { release = resolve; });
-  await previous;
-  try {
-    return await task();
-  } finally {
-    queuedRequests -= 1;
-    release();
+function startQueueEntry(entry: QueueEntry) {
+  queueRunning = true;
+  entry.start();
+}
+
+function pumpQueue() {
+  if (queueRunning || backgroundStartTimer) return;
+
+  const interactive = interactiveQueue.shift();
+  if (interactive) {
+    startQueueEntry(interactive);
+    return;
   }
+  if (backgroundQueue.length === 0) return;
+
+  // Give a just-finished reply a short grace period so a quick follow-up can
+  // enter the interactive lane before summary/care work starts.
+  const graceMs = positiveInt(process.env.CLAUDE_CODE_BACKGROUND_GRACE_MS, 800);
+  backgroundStartTimer = setTimeout(() => {
+    backgroundStartTimer = null;
+    const next = interactiveQueue.shift() || backgroundQueue.shift();
+    if (next) startQueueEntry(next);
+  }, graceMs);
+}
+
+function runQueued<T>(
+  task: (queueWaitMs: number) => Promise<T>,
+  priority: ClaudeCodePriority,
+): Promise<T> {
+  const maxQueue = positiveInt(process.env.CLAUDE_CODE_MAX_QUEUE, 2);
+
+  return new Promise<T>((resolve, reject) => {
+    if (queuedRequests >= maxQueue) {
+      // Keep the scarce waiting slot for a live user message. A displaced
+      // background summary/care request is safe to retry on its next cycle.
+      const displaced = priority === "interactive" ? backgroundQueue.pop() : undefined;
+      if (displaced) {
+        queuedRequests -= 1;
+        displaced.reject(new Error("Claude Code 后台任务已让位给聊天请求"));
+      } else {
+        reject(new Error("Claude Code 当前请求较多，请稍后再试"));
+        return;
+      }
+    }
+
+    queuedRequests += 1;
+    const entry: QueueEntry = {
+      priority,
+      enqueuedAt: Date.now(),
+      reject,
+      start: () => {
+        const queueWaitMs = Date.now() - entry.enqueuedAt;
+        Promise.resolve()
+          .then(() => task(queueWaitMs))
+          .then(resolve, reject)
+          .finally(() => {
+            queuedRequests -= 1;
+            queueRunning = false;
+            pumpQueue();
+          });
+      },
+    };
+
+    if (priority === "interactive") {
+      interactiveQueue.push(entry);
+      if (backgroundStartTimer) {
+        clearTimeout(backgroundStartTimer);
+        backgroundStartTimer = null;
+      }
+    } else {
+      backgroundQueue.push(entry);
+    }
+    pumpQueue();
+  });
 }
 
 export function isClaudeCodeEnabled() {
@@ -175,16 +248,20 @@ export async function runClaudeCodeChat({
   modelId,
   reasoningEffort,
   webSearch = false,
+  priority = "interactive",
   signal,
+  onTextDelta,
 }: {
   systemPrompt: string;
   messages: ClaudeCodeMessage[];
   modelId: string;
   reasoningEffort?: string;
   webSearch?: boolean;
+  priority?: ClaudeCodePriority;
   signal?: AbortSignal;
+  onTextDelta?: (text: string) => void;
 }): Promise<ClaudeCodeChatResult> {
-  return runQueued(async () => {
+  return runQueued(async (queueWaitMs) => {
     if (signal?.aborted) throw new DOMException("Request aborted", "AbortError");
 
     const binary = "/home/claude-iooi/.local/bin/claude";
@@ -203,7 +280,11 @@ export async function runClaudeCodeChat({
     const requestedModel = normalizeClaudeCodeModel(modelId);
     const imageBlocks = collectImageBlocks(messages);
     const usesImages = imageBlocks.length > 0;
-    const usesStreamingOutput = usesImages || webSearch;
+    // Web search can contain several tool turns, so only stream ordinary/image
+    // replies. Otherwise an intermediate pre-tool sentence can flash as if it
+    // were part of the final answer.
+    const effectiveOnTextDelta = webSearch ? undefined : onTextDelta;
+    const usesStreamingOutput = usesImages || webSearch || Boolean(effectiveOnTextDelta);
     const availableTools = webSearch ? "WebSearch,WebFetch" : "";
     const args = [
       "-p",
@@ -224,6 +305,9 @@ export async function runClaudeCodeChat({
     }
     if (usesStreamingOutput) {
       args.push("--verbose");
+    }
+    if (effectiveOnTextDelta) {
+      args.push("--include-partial-messages");
     }
     const effectiveSystemPrompt = webSearch
       ? [
@@ -260,7 +344,42 @@ export async function runClaudeCodeChat({
         });
         let stdout = "";
         let stderr = "";
+        let stdoutLineBuffer = "";
         let settled = false;
+
+        const emitPartialLines = (chunk: string, flush = false) => {
+          if (!effectiveOnTextDelta) return;
+          stdoutLineBuffer += chunk;
+          const lines = stdoutLineBuffer.split(/\r?\n/);
+          stdoutLineBuffer = flush ? "" : (lines.pop() || "");
+          for (const line of lines) {
+            if (!line.trim()) continue;
+            try {
+              const value = JSON.parse(line) as {
+                type?: unknown;
+                event?: {
+                  type?: unknown;
+                  delta?: { type?: unknown; text?: unknown };
+                };
+              };
+              const delta = value.type === "stream_event"
+                && value.event?.type === "content_block_delta"
+                && value.event.delta?.type === "text_delta"
+                && typeof value.event.delta.text === "string"
+                ? value.event.delta.text
+                : "";
+              if (delta) {
+                try {
+                  effectiveOnTextDelta(delta);
+                } catch {
+                  // A closed browser stream must never terminate the Claude job.
+                }
+              }
+            } catch {
+              // The final parser below remains authoritative for malformed lines.
+            }
+          }
+        };
 
         const finish = (error?: Error) => {
           if (settled) return;
@@ -287,6 +406,7 @@ export async function runClaudeCodeChat({
         child.stderr.setEncoding("utf8");
         child.stdout.on("data", (chunk: string) => {
           stdout += chunk;
+          emitPartialLines(chunk);
           if (stdout.length > (webSearch ? 4_000_000 : 2_000_000)) terminate(new Error("Claude Code 返回内容过大"));
         });
         child.stderr.on("data", (chunk: string) => {
@@ -294,6 +414,7 @@ export async function runClaudeCodeChat({
         });
         child.on("close", (code) => {
           if (settled) return;
+          emitPartialLines("", true);
           if (code !== 0) {
             finish(new Error(stderr.trim() || `Claude Code 退出码 ${code}`));
             return;
@@ -313,6 +434,7 @@ export async function runClaudeCodeChat({
             resolve({
               reply: data.result.trim(),
               durationMs: data.duration_ms || 0,
+              queueWaitMs,
               model,
               usage: {
                 input_tokens: usage.input_tokens || 0,
@@ -331,5 +453,5 @@ export async function runClaudeCodeChat({
     } finally {
       await unlink(/* turbopackIgnore: true */ systemPromptFile).catch(() => {});
     }
-  });
+  }, priority);
 }

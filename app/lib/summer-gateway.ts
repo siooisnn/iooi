@@ -1,3 +1,9 @@
+import {
+  findDuplicateSummerWrite,
+  summerWriteFromUnknown,
+  summerWritesFromSnapshot,
+} from "@/app/lib/summer-write-dedupe";
+
 type SummerGatewayConfig = {
   baseUrl: () => string;
   token: () => string;
@@ -53,6 +59,20 @@ function currentEditBody(operation: "add" | "update" | "delete", body: Record<st
 }
 
 export function createSummerGateway(config: SummerGatewayConfig) {
+  let proposalWriteTail: Promise<void> = Promise.resolve();
+
+  async function serializeProposalWrite<T>(task: () => Promise<T>) {
+    const previous = proposalWriteTail;
+    let release!: () => void;
+    proposalWriteTail = new Promise<void>((resolve) => { release = resolve; });
+    await previous;
+    try {
+      return await task();
+    } finally {
+      release();
+    }
+  }
+
   function baseUrl() {
     return config.baseUrl().trim().replace(/\/+$/, "");
   }
@@ -136,6 +156,17 @@ export function createSummerGateway(config: SummerGatewayConfig) {
     return Response.json({ ok: true, data });
   }
 
+  async function readSummerSnapshot() {
+    const res = await fetchSummer("/api/state", { headers: headers(), cache: "no-store" });
+    const text = await res.text();
+    if (!res.ok) throw new Error(`${config.label} returned ${res.status}`);
+    try {
+      return text ? JSON.parse(text) as unknown : {};
+    } catch {
+      throw new Error(`${config.label} 返回了无法解析的状态`);
+    }
+  }
+
   async function GET(request: Request) {
     const url = new URL(request.url);
     const mode = url.searchParams.get("mode");
@@ -169,7 +200,36 @@ export function createSummerGateway(config: SummerGatewayConfig) {
       return postJson("/api/edit", currentEditBody(operation, { ...body, layer: "rain" }));
     }
     if (action === "commit_proposal" || action === "proposal") {
-      return postJson("/api/edit", currentEditBody("add", body));
+      return serializeProposalWrite(async () => {
+        const editBody = currentEditBody("add", body);
+        const candidate = summerWriteFromUnknown(editBody);
+        if (!candidate) {
+          return Response.json({ ok: false, error: "Summer 提议内容不完整" }, { status: 400 });
+        }
+        try {
+          const snapshot = await readSummerSnapshot();
+          const duplicate = findDuplicateSummerWrite(candidate, summerWritesFromSnapshot(snapshot));
+          if (duplicate) {
+            return Response.json({
+              ok: true,
+              data: {
+                duplicate: true,
+                existing: {
+                  id: duplicate.id,
+                  layer: duplicate.layer,
+                  title: duplicate.title,
+                },
+              },
+            });
+          }
+        } catch (error) {
+          return Response.json({
+            ok: false,
+            error: error instanceof Error ? `Summer 去重检查失败：${error.message}` : "Summer 去重检查失败",
+          }, { status: 502 });
+        }
+        return postJson("/api/edit", editBody);
+      });
     }
     return postJson("/api/edit", currentEditBody("add", body));
   }

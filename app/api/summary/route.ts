@@ -95,6 +95,7 @@ ${chatText}
           messages: [{ role: "user", content: prompt }],
           modelId: "claude-sonnet-5",
           reasoningEffort: "low",
+          priority: "background",
           signal: request.signal,
         });
         summary = result.reply.trim();

@@ -13,6 +13,7 @@ type ClaudeUsage = {
   seven_day_opus: UsageWindow | null;
   seven_day_sonnet: UsageWindow | null;
   updated_at: string;
+  stale?: boolean;
 };
 
 function getToken() {
@@ -129,7 +130,9 @@ export function ClaudeUsageBadge() {
                   <small>{resetLabel(usage.seven_day_sonnet.resets_at)} 重置</small>
                 </div>
               )}
-              <p>来自订阅账号的用量；每分钟及聊天后自动刷新。</p>
+              <p>{usage.stale
+                ? "当前刷新失败，暂时显示上一次成功读取的额度。"
+                : "来自订阅账号的用量；每分钟及聊天后自动刷新。"}</p>
             </>
           ) : (
             <p>额度暂时读不到，不影响继续聊天。</p>

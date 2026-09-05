@@ -149,6 +149,7 @@ ${recentLines.length ? `- 最近的对话片段:\n${recentLines.map((l) => "  " 
                 messages: [{ role: "user", content: decidePrompt }],
                 modelId: "claude-sonnet-5",
                 reasoningEffort: "low",
+                priority: "background",
               });
               raw = result.reply;
             } catch {
