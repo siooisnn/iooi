@@ -1,0 +1,63 @@
+.theme-options {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.theme-option {
+  min-width: 0;
+  padding: 8px;
+  border: 1px solid var(--border-soft);
+  border-radius: 16px;
+  background: var(--bg-chat);
+  color: var(--text-primary);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.theme-option[aria-pressed="true"] {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+
+.theme-option:focus-visible {
+  outline: 2px solid var(--accent-text);
+  outline-offset: 4px;
+}
+
+.theme-preview {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  height: 114px;
+  padding: 10px;
+  border-radius: 10px;
+  background: var(--preview-bg);
+  border: 1px solid var(--preview-border);
+}
+
+.theme-preview-warm {
+  --preview-bg: #fefbf8;
+  --preview-border: #e8d8ce;
+  --preview-bubble: #e6b183;
+  --preview-accent: #c4866c;
+}
+
+.theme-preview-white-pink {
+  --preview-bg: #f5f5f5;
+  --preview-border: #e1e1e5;
+  --preview-bubble: #fce0e9;
+  --preview-accent: #e44883;
+}
+
+.theme-preview-header { display: flex; justify-content: center; gap: 3px; }
+.theme-preview-header i { width: 3px; height: 3px; border-radius: 50%; background: var(--preview-accent); }
+.theme-preview-message { width: 55%; height: 16px; border-radius: 5px; }
+.theme-preview-ai { background: #fff; border: 1px solid var(--preview-border); }
+.theme-preview-user { align-self: flex-end; background: var(--preview-bubble); }
+.theme-preview-input { display: flex; justify-content: flex-end; padding: 3px; margin-top: auto; background: #fff; border: 1px solid var(--preview-border); border-radius: 12px; }
+.theme-preview-input i { width: 13px; height: 13px; border-radius: 50%; background: var(--preview-accent); }
+.theme-option-name { display: flex; justify-content: space-between; margin: 9px 3px 4px; font-size: 14px; font-weight: 700; }
+.theme-option-name > span { color: var(--accent-text); }
+.theme-option-description { display: block; margin: 0 3px 3px; font-size: 11px; color: var(--text-secondary); }

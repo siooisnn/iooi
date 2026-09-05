@@ -7,6 +7,8 @@ import { ClaudeUsageBadge } from "./components/ClaudeUsageBadge";
 import { ContextDebugPanel } from "./components/ContextDebugPanel";
 import { GroupChatView } from "./components/GroupChatView";
 import { NotificationButton } from "./components/NotificationButton";
+import { ThemePicker } from "./components/ThemePicker";
+import { useTheme, useThemePage } from "./components/ThemeProvider";
 import { readChatResponse } from "./lib/chat-stream";
 import { useChatScrollPosition } from "./lib/use-chat-scroll-position";
 
@@ -663,6 +665,8 @@ export default function Home() {
   };
 
   const [tab, setTab] = useState<"home" | "chat" | "diary" | "settings">("home");
+  const theme = useTheme();
+  useThemePage(tab);
   const [chatView, setChatView] = useState<"list" | "room" | "group">("list");
   const [settings, setSettings] = useState<Settings>(defaultSettings);
   const [sessions, setSessions] = useState<ChatSession[]>([]);
@@ -992,16 +996,6 @@ export default function Home() {
     setSessions((prev) => prev.map((s) => s.id === activeSessionId ? { ...s, summary, summarizedUntil: until } : s));
   }, [activeSessionId]);
 
-  // 长按贴纸：记入今日日心情。
-  const addHeart = useCallback(() => {
-    const today = getTodayStr();
-    setMoods((prev) => {
-      const tm = prev.find((m) => m.date === today);
-      if (tm) return prev.map((m) => (m.date === today ? { ...m, hearts: (m.hearts || 0) + 1 } : m));
-      return [{ id: genId(), date: today, time: getTime(), emoji: "💖", hearts: 1 }, ...prev];
-    });
-  }, []);
-
   const createSession = useCallback(() => {
     const existingDraft = sessions.find((session) => session.kind !== "memo" && session.messages.length === 0);
     if (existingDraft) {
@@ -1161,7 +1155,7 @@ export default function Home() {
 
   return (
     <main className="app-bg">
-      {splash && (
+      {splash && theme !== "white-pink" && (
         <div className="splash">
           <img src="/icon-192.png" alt="" className="splash-pig" />
           <span className="splash-ding">叮</span>
@@ -1194,7 +1188,6 @@ export default function Home() {
             sessions={sessions}
             updateMessages={updateActiveMessages}
             updateSummary={updateActiveSummary}
-            onTietie={addHeart}
             updateSettings={updateSettings}
             setLastCache={setLastCache}
             setAiMood={setAiMood}
@@ -1232,7 +1225,6 @@ export default function Home() {
             sessions={gptSessions}
             updateMessages={updateGptMessages}
             updateSummary={updateGptSummary}
-            onTietie={() => {}}
             updateSettings={updateSettings}
             setLastCache={setGptLastCache}
             setAiMood={() => {}}
@@ -1283,6 +1275,7 @@ export default function Home() {
             <button
               key={t.id}
               className={`nav-btn ${tab === t.id ? "nav-btn-active" : ""}`}
+              aria-current={tab === t.id ? "page" : undefined}
               onClick={() => switchTab(t.id)}
             >
               {t.icon}
@@ -1455,6 +1448,7 @@ function ChatListView({
 }) {
   const isGpt = assistantMode === "gpt";
   const assistantAvatar = isGpt ? settings.gptAvatar : settings.aiAvatar;
+  const theme = useTheme();
   const [query, setQuery] = useState("");
   const [openActionsFor, setOpenActionsFor] = useState<string | null>(null);
   const [showHbLog, setShowHbLog] = useState(false);
@@ -1595,6 +1589,13 @@ function ChatListView({
     );
   }
 
+  const searchField = (
+    <label className="chat-entry-search">
+      <span className="chat-entry-search-icon">⌕</span>
+      <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="search" aria-label="搜索聊天" />
+    </label>
+  );
+
   return (
     <>
       <header className="chat-header chat-list-page-header">
@@ -1609,13 +1610,11 @@ function ChatListView({
           </div>
           <button className="header-icon-btn chat-list-new" aria-label="新聊天" onClick={startNewChat}>＋</button>
         </div>
-        <label className="chat-entry-search">
-          <span className="chat-entry-search-icon">⌕</span>
-          <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="search" />
-        </label>
+        {theme !== "white-pink" && searchField}
       </header>
 
       <section className="chat-entry-body" onClick={() => setOpenActionsFor(null)}>
+        {theme === "white-pink" && searchField}
         <p className="chat-entry-pinned-line" onClick={editPinnedLine} title="点击修改">{pinnedLine}</p>
 
         {showGroupEntry && (
@@ -2019,7 +2018,6 @@ function ChatView({
   sessions,
   updateMessages,
   updateSummary,
-  onTietie,
   updateSettings,
   setLastCache,
   setAiMood,
@@ -2037,7 +2035,6 @@ function ChatView({
   sessions: ChatSession[];
   updateMessages: (updater: (msgs: Message[]) => Message[]) => void;
   updateSummary: (summary: string, until: number) => void;
-  onTietie: () => void;
   updateSettings: (p: Partial<Settings>) => void;
   setLastCache: React.Dispatch<React.SetStateAction<CacheStats | null>>;
   setAiMood: React.Dispatch<React.SetStateAction<{ emoji: string; ts: number }>>;
@@ -2072,10 +2069,8 @@ function ChatView({
     session.messages.length + streamingReply.length,
   );
 
-  // ── 巧思:长按贴贴 / 随机输入提示 / 扣6彩蛋 ──
-  const [heartBurst, setHeartBurst] = useState<number | null>(null);
+  // ── 巧思:随机输入提示 / 扣6彩蛋 ──
   const [heartRain, setHeartRain] = useState(false);
-  const pressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [inputHint] = useState(() => INPUT_HINTS[Math.floor(Math.random() * INPUT_HINTS.length)]);
   const [weatherText, setWeatherText] = useState("");
   const [editingProposalIndex, setEditingProposalIndex] = useState<number | null>(null);
@@ -2096,18 +2091,6 @@ function ChatView({
     }, 60 * 60 * 1000);
     return () => { stale = true; clearInterval(iv); };
   }, [isGpt, settings.city]);
-
-  function startPress(index: number) {
-    cancelPress();
-    pressTimer.current = setTimeout(() => {
-      setHeartBurst(index);
-      onTietie();
-      setTimeout(() => setHeartBurst(null), 900);
-    }, 500);
-  }
-  function cancelPress() {
-    if (pressTimer.current) { clearTimeout(pressTimer.current); pressTimer.current = null; }
-  }
 
   const currentModel = MODELS.find((m) => m.id === settings.model) || MODELS[0];
   const assistantName = isGpt ? (settings.gptName || "GPT") : settings.aiName;
@@ -2772,14 +2755,7 @@ function ChatView({
                     </div>
                   ) : (
                     <div
-                      className={`msg-bubble ${message.role === "user" ? "msg-bubble-user" : "msg-bubble-ai"} ${isSummerUtility ? "msg-bubble-summer-utility" : ""} ${message.source === "summer_call" ? "msg-bubble-summer-call" : ""} ${message.source === "summer_write_proposal" || message.source === "summer_write_committed" ? "msg-bubble-summer-write" : ""} ${heartBurst === index ? "bubble-hearted" : ""}`}
-                      onTouchStart={message.role === "assistant" ? () => startPress(index) : undefined}
-                      onTouchEnd={message.role === "assistant" ? cancelPress : undefined}
-                      onTouchMove={message.role === "assistant" ? cancelPress : undefined}
-                      onMouseDown={message.role === "assistant" ? () => startPress(index) : undefined}
-                      onMouseUp={message.role === "assistant" ? cancelPress : undefined}
-                      onMouseLeave={message.role === "assistant" ? cancelPress : undefined}
-                      onContextMenu={message.role === "assistant" ? (e) => e.preventDefault() : undefined}
+                      className={`msg-bubble ${message.role === "user" ? "msg-bubble-user" : "msg-bubble-ai"} ${isSummerUtility ? "msg-bubble-summer-utility" : ""} ${message.source === "summer_call" ? "msg-bubble-summer-call" : ""} ${message.source === "summer_write_proposal" || message.source === "summer_write_committed" ? "msg-bubble-summer-write" : ""}`}
                     >
                       {message.source === "summer_write_proposal" && editingProposalIndex === index && proposalDraft ? (
                         <div className="summer-proposal-editor">
@@ -2832,7 +2808,6 @@ function ChatView({
                           )}
                         </>
                       )}
-                      {heartBurst === index && <span className="heart-pop">💖</span>}
                     </div>
                   )}
                 </div>
@@ -3032,7 +3007,7 @@ function ChatView({
           </header>
           <div className="wall-body">
             {sessions.map((s) => (
-              <div key={s.id} className={`session-item ${s.id === session.id ? "session-item-active" : ""}`} style={{ background: s.id === session.id ? "rgba(240, 228, 218, 0.4)" : "white", border: "1px solid var(--border-soft)", borderRadius: "16px", padding: "4px", marginBottom: "2px" }}>
+              <div key={s.id} className={`session-item ${s.id === session.id ? "session-item-active" : ""}`} style={{ background: s.id === session.id ? "rgba(var(--theme-soft-rgb, 240, 228, 218), 0.4)" : "white", border: "1px solid var(--border-soft)", borderRadius: "16px", padding: "4px", marginBottom: "2px" }}>
                 {editingName === s.id ? (
                   <input
                     className="session-rename-input"
@@ -3936,6 +3911,7 @@ function SettingsView({
       </header>
 
       <section className="settings-body">
+        <ThemePicker />
         <div className="settings-group">
           <h2 className="settings-group-title">称呼与头像</h2>
           <div className="avatar-upload-row">
@@ -3976,18 +3952,18 @@ function SettingsView({
           <div className="model-options">
             <button
               className={`model-option ${settings.chatEntryStyle !== "direct" ? "model-option-active" : ""}`}
-              style={settings.chatEntryStyle !== "direct" ? { borderColor: "#c4866c", color: "#c4866c" } : undefined}
+              style={settings.chatEntryStyle !== "direct" ? { borderColor: "var(--theme-accent, #c4866c)", color: "var(--theme-accent, #c4866c)" } : undefined}
               onClick={() => updateSettings({ chatEntryStyle: "list" })}
             >
-              <span className="model-option-dot" style={{ background: settings.chatEntryStyle !== "direct" ? "#c4866c" : "#d5ccc8" }} />
+              <span className="model-option-dot" style={{ background: settings.chatEntryStyle !== "direct" ? "var(--theme-accent, #c4866c)" : "var(--theme-disabled, #d5ccc8)" }} />
               RainLikeButter
             </button>
             <button
               className={`model-option ${settings.chatEntryStyle === "direct" ? "model-option-active" : ""}`}
-              style={settings.chatEntryStyle === "direct" ? { borderColor: "#c4866c", color: "#c4866c" } : undefined}
+              style={settings.chatEntryStyle === "direct" ? { borderColor: "var(--theme-accent, #c4866c)", color: "var(--theme-accent, #c4866c)" } : undefined}
               onClick={() => updateSettings({ chatEntryStyle: "direct" })}
             >
-              <span className="model-option-dot" style={{ background: settings.chatEntryStyle === "direct" ? "#c4866c" : "#d5ccc8" }} />
+              <span className="model-option-dot" style={{ background: settings.chatEntryStyle === "direct" ? "var(--theme-accent, #c4866c)" : "var(--theme-disabled, #d5ccc8)" }} />
               GrassFromAfar
             </button>
           </div>
@@ -3999,10 +3975,10 @@ function SettingsView({
           <p className="settings-hint">关掉后 heartbeat 只会安静检查，不会主动写消息或推送通知</p>
           <button
             className={`model-option ${settings.proactiveCare ? "model-option-active" : ""}`}
-            style={settings.proactiveCare ? { borderColor: "#c4866c", color: "#c4866c" } : undefined}
+            style={settings.proactiveCare ? { borderColor: "var(--theme-accent, #c4866c)", color: "var(--theme-accent, #c4866c)" } : undefined}
             onClick={() => updateSettings({ proactiveCare: !settings.proactiveCare })}
           >
-            <span className="model-option-dot" style={{ background: settings.proactiveCare ? "#c4866c" : "#d5ccc8" }} />
+            <span className="model-option-dot" style={{ background: settings.proactiveCare ? "var(--theme-accent, #c4866c)" : "var(--theme-disabled, #d5ccc8)" }} />
             {settings.proactiveCare ? "已开启" : "已关闭"}
           </button>
         </div>
@@ -4053,17 +4029,17 @@ function SettingsView({
           </p>
           <button
             className={`model-option ${session?.summary ? "model-option-active" : ""}`}
-            style={session?.summary ? { borderColor: "#c4866c", color: "#c4866c" } : undefined}
+            style={session?.summary ? { borderColor: "var(--theme-accent, #c4866c)", color: "var(--theme-accent, #c4866c)" } : undefined}
             onClick={generateSessionCache}
             disabled={cacheBusy || !session || manualCache.until <= 0}
           >
-            <span className="model-option-dot" style={{ background: session?.summary ? "#c4866c" : "#d5ccc8" }} />
+            <span className="model-option-dot" style={{ background: session?.summary ? "var(--theme-accent, #c4866c)" : "var(--theme-disabled, #d5ccc8)" }} />
             {cacheBusy ? "生成中" : "生成本窗口缓存"}
           </button>
           <p className="settings-hint">
             当前可压缩：{manualCache.slice.length} 条；已缓存长度：{session?.summary?.length || 0} 字
           </p>
-          {cacheMessage && <p className="settings-hint" style={{ color: cacheMessage.startsWith("生成失败") ? "#c4866c" : "#5b8a6b" }}>{cacheMessage}</p>}
+          {cacheMessage && <p className="settings-hint" style={{ color: cacheMessage.startsWith("生成失败") ? "var(--theme-accent, #c4866c)" : "var(--theme-success, #5b8a6b)" }}>{cacheMessage}</p>}
         </div>
 
         <CacheStatusPanel cache={lastCache} />

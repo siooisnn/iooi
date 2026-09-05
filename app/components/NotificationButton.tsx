@@ -46,16 +46,16 @@ export function NotificationButton({ onSubscribe }: NotificationButtonProps) {
   }
 
   if (status === "done" || status === "granted") {
-    return <div className="settings-hint" style={{ color: "#7c9a92" }}>已开启通知</div>;
+    return <div className="settings-hint" style={{ color: "var(--theme-success, #7c9a92)" }}>已开启通知</div>;
   }
   if (status === "denied") {
-    return <div className="settings-hint" style={{ color: "#c4866c" }}>无法开启，请在系统设置中允许通知</div>;
+    return <div className="settings-hint" style={{ color: "var(--theme-accent, #c4866c)" }}>无法开启，请在系统设置中允许通知</div>;
   }
   if (status === "subscribing") {
     return <div className="settings-hint">正在开启...</div>;
   }
   return (
-    <button className="settings-danger-btn" style={{ borderColor: "#7c9a92", color: "#7c9a92" }} onClick={enableNotifications}>
+    <button className="settings-danger-btn" style={{ borderColor: "var(--theme-success, #7c9a92)", color: "var(--theme-success, #7c9a92)" }} onClick={enableNotifications}>
       开启通知
     </button>
   );
