@@ -1,9 +1,9 @@
 import { createSummerGateway } from "@/app/lib/summer-gateway";
 
 const gateway = createSummerGateway({
-  baseUrl: () => process.env.SUMMER_BASE_URL || "http://127.0.0.1:8000",
-  token: () => process.env.SUMMER_TOKEN || "",
-  label: "summer",
+  baseUrl: () => process.env.GPT_SUMMER_BASE_URL || "",
+  token: () => process.env.GPT_SUMMER_TOKEN || "",
+  label: "GPT summer",
 });
 
 export const GET = gateway.GET;

@@ -2,7 +2,7 @@ import { writeFileSync, existsSync, mkdirSync } from "fs";
 import { join } from "path";
 
 const UPLOAD_DIR = join(process.cwd(), "uploads");
-const MAX_SIZE = 10 * 1024 * 1024; // 10 MB
+const MAX_SIZE = 10 * 1024 * 1024;
 
 const ALLOWED_TYPES: Record<string, string> = {
   "image/jpeg": "jpg",
@@ -50,7 +50,7 @@ export async function POST(request: Request) {
       size: file.size,
       type: file.type,
     });
-  } catch (error) {
+  } catch {
     return Response.json({ error: "上传失败" }, { status: 500 });
   }
 }

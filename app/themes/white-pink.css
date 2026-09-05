@@ -1,0 +1,276 @@
+/* White Peach is isolated here. Warm colors remain the fallbacks in globals.css.
+   Keep future shape/layout changes scoped to :root[data-theme="white-pink"]. */
+:root[data-theme="white-pink"] {
+  color-scheme: light;
+  --bg-warm: #f5f5f5;
+  --bg-chat: #ffffff;
+  --chrome-bg: #f5f5f5;
+  --conversation-bg: #f5f5f5;
+  --border-soft: #ededf0;
+  --text-primary: #303036;
+  --text-secondary: #68686f;
+  --text-light: #797980;
+  --bubble-ai: #ffffff;
+  --bubble-user: #fce0e9;
+  --avatar-user: #f4cfdd;
+  --accent: #e44883;
+  --accent-text: #b82d63;
+  --accent-light: #ed91b3;
+  --accent-glow: rgba(228, 72, 131, 0.12);
+  --glass: var(--chrome-bg);
+  --glass-border: #eeeeef;
+  --shadow-soft: none;
+  --shadow-card: none;
+  --shadow-bubble: none;
+
+  /* Shared surfaces, ink and controls previously using individual warm shades. */
+  --theme-accent: var(--accent);
+  --theme-link: var(--accent-text);
+  --theme-text: var(--text-primary);
+  --theme-secondary: var(--text-secondary);
+  --theme-muted: var(--text-light);
+  --theme-disabled: #c9c9cf;
+  --theme-focus: var(--accent-light);
+  --theme-surface: #ffffff;
+  --theme-surface-soft: #f8f8f9;
+  --theme-canvas: var(--bg-chat);
+  --theme-avatar: #dedee4;
+  --theme-bubble-user: var(--bubble-user);
+  --theme-action-muted: #8a8a95;
+  --theme-accent-rgb: 228, 72, 131;
+  --theme-surface-rgb: 255, 255, 255;
+  --theme-soft-rgb: 235, 235, 239;
+  --theme-ambient-rgb: 225, 225, 230;
+  --theme-line-rgb: 205, 205, 212;
+  --theme-shadow-rgb: 35, 35, 45;
+}
+
+:root[data-theme="white-pink"] .settings-body {
+  --theme-success: var(--accent-text);
+  background: #ffffff;
+}
+
+:root[data-theme="white-pink"] .chat-entry-search,
+:root[data-theme="white-pink"] .chat-entry-avatar,
+:root[data-theme="white-pink"] .msg-bubble-ai {
+  border-color: var(--border-soft);
+}
+
+:root[data-theme="white-pink"] .chat-entry-avatar {
+  background: #ececf0;
+}
+
+:root[data-theme="white-pink"] .chat-entry-pinned-line,
+:root[data-theme="white-pink"] .group-session-switcher {
+  border-bottom-color: var(--border-soft);
+}
+
+:root[data-theme="white-pink"] .chat-entry-memo::after,
+:root[data-theme="white-pink"] .chat-entry-group::after,
+:root[data-theme="white-pink"] .chat-swipe-shell::after,
+:root[data-theme="white-pink"] .chat-entry-subscribe::after {
+  background: var(--border-soft);
+}
+
+/* Keep the composer quiet; only its send action keeps the pink accent. */
+:root[data-theme="white-pink"] .chat-footer {
+  --accent: #68686f;
+  --accent-text: #505057;
+  --accent-light: #aaaab3;
+  --accent-glow: rgba(35, 35, 45, 0.08);
+  --theme-accent: var(--accent);
+  --theme-link: var(--text-secondary);
+  --theme-accent-rgb: 104, 104, 111;
+}
+
+:root[data-theme="white-pink"] .chat-footer .claude-usage-pill {
+  color: var(--text-secondary);
+  border-color: var(--border-soft);
+}
+
+:root[data-theme="white-pink"] .chat-footer .claude-usage-row b {
+  color: var(--text-primary);
+}
+
+:root[data-theme="white-pink"] .chat-footer .send-btn {
+  --theme-accent: #e44883;
+  --theme-accent-rgb: 228, 72, 131;
+  --accent-glow: rgba(228, 72, 131, 0.12);
+  background: var(--theme-accent);
+  opacity: 1;
+}
+
+/* Flat surfaces, with only the four counter tiles keeping their requested glow.
+   Images remain untouched; these reset only CSS surface effects. */
+:root[data-theme="white-pink"] body *,
+:root[data-theme="white-pink"] body *::before,
+:root[data-theme="white-pink"] body *::after,
+:root[data-theme="white-pink"] .chat-footer * {
+  background-image: none;
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+:root[data-theme="white-pink"] .app-bg {
+  background-color: var(--bg-warm);
+}
+
+/* All four main tabs and chat rooms share a 48px title bar (+ safe area). */
+:root[data-theme="white-pink"] .chat-header {
+  position: sticky;
+  top: 0;
+  padding: calc(7px + env(safe-area-inset-top)) 14px 8px;
+  border-bottom: 1px solid var(--glass-border);
+  background: var(--chrome-bg);
+}
+
+:root[data-theme="white-pink"] .chat-header .header-top {
+  height: 32px;
+}
+
+:root[data-theme="white-pink"] .chat-header :is(.header-icon-btn, .header-icon-spacer, .header-dot) {
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+}
+
+:root[data-theme="white-pink"] .chat-header .header-title {
+  line-height: 32px;
+}
+
+:root[data-theme="white-pink"] .compact-section-header .header-subtitle {
+  display: none;
+}
+
+:root[data-theme="white-pink"] :is(.chat-room-back, .chat-room-more) {
+  border-color: var(--border-soft);
+  background: #ffffff;
+}
+
+:root[data-theme="white-pink"] :is(.bottom-nav, .chat-footer, .fragment-header, .wall-header) {
+  background: var(--chrome-bg);
+}
+
+:root[data-theme="white-pink"] .chat-footer {
+  padding-bottom: calc(4px + env(safe-area-inset-bottom) / 2);
+}
+
+:root[data-theme="white-pink"] .bottom-nav {
+  padding-bottom: max(4px, calc(env(safe-area-inset-bottom) - 20px));
+}
+
+/* Touch browsers can retain :hover after a tap; it must not dim the active tab. */
+:root[data-theme="white-pink"] .nav-btn[aria-current="page"] {
+  color: var(--accent-text);
+}
+
+:root[data-theme="white-pink"] .chat-messages {
+  background: var(--conversation-bg);
+}
+
+:root[data-theme="white-pink"] .msg-bubble-ai {
+  border-color: transparent;
+}
+
+/* Search belongs to the scrolling list, independent of the title bar. */
+:root[data-theme="white-pink"] .chat-entry-body > .chat-entry-search {
+  flex-shrink: 0;
+  margin: 0 14px 12px;
+  background: #f5f5f5;
+  border-color: transparent;
+}
+
+:root[data-theme="white-pink"] .chat-entry-pinned-line {
+  margin-bottom: 4px;
+  padding-bottom: 10px;
+}
+
+:root[data-theme="white-pink"] :is(.chat-entry-pinned, .chat-entry-item, .chat-entry-subscribe) {
+  padding-top: 8px;
+  padding-bottom: 8px;
+}
+
+:root[data-theme="white-pink"] .chat-entry-history {
+  gap: 0;
+}
+
+:root[data-theme="white-pink"] .chat-entry-name {
+  color: #1a1a1a;
+  font-weight: 400;
+  -webkit-text-stroke: 0.15px currentColor;
+}
+
+:root[data-theme="white-pink"] .chat-entry-side {
+  top: 8px;
+  bottom: 8px;
+}
+
+:root[data-theme="white-pink"] .chat-entry-tag {
+  color: var(--text-light);
+}
+
+:root[data-theme="white-pink"] .chat-entry-group .chat-entry-preview {
+  padding-right: 36px;
+}
+
+:root[data-theme="white-pink"] .chat-entry-preview {
+  color: #9a9aa1;
+}
+
+/* Muted rose metadata, without the heavier strokes used by the warm theme. */
+:root[data-theme="white-pink"] :is(.single-room-header .chat-room-status, .group-speaker-meta) {
+  color: #a97889;
+  font-weight: 400;
+}
+
+:root[data-theme="white-pink"] :is(.home-card, .counter-item, .mini-counter, .letter-card,
+  .summer-native-toolbar, .summer-layer-card, .summer-memory-card, .summer-memory-group,
+  .summer-doc, .summer-writer, .settings-input, .settings-textarea, .model-option) {
+  background-color: var(--theme-surface-soft);
+}
+
+:root[data-theme="white-pink"] .counter-numbers .counter-item {
+  border-color: rgba(255, 76, 151, 0.3);
+  box-shadow: 0 0 0 1px rgba(255, 76, 151, 0.12), 0 0 14px rgba(255, 76, 151, 0.22);
+}
+
+/* Opaque input and popover surfaces keep the footer crisp when content scrolls. */
+:root[data-theme="white-pink"] :is(.input-wrapper, .attach-btn.attach-btn-separate,
+  .chat-control-pill, .claude-usage-pill, .chat-config-panel, .claude-usage-popover,
+  .group-web-search-panel, .group-mention-row button, .chat-entry-menu, .chat-model-popover,
+  .sessions-dropdown, .group-session-switcher) {
+  background-color: #ffffff;
+  border-color: var(--border-soft);
+}
+
+:root[data-theme="white-pink"] .input-wrapper:focus-within {
+  border-color: #dcdce2;
+}
+
+:root[data-theme="white-pink"] .chat-config-option-active {
+  border-color: #dcdce2;
+  background-color: #f0f0f2;
+}
+
+/* Match the outer canvas used by browser/system bars to the page's title bar. */
+:root[data-theme="white-pink"],
+:root[data-theme="white-pink"] body {
+  background-color: var(--chrome-bg);
+}
+
+/* Summer alone uses white chrome and cards on a gray page. */
+:root[data-theme="white-pink"][data-page="diary"] {
+  --chrome-bg: #ffffff;
+  --bg-chat: #f5f5f5;
+  --theme-surface-soft: #ffffff;
+}
+
+/* Hide before hydration as well as after it; the warm theme keeps its entrance. */
+:root[data-theme="white-pink"] .splash {
+  display: none;
+}
+
+:root[data-theme="white-pink"] :is(.home-body, .diary-body, .settings-body, .chat-messages) {
+  animation: none;
+}

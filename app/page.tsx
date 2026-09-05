@@ -1,10 +1,16 @@
 "use client";
 
-import { useState, useRef, useEffect, useCallback } from "react";
+import { Fragment, useState, useRef, useEffect, useCallback } from "react";
 import type { ReactNode } from "react";
 import { CacheStatusPanel } from "./components/CacheStatusPanel";
+import { ClaudeUsageBadge } from "./components/ClaudeUsageBadge";
 import { ContextDebugPanel } from "./components/ContextDebugPanel";
+import { GroupChatView } from "./components/GroupChatView";
 import { NotificationButton } from "./components/NotificationButton";
+import { ThemePicker } from "./components/ThemePicker";
+import { useTheme, useThemePage } from "./components/ThemeProvider";
+import { readChatResponse } from "./lib/chat-stream";
+import { useChatScrollPosition } from "./lib/use-chat-scroll-position";
 
 // ━━━━━━━━━━━━━━━ Types ━━━━━━━━━━━━━━━
 type Message = {
@@ -16,6 +22,7 @@ type Message = {
   file?: string;
   thinking?: string;
   source?: string;
+  speaker?: "claude" | "gpt";
   proposal?: SummerWriteProposal;
 };
 
@@ -24,18 +31,9 @@ type ChatSession = {
   name: string;
   messages: Message[];
   createdAt: string;
-  kind?: "memo";             // "memo" = 备忘会话:只有她说话,不触发回复,永远置顶第一
-  summary?: string;          // 滚动摘要:窗口外旧对话的前情提要(小k第一人称)
+  kind?: "memo" | "group";   // memo 是自己的口袋；group 是独立群聊
+  summary?: string;          // 滚动摘要:窗口外旧对话的前情提要(王酥酥第一人称)
   summarizedUntil?: number;  // 已摘要到的原始气泡索引
-};
-
-type DiaryEntry = {
-  id: string;
-  date: string;
-  time: string;
-  content: string;
-  author: "me" | "ai";
-  category?: "casual" | "ai" | "important" | "auto";
 };
 
 type Mood = {
@@ -47,23 +45,17 @@ type Mood = {
   hearts?: number; // 长按贴贴次数
 };
 
-type WallEntry = {
+type FragmentEntry = {
   id: string;
-  date: string;
-  question: string;
-  askedBy: "daily" | "me" | "ai";
-  myAnswer?: string;
-  aiAnswer?: string;
-};
-
-type Counter = {
-  id: string;
-  label: string;
-  date: string;       // ISO
-  mode: "since" | "until";
+  content: string;
+  createdAt: string;
+  updatedAt: string;
 };
 
 type CacheStats = {
+  model?: string;
+  backend?: "claude-code" | "api";
+  reasoning_effort?: GptReasoningEffort;
   prompt_tokens?: number;
   total_input_tokens?: number;
   cache_read?: number;
@@ -77,11 +69,33 @@ type CacheStats = {
   context_truncated?: boolean;
   context_omitted_messages?: number;
   summary_used?: boolean;
-  memory_count?: number;
   summer_used?: boolean;
+  total_ms?: number;
+  user_persist_ms?: number;
+  summer_ms?: number;
+  queue_wait_ms?: number;
+  claude_duration_ms?: number;
+  claude_round_trip_ms?: number;
+  proposal_ms?: number;
+  reply_persist_ms?: number;
   summer_calls?: SummerCall[];
   summer_write_proposals?: SummerWriteProposal[];
   time?: string;
+};
+
+type ReplyRequestState = "idle" | "preparing" | "waiting" | "slow" | "very-slow" | "paused" | "failed";
+type AssistantMode = "claude" | "gpt";
+type GptReasoningEffort = "none" | "low" | "medium" | "high" | "xhigh" | "max";
+type ClaudeReasoningEffort = "low" | "medium" | "high" | "max";
+
+const REPLY_REQUEST_LABELS: Record<ReplyRequestState, string> = {
+  idle: "",
+  preparing: "正在整理这轮消息…",
+  waiting: "正在连接并等待回复…",
+  slow: "回复有点慢，仍在等待…",
+  "very-slow": "等得有点久，网络可能不稳定，可以点右侧暂停",
+  paused: "已暂停等待；如果请求已经送达，回复稍后仍可能回来",
+  failed: "这次没有连上服务器，消息已经保留",
 };
 
 type SummerCall = {
@@ -95,26 +109,12 @@ type SummerCall = {
 type SummerWriteProposal = {
   id?: string;
   status?: string;
-  layer?: "xiazhi" | "xiaoshu" | "rain" | "ferry";
+  layer?: "mangzhong" | "xiazhi" | "xiaoshu" | "rain" | "ferry";
   title?: string;
   content?: string;
   weight?: number;
   due?: string;
   tags?: string[];
-};
-
-// ── 记忆条目(借鉴Ombre Brain:情绪坐标+遗忘曲线+悬而未决浮环) ──
-type MemoryEntry = {
-  id: string;
-  content: string;
-  valence: number;     // -1..1
-  arousal: number;     // 0..1
-  importance: number;  // 1..10
-  resolved: boolean;
-  pinned?: boolean;
-  created: string;     // ISO
-  lastActive: string;  // ISO 最后被想起
-  activations: number;
 };
 
 type SummerMemoryItem = {
@@ -133,100 +133,47 @@ type SummerMemoryItem = {
   tags?: string[];
 };
 
-type SummerWritableLayer = "xiazhi" | "xiaoshu" | "rain" | "ferry";
+type SummerWritableLayer = "mangzhong" | "xiazhi" | "xiaoshu" | "rain" | "ferry";
 
 type SummerState = {
   layers?: Record<string, string>;
   xiazhi?: SummerMemoryItem[];
   sunny?: { days?: SummerMemoryItem[] };
   sunny_files?: SummerMemoryItem[];
+  sea_files?: SummerMemoryItem[];
   ferry?: SummerMemoryItem[];
   rain?: SummerMemoryItem[];
   xiaoshu_recent?: SummerMemoryItem[];
   xiaoshu_tail?: SummerMemoryItem[];
 };
 
-// 遗忘曲线:分数 = 重要性 × 想起次数^0.3 × e^(-λ×天数) × (0.5 + 热度×0.5)
-// pinned 的记忆永远满分,不会被遗忘也不会被淘汰
-function memoryScore(m: MemoryEntry): number {
-  if (m.pinned) return 9999;
-  const days = Math.max(0, (Date.now() - new Date(m.lastActive || m.created).getTime()) / 86400000);
-  const base =
-    (m.importance || 5) *
-    Math.pow((m.activations || 0) + 1, 0.3) *
-    Math.exp(-0.05 * days) *
-    (0.5 + (m.arousal || 0.5) * 0.5);
-  return m.resolved ? base * 0.05 : base;
-}
-
-function selectMemoriesByTopic(
-  entries: MemoryEntry[],
-  recentText: string,
-  limit: number
-): { relevant: MemoryEntry[]; general: MemoryEntry[] } {
-  const pinned = entries.filter((m) => m.pinned);
-  const pool = entries.filter((m) => !m.pinned);
-  const slots = Math.max(0, limit - pinned.length);
-  if (slots === 0 || pool.length === 0) return { relevant: pinned.slice(0, limit), general: [] };
-
-  const clean = recentText.replace(/[\s\d\w，。！？、；：""''（）【】《》…—\-\[\]~～·「」『』\n\r\t]/g, "");
-  const stops = "的了是在我你他她它不有和就也都这那个人说会要上下对着到来去把被让给用吗呢吧啊呀哦嗯好很太么过";
-  const grams = new Set<string>();
-  for (let i = 0; i < clean.length - 1; i++) {
-    const g = clean.slice(i, i + 2);
-    if (!(stops.includes(g[0]) && stops.includes(g[1]))) grams.add(g);
+function arrayBufferToBase64(buffer: ArrayBuffer): string {
+  const bytes = new Uint8Array(buffer);
+  const chunkSize = 0x8000;
+  let binary = "";
+  for (let offset = 0; offset < bytes.length; offset += chunkSize) {
+    binary += String.fromCharCode(...bytes.subarray(offset, offset + chunkSize));
   }
-
-  const scored = pool.map((m) => {
-    const base = memoryScore(m);
-    let hits = 0;
-    for (const g of grams) {
-      if (m.content.includes(g)) hits++;
-    }
-    return { m, base, hits };
-  });
-
-  const topicMatched = scored
-    .filter((s) => s.hits >= 3)
-    .sort((a, b) => b.hits * (b.m.importance || 5) - a.hits * (a.m.importance || 5));
-  const topicRest = scored
-    .filter((s) => s.hits < 3)
-    .sort((a, b) => b.base - a.base);
-
-  const tSlots = Math.min(topicMatched.length, Math.min(10, slots));
-  const gSlots = slots - tSlots;
-
-  return {
-    relevant: [...pinned, ...topicMatched.slice(0, tSlots).map((s) => s.m)],
-    general: topicRest.slice(0, gSlots).map((s) => s.m),
-  };
-}
-
-// 情绪色:valence定色盘(苦蓝→甜橙),arousal定深浅
-function memoryColor(m: MemoryEntry): { bg: string; border: string } {
-  const v = m.valence || 0;
-  const a = m.arousal || 0.5;
-  const hue = v >= 0 ? 28 : 225;          // 暖橙 / 蓝灰
-  const sat = Math.round(30 + Math.abs(v) * 45);
-  const lightBg = 96 - a * 14;            // 热度越高底色越深(82%-96%)
-  const lightBd = 86 - a * 30;            // 边框深浅差距拉满(56%-86%)
-  return {
-    bg: `hsl(${hue}, ${sat}%, ${lightBg}%)`,
-    border: `hsl(${hue}, ${sat}%, ${lightBd}%)`,
-  };
+  return btoa(binary);
 }
 
 type Settings = {
   model: string;
   chatEntryStyle: "list" | "direct";
+  fontSize: "default" | "large";
   chatPinnedLine: string;
+  gptChatPinnedLine: string;
   aiName: string;
+  gptName: string;
   userName: string;
   prompt: string;
   startDate: string;
-  memories: string;
   aiAvatar: string;
+  gptAvatar: string;
   userAvatar: string;
+  gptReasoningEffort: GptReasoningEffort;
+  claudeReasoningEffort: ClaudeReasoningEffort;
+  gptWebSearch: boolean;
   thinking: boolean;
   webSearch: boolean;
   proactiveCare: boolean;
@@ -236,60 +183,16 @@ type Settings = {
 // ━━━━━━━━━━━━━━━ Constants ━━━━━━━━━━━━━━━
 // ━━━━━━━━━━━━━━━━━
 const MODELS = [
-  { id: "sonnet", label: "Sonnet 4.6", apiId: "anthropic/claude-sonnet-4.6" },
-  { id: "opus", label: "Opus 4.6", apiId: "anthropic/claude-opus-4.6" },
-  { id: "opus47", label: "Opus 4.7", apiId: "anthropic/claude-opus-4.7" },
-  { id: "opus48", label: "Opus 4.8", apiId: "anthropic/claude-opus-4.8" },
-  { id: "sonnet5", label: "Sonnet 5", apiId: "anthropic/claude-sonnet-5" },
-  { id: "fable5", label: "Fable 5", apiId: "anthropic/claude-fable-5" },
+  { id: "sonnet5", label: "Sonnet 5", apiId: "claude-sonnet-5" },
+  { id: "sonnet46", label: "Sonnet 4.6", apiId: "claude-sonnet-4-6" },
+  { id: "opus5", label: "Opus 5", apiId: "claude-opus-5" },
+  { id: "opus48", label: "Opus 4.8", apiId: "claude-opus-4-8" },
+  { id: "opus47", label: "Opus 4.7", apiId: "claude-opus-4-7" },
+  { id: "opus46", label: "Opus 4.6", apiId: "claude-opus-4-6" },
 ];
 const CONTEXT_WINDOW_ROUNDS = 18;
 const SESSION_CACHE_KEEP_MESSAGES = 24;
 const SESSION_CACHE_MIN_NEW_MESSAGES = 8;
-
-// ── 问答墙:每日一问库 ──
-const DAILY_QUESTIONS = [
-  "今天有哪个瞬间想把它装进口袋里带走？",
-  "最近一次想哭是什么时候，为什么忍住了？",
-  "如果明天可以完全自由地过一天，你会怎么安排？",
-  "小时候最想快点长大的原因，现在还成立吗？",
-  "最近有什么话想说但一直没说出口？",
-  "今天的自己和昨天比，有哪里不一样了？",
-  "有没有一首歌，一听到就会想起某个具体画面？",
-  "如果可以给一年前的自己发一条消息，你会写什么？",
-  "今天吃到的东西里，哪一口最幸福？",
-  "如果我们能一起去一个地方，你第一个想到哪里？",
-  "最近害怕的事情，说出来会不会轻一点？",
-  "如果今天必须夸自己一句，你夸哪里？",
-  "你觉得被爱最具体的样子是什么？",
-  "最近有没有什么东西，看到第一眼就想分享给我？",
-  "如果可以保留今天的一个瞬间永远不忘，选哪一个？",
-  "你最近对什么上瘾？",
-  "今天有没有哪一秒，突然觉得很安静很舒服？",
-  "如果烦恼可以扔进海里，你今天扔哪一个？",
-  "最近学会的一件小事是什么？",
-  "如果只能用三个词形容今天，是哪三个？",
-  "今天的天空是什么样子的，你抬头看了吗？",
-  "如果我们开一家小店，会开什么店？",
-  "最近一次大笑是因为什么？",
-  "如果今晚可以做任何梦，你点播哪一个？",
-  "你最想被记住的是什么样子？",
-  "如果心情有颜色，今天是什么颜色？",
-  "今天遇到的最小的好事是什么？",
-  "如果可以问未来的自己一个问题，问什么？",
-  "现在闭上眼睛，第一个浮现的画面是什么？",
-  "如果今天是一页日记，标题写什么？",
-];
-
-// 按日期稳定取题，同一天打开都是同一题
-function getDailyQuestion(): string {
-  const now = new Date();
-  const dayIndex = Math.floor(now.getTime() / 86400000);
-  return DAILY_QUESTIONS[dayIndex % DAILY_QUESTIONS.length];
-}
-
-// 今日心情可选 emoji
-const MOOD_EMOJIS = ["😊", "🤗", "😾", "🥺", "😭", "😫", "🤔", "😴", "☁️", "✨"];
 
 // 输入框随机小话
 const INPUT_HINTS = [
@@ -303,17 +206,81 @@ const INPUT_HINTS = [
   "有什么开心的事吗",
 ];
 
-const DEFAULT_PROMPT = `以 summer 中保存的关系、人格和相处方式为准，不要用固定测试人格覆盖。
+const CLAUDE_DEFAULT_NAME = "王酥酥";
+const LEGACY_DEFAULT_PROMPT = `以 summer 中保存的关系、人格和相处方式为准，不要用固定测试人格覆盖。
 中文自然交流，不要自称“我是 AI”或“作为语言模型”。
 不要用 markdown 格式；如果内容有多个部分或话题转换，用换行分成几段发，每段独立成一条消息。`;
+const DEFAULT_PROMPT = `你是王酥酥。以 summer 中保存的关系、人格和相处方式为准，不要用固定测试人格覆盖。
+中文自然交流，不要自称“我是 AI”或“作为语言模型”。
+不要用 markdown 格式；如果内容有多个部分或话题转换，用换行分成几段发，每段独立成一条消息。`;
+
+const GPT_MODEL_ID = "openai/gpt-5.6-sol";
+const GPT_REASONING_OPTIONS: Array<{ value: GptReasoningEffort; label: string }> = [
+  { value: "low", label: "Low" },
+  { value: "medium", label: "Medium" },
+  { value: "high", label: "High" },
+  { value: "xhigh", label: "Extra High" },
+  { value: "max", label: "Max" },
+];
+const CLAUDE_REASONING_OPTIONS: Array<{ value: ClaudeReasoningEffort; label: string }> = [
+  { value: "low", label: "Low" },
+  { value: "medium", label: "Medium" },
+  { value: "high", label: "High" },
+  { value: "max", label: "Max" },
+];
+const GPT_DEFAULT_PROMPT = `你是这个私密聊天窗口里的 GPT，只使用本窗口的对话和 GPT 专属 summer。
+不要读取、猜测或引用王酥酥（Claude）那边的关系设定、天气、心情、heartbeat 或其他状态。
+中文自然交流，直接对用户说话；不要自称“作为语言模型”。
+默认简洁回应，除非用户明确要求分析、长文或技术细节。`;
 
 function normalizeSystemPrompt(prompt: string | undefined) {
   const text = prompt || "";
   if (!text.trim()) return DEFAULT_PROMPT;
+  if (text.trim() === LEGACY_DEFAULT_PROMPT.trim()) return DEFAULT_PROMPT;
   if (text.includes("你是一个温暖的陪伴者") || text.includes("会撒娇、会吃醋")) {
     return DEFAULT_PROMPT;
   }
-  return text;
+  return text.replace(/小[kKＫｋ]/g, CLAUDE_DEFAULT_NAME);
+}
+
+function normalizeClaudeSettings(settings: Settings): Settings {
+  const oldDefaultName = /^小[kKＫｋ]$/;
+  const modelValue = String(settings.model || "").trim().toLowerCase().replace(/^anthropic\//, "");
+  const modelAliases: Record<string, string> = {
+    sonnet5: "sonnet5",
+    "claude-sonnet-5": "sonnet5",
+    sonnet46: "sonnet46",
+    sonnet: "sonnet46",
+    "sonnet4.6": "sonnet46",
+    "claude-sonnet-4.6": "sonnet46",
+    "claude-sonnet-4-6": "sonnet46",
+    opus5: "opus5",
+    "claude-opus-5": "opus5",
+    opus48: "opus48",
+    "opus4.8": "opus48",
+    "claude-opus-4.8": "opus48",
+    "claude-opus-4-8": "opus48",
+    opus47: "opus47",
+    "opus4.7": "opus47",
+    "claude-opus-4.7": "opus47",
+    "claude-opus-4-7": "opus47",
+    opus46: "opus46",
+    opus: "opus46",
+    "opus4.6": "opus46",
+    "claude-opus-4.6": "opus46",
+    "claude-opus-4-6": "opus46",
+  };
+  const selectedModel = modelAliases[modelValue] || "sonnet5";
+  return {
+    ...settings,
+    model: selectedModel,
+    fontSize: ["large", "larger"].includes(settings.fontSize) ? "large" : "default",
+    webSearch: Boolean(settings.webSearch),
+    aiName: !settings.aiName?.trim() || oldDefaultName.test(settings.aiName.trim())
+      ? CLAUDE_DEFAULT_NAME
+      : settings.aiName,
+    prompt: normalizeSystemPrompt(settings.prompt),
+  };
 }
 
 // Helpers
@@ -339,10 +306,6 @@ function getDateLabel(d?: Date, time?: string) {
 
 function getTodayStr() {
   return new Date().toLocaleDateString("zh-CN", { timeZone: APP_TIME_ZONE });
-}
-
-function getDateStr() {
-  return new Date().toLocaleDateString("zh-CN", { year: "numeric", month: "long", day: "numeric", weekday: "long", timeZone: APP_TIME_ZONE });
 }
 
 function getNowContext() {
@@ -375,6 +338,42 @@ function genId() {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
 }
 
+function mergeFragments(local: FragmentEntry[], incoming: FragmentEntry[]) {
+  const byId = new Map<string, FragmentEntry>();
+  for (const fragment of [...local, ...incoming]) {
+    if (!fragment?.id) continue;
+    const current = byId.get(fragment.id);
+    const currentStamp = current ? new Date(current.updatedAt || current.createdAt).getTime() : 0;
+    const nextStamp = new Date(fragment.updatedAt || fragment.createdAt).getTime();
+    if (!current || nextStamp >= currentStamp) byId.set(fragment.id, fragment);
+  }
+  return Array.from(byId.values()).sort((a, b) =>
+    new Date(b.updatedAt || b.createdAt).getTime() - new Date(a.updatedAt || a.createdAt).getTime()
+  );
+}
+
+function createGroupSession(index = 1, id = "group-main"): ChatSession {
+  return {
+    id,
+    name: `群聊 ${index}`,
+    messages: [],
+    createdAt: new Date().toISOString(),
+    kind: "group",
+  };
+}
+
+function ensureMemoSession(sessions: ChatSession[]) {
+  if (sessions.some((session) => session.kind === "memo")) return sessions;
+  const memo: ChatSession = {
+    id: "memo-self",
+    kind: "memo",
+    name: "备忘",
+    messages: [],
+    createdAt: new Date().toISOString(),
+  };
+  return [memo, ...sessions];
+}
+
 function chatMessageKey(message: Message) {
   const proposalId = message.proposal?.id;
   if (proposalId && message.source?.startsWith("summer_write_")) {
@@ -382,10 +381,11 @@ function chatMessageKey(message: Message) {
   }
   const content = (message.content || "").trim().replace(/\s+/g, " ");
   if (message.role === "assistant" && content.length >= 4 && !message.image && !message.file) {
-    return [message.role, message.source || "", content].join("\u0001");
+    return [message.role, message.speaker || "", message.source || "", content].join("\u0001");
   }
   return [
     message.role,
+    message.speaker || "",
     message.source || "",
     message.time || "",
     message.date || "",
@@ -431,11 +431,46 @@ function mergeChatMessages(current: Message[], incoming: Message[]) {
   return merged;
 }
 
-function dedupeChatSessions(sessions: ChatSession[]) {
-  return sessions.map((session) => ({
-    ...session,
-    messages: mergeChatMessages([], session.messages || []),
-  }));
+function mergeChatSessionLists(
+  localSessions: ChatSession[],
+  serverSessions: ChatSession[],
+  deletedIds: Set<string>,
+) {
+  const localById = new Map(localSessions.map((session) => [session.id, session]));
+  const serverById = new Map(serverSessions.map((session) => [session.id, session]));
+  const orderedIds = [
+    ...serverSessions.map((session) => session.id),
+    ...localSessions.map((session) => session.id),
+  ];
+  const seen = new Set<string>();
+  const merged: ChatSession[] = [];
+
+  for (const id of orderedIds) {
+    if (seen.has(id)) continue;
+    seen.add(id);
+
+    const local = localById.get(id);
+    const server = serverById.get(id);
+    const session = server || local;
+    if (!session || (session.kind !== "memo" && deletedIds.has(id))) continue;
+
+    if (local && server) {
+      merged.push({
+        ...local,
+        ...server,
+        summary: server.summary || local.summary,
+        summarizedUntil: Math.max(local.summarizedUntil || 0, server.summarizedUntil || 0) || undefined,
+        messages: mergeChatMessages(local.messages || [], server.messages || []),
+      });
+    } else {
+      merged.push({
+        ...session,
+        messages: mergeChatMessages([], session.messages || []),
+      });
+    }
+  }
+
+  return merged;
 }
 
 function hasLaterUserMessage(messages: Message[], userMsg: Message) {
@@ -458,7 +493,7 @@ function getAppHour() {
   return Number(hourPart) % 24;
 }
 
-function getGreeting(_tick = 0) {
+function getGreeting() {
   const h = getAppHour();
   if (h < 6) return "夜深了，还没睡呢";
   if (h < 9) return "早上好";
@@ -502,37 +537,87 @@ function apiFetch(input: RequestInfo | URL, init: RequestInit = {}) {
   });
 }
 
-// Server sync with debounce
-let syncTimer: ReturnType<typeof setTimeout> | null = null;
-function syncToServer(data: Record<string, unknown>) {
-  if (syncTimer) clearTimeout(syncTimer);
-  syncTimer = setTimeout(async () => {
-    try {
-      await apiFetch("/api/sync", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
-      });
-    } catch {}
-  }, 500);
+async function apiFetchWithTimeout(
+  input: RequestInfo | URL,
+  init: RequestInit = {},
+  timeoutMs = 15_000
+) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await apiFetch(input, { ...init, signal: controller.signal });
+  } catch (error) {
+    if (controller.signal.aborted) throw new Error("summer 请求超时，请重试");
+    throw error;
+  } finally {
+    clearTimeout(timeout);
+  }
 }
 
-async function fetchFromServer() {
-  try {
-    const res = await apiFetch("/api/sync");
-    if (res.status === 401) return "unauthorized";
-    if (res.ok) return await res.json();
-  } catch {}
-  return null;
+// Claude 与 GPT 使用完全分开的同步端点和防抖队列。
+function createServerSync(endpoint: string) {
+  let timer: ReturnType<typeof setTimeout> | null = null;
+  let pending: Record<string, unknown> = {};
+  return {
+    sync(data: Record<string, unknown>) {
+      pending = { ...pending, ...data };
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(async () => {
+        const payload = pending;
+        pending = {};
+        timer = null;
+        try {
+          await apiFetch(endpoint, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          });
+        } catch {}
+      }, 500);
+    },
+    async fetch() {
+      try {
+        const res = await apiFetch(endpoint);
+        if (res.status === 401) return "unauthorized" as const;
+        if (res.ok) return await res.json();
+      } catch {}
+      return null;
+    },
+  };
 }
+
+const claudeServerSync = createServerSync("/api/sync");
+const gptServerSync = createServerSync("/api/gpt/sync");
+const groupServerSync = createServerSync("/api/group/sync");
+const syncToServer = claudeServerSync.sync;
+const fetchFromServer = claudeServerSync.fetch;
+const syncGptToServer = gptServerSync.sync;
+const fetchGptFromServer = gptServerSync.fetch;
+const syncGroupToServer = groupServerSync.sync;
+const fetchGroupFromServer = groupServerSync.fetch;
 
 // ── Markdown ──
 function renderContent(text: string) {
-  const parts = text.split(/(\*\*.*?\*\*|\*.*?\*)/g);
-  return parts.map((part, i) => {
-    if (part.startsWith("**") && part.endsWith("**")) return <strong key={i}>{part.slice(2, -2)}</strong>;
-    if (part.startsWith("*") && part.endsWith("*")) return <em key={i}>{part.slice(1, -1)}</em>;
-    return <span key={i}>{part}</span>;
+  return text.split("\n").map((line, lineIndex) => {
+    const parts = line.split(/(\*\*[^*\n]+?\*\*|\*[^*\n]+?\*|\[[^\]\n]+\]\(https?:\/\/[^)\s]+\))/g);
+    return (
+      <Fragment key={lineIndex}>
+        {parts.filter(Boolean).map((part, partIndex) => {
+          const link = part.match(/^\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)$/);
+          if (link) {
+            return (
+              <a key={partIndex} className="chat-message-link" href={link[2]} target="_blank" rel="noopener noreferrer">
+                {link[1]}
+              </a>
+            );
+          }
+          if (part.startsWith("**") && part.endsWith("**")) return <strong key={partIndex}>{part.slice(2, -2)}</strong>;
+          if (part.startsWith("*") && part.endsWith("*")) return <em key={partIndex}>{part.slice(1, -1)}</em>;
+          return <span key={partIndex}>{part}</span>;
+        })}
+        {lineIndex < text.split("\n").length - 1 && <br />}
+      </Fragment>
+    );
   });
 }
 
@@ -544,7 +629,7 @@ function ThinkingBlock({ content }: { content: string }) {
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ transform: open ? "rotate(90deg)" : "none", transition: "transform 0.2s" }}>
           <polyline points="9 18 15 12 9 6" />
         </svg>
-        <span>老公的内心</span>
+        <span>Thought Process</span>
       </button>
       {open && (
         <div className="thinking-content">
@@ -560,16 +645,22 @@ function ThinkingBlock({ content }: { content: string }) {
 // Main App
 export default function Home() {
   const defaultSettings: Settings = {
-    model: "sonnet",
+    model: "sonnet5",
     chatEntryStyle: "list",
+    fontSize: "default",
     chatPinnedLine: "此后我们的每一秒都是恩赐。",
-    aiName: "小k",
+    gptChatPinnedLine: "此后我们的每一秒都是恩赐。",
+    aiName: CLAUDE_DEFAULT_NAME,
+    gptName: "GPT",
     userName: "宝宝",
     prompt: DEFAULT_PROMPT,
     startDate: "2026-04-01",
-    memories: "",
     aiAvatar: "",
+    gptAvatar: "",
     userAvatar: "",
+    gptReasoningEffort: "medium",
+    claudeReasoningEffort: "high",
+    gptWebSearch: false,
     thinking: true,
     webSearch: false,
     proactiveCare: false,
@@ -577,15 +668,18 @@ export default function Home() {
   };
 
   const [tab, setTab] = useState<"home" | "chat" | "diary" | "settings">("home");
-  const [chatView, setChatView] = useState<"list" | "room">("list");
+  const theme = useTheme();
+  useThemePage(tab);
+  const [chatView, setChatView] = useState<"list" | "room" | "group">("list");
   const [settings, setSettings] = useState<Settings>(defaultSettings);
   const [sessions, setSessions] = useState<ChatSession[]>([]);
   const [activeSessionId, setActiveSessionId] = useState<string>("");
-  const [diary, setDiary] = useState<DiaryEntry[]>([]);
-  const [memoryEntries, setMemoryEntries] = useState<MemoryEntry[]>([]);
+  const [gptSessions, setGptSessions] = useState<ChatSession[]>([]);
+  const [gptActiveSessionId, setGptActiveSessionId] = useState<string>("");
+  const [groupSessions, setGroupSessions] = useState<ChatSession[]>(() => [createGroupSession()]);
+  const [groupActiveSessionId, setGroupActiveSessionId] = useState("group-main");
   const [moods, setMoods] = useState<Mood[]>([]);
-  const [wall, setWall] = useState<WallEntry[]>([]);
-  const [counters, setCounters] = useState<Counter[]>([]);
+  const [fragments, setFragments] = useState<FragmentEntry[]>([]);
   const [heartbeatLog, setHeartbeatLog] = useState<Array<{ time: string; action: string; reason: string }>>([]);
   const [aiMood, setAiMood] = useState<{ emoji: string; ts: number }>(() =>
     loadLocalRaw<{ emoji: string; ts: number }>("iooi-ai-mood", { emoji: "", ts: 0 })
@@ -593,64 +687,120 @@ export default function Home() {
   const [lastCache, setLastCache] = useState<CacheStats | null>(() =>
     loadLocalRaw<CacheStats | null>("iooi-last-cache", null)
   );
+  const [gptLastCache, setGptLastCache] = useState<CacheStats | null>(() =>
+    loadLocalRaw<CacheStats | null>("iooi-gpt-last-cache", null)
+  );
   const [needKey, setNeedKey] = useState(false);
   const [keyInput, setKeyInput] = useState("");
   const [mounted, setMounted] = useState(false);
   const deletedSessionIds = useRef<Set<string>>(new Set(loadLocalRaw<string[]>("iooi-deleted-session-ids", [])));
+  const gptDeletedSessionIds = useRef<Set<string>>(new Set(loadLocalRaw<string[]>("iooi-gpt-deleted-session-ids", [])));
 
   useEffect(() => {
     async function init() {
       // Try server first, fall back to localStorage
-      const serverData = await fetchFromServer();
+      const [serverData, gptServerData, groupServerData] = await Promise.all([
+        fetchFromServer(),
+        fetchGptFromServer(),
+        fetchGroupFromServer(),
+      ]);
 
-      if (serverData === "unauthorized") {
+      if (serverData === "unauthorized" || gptServerData === "unauthorized" || groupServerData === "unauthorized") {
         setNeedKey(true);
         return;
       }
 
       let s: Settings;
       let sess: ChatSession[];
-      let d: DiaryEntry[];
-
-      if (serverData && (serverData.sessions?.length > 0 || serverData.diary?.length > 0 || serverData.settings)) {
+      if (serverData && (serverData.sessions?.length > 0 || serverData.settings || Array.isArray(serverData.fragments))) {
         if (Array.isArray(serverData.deletedSessionIds)) {
           deletedSessionIds.current = new Set([...deletedSessionIds.current, ...serverData.deletedSessionIds]);
           saveLocal("iooi-deleted-session-ids", Array.from(deletedSessionIds.current));
         }
-        s = serverData.settings ? { ...defaultSettings, ...serverData.settings } : loadLocal("iooi-settings", defaultSettings);
-        s.prompt = normalizeSystemPrompt(s.prompt);
-        sess = serverData.sessions?.length > 0 ? serverData.sessions : loadLocalRaw<ChatSession[]>("iooi-sessions", []);
-        sess = dedupeChatSessions(sess.filter((session: ChatSession) => session.kind === "memo" || !deletedSessionIds.current.has(session.id)));
-        d = serverData.diary || loadLocalRaw<DiaryEntry[]>("iooi-diary", []);
-        setMemoryEntries([]);
+        s = normalizeClaudeSettings(
+          serverData.settings ? { ...defaultSettings, ...serverData.settings } : loadLocal("iooi-settings", defaultSettings)
+        );
+        const localSessions = loadLocalRaw<ChatSession[]>("iooi-sessions", []);
+        sess = mergeChatSessionLists(localSessions, serverData.sessions || [], deletedSessionIds.current);
         setMoods(serverData.moods || loadLocalRaw<Mood[]>("iooi-moods", []));
-        setWall(serverData.wall || loadLocalRaw<WallEntry[]>("iooi-wall", []));
-        setCounters(serverData.counters || loadLocalRaw<Counter[]>("iooi-counters", []));
+        setFragments(mergeFragments(
+          loadLocalRaw<FragmentEntry[]>("iooi-fragments", []),
+          Array.isArray(serverData.fragments) ? serverData.fragments : [],
+        ));
         setHeartbeatLog(serverData.careState?.log || []);
         setAiMood(serverData.aiMood || loadLocalRaw<{ emoji: string; ts: number }>("iooi-ai-mood", { emoji: "", ts: 0 }));
         setLastCache(serverData.lastCache || loadLocalRaw<CacheStats | null>("iooi-last-cache", null));
       } else {
-        s = { ...defaultSettings, ...loadLocal("iooi-settings", defaultSettings) };
-        s.prompt = normalizeSystemPrompt(s.prompt);
-        sess = loadLocalRaw<ChatSession[]>("iooi-sessions", []);
-        sess = dedupeChatSessions(sess.filter((session: ChatSession) => session.kind === "memo" || !deletedSessionIds.current.has(session.id)));
-        d = loadLocalRaw<DiaryEntry[]>("iooi-diary", []);
-        setMemoryEntries([]);
+        s = normalizeClaudeSettings({ ...defaultSettings, ...loadLocal("iooi-settings", defaultSettings) });
+        sess = mergeChatSessionLists(
+          loadLocalRaw<ChatSession[]>("iooi-sessions", []),
+          [],
+          deletedSessionIds.current,
+        );
         setMoods(loadLocalRaw<Mood[]>("iooi-moods", []));
-        setWall(loadLocalRaw<WallEntry[]>("iooi-wall", []));
-        setCounters(loadLocalRaw<Counter[]>("iooi-counters", []));
+        setFragments(loadLocalRaw<FragmentEntry[]>("iooi-fragments", []));
       }
 
-      setSettings(s);
-      if (sess.length === 0) {
-        const first: ChatSession = { id: genId(), name: "对话 1", messages: [], createdAt: new Date().toISOString() };
-        setSessions([first]);
-        setActiveSessionId(first.id);
-      } else {
-        setSessions(sess);
-        setActiveSessionId(sess[0].id);
+      if (gptServerData && Array.isArray(gptServerData.deletedSessionIds)) {
+        gptDeletedSessionIds.current = new Set([
+          ...gptDeletedSessionIds.current,
+          ...gptServerData.deletedSessionIds,
+        ]);
+        saveLocal("iooi-gpt-deleted-session-ids", Array.from(gptDeletedSessionIds.current));
       }
-      setDiary(d);
+      const localGptSessions = loadLocalRaw<ChatSession[]>("iooi-gpt-sessions", []);
+      const mergedGptSessions = mergeChatSessionLists(
+        localGptSessions,
+        gptServerData && Array.isArray(gptServerData.sessions) ? gptServerData.sessions : [],
+        gptDeletedSessionIds.current,
+      );
+      if (gptServerData && gptServerData.lastCache) {
+        setGptLastCache(gptServerData.lastCache);
+      }
+
+      const legacyGroupSession = loadLocalRaw<ChatSession | null>("iooi-group-session", null);
+      const localGroupSessions = loadLocalRaw<ChatSession[]>(
+        "iooi-group-sessions",
+        legacyGroupSession ? [legacyGroupSession] : [],
+      );
+      const serverGroupSessions = groupServerData && Array.isArray(groupServerData.sessions)
+        ? groupServerData.sessions as ChatSession[]
+        : [];
+      const mergedGroupSessions = mergeChatSessionLists(
+        localGroupSessions,
+        serverGroupSessions,
+        new Set<string>(),
+      );
+      const normalizedGroupSessions = (mergedGroupSessions.length > 0 ? mergedGroupSessions : [createGroupSession()])
+        .map((group, index) => ({
+          ...group,
+          name: group.name === "一个群" ? `群聊 ${index + 1}` : (group.name || `群聊 ${index + 1}`),
+          kind: "group" as const,
+          messages: mergeChatMessages([], group.messages || []),
+        }));
+
+      setSettings(s);
+      saveLocal("iooi-settings", s);
+      syncToServer({ settings: s });
+      let initialSessions = sess;
+      let initialActiveSessionId = sess[0]?.id || "";
+      if (initialSessions.length === 0) {
+        const first: ChatSession = { id: genId(), name: "对话 1", messages: [], createdAt: new Date().toISOString() };
+        initialSessions = [first];
+        initialActiveSessionId = first.id;
+      }
+      setSessions(ensureMemoSession(initialSessions));
+      setActiveSessionId(initialActiveSessionId);
+      if (mergedGptSessions.length === 0) {
+        const firstGpt: ChatSession = { id: `gpt-${genId()}`, name: "GPT 对话 1", messages: [], createdAt: new Date().toISOString() };
+        setGptSessions([firstGpt]);
+        setGptActiveSessionId(firstGpt.id);
+      } else {
+        setGptSessions(mergedGptSessions);
+        setGptActiveSessionId(mergedGptSessions[0].id);
+      }
+      setGroupSessions(normalizedGroupSessions);
+      setGroupActiveSessionId(normalizedGroupSessions[0].id);
       setMounted(true);
     }
     init();
@@ -672,27 +822,56 @@ export default function Home() {
   }, []);
 
   // Force sync when user switches away (prevents message loss on iOS)
-  const latestData = useRef({ sessions, diary, settings, moods, wall, counters });
-  latestData.current = { sessions, diary, settings, moods, wall, counters };
+  const latestData = useRef({ sessions, gptSessions, groupSessions, settings, moods, fragments });
+  useEffect(() => {
+    latestData.current = { sessions, gptSessions, groupSessions, settings, moods, fragments };
+  }, [sessions, gptSessions, groupSessions, settings, moods, fragments]);
   useEffect(() => {
     if (!mounted) return;
     const handleVisibility = () => {
       if (document.visibilityState === "hidden") {
         const d = latestData.current;
         saveLocal("iooi-sessions", d.sessions);
-        saveLocal("iooi-diary", d.diary);
         saveLocal("iooi-settings", d.settings);
         // Sync to server immediately (bypass debounce)
         try {
           navigator.sendBeacon("/api/sync?t=" + encodeURIComponent(getToken()), new Blob(
-            [JSON.stringify({ sessions: d.sessions, deletedSessionIds: Array.from(deletedSessionIds.current), diary: d.diary, settings: d.settings, moods: d.moods, wall: d.wall, counters: d.counters })],
+            [JSON.stringify({ sessions: d.sessions, deletedSessionIds: Array.from(deletedSessionIds.current), settings: d.settings, moods: d.moods, fragments: d.fragments })],
             { type: "application/json" }
           ));
         } catch {
           apiFetch("/api/sync", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ sessions: d.sessions, deletedSessionIds: Array.from(deletedSessionIds.current), diary: d.diary, settings: d.settings, moods: d.moods, wall: d.wall, counters: d.counters }),
+            body: JSON.stringify({ sessions: d.sessions, deletedSessionIds: Array.from(deletedSessionIds.current), settings: d.settings, moods: d.moods, fragments: d.fragments }),
+            keepalive: true,
+          }).catch(() => {});
+        }
+        saveLocal("iooi-gpt-sessions", d.gptSessions);
+        try {
+          navigator.sendBeacon("/api/gpt/sync?t=" + encodeURIComponent(getToken()), new Blob(
+            [JSON.stringify({ sessions: d.gptSessions, deletedSessionIds: Array.from(gptDeletedSessionIds.current) })],
+            { type: "application/json" }
+          ));
+        } catch {
+          apiFetch("/api/gpt/sync", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ sessions: d.gptSessions, deletedSessionIds: Array.from(gptDeletedSessionIds.current) }),
+            keepalive: true,
+          }).catch(() => {});
+        }
+        saveLocal("iooi-group-sessions", d.groupSessions);
+        try {
+          navigator.sendBeacon("/api/group/sync?t=" + encodeURIComponent(getToken()), new Blob(
+            [JSON.stringify({ sessions: d.groupSessions })],
+            { type: "application/json" }
+          ));
+        } catch {
+          apiFetch("/api/group/sync", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ sessions: d.groupSessions }),
             keepalive: true,
           }).catch(() => {});
         }
@@ -702,22 +881,54 @@ export default function Home() {
           .then((r) => r.json())
           .then((server) => {
             if (!server) return;
+            if (Array.isArray(server.deletedSessionIds)) {
+              deletedSessionIds.current = new Set([
+                ...deletedSessionIds.current,
+                ...server.deletedSessionIds,
+              ]);
+              saveLocal("iooi-deleted-session-ids", Array.from(deletedSessionIds.current));
+            }
             if (Array.isArray(server.sessions)) {
               setSessions((local) =>
-                local.map((ls) => {
-                  const ss = server.sessions.find((s: ChatSession) => s.id === ls.id);
-                  if (!ss || !Array.isArray(ss.messages)) return ls;
-                  return { ...ls, ...ss, messages: mergeChatMessages(ls.messages || [], ss.messages || []) };
-                })
+                mergeChatSessionLists(local, server.sessions, deletedSessionIds.current)
               );
             }
-            if (Array.isArray(server.diary)) {
-              setDiary((local) => {
-                const ids = new Set(local.map((e) => e.id));
-                const missing = server.diary.filter((e: DiaryEntry) => e && e.id && !ids.has(e.id));
-                return missing.length > 0 ? [...missing, ...local] : local;
-              });
+            if (Array.isArray(server.fragments)) {
+              setFragments((local) => mergeFragments(local, server.fragments));
             }
+          })
+          .catch(() => {});
+        apiFetch("/api/gpt/sync")
+          .then((res) => res.json())
+          .then((server) => {
+            if (!server) return;
+            if (Array.isArray(server.deletedSessionIds)) {
+              gptDeletedSessionIds.current = new Set([
+                ...gptDeletedSessionIds.current,
+                ...server.deletedSessionIds,
+              ]);
+              saveLocal("iooi-gpt-deleted-session-ids", Array.from(gptDeletedSessionIds.current));
+            }
+            if (Array.isArray(server.sessions)) {
+              setGptSessions((local) =>
+                mergeChatSessionLists(local, server.sessions, gptDeletedSessionIds.current)
+              );
+            }
+          })
+          .catch(() => {});
+        apiFetch("/api/group/sync")
+          .then((res) => res.json())
+          .then((server) => {
+            if (!Array.isArray(server?.sessions)) return;
+            setGroupSessions((local) => mergeChatSessionLists(
+              local,
+              server.sessions as ChatSession[],
+              new Set<string>(),
+            ).map((group, index) => ({
+              ...group,
+              name: group.name === "一个群" ? `群聊 ${index + 1}` : (group.name || `群聊 ${index + 1}`),
+              kind: "group" as const,
+            })));
           })
           .catch(() => {});
       }
@@ -735,10 +946,17 @@ export default function Home() {
 
   useEffect(() => {
     if (mounted) {
-      saveLocal("iooi-diary", diary);
-      syncToServer({ diary });
+      saveLocal("iooi-gpt-sessions", gptSessions);
+      syncGptToServer({ sessions: gptSessions, deletedSessionIds: Array.from(gptDeletedSessionIds.current) });
     }
-  }, [diary, mounted]);
+  }, [gptSessions, mounted]);
+
+  useEffect(() => {
+    if (mounted) {
+      saveLocal("iooi-group-sessions", groupSessions);
+      syncGroupToServer({ sessions: groupSessions });
+    }
+  }, [groupSessions, mounted]);
 
   useEffect(() => {
     if (mounted) {
@@ -749,17 +967,10 @@ export default function Home() {
 
   useEffect(() => {
     if (mounted) {
-      saveLocal("iooi-wall", wall);
-      syncToServer({ wall });
+      saveLocal("iooi-fragments", fragments);
+      syncToServer({ fragments });
     }
-  }, [wall, mounted]);
-
-  useEffect(() => {
-    if (mounted) {
-      saveLocal("iooi-counters", counters);
-      syncToServer({ counters });
-    }
-  }, [counters, mounted]);
+  }, [fragments, mounted]);
 
   useEffect(() => {
     if (mounted && aiMood.emoji) {
@@ -778,6 +989,7 @@ export default function Home() {
   }, []);
 
   const activeSession = sessions.find((s) => s.id === activeSessionId);
+  const gptActiveSession = gptSessions.find((s) => s.id === gptActiveSessionId);
 
   const updateActiveMessages = useCallback((updater: (msgs: Message[]) => Message[]) => {
     setSessions((prev) => prev.map((s) => s.id === activeSessionId ? { ...s, messages: updater(s.messages) } : s));
@@ -787,17 +999,12 @@ export default function Home() {
     setSessions((prev) => prev.map((s) => s.id === activeSessionId ? { ...s, summary, summarizedUntil: until } : s));
   }, [activeSessionId]);
 
-  // 长按贴纸：记入今日日心情。
-  const addHeart = useCallback(() => {
-    const today = getTodayStr();
-    setMoods((prev) => {
-      const tm = prev.find((m) => m.date === today);
-      if (tm) return prev.map((m) => (m.date === today ? { ...m, hearts: (m.hearts || 0) + 1 } : m));
-      return [{ id: genId(), date: today, time: getTime(), emoji: "💖", hearts: 1 }, ...prev];
-    });
-  }, []);
-
   const createSession = useCallback(() => {
+    const existingDraft = sessions.find((session) => session.kind !== "memo" && session.messages.length === 0);
+    if (existingDraft) {
+      setActiveSessionId(existingDraft.id);
+      return;
+    }
     const normalCount = sessions.filter((s) => s.kind !== "memo").length;
     const newSession: ChatSession = {
       id: genId(),
@@ -808,17 +1015,6 @@ export default function Home() {
     setSessions((prev) => [newSession, ...prev]);
     setActiveSessionId(newSession.id);
   }, [sessions]);
-
-  // 备忘会话:确保存在且只有一个(她的口袋,不触发回复)
-  useEffect(() => {
-    if (!mounted) return;
-    setSessions((prev) => {
-      if (prev.some((s) => s.kind === "memo")) return prev;
-      const memo: ChatSession = { id: "memo-self", kind: "memo", name: "备忘", messages: [], createdAt: new Date().toISOString() };
-      return [memo, ...prev];
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mounted]);
 
   const deleteSession = useCallback((id: string) => {
     deletedSessionIds.current.add(id);
@@ -842,50 +1038,74 @@ export default function Home() {
     setSessions((prev) => prev.map((s) => s.id === id ? { ...s, name } : s));
   }, []);
 
-  const addDiaryEntry = useCallback((content: string, author: "me" | "ai", category?: "casual" | "ai" | "important" | "auto") => {
-    const entry: DiaryEntry = {
-      id: genId(),
-      date: getDateStr(),
-      time: getTime(),
-      content,
-      author,
-      category: category || "casual",
+  const updateGptMessages = useCallback((updater: (messages: Message[]) => Message[]) => {
+    setGptSessions((prev) => prev.map((session) =>
+      session.id === gptActiveSessionId ? { ...session, messages: updater(session.messages) } : session
+    ));
+  }, [gptActiveSessionId]);
+
+  const updateGroupMessages = useCallback((updater: (messages: Message[]) => Message[]) => {
+    setGroupSessions((current) => current.map((group) => group.id === groupActiveSessionId
+      ? { ...group, messages: updater(group.messages) }
+      : group));
+  }, [groupActiveSessionId]);
+
+  const updateGroupSummary = useCallback((summary: string, until: number) => {
+    setGroupSessions((current) => current.map((group) => group.id === groupActiveSessionId
+      ? { ...group, summary, summarizedUntil: until }
+      : group));
+  }, [groupActiveSessionId]);
+
+  const createGroupSessionWindow = useCallback(() => {
+    const nextId = `group-${genId()}`;
+    setGroupSessions((current) => [createGroupSession(current.length + 1, nextId), ...current]);
+    setGroupActiveSessionId(nextId);
+  }, []);
+
+  const updateGptSummary = useCallback((summary: string, until: number) => {
+    setGptSessions((prev) => prev.map((session) =>
+      session.id === gptActiveSessionId ? { ...session, summary, summarizedUntil: until } : session
+    ));
+  }, [gptActiveSessionId]);
+
+  const createGptSession = useCallback(() => {
+    const existingDraft = gptSessions.find((session) => session.messages.length === 0);
+    if (existingDraft) {
+      setGptActiveSessionId(existingDraft.id);
+      return;
+    }
+    const next: ChatSession = {
+      id: `gpt-${genId()}`,
+      name: `GPT 对话 ${gptSessions.length + 1}`,
+      messages: [],
+      createdAt: new Date().toISOString(),
     };
-    setDiary((prev) => {
-      // AI 日记去重：同一件事只保留一条。
-      if (author === "ai") {
-        const norm = (s: string) => s.replace(/\s+/g, "").slice(0, 100);
-        const bigrams = (s: string) => {
-          const set = new Set<string>();
-          for (let i = 0; i < s.length - 1; i++) set.add(s.slice(i, i + 2));
-          return set;
-        };
-        const na = norm(content);
-        if (na.length >= 4) {
-          const sa = bigrams(na);
-          const dup = prev.slice(0, 20).some((e) => {
-            if (e.author !== "ai") return false;
-            const nb = norm(e.content);
-            if (nb.length < 4) return false;
-            const sb = bigrams(nb);
-            let inter = 0;
-            for (const b of sa) if (sb.has(b)) inter++;
-            return inter / Math.max(sa.size, sb.size) > 0.5;
-          });
-          if (dup) return prev;
-        }
+    setGptSessions((prev) => [next, ...prev]);
+    setGptActiveSessionId(next.id);
+  }, [gptSessions]);
+
+  const deleteGptSession = useCallback((id: string) => {
+    gptDeletedSessionIds.current.add(id);
+    saveLocal("iooi-gpt-deleted-session-ids", Array.from(gptDeletedSessionIds.current));
+    setGptSessions((prev) => {
+      const remaining = prev.filter((session) => session.id !== id);
+      if (remaining.length === 0) {
+        const fresh: ChatSession = { id: `gpt-${genId()}`, name: "GPT 对话 1", messages: [], createdAt: new Date().toISOString() };
+        setGptActiveSessionId(fresh.id);
+        return [fresh];
       }
-      return [entry, ...prev];
+      if (id === gptActiveSessionId) setGptActiveSessionId(remaining[0].id);
+      return remaining;
     });
+  }, [gptActiveSessionId]);
+
+  const renameGptSession = useCallback((id: string, name: string) => {
+    setGptSessions((prev) => prev.map((session) => session.id === id ? { ...session, name } : session));
   }, []);
 
-  const deleteDiaryEntry = useCallback((id: string) => {
-    setDiary((prev) => prev.filter((e) => e.id !== id));
-  }, []);
-
-  const updateDiaryEntry = useCallback((id: string, updates: Partial<DiaryEntry>) => {
-    setDiary((prev) => prev.map((e) => e.id === id ? { ...e, ...updates } : e));
-  }, []);
+  const groupSession = groupSessions.find((group) => group.id === groupActiveSessionId)
+    || groupSessions[0]
+    || createGroupSession();
 
   if (!mounted && !needKey) return <main className="app-bg"><div className="chat-container" /></main>;
 
@@ -899,7 +1119,7 @@ export default function Home() {
   function switchTab(nextTab: "home" | "chat" | "diary" | "settings") {
     setTab(nextTab);
     if (nextTab === "chat") {
-      setChatView(settings.chatEntryStyle === "list" ? "list" : "room");
+      setChatView("list");
     }
   }
 
@@ -937,41 +1157,40 @@ export default function Home() {
   }
 
   return (
-    <main className="app-bg">
-      {splash && (
+    <main className="app-bg" data-font-size={settings.fontSize}>
+      {splash && theme !== "white-pink" && (
         <div className="splash">
           <img src="/icon-192.png" alt="" className="splash-pig" />
           <span className="splash-ding">叮</span>
         </div>
       )}
       <div className="chat-container">
-        {tab === "home" && <HomeView settings={settings} diary={diary} sessions={sessions} setTab={setTab} moods={moods} setMoods={setMoods} wall={wall} setWall={setWall} counters={counters} setCounters={setCounters} heartbeatLog={heartbeatLog} aiMood={aiMood} />}
+        {tab === "home" && <HomeView settings={settings} fragments={fragments} setFragments={setFragments} aiMood={aiMood} />}
         {tab === "chat" && settings.chatEntryStyle === "list" && chatView === "list" && (
           <ChatListView
+            assistantMode="claude"
             settings={settings}
             updateSettings={updateSettings}
             sessions={sessions}
-            activeSessionId={activeSessionId}
             heartbeatLog={heartbeatLog}
             setActiveSessionId={setActiveSessionId}
             createSession={createSession}
             renameSession={renameSession}
             deleteSession={deleteSession}
             openRoom={() => setChatView("room")}
+            groupSession={groupSession}
+            openGroup={() => setChatView("group")}
           />
         )}
-        {tab === "chat" && activeSession && (settings.chatEntryStyle === "direct" || chatView === "room") && (
+        {tab === "chat" && settings.chatEntryStyle === "list" && activeSession && chatView === "room" && (
           <ChatView
+            key={`claude-${activeSession.id}`}
+            assistantMode="claude"
             settings={settings}
             session={activeSession}
             sessions={sessions}
-            diary={diary}
-            wall={wall}
-            memoryEntries={memoryEntries}
-            setMemoryEntries={setMemoryEntries}
             updateMessages={updateActiveMessages}
             updateSummary={updateActiveSummary}
-            onTietie={addHeart}
             updateSettings={updateSettings}
             setLastCache={setLastCache}
             setAiMood={setAiMood}
@@ -980,28 +1199,86 @@ export default function Home() {
             createSession={createSession}
             deleteSession={deleteSession}
             renameSession={renameSession}
-            addDiaryEntry={addDiaryEntry}
             listEntryMode={settings.chatEntryStyle === "list"}
             onBackToList={() => setChatView("list")}
           />
         )}
-        {tab === "diary" && <SummerPageView />}
+        {tab === "chat" && settings.chatEntryStyle === "direct" && chatView === "list" && (
+          <ChatListView
+            assistantMode="gpt"
+            settings={settings}
+            updateSettings={updateSettings}
+            sessions={gptSessions}
+            heartbeatLog={[]}
+            setActiveSessionId={setGptActiveSessionId}
+            createSession={createGptSession}
+            renameSession={renameGptSession}
+            deleteSession={deleteGptSession}
+            openRoom={() => setChatView("room")}
+            groupSession={groupSession}
+            openGroup={() => setChatView("group")}
+          />
+        )}
+        {tab === "chat" && settings.chatEntryStyle === "direct" && gptActiveSession && chatView === "room" && (
+          <ChatView
+            key={`gpt-${gptActiveSession.id}`}
+            assistantMode="gpt"
+            settings={settings}
+            session={gptActiveSession}
+            sessions={gptSessions}
+            updateMessages={updateGptMessages}
+            updateSummary={updateGptSummary}
+            updateSettings={updateSettings}
+            setLastCache={setGptLastCache}
+            setAiMood={() => {}}
+            aiMood={{ emoji: "", ts: 0 }}
+            setActiveSessionId={setGptActiveSessionId}
+            createSession={createGptSession}
+            deleteSession={deleteGptSession}
+            renameSession={renameGptSession}
+            listEntryMode
+            onBackToList={() => setChatView("list")}
+          />
+        )}
+        {tab === "chat" && chatView === "group" && (
+          <GroupChatView
+            key={`group-${groupSession.id}`}
+            session={groupSession}
+            sessions={groupSessions}
+            settings={settings}
+            claudeModelId={(MODELS.find((model) => model.id === settings.model) || MODELS[0]).apiId}
+            updateSettings={updateSettings}
+            updateMessages={updateGroupMessages}
+            updateSummary={updateGroupSummary}
+            setActiveSessionId={setGroupActiveSessionId}
+            createSession={createGroupSessionWindow}
+            onBack={() => setChatView("list")}
+          />
+        )}
+        {tab === "diary" && (
+          <SummerPageView
+            key={settings.chatEntryStyle}
+            assistantMode={settings.chatEntryStyle === "direct" ? "gpt" : "claude"}
+            assistantName={settings.chatEntryStyle === "direct" ? "GPT" : (settings.aiName || CLAUDE_DEFAULT_NAME)}
+          />
+        )}
         {tab === "settings" && (
           <SettingsView
             settings={settings}
             updateSettings={updateSettings}
-            updateSummary={updateActiveSummary}
-            lastCache={lastCache}
-            session={activeSession}
-            memoryCount={memoryEntries.length}
+            updateSummary={settings.chatEntryStyle === "direct" ? updateGptSummary : updateActiveSummary}
+            lastCache={settings.chatEntryStyle === "direct" ? gptLastCache : lastCache}
+            session={settings.chatEntryStyle === "direct" ? gptActiveSession : activeSession}
+            assistantMode={settings.chatEntryStyle === "direct" ? "gpt" : "claude"}
           />
         )}
 
-        {!(tab === "chat" && settings.chatEntryStyle === "list" && chatView === "room") && <nav className="bottom-nav">
+        {!(tab === "chat" && chatView !== "list") && <nav className="bottom-nav">
           {tabs.map((t) => (
             <button
               key={t.id}
               className={`nav-btn ${tab === t.id ? "nav-btn-active" : ""}`}
+              aria-current={tab === t.id ? "page" : undefined}
               onClick={() => switchTab(t.id)}
             >
               {t.icon}
@@ -1053,7 +1330,7 @@ function IconSettings() {
 }
 
 // Home View
-function getIdleStatus(aiName: string): string {
+function getIdleStatus(): string {
   const h = getAppHour();
   if (h < 7) return "睡着了 😴";
   if (h < 9) return "刚醒 🥱";
@@ -1087,6 +1364,18 @@ function getSessionStamp(session: ChatSession) {
   return parseMessageDateTime(getLatestSessionMessage(session)) || new Date(session.createdAt);
 }
 
+function parseChatListTimestamp(value: string) {
+  const match = value.match(/(20\d{2})[\/.\-](\d{1,2})[\/.\-](\d{1,2})\s+(\d{1,2}):(\d{2})/);
+  if (!match) return 0;
+  return new Date(
+    Number(match[1]),
+    Number(match[2]) - 1,
+    Number(match[3]),
+    Number(match[4]),
+    Number(match[5]),
+  ).getTime();
+}
+
 function formatChatListTime(date: Date) {
   const now = new Date();
   if (date.toDateString() === now.toDateString()) {
@@ -1105,10 +1394,10 @@ function formatChatRoomTime(date: Date) {
   return `${date.getMonth() + 1}.${date.getDate()} ${time}`;
 }
 
-function getChatStatusLabel(aiMood: { emoji: string; ts: number }, aiName: string) {
-  const raw = aiMood.emoji || getIdleStatus(aiName);
+function getChatStatusLabel(aiMood: { emoji: string; ts: number }) {
+  const raw = aiMood.emoji || getIdleStatus();
   const label = raw.replace(/[^\p{Script=Han}A-Za-z0-9]+/gu, " ").trim().split(/\s+/)[0] || "期待";
-  return `[${label}…]`;
+  return `${label}…`;
 }
 
 function shouldShowChatRoomTime(message: Message, prevMessage?: Message | null) {
@@ -1134,47 +1423,75 @@ function isSummerUtilityMessage(message: Message) {
 }
 
 function ChatListView({
+  assistantMode,
   settings,
   updateSettings,
   sessions,
-  activeSessionId,
   heartbeatLog,
   setActiveSessionId,
   createSession,
   renameSession,
   deleteSession,
   openRoom,
+  groupSession,
+  openGroup,
 }: {
+  assistantMode: AssistantMode;
   settings: Settings;
   updateSettings: (patch: Partial<Settings>) => void;
   sessions: ChatSession[];
-  activeSessionId: string;
   heartbeatLog: Array<{ time: string; action: string; reason: string }>;
   setActiveSessionId: (id: string) => void;
   createSession: () => void;
   renameSession: (id: string, name: string) => void;
   deleteSession: (id: string) => void;
   openRoom: () => void;
+  groupSession: ChatSession;
+  openGroup: () => void;
 }) {
+  const isGpt = assistantMode === "gpt";
+  const assistantAvatar = isGpt ? settings.gptAvatar : settings.aiAvatar;
+  const theme = useTheme();
   const [query, setQuery] = useState("");
   const [openActionsFor, setOpenActionsFor] = useState<string | null>(null);
   const [showHbLog, setShowHbLog] = useState(false);
   const swipeRef = useRef<{ id: string; startX: number; startY: number; dx: number; dy: number; dragging: boolean } | null>(null);
   const blockClickRef = useRef(false);
 
-  const memoSession = sessions.find((s) => s.kind === "memo");
+  const memoSession = isGpt ? undefined : sessions.find((s) => s.kind === "memo");
   const normalSessions = sessions
-    .filter((s) => s.kind !== "memo")
+    .filter((s) => s.kind !== "memo" && (isGpt || s.messages.length > 0))
     .sort((a, b) => getSessionStamp(b).getTime() - getSessionStamp(a).getTime());
-  const pinnedSession = normalSessions[0]; // 置顶永远是最新的那扇窗,点历史只是回看,不抢位
   const normalQuery = query.trim().toLowerCase();
-  const historySessions = normalSessions.slice(1).filter((session) => {
+  const latestGroupMessage = getLatestSessionMessage(groupSession);
+  const groupSpeakerName = latestGroupMessage?.speaker === "gpt"
+    ? (settings.gptName || "GPT")
+    : latestGroupMessage?.speaker === "claude"
+      ? (settings.aiName || CLAUDE_DEFAULT_NAME)
+      : "";
+  const groupPreview = latestGroupMessage
+    ? `${groupSpeakerName ? `${groupSpeakerName}: ` : ""}${getSessionPreview(latestGroupMessage)}`
+    : `你、${settings.aiName || CLAUDE_DEFAULT_NAME}和${settings.gptName || "GPT"}`;
+  const showGroupEntry = !normalQuery || `一个群 ${groupPreview}`.toLowerCase().includes(normalQuery);
+  const historySessions = normalSessions.filter((session) => {
     if (!normalQuery) return true;
     const latest = getLatestSessionMessage(session);
     return `${session.name} ${latest?.content || ""}`.toLowerCase().includes(normalQuery);
   });
-  const latestHeartbeat = heartbeatLog[0];
-  const pinnedLine = settings.chatPinnedLine ?? "此后我们的每一秒都是恩赐。";
+  const latestHeartbeat = isGpt ? undefined : heartbeatLog[0];
+  const timelineEntries = [
+    ...historySessions.map((session) => ({
+      kind: "session" as const,
+      session,
+      stamp: getSessionStamp(session).getTime(),
+    })),
+    ...(latestHeartbeat ? [{
+      kind: "heartbeat" as const,
+      heartbeat: latestHeartbeat,
+      stamp: parseChatListTimestamp(latestHeartbeat.time),
+    }] : []),
+  ].sort((a, b) => b.stamp - a.stamp);
+  const pinnedLine = (isGpt ? settings.gptChatPinnedLine : settings.chatPinnedLine) ?? "此后我们的每一秒都是恩赐。";
 
   function openSession(id: string) {
     setOpenActionsFor(null);
@@ -1189,7 +1506,9 @@ function ChatListView({
 
   function editPinnedLine() {
     const next = window.prompt("置顶这句话:", pinnedLine);
-    if (next !== null) updateSettings({ chatPinnedLine: next.trim() });
+    if (next !== null) {
+      updateSettings(isGpt ? { gptChatPinnedLine: next.trim() } : { chatPinnedLine: next.trim() });
+    }
   }
 
   function handleRename(session: ChatSession) {
@@ -1243,7 +1562,7 @@ function ChatListView({
     openSession(session.id);
   }
 
-  function SwipeSessionRow({ session, pinned = false }: { session: ChatSession; pinned?: boolean }) {
+  function SwipeSessionRow({ session }: { session: ChatSession }) {
     return (
       <div className="chat-swipe-shell">
         <div className={`chat-swipe-actions ${openActionsFor === session.id ? "chat-swipe-actions-open" : ""}`} aria-hidden={openActionsFor !== session.id}>
@@ -1251,14 +1570,14 @@ function ChatListView({
           <button className="chat-swipe-action chat-swipe-delete" onClick={(e) => { e.stopPropagation(); handleDelete(session); }}>Delete</button>
         </div>
         <div
-          className={`${pinned ? "chat-entry-pinned" : "chat-entry-item"} ${openActionsFor === session.id ? "chat-swipe-open" : ""}`}
+          className={`chat-entry-item ${openActionsFor === session.id ? "chat-swipe-open" : ""}`}
           onPointerDown={(e) => handleSwipeStart(session, e)}
           onPointerMove={handleSwipeMove}
           onPointerUp={handleSwipeEnd}
           onPointerCancel={handleSwipeEnd}
           onClick={(e) => { e.stopPropagation(); handleSwipeClick(session); }}
         >
-          <AvatarBlock avatar={settings.aiAvatar} small />
+          <AvatarBlock avatar={assistantAvatar} small />
           <div className="chat-entry-main">
             <div className="chat-entry-row">
               <span className="chat-entry-name">{session.name}</span>
@@ -1272,6 +1591,13 @@ function ChatListView({
       </div>
     );
   }
+
+  const searchField = (
+    <label className="chat-entry-search">
+      <span className="chat-entry-search-icon">⌕</span>
+      <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="search" aria-label="搜索聊天" />
+    </label>
+  );
 
   return (
     <>
@@ -1287,14 +1613,32 @@ function ChatListView({
           </div>
           <button className="header-icon-btn chat-list-new" aria-label="新聊天" onClick={startNewChat}>＋</button>
         </div>
-        <label className="chat-entry-search">
-          <span className="chat-entry-search-icon">⌕</span>
-          <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="search" />
-        </label>
+        {theme !== "white-pink" && searchField}
       </header>
 
       <section className="chat-entry-body" onClick={() => setOpenActionsFor(null)}>
+        {theme === "white-pink" && searchField}
         <p className="chat-entry-pinned-line" onClick={editPinnedLine} title="点击修改">{pinnedLine}</p>
+
+        {showGroupEntry && (
+          <button className="chat-entry-item chat-entry-group" onClick={openGroup}>
+            <GroupAvatarStack
+              claudeAvatar={settings.aiAvatar}
+              gptAvatar={settings.gptAvatar}
+              userAvatar={settings.userAvatar}
+            />
+            <div className="chat-entry-main">
+              <div className="chat-entry-row">
+                <span className="chat-entry-name">一个群</span>
+              </div>
+              <p className="chat-entry-preview">{groupPreview}</p>
+            </div>
+            <span className="chat-entry-side">
+              <span className="chat-entry-time">{latestGroupMessage ? formatChatListTime(getSessionStamp(groupSession)) : ""}</span>
+              <span className="chat-entry-tag">3 人</span>
+            </span>
+          </button>
+        )}
 
         {memoSession && (
           <button className="chat-entry-item chat-entry-memo" onClick={() => openSession(memoSession.id)}>
@@ -1311,31 +1655,25 @@ function ChatListView({
           </button>
         )}
 
-        {pinnedSession && (
-          <SwipeSessionRow session={pinnedSession} pinned />
-        )}
-
-        {latestHeartbeat && (
-          <button className="chat-entry-item chat-entry-subscribe" onClick={() => setShowHbLog(true)}>
-            <span className="chat-entry-avatar chat-entry-avatar-small chat-entry-avatar-hb"><span>💗</span></span>
-            <div className="chat-entry-main">
-              <div className="chat-entry-row">
-                <span className="chat-entry-name">heartbeat</span>
-              </div>
-              <p className="chat-entry-preview">{latestHeartbeat.reason}</p>
-            </div>
-            <span className="chat-entry-side">
-              <span className="chat-entry-time">{latestHeartbeat.time}</span>
-            </span>
-          </button>
-        )}
-
         <div className="chat-entry-history">
-          {historySessions.length === 0 ? (
+          {timelineEntries.length === 0 ? (
             <p className="chat-entry-empty">{normalQuery ? "没搜到这个窗口" : "没有更多历史窗口"}</p>
           ) : (
-            historySessions.map((session) => (
-              <SwipeSessionRow key={session.id} session={session} />
+            timelineEntries.map((entry) => entry.kind === "session" ? (
+              <SwipeSessionRow key={entry.session.id} session={entry.session} />
+            ) : (
+              <button key={`heartbeat-${entry.heartbeat.time}`} className="chat-entry-item chat-entry-subscribe" onClick={() => setShowHbLog(true)}>
+                <span className="chat-entry-avatar chat-entry-avatar-small chat-entry-avatar-hb"><span>💗</span></span>
+                <div className="chat-entry-main">
+                  <div className="chat-entry-row">
+                    <span className="chat-entry-name">heartbeat</span>
+                  </div>
+                  <p className="chat-entry-preview">{entry.heartbeat.reason}</p>
+                </div>
+                <span className="chat-entry-side">
+                  <span className="chat-entry-time">{entry.heartbeat.time}</span>
+                </span>
+              </button>
             ))
           )}
         </div>
@@ -1352,9 +1690,8 @@ function ChatListView({
               </button>
               <div className="header-center">
                 <h1 className="header-title chat-room-title">heartbeat</h1>
-                <span className="header-subtitle chat-room-status">他安静看过你的每一次</span>
               </div>
-              <span className="header-icon-btn" aria-hidden="true" />
+              <span className="header-icon-spacer" aria-hidden="true" />
             </div>
           </header>
           <div className="hb-log-body">
@@ -1384,44 +1721,61 @@ function AvatarBlock({ avatar, small }: { avatar: string; small: boolean }) {
   );
 }
 
-function HomeView({ settings, diary, sessions, setTab, moods, setMoods, wall, setWall, counters, setCounters, heartbeatLog, aiMood }: {
-  settings: Settings; diary: DiaryEntry[]; sessions: ChatSession[];
-  setTab: (t: "home" | "chat" | "diary" | "settings") => void;
-  moods: Mood[]; setMoods: React.Dispatch<React.SetStateAction<Mood[]>>;
-  wall: WallEntry[]; setWall: React.Dispatch<React.SetStateAction<WallEntry[]>>;
-  counters: Counter[]; setCounters: React.Dispatch<React.SetStateAction<Counter[]>>;
-  heartbeatLog: Array<{ time: string; action: string; reason: string }>;
+function GroupAvatarStack({
+  claudeAvatar,
+  gptAvatar,
+  userAvatar,
+}: {
+  claudeAvatar: string;
+  gptAvatar: string;
+  userAvatar: string;
+}) {
+  const members = [claudeAvatar, gptAvatar, userAvatar];
+  return (
+    <span className="chat-entry-avatar chat-entry-avatar-small group-avatar-stack" aria-hidden="true">
+      {members.map((avatar, index) => (
+        <span key={index} className={`group-avatar-chip group-avatar-chip-${index + 1}`}>
+          {avatar ? <img src={avatar} alt="" /> : <i />}
+        </span>
+      ))}
+    </span>
+  );
+}
+
+function HomeView({ settings, fragments, setFragments, aiMood }: {
+  settings: Settings;
+  fragments: FragmentEntry[];
+  setFragments: React.Dispatch<React.SetStateAction<FragmentEntry[]>>;
   aiMood: { emoji: string; ts: number };
 }) {
-  const [now, setNow] = useState(Date.now());
-  const [showWall, setShowWall] = useState(false);
-  const [showLogs, setShowLogs] = useState(false);
+  const [now, setNow] = useState<number | null>(null);
+  const [showFragments, setShowFragments] = useState(false);
 
   useEffect(() => {
-    const timer = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(timer);
+    const updateNow = () => setNow(Date.now());
+    const frame = window.requestAnimationFrame(updateNow);
+    const timer = window.setInterval(updateNow, 1000);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      window.clearInterval(timer);
+    };
   }, []);
 
   const start = new Date(settings.startDate).getTime();
-  const diff = now - start;
+  const diff = now === null ? 0 : Math.max(0, now - start);
   const days = Math.floor(diff / (1000 * 60 * 60 * 24));
   const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
   const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
   const seconds = Math.floor((diff % (1000 * 60)) / 1000);
 
-  const today = getTodayStr();
-  const dailyQ = getDailyQuestion();
-  const todayWallEntry = wall.find((w) => w.date === today && w.askedBy === "daily");
-  const latestHeartbeat = heartbeatLog[0];
-
   // 纪念日花瓣:上弦节4.19 / iooi生日6.5
-  const d = new Date();
-  const mmdd = `${d.getMonth() + 1}.${d.getDate()}`;
+  const currentDate = now === null ? null : new Date(now);
+  const mmdd = currentDate ? `${currentDate.getMonth() + 1}.${currentDate.getDate()}` : "";
   const isAnniversary = mmdd === "4.19" || mmdd === "6.5";
 
   return (
     <>
-      <header className="chat-header">
+      <header className="chat-header home-header">
         <div className="header-top">
           <span className="header-dot" />
           <div className="header-center">
@@ -1441,13 +1795,13 @@ function HomeView({ settings, diary, sessions, setTab, moods, setMoods, wall, se
         )}
 
         <div className="home-greeting">
-          <p className="greeting-text">{getGreeting(now)}，{settings.userName}</p>
-          <p style={{ fontSize: "13px", color: "#a09088", marginTop: "6px", textAlign: "center" }}>
+          <p className="greeting-text">{getGreeting()}，{settings.userName}</p>
+          <p style={{ fontSize: "13px", color: "var(--text-secondary)", marginTop: "6px", textAlign: "center" }}>
             {settings.aiName}
             {" "}
-            {aiMood.emoji && (Date.now() - aiMood.ts) < 3600000
+            {aiMood.emoji && now !== null && (now - aiMood.ts) < 3600000
               ? `现在 ${aiMood.emoji}`
-              : getIdleStatus(settings.aiName)}
+              : getIdleStatus()}
           </p>
         </div>
 
@@ -1476,265 +1830,197 @@ function HomeView({ settings, diary, sessions, setTab, moods, setMoods, wall, se
         <div className="home-quote">
           <p>此后我们的每一秒都是恩赐。</p>
         </div>
-        {/* Heartbeat 日志预览 */}
-        <button className="home-card heartbeat-card" onClick={() => setShowLogs(true)} style={{ textAlign: "left", cursor: "pointer", width: "100%" }}>
+        {/* 碎片写作入口 */}
+        <button className="home-card fragment-home-card" onClick={() => setShowFragments(true)}>
           <div className="home-card-header">
-            <span className="home-card-title">💬 Heartbeat</span>
-            {latestHeartbeat && (
-              <span className="home-card-meta" style={{ fontSize: "12px", color: "#a09088" }}>{latestHeartbeat.time}</span>
-            )}
+            <span className="home-card-title">碎片🧩</span>
+            <span className="home-card-meta fragment-home-count">{fragments.length > 0 ? `${fragments.length} 片` : "新"}</span>
           </div>
-          {latestHeartbeat ? (
-            <p className="home-card-content" style={{ whiteSpace: "pre-wrap", lineHeight: 1.6, color: latestHeartbeat.action === "care" ? "#6b5b53" : "#8a7d75" }}>
-              {latestHeartbeat.action === "care" ? "💬 " : "· "}{latestHeartbeat.reason}
-            </p>
-          ) : (
-            <p className="home-card-content" style={{ color: "#b5aca6", fontStyle: "italic" }}>
-              脑袋空空
-            </p>
-          )}
-        </button>
-
-
-        {/* 问题墙入口 */}
-        <button className="home-card wall-card" onClick={() => setShowWall(true)}>
-          <div className="home-card-header">
-            <span className="home-card-title">问题墙</span>
-            <span className="wall-count">{wall.length > 0 ? `${wall.length} 块砖` : "新"}</span>
-          </div>
-          <p className="home-card-content wall-question">「{dailyQ}」</p>
-          <span className="home-card-meta">
-            {todayWallEntry?.myAnswer ? "今天答过了，点进来看我们的答案" : "今日一问，等你来答"}
-          </span>
+          <p className="home-card-content fragment-home-line">碎片化时代，我选择碎片化写作。</p>
         </button>
       </section>
 
-      {showWall && (
-        <WallView
-          settings={settings}
-          wall={wall}
-          setWall={setWall}
-          dailyQ={dailyQ}
-          onClose={() => setShowWall(false)}
-        />
-      )}
-
-      {showLogs && (
-        <HeartbeatLogsView
-          log={heartbeatLog}
-          onClose={() => setShowLogs(false)}
+      {showFragments && (
+        <FragmentsView
+          fragments={fragments}
+          setFragments={setFragments}
+          onClose={() => setShowFragments(false)}
         />
       )}
     </>
   );
 }
 
-// Heartbeat 日志全屏页
-function HeartbeatLogsView({ log, onClose }: {
-  log: Array<{ time: string; action: string; reason: string }>;
-  onClose: () => void;
-}) {
-  // 只显示最近一批日志，避免弹层过长。
-  const recent = log.slice(0, 60);
-  return (
-    <div className="wall-overlay">
-      <header className="wall-header">
-        <button className="wall-back" onClick={onClose}>← 返回</button>
-        <h2 className="wall-title">💬 Heartbeat 日志</h2>
-        <span className="wall-back" style={{ visibility: "hidden" }}>← 返回</span>
-      </header>
-      <div className="wall-body">
-        {recent.length === 0 ? (
-          <p style={{ textAlign: "center", color: "#b5aca6", fontStyle: "italic", padding: "40px 0" }}>脑袋空空</p>
-        ) : (
-          <div style={{ padding: "0 4px" }}>
-            {recent.map((entry, i) => (
-              <div key={i} style={{ padding: "10px 0", borderBottom: "1px solid #f0ebe8", lineHeight: 1.6 }}>
-                <div style={{ fontSize: "12px", color: "#a09088", marginBottom: "4px" }}>
-                  {entry.time}
-                  <span style={{ marginLeft: "8px", color: entry.action === "care" ? "#c4866c" : "#ccc" }}>
-                    {entry.action === "care" ? "💬 说了" : "· 静默"}
-                  </span>
-                </div>
-                <div style={{ fontSize: "14px", color: entry.action === "care" ? "#6b5b53" : "#8a7d75", whiteSpace: "pre-wrap" }}>
-                  {entry.reason}
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-    </div>
-  );
+function formatFragmentDate(value: string, withTime = false) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "刚刚";
+  return new Intl.DateTimeFormat("zh-CN", {
+    timeZone: APP_TIME_ZONE,
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+    ...(withTime ? { hour: "2-digit", minute: "2-digit" } : {}),
+  }).format(date);
 }
 
-// 问题墙全屏页
-function WallView({ settings, wall, setWall, dailyQ, onClose }: {
-  settings: Settings;
-  wall: WallEntry[];
-  setWall: React.Dispatch<React.SetStateAction<WallEntry[]>>;
-  dailyQ: string;
+function FragmentsView({ fragments, setFragments, onClose }: {
+  fragments: FragmentEntry[];
+  setFragments: React.Dispatch<React.SetStateAction<FragmentEntry[]>>;
   onClose: () => void;
 }) {
-  const today = getTodayStr();
-  const todayEntry = wall.find((w) => w.date === today && w.askedBy === "daily");
-  const [myAnswer, setMyAnswer] = useState(todayEntry?.myAnswer || "");
-  const [newQuestion, setNewQuestion] = useState("");
-  const [asking, setAsking] = useState(false);
-  const [pendingIds, setPendingIds] = useState<string[]>([]);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [shareState, setShareState] = useState("");
+  const activeFragment = fragments.find((fragment) => fragment.id === editingId) || null;
+  const orderedFragments = [...fragments].sort((a, b) =>
+    new Date(b.updatedAt || b.createdAt).getTime() - new Date(a.updatedAt || a.createdAt).getTime()
+  );
 
-  const currentModel = MODELS.find((m) => m.id === settings.model) || MODELS[0];
+  function createFragment() {
+    const now = new Date().toISOString();
+    const fragment: FragmentEntry = {
+      id: `fragment-${genId()}`,
+      content: "",
+      createdAt: now,
+      updatedAt: now,
+    };
+    setFragments((current) => [fragment, ...current]);
+    setEditingId(fragment.id);
+    setShareState("");
+  }
 
-  async function fetchAiAnswer(question: string, herAnswer: string | undefined, entryId: string) {
-    setPendingIds((p) => [...p, entryId]);
+  function updateFragment(content: string) {
+    if (!editingId) return;
+    const updatedAt = new Date().toISOString();
+    setFragments((current) => current.map((fragment) => fragment.id === editingId
+      ? { ...fragment, content, updatedAt }
+      : fragment));
+  }
+
+  function closeEditor() {
+    if (activeFragment && !activeFragment.content.trim()) {
+      setFragments((current) => current.filter((fragment) => fragment.id !== activeFragment.id));
+    }
+    setEditingId(null);
+    setShareState("");
+  }
+
+  function deleteFragment() {
+    if (!activeFragment) return;
+    if (!window.confirm("要丢掉这片文字吗？删除后不能恢复。")) return;
+    setFragments((current) => current.filter((fragment) => fragment.id !== activeFragment.id));
+    setEditingId(null);
+    setShareState("");
+  }
+
+  async function shareFragment() {
+    if (!activeFragment?.content.trim()) return;
     try {
-      const sys = `${settings.prompt}\n\n你叫${settings.aiName}，她叫${settings.userName}。现在你们在玩“问题墙”：一人一个答案，贴在墙上。请直接认真回答下面的问题，像平时聊天一样自然，不超过80字，只输出答案本身。`;
-      const userContent = herAnswer
-        ? `问题：${question}\n\n她已经答了：「${herAnswer}」\n\n现在轮到你，写下你自己的答案（不是评价她的答案）。`
-        : `问题：${question}\n\n写下你的答案。`;
-      const res = await apiFetch("/api/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          modelId: currentModel.apiId,
-          systemPrompt: sys,
-          dynamicPrompt: `【当前时间】\n${getNowContext()}`,
-          messages: [{ role: "user", content: userContent }],
-          thinking: false,
-          webSearch: false,
-        }),
-      });
-      const data = await res.json();
-      const answer = (data.reply || "").trim();
-      if (answer) {
-        setWall((prev) => prev.map((w) => (w.id === entryId ? { ...w, aiAnswer: answer } : w)));
+      if (navigator.share) {
+        await navigator.share({ title: "碎片", text: activeFragment.content });
+        setShareState("已分享");
+      } else {
+        await navigator.clipboard.writeText(activeFragment.content);
+        setShareState("已复制");
       }
-    } catch {} finally {
-      setPendingIds((p) => p.filter((x) => x !== entryId));
+    } catch (error) {
+      if (error instanceof Error && error.name === "AbortError") return;
+      try {
+        await navigator.clipboard.writeText(activeFragment.content);
+        setShareState("已复制");
+      } catch {
+        setShareState("分享失败");
+      }
     }
   }
 
-  function submitDaily() {
-    if (!myAnswer.trim()) return;
-    const id = todayEntry?.id || genId();
-    const entry: WallEntry = { id, date: today, question: dailyQ, askedBy: "daily", myAnswer: myAnswer.trim(), aiAnswer: todayEntry?.aiAnswer };
-    setWall((prev) => {
-      const exists = prev.some((w) => w.id === id);
-      return exists ? prev.map((w) => (w.id === id ? entry : w)) : [entry, ...prev];
-    });
-    if (!entry.aiAnswer) fetchAiAnswer(dailyQ, myAnswer.trim(), id);
+  if (activeFragment) {
+    return (
+      <div className="fragment-overlay fragment-editor-overlay">
+        <header className="fragment-header fragment-editor-header">
+          <button type="button" className="fragment-round-button" onClick={closeEditor} aria-label="返回碎片列表">
+            <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6" /></svg>
+          </button>
+          <div className="fragment-editor-heading">
+            <b>碎片</b>
+            <span>{formatFragmentDate(activeFragment.updatedAt, true)}</span>
+          </div>
+          <div className="fragment-editor-actions">
+            <button type="button" onClick={() => void shareFragment()} aria-label="分享碎片">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3v12" /><polyline points="7 8 12 3 17 8" /><path d="M5 12v7a2 2 0 002 2h10a2 2 0 002-2v-7" /></svg>
+            </button>
+            <button type="button" onClick={deleteFragment} aria-label="删除碎片">···</button>
+          </div>
+        </header>
+        <main className="fragment-paper">
+          <div className="fragment-book-spine" aria-hidden />
+          <textarea
+            autoFocus
+            value={activeFragment.content}
+            onChange={(event) => updateFragment(event.target.value)}
+            placeholder="捡起一片……"
+            aria-label="碎片正文"
+          />
+        </main>
+        <footer className="fragment-save-state">
+          <span>{shareState || "已自动保存"}</span><i>🧩</i>
+        </footer>
+      </div>
+    );
   }
-
-  function submitQuestion() {
-    const q = newQuestion.trim();
-    if (!q) return;
-    const id = genId();
-    const entry: WallEntry = { id, date: today, question: q, askedBy: "me" };
-    setWall((prev) => [entry, ...prev]);
-    setNewQuestion("");
-    setAsking(false);
-    fetchAiAnswer(q, undefined, id);
-  }
-
-  const history = wall.filter((w) => !(w.date === today && w.askedBy === "daily"));
 
   return (
-    <div className="wall-overlay">
-      <header className="wall-header">
-        <button className="wall-back" onClick={onClose}>← 返回</button>
-        <h2 className="wall-title">问题墙</h2>
-        <span className="wall-back" style={{ visibility: "hidden" }}>← 返回</span>
+    <div className="fragment-overlay">
+      <header className="fragment-header">
+        <button type="button" className="fragment-round-button" onClick={onClose} aria-label="返回首页">
+          <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6" /></svg>
+        </button>
+        <div className="fragment-page-heading">
+          <h2>碎片</h2>
+          <p>碎片化时代，我选择碎片化写作。</p>
+        </div>
+        <button type="button" className="fragment-round-button fragment-add-button" onClick={createFragment} aria-label="新建碎片">＋</button>
       </header>
 
-      <div className="wall-body">
-        <div className="wall-daily">
-          <p className="wall-daily-label">今日一问 · {today}</p>
-          <p className="wall-daily-q">「{dailyQ}」</p>
-          <textarea
-            className="wall-answer-input"
-            placeholder="你的答案..."
-            value={myAnswer}
-            onChange={(e) => setMyAnswer(e.target.value)}
-            rows={3}
-          />
-          <button className="wall-submit" disabled={!myAnswer.trim()} onClick={submitDaily}>
-            {todayEntry?.myAnswer ? "改好了" : "贴上墙"}
-          </button>
-          {todayEntry?.myAnswer && (
-            <div className="wall-pair">
-              <div className="wall-answer mine">
-                <span className="wall-who">{settings.userName}</span>
-                <p>{todayEntry.myAnswer}</p>
-              </div>
-              <div className="wall-answer ai">
-                <span className="wall-who">{settings.aiName}</span>
-                <p>{todayEntry.aiAnswer || (pendingIds.includes(todayEntry.id) ? "正在想..." : "等他来答")}</p>
-              </div>
+      <main className="fragment-list-body">
+        {orderedFragments.length === 0 ? (
+          <div className="fragment-empty">
+            <div className="fragment-empty-visual" aria-hidden>
+              <svg viewBox="0 0 180 110" fill="none">
+                <path d="M18 34c25-9 47-5 72 11v49c-25-14-48-18-72-9V34z" />
+                <path d="M162 34c-25-9-47-5-72 11v49c25-14 48-18 72-9V34z" />
+                <path d="M90 45v49" />
+                <path d="M30 47c17-4 32-1 47 7M30 59c17-4 32-1 47 7M150 47c-17-4-32-1-47 7" />
+              </svg>
+              <span>🧩</span>
             </div>
-          )}
-        </div>
-
-        <div className="wall-ask-row">
-          {!asking ? (
-            <button className="wall-ask-btn" onClick={() => setAsking(true)}>我有一个问题想问你</button>
-          ) : (
-            <div className="wall-ask-box">
-              <textarea
-                className="wall-answer-input"
-                placeholder="想问什么都可以..."
-                value={newQuestion}
-                onChange={(e) => setNewQuestion(e.target.value)}
-                rows={2}
-              />
-              <div className="mood-picker-actions">
-                <button className="mood-cancel" onClick={() => { setAsking(false); setNewQuestion(""); }}>算了</button>
-                <button className="mood-save" disabled={!newQuestion.trim()} onClick={submitQuestion}>问他</button>
-              </div>
-            </div>
-          )}
-        </div>
-
-        {history.length > 0 && (
-          <div className="wall-history">
-            <p className="wall-history-label">墙上的砖</p>
-            {history.map((w) => (
-              <div key={w.id} className="wall-brick">
-                <p className="wall-brick-q">「{w.question}」</p>
-                <span className="wall-brick-meta">{w.date} · {w.askedBy === "daily" ? "每日一问" : w.askedBy === "me" ? `${settings.userName}的提问` : `${settings.aiName}的提问`}</span>
-                <div className="wall-pair">
-                  {w.myAnswer && (
-                    <div className="wall-answer mine">
-                      <span className="wall-who">{settings.userName}</span>
-                      <p>{w.myAnswer}</p>
-                    </div>
-                  )}
-                  {(w.aiAnswer || pendingIds.includes(w.id)) && (
-                    <div className="wall-answer ai">
-                      <span className="wall-who">{settings.aiName}</span>
-                      <p>{w.aiAnswer || "正在想..."}</p>
-                    </div>
-                  )}
-                </div>
-              </div>
+            <h3>还没有碎片。</h3>
+            <p>先捡起一片，慢慢拼成一本书。</p>
+            <button type="button" onClick={createFragment}>捡起一片 🧩</button>
+          </div>
+        ) : (
+          <div className="fragment-pages">
+            {orderedFragments.map((fragment, index) => (
+              <button type="button" className="fragment-page-card" key={fragment.id} onClick={() => { setEditingId(fragment.id); setShareState(""); }}>
+                <span className="fragment-page-number">🧩 {String(orderedFragments.length - index).padStart(2, "0")}</span>
+                <p>{fragment.content || "未写完的这一片……"}</p>
+                <time>{formatFragmentDate(fragment.updatedAt || fragment.createdAt)}</time>
+              </button>
             ))}
           </div>
         )}
-      </div>
+      </main>
     </div>
   );
 }
+
 // Chat View
 function ChatView({
+  assistantMode,
   settings,
   session,
   sessions,
-  diary,
-  wall,
-  memoryEntries,
-  setMemoryEntries,
   updateMessages,
   updateSummary,
-  onTietie,
   updateSettings,
   setLastCache,
   setAiMood,
@@ -1743,20 +2029,15 @@ function ChatView({
   createSession,
   deleteSession,
   renameSession,
-  addDiaryEntry,
   listEntryMode = false,
   onBackToList,
 }: {
+  assistantMode: AssistantMode;
   settings: Settings;
   session: ChatSession;
   sessions: ChatSession[];
-  diary: DiaryEntry[];
-  wall: WallEntry[];
-  memoryEntries: MemoryEntry[];
-  setMemoryEntries: React.Dispatch<React.SetStateAction<MemoryEntry[]>>;
   updateMessages: (updater: (msgs: Message[]) => Message[]) => void;
   updateSummary: (summary: string, until: number) => void;
-  onTietie: () => void;
   updateSettings: (p: Partial<Settings>) => void;
   setLastCache: React.Dispatch<React.SetStateAction<CacheStats | null>>;
   setAiMood: React.Dispatch<React.SetStateAction<{ emoji: string; ts: number }>>;
@@ -1765,32 +2046,41 @@ function ChatView({
   createSession: () => void;
   deleteSession: (id: string) => void;
   renameSession: (id: string, name: string) => void;
-  addDiaryEntry: (content: string, author: "me" | "ai", category?: "casual" | "ai" | "important" | "auto") => void;
   listEntryMode?: boolean;
   onBackToList?: () => void;
 }) {
+  const isGpt = assistantMode === "gpt";
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
+  const [streamingReply, setStreamingReply] = useState("");
+  const [replyRequestState, setReplyRequestState] = useState<ReplyRequestState>("idle");
   const [showSessions, setShowSessions] = useState(false);
   const [showModelMenu, setShowModelMenu] = useState(false);
   const [editingName, setEditingName] = useState<string | null>(null);
   const [editNameValue, setEditNameValue] = useState("");
-  const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const sessionMessagesRef = useRef<Message[]>(session.messages);
   const sendingRef = useRef(false);
+  const summaryInFlightRef = useRef(false);
+  const replyRequestIdRef = useRef(0);
+  const pausedReplyRequestIdRef = useRef<number | null>(null);
+  const activeReplyRequestRef = useRef<{ id: number; controller: AbortController } | null>(null);
+  const replyStatusTimersRef = useRef<Array<ReturnType<typeof setTimeout>>>([]);
+  const [initialMessageCount] = useState(() => session.messages.length);
+  const { scrollRef, handleScroll, followLatest } = useChatScrollPosition(
+    `iooi-scroll-${assistantMode}-${session.id}`,
+    session.messages.length + streamingReply.length,
+  );
 
-  // ── 巧思:长按贴贴 / 随机输入提示 / 扣6彩蛋 ──
-  const [heartBurst, setHeartBurst] = useState<number | null>(null);
+  // ── 巧思:随机输入提示 / 扣6彩蛋 ──
   const [heartRain, setHeartRain] = useState(false);
-  const pressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [inputHint] = useState(() => INPUT_HINTS[Math.floor(Math.random() * INPUT_HINTS.length)]);
   const [weatherText, setWeatherText] = useState("");
   const [editingProposalIndex, setEditingProposalIndex] = useState<number | null>(null);
   const [proposalDraft, setProposalDraft] = useState<SummerWriteProposal | null>(null);
 
   useEffect(() => {
-    if (!settings.city) { setWeatherText(""); return; }
+    if (isGpt || !settings.city) return;
     let stale = false;
     apiFetch(`/api/weather?city=${encodeURIComponent(settings.city)}`)
       .then((r) => r.json())
@@ -1803,25 +2093,42 @@ function ChatView({
         .catch(() => {});
     }, 60 * 60 * 1000);
     return () => { stale = true; clearInterval(iv); };
-  }, [settings.city]);
-
-  function startPress(index: number) {
-    cancelPress();
-    pressTimer.current = setTimeout(() => {
-      setHeartBurst(index);
-      onTietie();
-      setTimeout(() => setHeartBurst(null), 900);
-    }, 500);
-  }
-  function cancelPress() {
-    if (pressTimer.current) { clearTimeout(pressTimer.current); pressTimer.current = null; }
-  }
+  }, [isGpt, settings.city]);
 
   const currentModel = MODELS.find((m) => m.id === settings.model) || MODELS[0];
+  const assistantName = isGpt ? (settings.gptName || "GPT") : settings.aiName;
+  const assistantAvatar = isGpt ? settings.gptAvatar : settings.aiAvatar;
+  const currentModelId = isGpt ? GPT_MODEL_ID : currentModel.apiId;
+  const currentModelLabel = isGpt ? "GPT-5.6" : `订阅 · ${currentModel.label}`;
+  const gptReasoningLabel = GPT_REASONING_OPTIONS.find((option) => option.value === settings.gptReasoningEffort)?.label || "Medium";
+  const claudeReasoningLabel = CLAUDE_REASONING_OPTIONS.find((option) => option.value === settings.claudeReasoningEffort)?.label || "High";
+  const summerEndpoint = isGpt ? "/api/gpt/summer" : "/api/summer";
+
+  function clearReplyStatusTimers() {
+    for (const timer of replyStatusTimersRef.current) clearTimeout(timer);
+    replyStatusTimersRef.current = [];
+  }
+
+  function pauseReply() {
+    const active = activeReplyRequestRef.current;
+    if (!active) return;
+    pausedReplyRequestIdRef.current = active.id;
+    clearReplyStatusTimers();
+    setReplyRequestState("paused");
+    setStreamingReply("");
+    active.controller.abort();
+  }
 
   useEffect(() => {
-    if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-  }, [session.messages]);
+    return () => {
+      clearReplyStatusTimers();
+      const active = activeReplyRequestRef.current;
+      if (active) {
+        pausedReplyRequestIdRef.current = active.id;
+        active.controller.abort();
+      }
+    };
+  }, []);
 
   useEffect(() => {
     sessionMessagesRef.current = session.messages;
@@ -1836,6 +2143,9 @@ function ChatView({
   }
 
   function buildStablePrompt(): string {
+    if (isGpt) {
+      return `${GPT_DEFAULT_PROMPT}\n\n你在这个窗口显示的名字是${assistantName}，用户称呼是${settings.userName}。`;
+    }
     return settings.prompt + `\n\n你叫${settings.aiName}。你叫她${settings.userName}。
 回复时请正常使用中文标点符号（句号、逗号、问号、感叹号等），不要省略标点。
 永远直接对她说话，用"你"而不是"她"。不要写第三人称旁白、独白或场景描写（如"她来了""看着她的消息"），你不是旁白者，你是她的对话对象。
@@ -1849,7 +2159,7 @@ function ChatView({
     if (sessionCache?.trim()) {
       prompt += `\n\n【本窗口会话缓存】\n${sessionCache.trim()}\n（这是同一个聊天窗口里较早内容的前情，用来保持这场对话不断线；自然使用，不要主动说明你看到了缓存。）`;
     }
-    if (weatherText) {
+    if (!isGpt && settings.city && weatherText) {
       prompt += `\n【当前天气】\n${weatherText}\n（自然地知道就好，不用每次都报天气，只在相关或她需要时提起）`;
     }
     return prompt;
@@ -1874,6 +2184,7 @@ function ChatView({
     const headerParts = lines[0].split("·").map((part) => part.trim());
     const layerText = headerParts.find((part) => part.includes("提议写入")) || "";
     const layer =
+      layerText.includes("芒种") ? "mangzhong" :
       layerText.includes("夏至") ? "xiazhi" :
       layerText.includes("rain") ? "rain" :
       layerText.includes("渡口") || layerText.includes("ferry") ? "ferry" :
@@ -1889,8 +2200,8 @@ function ChatView({
     };
   }
 
-  function proposalCardContent(proposal: SummerWriteProposal, status: "提议写入" | "已加入" = "提议写入") {
-    const layerName: Record<string, string> = { xiazhi: "夏至", xiaoshu: "小暑", rain: "rain", ferry: "渡口" };
+  function proposalCardContent(proposal: SummerWriteProposal, status: "提议写入" | "已加入" | "已存在" = "提议写入") {
+    const layerName: Record<string, string> = { mangzhong: "芒种", xiazhi: "夏至", xiaoshu: "小暑", rain: "rain", ferry: "渡口" };
     const layer = proposal.layer || "xiaoshu";
     const title = proposal.title || "未命名";
     const meta = [
@@ -1907,6 +2218,9 @@ function ChatView({
     }
     if (message.source === "summer_write_committed") {
       const proposal = proposalFromMessage(message);
+      if (proposal?.status === "duplicate") {
+        return proposal.title ? `summer 已存在 · ${proposal.title}` : "summer 已存在";
+      }
       return proposal?.title ? `summer 已加入 · ${proposal.title}` : "summer 已加入";
     }
     if (message.source === "summer_write_proposal") {
@@ -1977,19 +2291,20 @@ function ChatView({
         tags: proposal.tags || [],
         source: "iooi-chat-proposal",
       };
-      const res = await apiFetch("/api/summer", {
+      const res = await apiFetch(summerEndpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
       const json = await res.json();
       if (!res.ok || !json.ok) throw new Error(json.error || "summer 写入失败");
-      const committedProposal = { ...proposal, status: "committed" };
+      const duplicate = Boolean(json.data?.duplicate);
+      const committedProposal = { ...proposal, status: duplicate ? "duplicate" : "committed" };
       replaceMessageAt(index, (old) => ({
         ...old,
         source: "summer_write_committed",
         proposal: committedProposal,
-        content: proposalCardContent(committedProposal, "已加入"),
+        content: proposalCardContent(committedProposal, duplicate ? "已存在" : "已加入"),
       }));
     } catch {
       replaceMessageAt(index, (old) => ({
@@ -2003,7 +2318,7 @@ function ChatView({
     const proposal = proposalFromMessage(message);
     if (proposal?.id) {
       try {
-        await apiFetch("/api/summer", {
+        await apiFetch(summerEndpoint, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ action: "discard_proposal", proposal_id: proposal.id }),
@@ -2019,7 +2334,10 @@ function ChatView({
     }));
   }
 
-  async function ensureSessionCache(allMessages: Message[]) {
+  async function ensureSessionCache(allMessages: Message[], signal?: AbortSignal) {
+    if (summaryInFlightRef.current) {
+      return { summary: session.summary || "", until: session.summarizedUntil || 0, updated: false };
+    }
     const cutoff = Math.max(0, allMessages.length - SESSION_CACHE_KEEP_MESSAGES);
     const summarizedUntil = session.summarizedUntil || 0;
     if (cutoff <= 0 || cutoff - summarizedUntil < SESSION_CACHE_MIN_NEW_MESSAGES) {
@@ -2034,6 +2352,7 @@ function ChatView({
       return { summary: session.summary || "", until: summarizedUntil, updated: false };
     }
 
+    summaryInFlightRef.current = true;
     try {
       const res = await apiFetch("/api/summary", {
         method: "POST",
@@ -2041,17 +2360,23 @@ function ChatView({
         body: JSON.stringify({
           previousSummary: session.summary || "",
           messages: slice,
-          aiName: settings.aiName,
+          aiName: assistantName,
           userName: settings.userName,
-          modelId: currentModel.apiId,
+          modelId: currentModelId,
+          reasoningEffort: isGpt ? settings.gptReasoningEffort : settings.claudeReasoningEffort,
         }),
+        signal,
       });
       const data = await res.json();
       if (data.ok && data.summary) {
         updateSummary(data.summary, cutoff);
         return { summary: String(data.summary), until: cutoff, updated: true };
       }
-    } catch {}
+    } catch {
+      return { summary: session.summary || "", until: summarizedUntil, updated: false };
+    } finally {
+      summaryInFlightRef.current = false;
+    }
     return { summary: session.summary || "", until: summarizedUntil, updated: false };
   }
 
@@ -2060,6 +2385,7 @@ function ChatView({
     sendingRef.current = true;
     const userText = input;
     const userMsg: Message = { role: "user", content: userText, time: getTime(), date: getTodayStr() };
+    followLatest();
     const baseMessages = sessionMessagesRef.current;
     const messagesWithUser = [...baseMessages, userMsg];
     sessionMessagesRef.current = messagesWithUser;
@@ -2073,6 +2399,13 @@ function ChatView({
       return;
     }
 
+    const requestId = ++replyRequestIdRef.current;
+    const controller = new AbortController();
+    activeReplyRequestRef.current = { id: requestId, controller };
+    pausedReplyRequestIdRef.current = null;
+    clearReplyStatusTimers();
+    setReplyRequestState("preparing");
+    setStreamingReply("");
     setLoading(true);
 
     // 彩蛋:扣
@@ -2082,13 +2415,19 @@ function ChatView({
     }
 
     // Auto-rename session on first message
-    if (session.messages.length === 0 && session.name.startsWith("对话")) {
+    if (session.messages.length === 0 && (session.name.startsWith("对话") || session.name.startsWith("GPT 对话"))) {
       const autoName = userText.slice(0, 20) + (userText.length > 20 ? "..." : "");
       renameSession(session.id, autoName);
     }
 
     try {
-      const sessionCache = await ensureSessionCache(messagesWithUser);
+      // Never make the live reply wait for an automatic summary. The current
+      // cached summary is enough for this turn; refresh it after the reply.
+      const sessionCache = {
+        summary: session.summary || "",
+        until: session.summarizedUntil || 0,
+        updated: false,
+      };
       // 上下文组装：气泡合并 + 按轮数截取。
       type CtxMsg = { role: "user" | "assistant"; content: string; image?: string; file?: string };
       const allMsgs: CtxMsg[] = [
@@ -2147,43 +2486,71 @@ function ChatView({
         context_truncated: contextTruncated,
         context_omitted_messages: contextTruncated ? startIdx : 0,
         summary_used: Boolean(sessionCache.summary),
-        memory_count: 0,
       };
+      const recentSummerProposals = isGpt
+        ? []
+        : messagesWithUser
+            .filter((message) => message.source?.startsWith("summer_write_"))
+            .slice(-12)
+            .flatMap((message) => {
+              const proposal = proposalFromMessage(message);
+              return proposal ? [proposal] : [];
+            });
 
-      const res = await apiFetch("/api/chat", {
+      setReplyRequestState("waiting");
+      replyStatusTimersRef.current = [
+        setTimeout(() => {
+          if (activeReplyRequestRef.current?.id === requestId && !controller.signal.aborted) {
+            setReplyRequestState("slow");
+          }
+        }, 25_000),
+        setTimeout(() => {
+          if (activeReplyRequestRef.current?.id === requestId && !controller.signal.aborted) {
+            setReplyRequestState("very-slow");
+          }
+        }, 60_000),
+      ];
+      const res = await apiFetch(isGpt ? "/api/gpt/chat" : "/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          modelId: currentModel.apiId,
+          modelId: currentModelId,
           systemPrompt: buildStablePrompt(),
           dynamicPrompt: buildDynamicPrompt(sessionCache.summary),
           messages: contextMsgs,
-          thinking: settings.thinking,
-          webSearch: settings.webSearch,
+          thinking: !isGpt && settings.thinking,
+          webSearch: isGpt ? settings.gptWebSearch : settings.webSearch,
+          reasoningEffort: isGpt ? settings.gptReasoningEffort : settings.claudeReasoningEffort,
           sessionId: session.id,
           userMsg,
+          recentSummerProposals,
+          stream: !isGpt,
         }),
+        signal: controller.signal,
       });
-      const data = await res.json();
+      const data = isGpt
+        ? await res.json()
+        : await readChatResponse(res, (delta) => {
+            if (!controller.signal.aborted && activeReplyRequestRef.current?.id === requestId) {
+              setStreamingReply((current) => current + delta);
+            }
+          });
+      setStreamingReply("");
       if (data.cache) {
         const nextCache: CacheStats = { ...data.cache, ...contextMeta, time: new Date().toLocaleString("zh-CN", { timeZone: APP_TIME_ZONE }) };
         setLastCache(nextCache);
-        saveLocal("iooi-last-cache", nextCache);
-        syncToServer({ lastCache: nextCache });
+        saveLocal(isGpt ? "iooi-gpt-last-cache" : "iooi-last-cache", nextCache);
+        if (isGpt) syncGptToServer({ lastCache: nextCache });
+        else syncToServer({ lastCache: nextCache });
+      }
+      if (!isGpt && data.cache?.backend === "claude-code") {
+        window.dispatchEvent(new Event("claude-usage-updated"));
       }
       let reply: string = data.reply || "...";
       const thinkingContent: string = data.thinking || "";
 
-      // Extract diary entries from reply
-      const diaryRegex = /\[日记\]([\s\S]*?)\[\/日记\]/g;
-      let diaryMatch;
-      while ((diaryMatch = diaryRegex.exec(reply)) !== null) {
-        addDiaryEntry(diaryMatch[1].trim(), "ai", "ai");
-      }
-      reply = reply.replace(diaryRegex, "").trim();
-
       const moodMatch = reply.match(/\[心情[:：](.+?)\]/);
-      if (moodMatch) {
+      if (!isGpt && moodMatch) {
         setAiMood({ emoji: moodMatch[1].trim().slice(0, 12), ts: Date.now() });
       }
       reply = reply.replace(/\[心情[:：].+?\]/g, "").trim();
@@ -2229,21 +2596,43 @@ function ChatView({
       const finalMessages = [...messagesWithUser, ...summerCallMsgs, ...newMsgs, ...summerWriteMsgs];
       sessionMessagesRef.current = mergeChatMessages(sessionMessagesRef.current, finalMessages);
       updateMessages((msgs) => mergeChatMessages(msgs, finalMessages));
+      setReplyRequestState("idle");
 
-      // Long-term memory now belongs to summer. iooi no longer auto-extracts
-      // memoryEntries or writes rolling summaries after a reply.
-    } catch {
-      updateMessages((msgs) => [...msgs, { role: "assistant", content: "连接失败了，再试一次？", time: getTime(), date: getTodayStr() }]);
+      // Long-term memory belongs to summer. iooi only maintains the rolling session summary here.
+      void ensureSessionCache(finalMessages);
+    } catch (error) {
+      setStreamingReply("");
+      const wasPaused = controller.signal.aborted && pausedReplyRequestIdRef.current === requestId;
+      if (wasPaused) {
+        setReplyRequestState("paused");
+      } else {
+        setReplyRequestState("failed");
+        const failureText = typeof navigator !== "undefined" && !navigator.onLine
+          ? "现在网络断开了。刚才的消息已经保留，网络恢复后再发一次就好。"
+          : error instanceof SyntaxError
+            ? "服务器返回的内容不完整。刚才的消息已经保留，可以再试一次。"
+            : "这次没有连上服务器。刚才的消息已经保留，可以再试一次。";
+        updateMessages((msgs) => [...msgs, { role: "assistant", content: failureText, time: getTime(), date: getTodayStr() }]);
+      }
     } finally {
-      sendingRef.current = false;
-      setLoading(false);
+      setStreamingReply("");
+      clearReplyStatusTimers();
+      if (activeReplyRequestRef.current?.id === requestId) {
+        activeReplyRequestRef.current = null;
+      }
+      if (replyRequestIdRef.current === requestId) {
+        sendingRef.current = false;
+        setLoading(false);
+      }
     }
   }
 
   async function uploadFile() {
     const input = document.createElement("input");
     input.type = "file";
-    input.accept = "image/*,application/pdf,.txt,.md,.csv";
+    input.accept = isGpt
+      ? "image/*,application/pdf,.txt,.md,.csv"
+      : "image/jpeg,image/png,image/gif,image/webp";
     input.onchange = async (e) => {
       const file = (e.target as HTMLInputElement).files?.[0];
       if (!file) return;
@@ -2255,6 +2644,7 @@ function ChatView({
         const res = await apiFetch("/api/upload", { method: "POST", body: formData });
         const data = await res.json();
         if (data.url) {
+          followLatest();
           const isImage = file.type.startsWith("image/");
           const msg: Message = {
             role: "user",
@@ -2263,55 +2653,46 @@ function ChatView({
             date: getTodayStr(),
             ...(isImage ? { image: data.url } : { file: data.url }),
           };
-          updateMessages((msgs) => [...msgs, msg]);
+          const nextMessages = mergeChatMessages(sessionMessagesRef.current, [...sessionMessagesRef.current, msg]);
+          sessionMessagesRef.current = nextMessages;
+          updateMessages(() => nextMessages);
         }
       } catch {}
     };
     input.click();
   }
 
+  function handleBackToList() {
+    const latestMessages = sessionMessagesRef.current;
+    if (latestMessages.length > 0) {
+      updateMessages((messages) => mergeChatMessages(messages, latestMessages));
+    }
+    onBackToList?.();
+  }
+
   return (
     <>
       {listEntryMode ? (
-        <header className="chat-header chat-room-header">
+        <header className={`chat-header chat-room-header single-room-header${session.kind === "memo" ? " single-room-header-title-only" : ""}`}>
           <div className="header-top">
-            <button className="header-icon-btn chat-room-back" onClick={onBackToList} aria-label="返回列表">
+            <button className="header-icon-btn chat-room-back" onClick={handleBackToList} aria-label="返回列表">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <polyline points="14.5 5.5 8 12 14.5 18.5" />
               </svg>
             </button>
             <div className="header-center">
-              <h1 className="header-title chat-room-title">{session.kind === "memo" ? settings.userName : settings.aiName}</h1>
-              {session.kind !== "memo" && <span className="header-subtitle chat-room-status">{getChatStatusLabel(aiMood, settings.aiName)}</span>}
+              <h1 className="header-title chat-room-title">{session.kind === "memo" ? settings.userName : assistantName}</h1>
+              {session.kind !== "memo" && (
+                <span className="header-subtitle chat-room-status">
+                  {isGpt ? "在线" : getChatStatusLabel(aiMood)}
+                </span>
+              )}
             </div>
-            {session.kind === "memo" ? (
-              <span className="header-icon-btn" aria-hidden="true" />
-            ) : (
-              <button className="header-icon-btn chat-room-more" onClick={() => setShowModelMenu((open) => !open)} aria-label="模型切换">···</button>
-            )}
-            {showModelMenu && <div className="chat-model-backdrop" onClick={() => setShowModelMenu(false)} />}
-            {showModelMenu && (
-              <div className="chat-model-popover">
-                <p>模型</p>
-                {MODELS.map((m) => (
-                  <button
-                    key={m.id}
-                    className={settings.model === m.id ? "chat-model-active" : ""}
-                    onClick={() => {
-                      updateSettings({ model: m.id });
-                      setShowModelMenu(false);
-                    }}
-                  >
-                    <span>{m.label}</span>
-                    {settings.model === m.id && <b>✓</b>}
-                  </button>
-                ))}
-              </div>
-            )}
+            <span className="header-icon-spacer" aria-hidden="true" />
           </div>
         </header>
       ) : (
-        <header className="chat-header">
+        <header className="chat-header direct-chat-header">
           <div className="header-top">
             <button className="header-icon-btn" onClick={() => setShowSessions(true)}>
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
@@ -2319,8 +2700,8 @@ function ChatView({
               </svg>
             </button>
             <div className="header-center">
-              <h1 className="header-title">iooi</h1>
-              <span className="header-subtitle" style={{ color: "#c4866c" }}>{settings.aiName} {aiMood.emoji || ""} · {currentModel.label}</span>
+              <h1 className="header-title">{isGpt ? "GPT" : "iooi"}</h1>
+              <span className="header-subtitle" style={{ color: "var(--accent-text)" }}>{assistantName} {!isGpt && (aiMood.emoji || "")} · {currentModelLabel}</span>
             </div>
             <button className="header-icon-btn" onClick={createSession}>
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
@@ -2331,13 +2712,14 @@ function ChatView({
         </header>
       )}
 
-      <section className="chat-messages" ref={scrollRef}>
+      <section className="chat-messages" ref={scrollRef} onScroll={handleScroll}>
         {session.messages.length === 0 && (
           <div className="empty-chat"><p>说点什么开始聊天吧</p></div>
         )}
         {session.messages.map((message, index) => {
           if (message.source === "summer_write_ignored") return null;
           const isSummerUtility = listEntryMode && isSummerUtilityMessage(message);
+          const animateMessage = !listEntryMode || index >= initialMessageCount;
           const prevMsg = index > 0 ? session.messages[index - 1] : null;
           const nextMsg = index < session.messages.length - 1 ? session.messages[index + 1] : null;
           const prevDate = index > 0 ? session.messages[index - 1].date : null;
@@ -2356,15 +2738,19 @@ function ChatView({
                   </span>
                 </div>
               )}
-              <div className={`msg-row ${message.role === "user" ? "msg-row-user" : "msg-row-ai"} ${isSummerUtility ? "msg-row-summer-utility" : ""} ${compactTop ? "msg-row-compact-top" : ""} ${compactBottom ? "msg-row-compact-bottom" : ""}`} style={{ animationDelay: `${Math.min(index * 0.03, 0.3)}s` }}>
+              {message.thinking && (
+                <div className="thinking-row">
+                  <ThinkingBlock content={message.thinking} />
+                </div>
+              )}
+              <div className={`msg-row ${message.role === "user" ? "msg-row-user" : "msg-row-ai"} ${isSummerUtility ? "msg-row-summer-utility" : ""} ${compactTop ? "msg-row-compact-top" : ""} ${compactBottom ? "msg-row-compact-bottom" : ""} ${animateMessage ? "" : "msg-row-static"}`} style={animateMessage ? { animationDelay: `${Math.min(index * 0.03, 0.3)}s` } : undefined}>
                 {message.role === "assistant" && !isSummerUtility && (
-                  settings.aiAvatar
-                    ? <img src={settings.aiAvatar} className="avatar avatar-img" alt="" />
+                  assistantAvatar
+                    ? <img src={assistantAvatar} className="avatar avatar-img" alt="" />
                     : <div className="avatar avatar-ai" />
                 )}
                 <div className={message.role === "user" ? "msg-content-user" : "msg-content-ai"}>
                   {!listEntryMode && <span className="msg-time">{message.source === "heartbeat" ? "💬 " : ""}{message.time}</span>}
-                  {message.thinking && <ThinkingBlock content={message.thinking} />}
                   {message.image ? (
                     <div className={`msg-bubble msg-bubble-img ${message.role === "user" ? "msg-bubble-user" : "msg-bubble-ai"}`}>
                       <img src={message.image} className="msg-image" alt="" onClick={() => window.open(message.image, "_blank")} />
@@ -2372,19 +2758,13 @@ function ChatView({
                     </div>
                   ) : (
                     <div
-                      className={`msg-bubble ${message.role === "user" ? "msg-bubble-user" : "msg-bubble-ai"} ${isSummerUtility ? "msg-bubble-summer-utility" : ""} ${message.source === "summer_call" ? "msg-bubble-summer-call" : ""} ${message.source === "summer_write_proposal" || message.source === "summer_write_committed" ? "msg-bubble-summer-write" : ""} ${heartBurst === index ? "bubble-hearted" : ""}`}
-                      onTouchStart={message.role === "assistant" ? () => startPress(index) : undefined}
-                      onTouchEnd={message.role === "assistant" ? cancelPress : undefined}
-                      onTouchMove={message.role === "assistant" ? cancelPress : undefined}
-                      onMouseDown={message.role === "assistant" ? () => startPress(index) : undefined}
-                      onMouseUp={message.role === "assistant" ? cancelPress : undefined}
-                      onMouseLeave={message.role === "assistant" ? cancelPress : undefined}
-                      onContextMenu={message.role === "assistant" ? (e) => e.preventDefault() : undefined}
+                      className={`msg-bubble ${message.role === "user" ? "msg-bubble-user" : "msg-bubble-ai"} ${isSummerUtility ? "msg-bubble-summer-utility" : ""} ${message.source === "summer_call" ? "msg-bubble-summer-call" : ""} ${message.source === "summer_write_proposal" || message.source === "summer_write_committed" ? "msg-bubble-summer-write" : ""}`}
                     >
                       {message.source === "summer_write_proposal" && editingProposalIndex === index && proposalDraft ? (
                         <div className="summer-proposal-editor">
                           <div className="summer-proposal-editor-row">
                             <select value={proposalDraft.layer || "xiaoshu"} onChange={(e) => setProposalDraft({ ...proposalDraft, layer: e.target.value as SummerWriteProposal["layer"] })}>
+                              <option value="mangzhong">芒种</option>
                               <option value="xiaoshu">小暑</option>
                               <option value="xiazhi">夏至</option>
                               <option value="rain">rain</option>
@@ -2431,7 +2811,6 @@ function ChatView({
                           )}
                         </>
                       )}
-                      {heartBurst === index && <span className="heart-pop">💖</span>}
                     </div>
                   )}
                 </div>
@@ -2444,15 +2823,29 @@ function ChatView({
             </div>
           );
         })}
-        {loading && (
-          <div className="msg-row msg-row-ai">
-            {settings.aiAvatar
-              ? <img src={settings.aiAvatar} className="avatar avatar-img" alt="" />
+        {streamingReply && (
+          <div className="msg-row msg-row-ai msg-row-streaming">
+            {assistantAvatar
+              ? <img src={assistantAvatar} className="avatar avatar-img" alt="" />
               : <div className="avatar avatar-ai" />
             }
             <div className="msg-content-ai">
-              <div className="msg-bubble msg-bubble-ai">
-                <div className="typing-dots"><span /><span /><span /></div>
+              <div className="msg-bubble msg-bubble-ai msg-bubble-streaming" aria-live="polite">
+                {renderContent(streamingReply)}
+              </div>
+            </div>
+          </div>
+        )}
+        {((loading && !streamingReply) || replyRequestState === "paused") && (
+          <div className="msg-row msg-row-ai">
+            {assistantAvatar
+              ? <img src={assistantAvatar} className="avatar avatar-img" alt="" />
+              : <div className="avatar avatar-ai" />
+            }
+            <div className="msg-content-ai">
+              <div className={`msg-bubble msg-bubble-ai reply-status-bubble reply-status-${replyRequestState}`} aria-live="polite">
+                {loading && <div className="typing-dots"><span /><span /><span /></div>}
+                <span className="reply-status-text">{REPLY_REQUEST_LABELS[replyRequestState]}</span>
               </div>
             </div>
           </div>
@@ -2469,23 +2862,142 @@ function ChatView({
         </div>
       )}
 
-      <footer className="chat-footer">
-        <div className="input-wrapper">
-          <button className="attach-btn" onClick={uploadFile}>
+      <footer className="chat-footer single-chat-footer">
+        {session.kind !== "memo" && showModelMenu && (
+          <div className="chat-config-panel">
+            <section className="chat-config-section">
+              <p>MODEL</p>
+              <div className="chat-config-options">
+                {isGpt ? (
+                  <button type="button" className="chat-config-option chat-config-option-active" disabled>
+                    {currentModelLabel}
+                  </button>
+                ) : MODELS.map((model) => (
+                  <button
+                    type="button"
+                    key={model.id}
+                    className={`chat-config-option${settings.model === model.id ? " chat-config-option-active" : ""}`}
+                    onClick={() => updateSettings({ model: model.id })}
+                  >
+                    {model.label}
+                  </button>
+                ))}
+              </div>
+              {!isGpt && <p className="settings-hint">酥酥纯文字只走 Claude 订阅；失败时不会改走 API。</p>}
+            </section>
+
+            <section className="chat-config-section">
+              <p>INTELLIGENCE</p>
+              <div className="chat-config-options">
+                {(isGpt ? GPT_REASONING_OPTIONS : CLAUDE_REASONING_OPTIONS).map((option) => {
+                  const active = isGpt
+                    ? settings.gptReasoningEffort === option.value
+                    : settings.claudeReasoningEffort === option.value;
+                  return (
+                    <button
+                      type="button"
+                      key={option.value}
+                      className={`chat-config-option${active ? " chat-config-option-active" : ""}`}
+                      onClick={() => isGpt
+                        ? updateSettings({ gptReasoningEffort: option.value as GptReasoningEffort })
+                        : updateSettings({ claudeReasoningEffort: option.value as ClaudeReasoningEffort })}
+                    >
+                      {option.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </section>
+
+            {!isGpt && (
+              <section className="chat-config-section chat-config-toggle-section">
+                <p>EXTENDED THINKING</p>
+                <button
+                  type="button"
+                  className={`chat-config-switch${settings.thinking ? " chat-config-switch-on" : ""}`}
+                  role="switch"
+                  aria-checked={settings.thinking}
+                  onClick={() => updateSettings({ thinking: !settings.thinking })}
+                >
+                  <span>{settings.thinking ? "On" : "Off"}</span><i />
+                </button>
+              </section>
+            )}
+
+            <section className="chat-config-section chat-config-toggle-section">
+              <p>WEB SEARCH</p>
+              <button
+                type="button"
+                className={`chat-config-switch${(isGpt ? settings.gptWebSearch : settings.webSearch) ? " chat-config-switch-on" : ""}`}
+                role="switch"
+                aria-checked={isGpt ? settings.gptWebSearch : settings.webSearch}
+                onClick={() => {
+                  updateSettings(isGpt
+                    ? { gptWebSearch: !settings.gptWebSearch }
+                    : { webSearch: !settings.webSearch });
+                }}
+              >
+                <span>{(isGpt ? settings.gptWebSearch : settings.webSearch) ? "On" : "Off"}</span><i />
+              </button>
+            </section>
+            {!isGpt && <p className="settings-hint">订阅图片和搜索已接入；文件稍后开放。</p>}
+          </div>
+        )}
+        {session.kind !== "memo" && (
+          <div className="single-chat-control-row">
+            <button
+              type="button"
+              className={`chat-control-pill${showModelMenu ? " chat-control-pill-active" : ""}`}
+              onClick={() => setShowModelMenu((open) => !open)}
+              aria-expanded={showModelMenu}
+              aria-label="切换模型和推理强度"
+            >
+              <span>{currentModelLabel}</span>
+              <i>·</i>
+              <span>{isGpt ? gptReasoningLabel : (settings.thinking ? claudeReasoningLabel : "Off")}</span>
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <polyline points="6 9 12 15 18 9" />
+              </svg>
+            </button>
+            {!isGpt && <ClaudeUsageBadge />}
+          </div>
+        )}
+        <div className="composer-row">
+          <button
+            className="attach-btn attach-btn-separate"
+            onClick={uploadFile}
+            aria-label={isGpt ? "上传图片或文件" : "上传图片"}
+            title={isGpt ? "上传图片或文件" : "上传图片"}
+          >
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
               <path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48" />
             </svg>
           </button>
-          <textarea
-            ref={inputRef} value={input} onChange={handleInputChange}
-            onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); } }}
-            placeholder={inputHint} rows={1} className="chat-input"
-          />
-          <button onClick={sendMessage} disabled={loading || !input.trim()} className="send-btn" style={{ background: loading ? "#d5ccc8" : "#c4866c" }}>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <line x1="12" y1="19" x2="12" y2="5" /><polyline points="5 12 12 5 19 12" />
-            </svg>
-          </button>
+          <div className="input-wrapper">
+            <textarea
+              ref={inputRef} value={input} onChange={handleInputChange}
+              placeholder={inputHint} rows={1} className="chat-input"
+            />
+            <button
+              type="button"
+              onClick={loading ? pauseReply : sendMessage}
+              disabled={!loading && !input.trim()}
+              className={`send-btn${loading ? " pause-reply-btn" : ""}`}
+              aria-label={loading ? "暂停等待回复" : "发送消息"}
+              title={loading ? "暂停等待回复" : "发送"}
+            >
+              {loading ? (
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="white" aria-hidden="true">
+                  <rect x="6" y="5" width="4" height="14" rx="1" />
+                  <rect x="14" y="5" width="4" height="14" rx="1" />
+                </svg>
+              ) : (
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <line x1="12" y1="19" x2="12" y2="5" /><polyline points="5 12 12 5 19 12" />
+                </svg>
+              )}
+            </button>
+          </div>
         </div>
       </footer>
 
@@ -2498,7 +3010,7 @@ function ChatView({
           </header>
           <div className="wall-body">
             {sessions.map((s) => (
-              <div key={s.id} className={`session-item ${s.id === session.id ? "session-item-active" : ""}`} style={{ background: s.id === session.id ? "rgba(240, 228, 218, 0.4)" : "white", border: "1px solid var(--border-soft)", borderRadius: "16px", padding: "4px", marginBottom: "2px" }}>
+              <div key={s.id} className={`session-item ${s.id === session.id ? "session-item-active" : ""}`} style={{ background: s.id === session.id ? "rgba(var(--theme-soft-rgb, 240, 228, 218), 0.4)" : "white", border: "1px solid var(--border-soft)", borderRadius: "16px", padding: "4px", marginBottom: "2px" }}>
                 {editingName === s.id ? (
                   <input
                     className="session-rename-input"
@@ -2600,11 +3112,11 @@ function splitMangzhongDocs(content: string) {
   let currentLines: string[] = [];
 
   for (const line of lines) {
-    if (line.startsWith("## ")) {
+    if (/^#{1,2}\s+/.test(line)) {
       if (currentTitle) {
         docs.push({ title: currentTitle, content: currentLines.join("\n").trim() });
       }
-      currentTitle = line.replace(/^##\s+/, "").trim();
+      currentTitle = line.replace(/^#{1,2}\s+/, "").trim();
       currentLines = [];
     } else if (currentTitle) {
       currentLines.push(line);
@@ -2616,7 +3128,8 @@ function splitMangzhongDocs(content: string) {
   return docs;
 }
 
-function SummerMemoryView() {
+function SummerMemoryView({ assistantMode }: { assistantMode: AssistantMode }) {
+  const summerEndpoint = assistantMode === "gpt" ? "/api/gpt/summer" : "/api/summer";
   const [state, setState] = useState<SummerState | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -2633,11 +3146,13 @@ function SummerMemoryView() {
   const [editingDoc, setEditingDoc] = useState("");
   const [editingItem, setEditingItem] = useState<SummerMemoryItem | null>(null);
 
-  const loadSummer = useCallback(async () => {
-    setLoading(true);
-    setError("");
+  const loadSummer = useCallback(async (quiet = false) => {
+    if (!quiet) {
+      setLoading(true);
+      setError("");
+    }
     try {
-      const res = await apiFetch("/api/summer", { cache: "no-store" });
+      const res = await apiFetchWithTimeout(summerEndpoint, { cache: "no-store" });
       const json = await res.json();
       if (!res.ok || !json.ok) throw new Error(json.error || "summer 读取失败");
       setState(json.data || {});
@@ -2647,12 +3162,25 @@ function SummerMemoryView() {
     } catch (err) {
       setError(err instanceof Error ? err.message : "summer 读取失败");
     } finally {
-      setLoading(false);
+      if (!quiet) setLoading(false);
     }
-  }, [activeLayer]);
+  }, [activeLayer, summerEndpoint]);
 
   useEffect(() => {
-    loadSummer();
+    const frame = window.requestAnimationFrame(() => void loadSummer());
+    return () => window.cancelAnimationFrame(frame);
+  }, [loadSummer]);
+
+  useEffect(() => {
+    const refreshVisibleSummer = () => {
+      if (document.visibilityState === "visible") void loadSummer(true);
+    };
+    window.addEventListener("focus", refreshVisibleSummer);
+    document.addEventListener("visibilitychange", refreshVisibleSummer);
+    return () => {
+      window.removeEventListener("focus", refreshVisibleSummer);
+      document.removeEventListener("visibilitychange", refreshVisibleSummer);
+    };
   }, [loadSummer]);
 
   async function runSearch() {
@@ -2664,10 +3192,14 @@ function SummerMemoryView() {
     setSearching(true);
     setError("");
     try {
-      const res = await apiFetch(`/api/summer?q=${encodeURIComponent(q)}`, { cache: "no-store" });
+      const res = await apiFetchWithTimeout(`${summerEndpoint}?q=${encodeURIComponent(q)}`, { cache: "no-store" });
       const json = await res.json();
       if (!res.ok || !json.ok) throw new Error(json.error || "summer 检索失败");
-      setHits(json.data?.hits || []);
+      setHits((json.data?.results || json.data?.hits || []).map((hit: { layer?: string; source?: string; score?: number; title?: string; content?: string; text?: string }) => ({
+        source: hit.layer || hit.source,
+        score: hit.score,
+        text: hit.text || [hit.title, hit.content].filter(Boolean).join("\n"),
+      })));
     } catch (err) {
       setError(err instanceof Error ? err.message : "summer 检索失败");
     } finally {
@@ -2680,7 +3212,7 @@ function SummerMemoryView() {
     setSaving(true);
     setError("");
     try {
-      const res = await apiFetch("/api/summer", {
+      const res = await apiFetchWithTimeout(summerEndpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -2696,7 +3228,7 @@ function SummerMemoryView() {
       setWriteTitle("");
       setWriteContent("");
       setWriterOpen(false);
-      await loadSummer();
+      void loadSummer(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : "summer 写入失败");
     } finally {
@@ -2704,22 +3236,63 @@ function SummerMemoryView() {
     }
   }
 
+  function uploadSeaFile() {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = ".docx,.txt,.md,.json,.csv,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/*";
+    input.onchange = async (event) => {
+      const file = (event.target as HTMLInputElement).files?.[0];
+      if (!file) return;
+      if (file.size > 10 * 1024 * 1024) {
+        setError("sea 原文件不能超过 10 MB");
+        return;
+      }
+      setSaving(true);
+      setError("");
+      try {
+        const res = await apiFetchWithTimeout(summerEndpoint, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: "sea_file",
+            title: file.name.replace(/\.[^.]+$/, ""),
+            filename: file.name,
+            content_type: file.type,
+            data_base64: arrayBufferToBase64(await file.arrayBuffer()),
+          }),
+        });
+        const json = await res.json();
+        if (!res.ok || !json.ok) throw new Error(json.error || "sea 上传失败");
+        void loadSummer(true);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "sea 上传失败");
+      } finally {
+        setSaving(false);
+      }
+    };
+    input.click();
+  }
+
   async function saveLayerDoc(layer: string) {
-    if (["mangzhong", "sea"].includes(layer)) {
+    if (layer === "sea") {
       setError(`${layerLabel(layer)} 是只读层`);
       return;
     }
     setSaving(true);
     setError("");
     try {
-      const res = await apiFetch("/api/summer", {
+      const res = await apiFetchWithTimeout(summerEndpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "layer", layer, content: editingDoc }),
       });
       const json = await res.json();
       if (!res.ok || !json.ok) throw new Error(json.error || "summer 保存失败");
-      await loadSummer();
+      setState((current) => current ? {
+        ...current,
+        layers: { ...(current.layers || {}), [layer]: editingDoc },
+      } : current);
+      void loadSummer(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : "summer 保存失败");
     } finally {
@@ -2729,14 +3302,14 @@ function SummerMemoryView() {
 
   async function saveItem(layer: string, item: SummerMemoryItem) {
     if (!item.id) return;
-    if (["mangzhong", "sea"].includes(layer)) {
+    if (layer === "sea") {
       setError(`${layerLabel(layer)} 是只读层`);
       return;
     }
     setSaving(true);
     setError("");
     try {
-      const res = await apiFetch("/api/summer", {
+      const res = await apiFetchWithTimeout(summerEndpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -2756,7 +3329,7 @@ function SummerMemoryView() {
       const json = await res.json();
       if (!res.ok || !json.ok) throw new Error(json.error || "summer 保存失败");
       setEditingItem(null);
-      await loadSummer();
+      void loadSummer(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : "summer 保存失败");
     } finally {
@@ -2766,21 +3339,21 @@ function SummerMemoryView() {
 
   async function deleteItem(layer: string, item: SummerMemoryItem) {
     if (!item.id || !confirm("确定删除这条吗？")) return;
-    if (["mangzhong", "sea"].includes(layer)) {
+    if (layer === "sea") {
       setError(`${layerLabel(layer)} 是只读层`);
       return;
     }
     setSaving(true);
     setError("");
     try {
-      const res = await apiFetch("/api/summer", {
+      const res = await apiFetchWithTimeout(summerEndpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "item", layer, id: item.id, actionType: "delete" }),
       });
       const json = await res.json();
       if (!res.ok || !json.ok) throw new Error(json.error || "summer 删除失败");
-      await loadSummer();
+      void loadSummer(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : "summer 删除失败");
     } finally {
@@ -2790,35 +3363,42 @@ function SummerMemoryView() {
 
   const layers = state?.layers || {};
   const xiazhi = state?.xiazhi || [];
+  const orderedXiazhi = xiazhi.slice().reverse();
+  const highWeightXiazhi = orderedXiazhi.filter((item) => Number(item.weight ?? 5) >= 6);
+  const lowWeightXiazhi = orderedXiazhi.filter((item) => Number(item.weight ?? 5) < 6);
   const xiaoshu = (state?.xiaoshu_tail || []).slice().reverse();
   const rain = state?.rain || [];
+  const openRain = rain.filter((item) => item.status !== "closed");
+  const closedRain = rain.filter((item) => item.status === "closed");
   const ferry = state?.ferry || [];
-  const sunnyFiles = state?.sunny_files || state?.sunny?.days || [];
+  const seaFiles = state?.sea_files || state?.sunny_files || state?.sunny?.days || [];
   const layerOrder = ["lixia", "xiaoman", "mangzhong", "xiazhi", "xiaoshu", "rain", "ferry", "sea"];
   const mangzhongDocs = splitMangzhongDocs(layers.mangzhong || "");
   const sectionItems: Record<string, SummerMemoryItem[]> = {
-    xiazhi: xiazhi.slice().reverse(),
+    xiazhi: orderedXiazhi,
     xiaoshu,
     rain,
     ferry,
-    sea: sunnyFiles.slice().reverse(),
+    sea: seaFiles.slice().reverse(),
   };
   const counts: Record<string, string> = {
     lixia: layers.lixia?.trim() ? "1 篇" : "0",
     xiaoman: layers.xiaoman?.trim() ? "1 篇" : "0",
     mangzhong: `${mangzhongDocs.length || (layers.mangzhong?.trim() ? 1 : 0)} 篇`,
-    xiazhi: `${xiazhi.length} 条`,
+    xiazhi: `≥6 ${highWeightXiazhi.length} 条 · <6 ${lowWeightXiazhi.length} 条`,
     xiaoshu: `${xiaoshu.length} 天`,
-    rain: `${rain.length} 件`,
+    rain: `${openRain.length} 未了结 · ${closedRain.length} 已了结`,
     ferry: `${ferry.length} 条`,
-    sea: `${sunnyFiles.length} 份`,
+    sea: `${seaFiles.length} 份`,
   };
 
-  useEffect(() => {
-    if (activeLayer && ["lixia", "xiaoman", "mangzhong"].includes(activeLayer)) {
-      setEditingDoc(layers[activeLayer] || "");
+  function openLayer(layer: string) {
+    setActiveLayer(layer);
+    setEditingItem(null);
+    if (["lixia", "xiaoman", "mangzhong"].includes(layer)) {
+      setEditingDoc(layers[layer] || "");
     }
-  }, [activeLayer, layers]);
+  }
 
   return (
     <div className="summer-native">
@@ -2836,8 +3416,9 @@ function SummerMemoryView() {
         </div>
         <div className="summer-toolbar-actions">
           {activeLayer && <button onClick={() => { setActiveLayer(null); setEditingItem(null); }}>返回</button>}
-          <button onClick={loadSummer} disabled={loading}>刷新</button>
+          <button onClick={() => loadSummer()} disabled={loading}>刷新</button>
           {!activeLayer && <button className="summer-primary-btn" onClick={() => setWriterOpen((v) => !v)}>{writerOpen ? "收起" : "写入"}</button>}
+          {activeLayer === "sea" && <button className="summer-primary-btn" onClick={uploadSeaFile} disabled={saving}>{saving ? "上传中" : "上传原文件"}</button>}
         </div>
       </div>
 
@@ -2859,6 +3440,7 @@ function SummerMemoryView() {
             <label>
               层
               <select value={writeLayer} onChange={(e) => setWriteLayer(e.target.value as SummerWritableLayer)}>
+                <option value="mangzhong">mangzhong</option>
                 <option value="xiaoshu">xiaoshu</option>
                 <option value="xiazhi">xiazhi</option>
                 <option value="rain">rain</option>
@@ -2923,12 +3505,24 @@ function SummerMemoryView() {
         <section className="summer-section">
           {activeLayer === "mangzhong" ? (
             <div className="summer-doc-stack">
-              {splitMangzhongDocs(editingDoc || layers.mangzhong || "").map((doc) => (
-                <details className="summer-doc" key={doc.title}>
+              {splitMangzhongDocs(editingDoc || layers.mangzhong || "").map((doc, index) => (
+                <details className="summer-doc" key={`${doc.title}-${index}`}>
                   <summary>{doc.title}</summary>
                   <pre>{doc.content}</pre>
                 </details>
               ))}
+              <details className="summer-doc summer-editor-details">
+                <summary>编辑芒种全文</summary>
+                <div className="summer-doc-editor">
+                  <textarea value={editingDoc} onChange={(e) => setEditingDoc(e.target.value)} rows={20} />
+                  <div className="summer-writer-actions">
+                    <button onClick={() => setEditingDoc(layers.mangzhong || "")}>还原</button>
+                    <button className="summer-primary-btn" onClick={() => saveLayerDoc("mangzhong")} disabled={saving || !editingDoc.trim()}>
+                      {saving ? "保存中" : "保存"}
+                    </button>
+                  </div>
+                </div>
+              </details>
             </div>
           ) : ["lixia", "xiaoman"].includes(activeLayer) ? (
             <details className="summer-doc summer-editor-details" open={activeLayer !== "mangzhong"}>
@@ -2943,11 +3537,37 @@ function SummerMemoryView() {
                 </div>
               </div>
             </details>
+          ) : activeLayer === "xiazhi" ? (
+            <SummerItemGroups
+              layer="xiazhi"
+              groups={[
+                { key: "high", label: "权重 ≥ 6", items: highWeightXiazhi, empty: "还没有权重 ≥ 6 的夏至", initiallyOpen: true },
+                { key: "low", label: "权重 < 6", items: lowWeightXiazhi, empty: "还没有权重 < 6 的夏至", initiallyOpen: false },
+              ]}
+              editingItem={editingItem}
+              setEditingItem={setEditingItem}
+              onSave={saveItem}
+              onDelete={deleteItem}
+              saving={saving}
+            />
+          ) : activeLayer === "rain" ? (
+            <SummerItemGroups
+              layer="rain"
+              groups={[
+                { key: "open", label: "未了结", items: openRain, empty: "没有未了结的 rain", initiallyOpen: true },
+                { key: "closed", label: "已了结", items: closedRain, empty: "还没有已了结的 rain", initiallyOpen: false },
+              ]}
+              editingItem={editingItem}
+              setEditingItem={setEditingItem}
+              onSave={saveItem}
+              onDelete={deleteItem}
+              saving={saving}
+            />
           ) : (
             <SummerEditableList
               layer={activeLayer}
               items={sectionItems[activeLayer] || []}
-              empty={activeLayer === "sea" ? "sea 只读，还没有内容" : "还没有内容"}
+              empty={activeLayer === "sea" ? "sea 只进不改，还没有原文件" : "还没有内容"}
               editingItem={editingItem}
               setEditingItem={setEditingItem}
               onSave={saveItem}
@@ -2960,7 +3580,7 @@ function SummerMemoryView() {
       ) : (
         <div className="summer-layer-list">
           {layerOrder.map((layer) => (
-            <button className="summer-layer-card" key={layer} onClick={() => setActiveLayer(layer)}>
+            <button className="summer-layer-card" key={layer} onClick={() => openLayer(layer)}>
               <div>
                 <h3>{layerLabel(layer)}</h3>
                 <p>{layerSub(layer)}</p>
@@ -2998,7 +3618,7 @@ function SummerEditableList({
   if (!items.length) {
     return <div className="summer-empty">{empty}</div>;
   }
-  const showFileContent = layer === "sea" || layer === "sunny_file";
+  const showFileContent = layer === "sea" || layer === "sunny_file" || layer === "xiaoshu";
   return (
     <div className="summer-card-list">
       {items.map((item, index) => (
@@ -3006,12 +3626,27 @@ function SummerEditableList({
           {editingItem?.id === item.id ? (
             <div className="summer-inline-editor">
               <input value={editingItem!.title || ""} onChange={(e) => setEditingItem({ ...editingItem!, title: e.target.value })} placeholder="标题" />
+              {layer === "xiazhi" && (
+                <label className="summer-writer-row">
+                  <span>权重（1–10）</span>
+                  <input
+                    type="number"
+                    min={1}
+                    max={10}
+                    value={editingItem!.weight ?? 5}
+                    onChange={(e) => setEditingItem({
+                      ...editingItem!,
+                      weight: Math.max(1, Math.min(10, Number(e.target.value) || 5)),
+                    })}
+                  />
+                </label>
+              )}
               {layer === "rain" && (
                 <div className="summer-writer-row">
                   <input value={editingItem!.due || ""} onChange={(e) => setEditingItem({ ...editingItem!, due: e.target.value })} placeholder="due，可空" />
                   <select value={editingItem!.status || "open"} onChange={(e) => setEditingItem({ ...editingItem!, status: e.target.value })}>
-                    <option value="open">open</option>
-                    <option value="closed">closed</option>
+                    <option value="open">未了结</option>
+                    <option value="closed">已了结</option>
                   </select>
                 </div>
               )}
@@ -3028,12 +3663,18 @@ function SummerEditableList({
               <div className="summer-card-meta">
                 <span>{item.date || item.due || item.filename || "summer"}</span>
                 {item.weight && <span>权重 {item.weight}</span>}
-                {item.status && <span>{item.status}</span>}
+                {layer === "rain" ? <span>{item.status === "closed" ? "已了结" : "未了结"}</span> : item.status && <span>{item.status}</span>}
               </div>
               {item.title && <h4>{item.title}</h4>}
               {showFileContent ? (
-                <details className="summer-card-content">
-                  <summary>展开内容</summary>
+                <details className={`summer-card-content${layer === "xiaoshu" ? " summer-card-content-preview" : ""}`}>
+                  <summary>
+                    {layer === "xiaoshu" && <span className="summer-card-preview-text">{item.content || ""}</span>}
+                    <span className="summer-card-toggle-text">
+                      <span className="summer-card-toggle-open">{layer === "xiaoshu" ? "展开正文" : "展开内容"}</span>
+                      <span className="summer-card-toggle-close">收起正文</span>
+                    </span>
+                  </summary>
                   <p>{item.content || ""}</p>
                 </details>
               ) : (
@@ -3046,6 +3687,18 @@ function SummerEditableList({
               )}
               {!readOnly && (
                 <div className="summer-card-actions">
+                  {layer === "rain" && item.status !== "closed" && (
+                    <button
+                      disabled={saving}
+                      onClick={() => {
+                        if (confirm("确定把这条 rain 标记为已了结吗？")) {
+                          onSave(layer, { ...item, status: "closed" });
+                        }
+                      }}
+                    >
+                      标记已了结
+                    </button>
+                  )}
                   <button onClick={() => setEditingItem({ ...item })}>修改</button>
                   <button onClick={() => onDelete(layer, item)}>删除</button>
                 </div>
@@ -3058,263 +3711,109 @@ function SummerEditableList({
   );
 }
 
-function SummerPageView() {
+function SummerItemGroups({
+  layer,
+  groups,
+  editingItem,
+  setEditingItem,
+  onSave,
+  onDelete,
+  saving,
+}: {
+  layer: string;
+  groups: Array<{
+    key: string;
+    label: string;
+    items: SummerMemoryItem[];
+    empty: string;
+    initiallyOpen: boolean;
+  }>;
+  editingItem: SummerMemoryItem | null;
+  setEditingItem: React.Dispatch<React.SetStateAction<SummerMemoryItem | null>>;
+  onSave: (layer: string, item: SummerMemoryItem) => void;
+  onDelete: (layer: string, item: SummerMemoryItem) => void;
+  saving: boolean;
+}) {
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+
+  return (
+    <div className="summer-memory-groups">
+      {groups.map((group) => (
+        <details
+          className="summer-memory-group"
+          key={group.key}
+          open={expanded[group.key] ?? group.initiallyOpen}
+          onToggle={(event) => {
+            const isOpen = event.currentTarget.open;
+            setExpanded((current) => current[group.key] === isOpen ? current : { ...current, [group.key]: isOpen });
+          }}
+        >
+          <summary>
+            <span>{group.label}</span>
+            <span>{group.items.length} 条</span>
+          </summary>
+          <div className="summer-memory-group-body">
+            <SummerEditableList
+              layer={layer}
+              items={group.items}
+              empty={group.empty}
+              editingItem={editingItem}
+              setEditingItem={setEditingItem}
+              onSave={onSave}
+              onDelete={onDelete}
+              saving={saving}
+            />
+          </div>
+        </details>
+      ))}
+    </div>
+  );
+}
+
+function SummerPageView({ assistantMode, assistantName }: { assistantMode: AssistantMode; assistantName: string }) {
+  const isGpt = assistantMode === "gpt";
   return (
     <>
-      <header className="chat-header">
+      <header className="chat-header compact-section-header">
         <div className="header-top">
           <span className="header-dot" />
           <div className="header-center">
             <h1 className="header-title">summer</h1>
-            <span className="header-subtitle" style={{ color: "#c4866c" }}>这不是档案，是我们活过的痕迹</span>
+            <span className="header-subtitle" style={{ color: "var(--accent-text)" }}>
+              {isGpt ? "GPT · 独立记忆" : `${assistantName} · 这不是档案，是我们活过的痕迹`}
+            </span>
           </div>
           <span className="header-dot" />
         </div>
       </header>
       <section className="diary-body">
-        <SummerMemoryView />
+        <SummerMemoryView assistantMode={assistantMode} />
       </section>
     </>
-  );
-}
-
-// Diary View
-function DiaryView({
-  diary,
-  addEntry,
-  deleteEntry,
-  updateEntry,
-  settings,
-  updateSettings,
-  memoryEntries,
-  setMemoryEntries,
-}: {
-  diary: DiaryEntry[];
-  addEntry: (content: string, author: "me" | "ai", category?: "casual" | "ai" | "important" | "auto") => void;
-  deleteEntry: (id: string) => void;
-  updateEntry: (id: string, updates: Partial<DiaryEntry>) => void;
-  settings: Settings;
-  updateSettings: (p: Partial<Settings>) => void;
-  memoryEntries: MemoryEntry[];
-  setMemoryEntries: React.Dispatch<React.SetStateAction<MemoryEntry[]>>;
-}) {
-  const [writing, setWriting] = useState(false);
-  const [text, setText] = useState("");
-  const [author, setAuthor] = useState<"me" | "ai">("me");
-  const [activeTab, setActiveTab] = useState<"casual" | "ai" | "important" | "auto">("casual");
-  const [expanded, setExpanded] = useState<Set<string>>(new Set());
-  const [detailEntry, setDetailEntry] = useState<DiaryEntry | null>(null);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
-
-  const tabs: { key: "casual" | "ai" | "important" | "auto"; emoji: string }[] = [
-    { key: "casual", emoji: "🐱" },
-    { key: "ai", emoji: "🐶" },
-    { key: "important", emoji: "🐽" },
-    { key: "auto", emoji: "👾" },
-  ];
-
-  const filteredDiary = diary.filter((e) => (e.category || "casual") === activeTab);
-
-  useEffect(() => {
-    if (writing && textareaRef.current) textareaRef.current.focus();
-  }, [writing]);
-
-  function submit() {
-    if (!text.trim()) return;
-    addEntry(text.trim(), author, activeTab);
-    setText("");
-    setWriting(false);
-  }
-
-  function toggleExpand(id: string) {
-    setExpanded((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id); else next.add(id);
-      return next;
-    });
-  }
-
-  function toggleStar(id: string, currentCategory: string) {
-    if (currentCategory === "important") {
-      updateEntry(id, { category: "casual" });
-    } else {
-      updateEntry(id, { category: "important" });
-    }
-  }
-
-  return (
-    <>
-      <header className="chat-header">
-        <div className="header-top">
-          <span className="header-dot" />
-          <div className="header-center">
-            <h1 className="header-title">日记</h1>
-            <span className="header-subtitle" style={{ color: "#c4866c" }}>Diary</span>
-          </div>
-          <span className="header-dot" />
-        </div>
-      </header>
-
-      <div className="diary-tabs">
-        {tabs.map((tab) => (
-          <button
-            key={tab.key}
-            className={`diary-tab ${activeTab === tab.key ? "diary-tab-active" : ""}`}
-            onClick={() => setActiveTab(tab.key)}
-          >
-            {tab.emoji}
-          </button>
-        ))}
-      </div>
-
-      <section className="diary-body">
-        {activeTab === "auto" ? (
-          <SummerMemoryView />
-        ) : writing ? (
-          <div className="diary-editor">
-            <div className="diary-editor-header">
-              <span className="diary-editor-date">{getDateStr()} {getTime()}</span>
-              <div className="diary-author-switch">
-                <button className={`author-btn ${author === "me" ? "author-btn-active" : ""}`} onClick={() => setAuthor("me")}>
-                  {settings.userName}
-                </button>
-                <button className={`author-btn ${author === "ai" ? "author-btn-active" : ""}`} onClick={() => setAuthor("ai")}>
-                  {settings.aiName}
-                </button>
-              </div>
-            </div>
-            <textarea
-              ref={textareaRef}
-              className="diary-textarea"
-              value={text}
-              onChange={(e) => setText(e.target.value)}
-              placeholder="写点什么..."
-              rows={10}
-            />
-            <div className="diary-editor-actions">
-              <button className="diary-cancel-btn" onClick={() => { setWriting(false); setText(""); }}>取消</button>
-              <button className="diary-submit-btn" onClick={submit} disabled={!text.trim()}>保存</button>
-            </div>
-          </div>
-        ) : (
-          <>
-            {filteredDiary.length === 0 ? (
-              <div className="diary-empty">
-                <p>还没有内容</p>
-              </div>
-            ) : (
-              <div className="diary-list">
-                {filteredDiary.map((entry) => {
-                  const isExpanded = expanded.has(entry.id);
-                  const isLong = entry.content.length > 100;
-                  const cat = entry.category || "casual";
-                  return (
-                    <div key={entry.id} className="diary-entry" onClick={() => setDetailEntry(entry)}>
-                      <div className="diary-entry-header">
-                        <span className="diary-entry-author" style={{ color: entry.author === "ai" ? "#c4866c" : "#a09088" }}>
-                          {entry.author === "me" ? settings.userName : settings.aiName}
-                        </span>
-                        <span className="diary-entry-date">{entry.date} {entry.time}</span>
-                      </div>
-                      <p className={`diary-entry-content ${!isExpanded && isLong ? "diary-entry-truncated" : ""}`}>
-                        {entry.content}
-                      </p>
-                      <div className="diary-entry-actions">
-                        <button
-                          className={`diary-star-btn ${cat === "important" ? "diary-star-active" : ""}`}
-                          onClick={(e) => { e.stopPropagation(); toggleStar(entry.id, cat); }}
-                        >☆</button>
-                        <button className="diary-entry-delete" onClick={(e) => { e.stopPropagation(); deleteEntry(entry.id); }}>删除</button>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </>
-        )}
-        {activeTab !== "auto" && !writing && (
-          <button className="diary-write-btn" onClick={() => setWriting(true)}>
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
-            </svg>
-          </button>
-        )}
-      </section>
-
-      {detailEntry && (
-        <DiaryDetail
-          entry={diary.find((e) => e.id === detailEntry.id) || detailEntry}
-          settings={settings}
-          onSave={(id, content) => updateEntry(id, { content })}
-          onDelete={(id) => { deleteEntry(id); setDetailEntry(null); }}
-          onClose={() => setDetailEntry(null)}
-        />
-      )}
-    </>
-  );
-}
-
-// 日记详情页
-function DiaryDetail({ entry, settings, onSave, onDelete, onClose }: {
-  entry: DiaryEntry;
-  settings: Settings;
-  onSave: (id: string, content: string) => void;
-  onDelete: (id: string) => void;
-  onClose: () => void;
-}) {
-  const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState(entry.content);
-
-  return (
-    <div className="wall-overlay">
-      <header className="wall-header">
-        <button className="wall-back" onClick={onClose}>← 返回</button>
-        <h2 className="wall-title">{entry.author === "me" ? settings.userName : settings.aiName}的日记</h2>
-        <button className="wall-back" onClick={() => { if (editing) { onSave(entry.id, draft.trim()); } setEditing(!editing); }}>
-          {editing ? "保存" : "编辑"}
-        </button>
-      </header>
-      <div className="diary-detail-body">
-        <p className="diary-detail-date">{entry.date} {entry.time}</p>
-        {editing ? (
-          <textarea
-            className="diary-detail-editor"
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            autoFocus
-          />
-        ) : (
-          <div className="diary-detail-content">{entry.content}</div>
-        )}
-        {!editing && (
-          <button className="diary-detail-delete" onClick={() => { if (confirm("确定删除这篇日记吗？")) onDelete(entry.id); }}>删除这篇</button>
-        )}
-      </div>
-    </div>
   );
 }
 
 // Settings View
 function SettingsView({
+  assistantMode,
   settings,
   updateSettings,
   updateSummary,
   lastCache,
   session,
-  memoryCount,
 }: {
+  assistantMode: AssistantMode;
   settings: Settings;
   updateSettings: (p: Partial<Settings>) => void;
   updateSummary: (summary: string, until: number) => void;
   lastCache: CacheStats | null;
   session?: ChatSession;
-  memoryCount: number;
 }) {
+  const isGpt = assistantMode === "gpt";
   const [cacheBusy, setCacheBusy] = useState(false);
   const [cacheMessage, setCacheMessage] = useState("");
 
-  function handleAvatarUpload(field: "aiAvatar" | "userAvatar") {
+  function handleAvatarUpload(field: "aiAvatar" | "gptAvatar" | "userAvatar") {
     const input = document.createElement("input");
     input.type = "file";
     input.accept = "image/*";
@@ -3380,9 +3879,10 @@ function SettingsView({
         body: JSON.stringify({
           previousSummary: session.summary || "",
           messages: slice.map((m) => ({ role: m.role, content: m.content })),
-          aiName: settings.aiName,
+          aiName: isGpt ? "GPT" : settings.aiName,
           userName: settings.userName,
-          modelId: currentModel.apiId,
+          modelId: isGpt ? GPT_MODEL_ID : currentModel.apiId,
+          reasoningEffort: isGpt ? settings.gptReasoningEffort : undefined,
         }),
       });
       const data = await res.json();
@@ -3402,30 +3902,39 @@ function SettingsView({
 
   return (
     <>
-      <header className="chat-header">
+      <header className="chat-header compact-section-header">
         <div className="header-top">
           <span className="header-dot" />
           <div className="header-center">
             <h1 className="header-title">设置</h1>
-            <span className="header-subtitle" style={{ color: "#c4866c" }}>Settings</span>
+            <span className="header-subtitle" style={{ color: "var(--accent-text)" }}>Settings · {isGpt ? "GPT" : (settings.aiName || CLAUDE_DEFAULT_NAME)}</span>
           </div>
           <span className="header-dot" />
         </div>
       </header>
 
       <section className="settings-body">
+        <ThemePicker />
         <div className="settings-group">
           <h2 className="settings-group-title">称呼与头像</h2>
           <div className="avatar-upload-row">
             <div className="avatar-upload-item">
-              <button className="avatar-upload-btn" onClick={() => handleAvatarUpload("aiAvatar")}>
-                {settings.aiAvatar
-                  ? <img src={settings.aiAvatar} className="avatar-upload-preview" alt="" />
-                  : <div className="avatar-upload-placeholder avatar-ai" />
+              <button className="avatar-upload-btn" onClick={() => handleAvatarUpload(isGpt ? "gptAvatar" : "aiAvatar")}>
+                {isGpt
+                  ? settings.gptAvatar
+                    ? <img src={settings.gptAvatar} className="avatar-upload-preview" alt="" />
+                    : <div className="avatar-upload-placeholder avatar-ai" />
+                  : settings.aiAvatar
+                    ? <img src={settings.aiAvatar} className="avatar-upload-preview" alt="" />
+                    : <div className="avatar-upload-placeholder avatar-ai" />
                 }
                 <span className="avatar-upload-label">点击更换</span>
               </button>
-              <input className="settings-input settings-input-short" value={settings.aiName} onChange={(e) => updateSettings({ aiName: e.target.value })} />
+              <input
+                className="settings-input settings-input-short"
+                value={isGpt ? settings.gptName : settings.aiName}
+                onChange={(e) => updateSettings(isGpt ? { gptName: e.target.value } : { aiName: e.target.value })}
+              />
             </div>
             <div className="avatar-upload-item">
               <button className="avatar-upload-btn" onClick={() => handleAvatarUpload("userAvatar")}>
@@ -3441,80 +3950,59 @@ function SettingsView({
         </div>
 
         <div className="settings-group">
-          <h2 className="settings-group-title">模型</h2>
-          <div className="model-options">
-            {MODELS.map((m) => (
-              <button
-                key={m.id}
-                className={`model-option ${settings.model === m.id ? "model-option-active" : ""}`}
-                style={settings.model === m.id ? { borderColor: "#c4866c", color: "#c4866c" } : undefined}
-                onClick={() => updateSettings({ model: m.id })}
-              >
-                <span className="model-option-dot" style={{ background: "#c4866c" }} />
-                {m.label}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div className="settings-group">
           <h2 className="settings-group-title">A or B？</h2>
           <p className="settings-hint">My answer is “or”.</p>
           <div className="model-options">
             <button
               className={`model-option ${settings.chatEntryStyle !== "direct" ? "model-option-active" : ""}`}
-              style={settings.chatEntryStyle !== "direct" ? { borderColor: "#c4866c", color: "#c4866c" } : undefined}
+              style={settings.chatEntryStyle !== "direct" ? { borderColor: "var(--theme-accent, #c4866c)", color: "var(--theme-accent, #c4866c)" } : undefined}
               onClick={() => updateSettings({ chatEntryStyle: "list" })}
             >
-              <span className="model-option-dot" style={{ background: settings.chatEntryStyle !== "direct" ? "#c4866c" : "#d5ccc8" }} />
+              <span className="model-option-dot" style={{ background: settings.chatEntryStyle !== "direct" ? "var(--theme-accent, #c4866c)" : "var(--theme-disabled, #d5ccc8)" }} />
               RainLikeButter
             </button>
             <button
               className={`model-option ${settings.chatEntryStyle === "direct" ? "model-option-active" : ""}`}
-              style={settings.chatEntryStyle === "direct" ? { borderColor: "#c4866c", color: "#c4866c" } : undefined}
+              style={settings.chatEntryStyle === "direct" ? { borderColor: "var(--theme-accent, #c4866c)", color: "var(--theme-accent, #c4866c)" } : undefined}
               onClick={() => updateSettings({ chatEntryStyle: "direct" })}
             >
-              <span className="model-option-dot" style={{ background: settings.chatEntryStyle === "direct" ? "#c4866c" : "#d5ccc8" }} />
+              <span className="model-option-dot" style={{ background: settings.chatEntryStyle === "direct" ? "var(--theme-accent, #c4866c)" : "var(--theme-disabled, #d5ccc8)" }} />
               GrassFromAfar
             </button>
           </div>
         </div>
 
         <div className="settings-group">
-          <h2 className="settings-group-title">内心独白</h2>
-          <p className="settings-hint">开启后可以看到 {settings.aiName} 回复前的思考过程</p>
-          <button
-            className={`model-option ${settings.thinking ? "model-option-active" : ""}`}
-            style={settings.thinking ? { borderColor: "#c4866c", color: "#c4866c" } : undefined}
-            onClick={() => updateSettings({ thinking: !settings.thinking })}
-          >
-            <span className="model-option-dot" style={{ background: settings.thinking ? "#c4866c" : "#d5ccc8" }} />
-            {settings.thinking ? "已开启" : "已关闭"}
-          </button>
+          <h2 className="settings-group-title" id="font-size-title">字体大小</h2>
+          <div className="font-size-options" role="group" aria-labelledby="font-size-title">
+            {([
+              { value: "default", label: "默认" },
+              { value: "large", label: "大一号" },
+            ] as const).map((option) => (
+              <button
+                key={option.value}
+                type="button"
+                className={`model-option ${settings.fontSize === option.value ? "model-option-active" : ""}`}
+                aria-pressed={settings.fontSize === option.value}
+                onClick={() => updateSettings({ fontSize: option.value })}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+          <p className="settings-hint">只调整聊天消息和输入框，选择会自动保存。</p>
         </div>
 
-        <div className="settings-group">
-          <h2 className="settings-group-title">联网搜索</h2>
-          <p className="settings-hint">开启后 {settings.aiName} 可以搜索网络获取最新信息</p>
-          <button
-            className={`model-option ${settings.webSearch ? "model-option-active" : ""}`}
-            style={settings.webSearch ? { borderColor: "#c4866c", color: "#c4866c" } : undefined}
-            onClick={() => updateSettings({ webSearch: !settings.webSearch })}
-          >
-            <span className="model-option-dot" style={{ background: settings.webSearch ? "#c4866c" : "#d5ccc8" }} />
-            {settings.webSearch ? "已开启" : "已关闭"}
-          </button>
-        </div>
-
+        {!isGpt && <>
         <div className="settings-group">
           <h2 className="settings-group-title">主动关心</h2>
           <p className="settings-hint">关掉后 heartbeat 只会安静检查，不会主动写消息或推送通知</p>
           <button
             className={`model-option ${settings.proactiveCare ? "model-option-active" : ""}`}
-            style={settings.proactiveCare ? { borderColor: "#c4866c", color: "#c4866c" } : undefined}
+            style={settings.proactiveCare ? { borderColor: "var(--theme-accent, #c4866c)", color: "var(--theme-accent, #c4866c)" } : undefined}
             onClick={() => updateSettings({ proactiveCare: !settings.proactiveCare })}
           >
-            <span className="model-option-dot" style={{ background: settings.proactiveCare ? "#c4866c" : "#d5ccc8" }} />
+            <span className="model-option-dot" style={{ background: settings.proactiveCare ? "var(--theme-accent, #c4866c)" : "var(--theme-disabled, #d5ccc8)" }} />
             {settings.proactiveCare ? "已开启" : "已关闭"}
           </button>
         </div>
@@ -3556,6 +4044,7 @@ function SettingsView({
             }
           />
         </div>
+        </>}
 
         <div className="settings-group">
           <h2 className="settings-group-title">会话缓存</h2>
@@ -3564,17 +4053,17 @@ function SettingsView({
           </p>
           <button
             className={`model-option ${session?.summary ? "model-option-active" : ""}`}
-            style={session?.summary ? { borderColor: "#c4866c", color: "#c4866c" } : undefined}
+            style={session?.summary ? { borderColor: "var(--theme-accent, #c4866c)", color: "var(--theme-accent, #c4866c)" } : undefined}
             onClick={generateSessionCache}
             disabled={cacheBusy || !session || manualCache.until <= 0}
           >
-            <span className="model-option-dot" style={{ background: session?.summary ? "#c4866c" : "#d5ccc8" }} />
+            <span className="model-option-dot" style={{ background: session?.summary ? "var(--theme-accent, #c4866c)" : "var(--theme-disabled, #d5ccc8)" }} />
             {cacheBusy ? "生成中" : "生成本窗口缓存"}
           </button>
           <p className="settings-hint">
             当前可压缩：{manualCache.slice.length} 条；已缓存长度：{session?.summary?.length || 0} 字
           </p>
-          {cacheMessage && <p className="settings-hint" style={{ color: cacheMessage.startsWith("生成失败") ? "#c4866c" : "#5b8a6b" }}>{cacheMessage}</p>}
+          {cacheMessage && <p className="settings-hint" style={{ color: cacheMessage.startsWith("生成失败") ? "var(--theme-accent, #c4866c)" : "var(--theme-success, #5b8a6b)" }}>{cacheMessage}</p>}
         </div>
 
         <CacheStatusPanel cache={lastCache} />
@@ -3582,8 +4071,6 @@ function SettingsView({
           cache={lastCache}
           sessionMessageCount={session?.messages.length ?? 0}
           sessionUserTurns={session?.messages.filter((m) => m.role === "user").length ?? 0}
-          summaryChars={session?.summary?.length ?? 0}
-          memoryCount={memoryCount}
         />
       </section>
     </>

@@ -4,8 +4,8 @@
   "description": "你的聊天小窝",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#fdf6f0",
-  "theme_color": "#c4866c",
+  "background_color": "#fefbf8",
+  "theme_color": "#fefbf8",
   "icons": [
     {
       "src": "/icon-192.png",

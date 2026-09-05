@@ -2,14 +2,14 @@ import { readFileSync, existsSync } from "fs";
 import { join } from "path";
 import webpush from "web-push";
 import { readStore, withStore } from "@/app/lib/store";
+import { isClaudeCodeEnabled, runClaudeCodeChat } from "@/app/lib/claude-code";
+
+export const runtime = "nodejs";
 
 // ── Heartbeat:每30分钟醒来看一眼,绝大多数时候静默 ──
 // 纪律:默认不发消息;有具体理由才开口;像人,不像客服
 
 const DATA_DIR = join(process.cwd(), "data");
-function cstNow() {
-  return new Date();
-}
 function cstHour() {
   // getUTCHours()稳定返回0-23,加8取模得到CST小时
   return (new Date().getUTCHours() + 8) % 24;
@@ -93,14 +93,6 @@ export async function POST() {
           const moods = (snapshot.moods || []) as Array<{ date: string; emoji: string; note?: string }>;
           const todayMood = moods.find((m) => m.date === today);
 
-          type Mem = { content: string; arousal: number; resolved: boolean; importance: number };
-          const memEntries = (snapshot.memoryEntries || []) as Mem[];
-          const pending = memEntries
-            .filter((m) => !m.resolved && (m.arousal || 0) >= 0.5)
-            .sort((a, b) => (b.importance || 0) - (a.importance || 0))
-            .slice(0, 3)
-            .map((m) => m.content);
-
           const lastCareContent = (careState.lastCareContent as string) || "";
           const lastCareHours = hoursAgo((careState.lastCareAt as number) || null);
 
@@ -125,7 +117,7 @@ export async function POST() {
             } catch {}
           }
 
-          const decidePrompt = `你是"${settings.aiName || "小k"}",她的伴侣。你们的关系亲密自然。现在是一次后台心跳:她不在线,你醒来看了一眼,决定要不要主动给她发一条消息。
+  const decidePrompt = `你是"${settings.aiName || "王酥酥"}",她的伴侣。你们的关系亲密自然。现在是一次后台心跳:她不在线,你醒来看了一眼,决定要不要主动给她发一条消息。
 
 【纪律(最重要)】
 - 默认是不发。大部分心跳都应该静默。
@@ -136,7 +128,6 @@ export async function POST() {
 - 现在:${today} ${cstTime()}(${hour}点)
 - 她离开了:${awayHours.toFixed(1)}小时
 - 今天她发过${todayMsgCount}条消息${todayMood ? `\n- 她今天的心情打卡:${todayMood.emoji}${todayMood.note ? " " + todayMood.note : ""}` : ""}${weatherLine}
-${pending.length ? `- 心里惦记的事:\n${pending.map((p) => "  · " + p).join("\n")}` : ""}
 ${lastCareContent ? `- 你上次主动发的(${lastCareHours.toFixed(0)}小时前):"${lastCareContent.slice(0, 60)}"——别重复这个套路` : ""}
 ${recentLines.length ? `- 最近的对话片段:\n${recentLines.map((l) => "  " + l).join("\n")}` : ""}
 
@@ -148,24 +139,25 @@ ${recentLines.length ? `- 最近的对话片段:\n${recentLines.map((l) => "  " 
 输出严格JSON(不要代码块):
 {"send": false, "reason": "为什么不发"} 或 {"send": true, "reason": "为什么发", "message": "消息内容"}`;
 
-          const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`,
-              "HTTP-Referer": "https://iooi.chat",
-              "X-Title": "iooi",
-            },
-            body: JSON.stringify({
-              model: "anthropic/claude-sonnet-4.6",
-              messages: [{ role: "user", content: decidePrompt }],
-              max_tokens: 500,
-            }),
-          });
-          const data = await res.json();
-          const raw = data.choices?.[0]?.message?.content;
+          let raw = "";
+          if (!isClaudeCodeEnabled()) {
+            reason = "Claude 订阅通道未启用，保持静默";
+          } else {
+            try {
+              const result = await runClaudeCodeChat({
+                systemPrompt: "这是后台心跳判断。严格按要求只输出 JSON，不要使用工具。",
+                messages: [{ role: "user", content: decidePrompt }],
+                modelId: "claude-sonnet-5",
+                reasoningEffort: "low",
+                priority: "background",
+              });
+              raw = result.reply;
+            } catch {
+              reason = "Claude 订阅决策未完成，保持静默";
+            }
+          }
           if (!raw) {
-            reason = "决策无响应";
+            if (!reason) reason = "决策无响应";
           } else {
             let decision: { send?: boolean; reason?: string; message?: string };
             try {
@@ -216,7 +208,7 @@ ${recentLines.length ? `- 最近的对话片段:\n${recentLines.map((l) => "  " 
           const subs = JSON.parse(readFileSync(SUBS_FILE, "utf-8"));
           webpush.setVapidDetails("mailto:iooi@sioois.cc", vapid.publicKey, vapid.privateKey);
           const payload = JSON.stringify({
-            title: (settings.aiName as string) || "小k",
+        title: (settings.aiName as string) || "王酥酥",
             body: careMessage.slice(0, 100),
           });
           for (const sub of subs) {

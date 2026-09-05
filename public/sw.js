@@ -1,16 +1,31 @@
 // iooi service worker — push notifications
 
+const IOOI_SW_VERSION = "2026-07-31-summer-edit-1";
+
 self.addEventListener("install", () => {
   self.skipWaiting();
 });
 
 self.addEventListener("activate", (event) => {
-  event.waitUntil(self.clients.claim());
+  event.waitUntil((async () => {
+    await self.clients.claim();
+    const clients = await self.clients.matchAll({
+      type: "window",
+      includeUncontrolled: true,
+    });
+    await Promise.all(clients.map(async (client) => {
+      try {
+        await client.navigate(client.url);
+      } catch {
+        client.postMessage({ type: "IOOI_RELOAD_REQUIRED", version: IOOI_SW_VERSION });
+      }
+    }));
+  })());
 });
 
 // 收到推送 → 弹通知(iOS 要求每次 push 都必须展示通知)
 self.addEventListener("push", (event) => {
-  let data = { title: "小k", body: "来看看我" };
+  let data = { title: "王酥酥", body: "来看看我" };
   try {
     if (event.data) data = { ...data, ...event.data.json() };
   } catch {
