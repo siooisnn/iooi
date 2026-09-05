@@ -160,6 +160,7 @@ function arrayBufferToBase64(buffer: ArrayBuffer): string {
 type Settings = {
   model: string;
   chatEntryStyle: "list" | "direct";
+  fontSize: "default" | "large";
   chatPinnedLine: string;
   gptChatPinnedLine: string;
   aiName: string;
@@ -273,6 +274,7 @@ function normalizeClaudeSettings(settings: Settings): Settings {
   return {
     ...settings,
     model: selectedModel,
+    fontSize: ["large", "larger"].includes(settings.fontSize) ? "large" : "default",
     webSearch: Boolean(settings.webSearch),
     aiName: !settings.aiName?.trim() || oldDefaultName.test(settings.aiName.trim())
       ? CLAUDE_DEFAULT_NAME
@@ -645,6 +647,7 @@ export default function Home() {
   const defaultSettings: Settings = {
     model: "sonnet5",
     chatEntryStyle: "list",
+    fontSize: "default",
     chatPinnedLine: "此后我们的每一秒都是恩赐。",
     gptChatPinnedLine: "此后我们的每一秒都是恩赐。",
     aiName: CLAUDE_DEFAULT_NAME,
@@ -1154,7 +1157,7 @@ export default function Home() {
   }
 
   return (
-    <main className="app-bg">
+    <main className="app-bg" data-font-size={settings.fontSize}>
       {splash && theme !== "white-pink" && (
         <div className="splash">
           <img src="/icon-192.png" alt="" className="splash-pig" />
@@ -3967,6 +3970,27 @@ function SettingsView({
               GrassFromAfar
             </button>
           </div>
+        </div>
+
+        <div className="settings-group">
+          <h2 className="settings-group-title" id="font-size-title">字体大小</h2>
+          <div className="font-size-options" role="group" aria-labelledby="font-size-title">
+            {([
+              { value: "default", label: "默认" },
+              { value: "large", label: "大一号" },
+            ] as const).map((option) => (
+              <button
+                key={option.value}
+                type="button"
+                className={`model-option ${settings.fontSize === option.value ? "model-option-active" : ""}`}
+                aria-pressed={settings.fontSize === option.value}
+                onClick={() => updateSettings({ fontSize: option.value })}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+          <p className="settings-hint">只调整聊天消息和输入框，选择会自动保存。</p>
         </div>
 
         {!isGpt && <>

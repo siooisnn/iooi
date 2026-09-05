@@ -47,6 +47,27 @@ body {
     var(--bg-warm);
 }
 
+.app-bg[data-font-size="large"] :is(.msg-bubble, .chat-input) {
+  font-size: 16px;
+}
+
+.font-size-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.font-size-options .model-option {
+  flex: 1;
+  justify-content: center;
+  white-space: nowrap;
+}
+
+.font-size-options .model-option[aria-pressed="true"] {
+  border-color: var(--theme-accent, #c4866c);
+  color: var(--theme-accent, #c4866c);
+}
+
 .chat-container {
   width: 100%;
   max-width: 420px;
@@ -1606,6 +1627,7 @@ body {
 .input-wrapper:focus-within { border-color: var(--accent-light); box-shadow: 0 2px 20px var(--accent-glow); }
 
 .chat-input {
+  min-width: 0;
   flex: 1; background: transparent; border: none; outline: none;
   font-size: 14px; font-family: inherit; color: var(--text-primary);
   resize: none; line-height: 1.4; max-height: 120px; min-height: 36px; padding: 8px 0;
