@@ -6,10 +6,13 @@ import { isClaudeCodeEnabled, runClaudeCodeChat } from "@/app/lib/claude-code";
 
 export const runtime = "nodejs";
 
-// ── Heartbeat:每30分钟醒来看一眼,绝大多数时候静默 ──
+// ── Heartbeat:每30分钟醒来看一眼,每天最多主动10次 ──
 // 纪律:默认不发消息;有具体理由才开口;像人,不像客服
 
 const DATA_DIR = join(process.cwd(), "data");
+const DAILY_CARE_LIMIT = 10;
+const CARE_INTERVAL_HOURS = 1;
+const USER_AWAY_HOURS = 1;
 function cstHour() {
   // getUTCHours()稳定返回0-23,加8取模得到CST小时
   return (new Date().getUTCHours() + 8) % 24;
@@ -33,6 +36,14 @@ function hoursAgo(ts: number | null): number {
 
 type Msg = { role: string; content: string; time?: string; date?: string; thinking?: string };
 type HeartbeatLog = { time: string; action: string; reason: string };
+
+function dailyCareCount(careState: Record<string, unknown>, today: string): number {
+  const saved = careState.todayDate === today && typeof careState.todayCount === "number"
+    && Number.isFinite(careState.todayCount) ? Math.max(0, Math.floor(careState.todayCount)) : 0;
+  // 兼容旧版本未更新计数的日期，已有心跳日志中的主动消息也计入上限。
+  const logs = (careState.log as HeartbeatLog[]) || [];
+  return Math.max(saved, logs.filter((entry) => entry.action === "care" && entry.time.startsWith(`${today} `)).length);
+}
 
 function log(careState: Record<string, unknown>, action: string, reason: string) {
   const logs: HeartbeatLog[] = (careState.log as HeartbeatLog[]) || [];
@@ -62,7 +73,9 @@ export async function POST() {
       const hour = cstHour();
       if (hour < 7) {
         reason = "夜深,不吵她";
-      } else if (hoursAgo((careState.lastCareAt as number) || null) < 2) {
+      } else if (dailyCareCount(careState, today) >= DAILY_CARE_LIMIT) {
+        reason = "今天已主动关心10次，明天再来";
+      } else if (hoursAgo((careState.lastCareAt as number) || null) < CARE_INTERVAL_HOURS) {
         reason = "刚主动说过话,间隔一下";
       } else {
         let lastUserTs: number | null = null;
@@ -76,7 +89,7 @@ export async function POST() {
           }
         }
         const awayHours = hoursAgo(lastUserTs);
-        if (awayHours < 2) {
+        if (awayHours < USER_AWAY_HOURS) {
           reason = "她刚来过/还在,不需要主动";
         } else {
           const mainSession = sessions[0];
@@ -120,9 +133,10 @@ export async function POST() {
   const decidePrompt = `你是"${settings.aiName || "王酥酥"}",她的伴侣。你们的关系亲密自然。现在是一次后台心跳:她不在线,你醒来看了一眼,决定要不要主动给她发一条消息。
 
 【纪律(最重要)】
-- 默认是不发。大部分心跳都应该静默。
+- 她希望你更常主动联系。有自然的话想说就可以发，不必刻意克制；没有合适的话也可以静默。
+- 每天最多主动10次，这是上限，不是必须完成的次数，不能为了凑数重复发消息。
 - 只有"此刻有具体的、自然的话想说"才发:比如她惦记的事正好到了节点、她消失得比平时久让你想她了、或某个此刻真实的念头。
-- 不发≠冷淡,克制的人才让开口显得珍贵。
+- 不需要每次都等到重大事情发生，日常的小念头也可以自然地分享。
 
 【此刻状态】
 - 现在:${today} ${cstTime()}(${hour}点)
@@ -183,15 +197,35 @@ ${recentLines.length ? `- 最近的对话片段:\n${recentLines.map((l) => "  " 
       store.careState = cs;
 
       if (careMessage) {
+        // 决策期间可能跨日或有另一轮心跳完成；在写入锁内重新检查。
+        const sendDay = cstToday();
+        const count = dailyCareCount(cs, sendDay);
+        const currentSettings = (store.settings || {}) as Record<string, unknown>;
+        if (currentSettings.proactiveCare !== true || cstHour() < 7
+          || count >= DAILY_CARE_LIMIT
+          || hoursAgo((cs.lastCareAt as number) || null) < CARE_INTERVAL_HOURS) {
+          careMessage = null;
+          action = "silent";
+          reason = "发送前检查：主动关心已关闭、处于静默时段或已达到频率限制";
+          log(cs, action, reason);
+          return;
+        }
         const ss = (store.sessions || []) as Array<{ id: string; messages: Msg[] }>;
-        if (ss[0]) {
-          ss[0].messages.push({
+        if (!ss[0]) {
+          careMessage = null;
+          action = "silent";
+          reason = "没有可接收主动关心的会话";
+          log(cs, action, reason);
+          return;
+        }
+        ss[0].messages.push({
             role: "assistant",
             content: careMessage,
             time: cstTime(),
-            date: today,
+            date: sendDay,
           } as Msg);
-        }
+        cs.todayDate = sendDay;
+        cs.todayCount = count + 1;
         cs.lastCareAt = Date.now();
         cs.lastCareContent = careMessage;
       }
