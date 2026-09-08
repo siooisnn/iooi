@@ -371,6 +371,7 @@ body {
 }
 
 .chat-entry-memo::after,
+.chat-entry-fragments::after,
 .chat-entry-group::after,
 .chat-swipe-shell::after,
 .chat-entry-subscribe::after {

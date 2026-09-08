@@ -1467,7 +1467,7 @@ function ChatListView({
   const [showFragments, setShowFragments] = useState(false);
   const fragmentEntry = (
     <button className="chat-entry-item chat-entry-fragments" onClick={() => setShowFragments(true)}>
-      <span className="chat-entry-avatar chat-entry-avatar-small" aria-hidden="true">✎</span>
+      <span className="chat-entry-avatar chat-entry-avatar-small" aria-hidden="true"><span>🧩</span></span>
       <div className="chat-entry-main">
         <div className="chat-entry-row"><span className="chat-entry-name">碎片</span></div>
         <p className="chat-entry-preview">碎片化时代，我选择碎片化写作。</p>

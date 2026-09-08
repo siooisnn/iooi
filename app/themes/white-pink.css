@@ -71,6 +71,7 @@
 }
 
 :root[data-theme="white-pink"] .chat-entry-memo::after,
+:root[data-theme="white-pink"] .chat-entry-fragments::after,
 :root[data-theme="white-pink"] .chat-entry-group::after,
 :root[data-theme="white-pink"] .chat-swipe-shell::after,
 :root[data-theme="white-pink"] .chat-entry-subscribe::after {
