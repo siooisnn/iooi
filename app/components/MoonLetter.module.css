@@ -1,0 +1,24 @@
+@font-face {
+  font-family: "Moon Pinyon";
+  src: url("/fonts/PinyonScript-Regular.ttf") format("truetype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+.letter { width: 100%; max-width: 420px; position: relative; margin: auto 0; padding: 12px 0 40px; }
+.sky { display: block; width: 100%; height: auto; overflow: visible; }
+.script { font-family: "Moon Pinyon", "Edwardian Script ITC", cursive; font-size: 35px; }
+.keepsake { text-align: center; padding: 12px 0 25px; }
+.promise { color: #786d6b; font-family: "Songti SC", "SimSun", serif; font-size: 13px; letter-spacing: 2px; }
+.clock { display: flex; justify-content: center; align-items: baseline; gap: 14px; margin-top: 14px; color: #796d68; }
+.timePart { display: flex; gap: 5px; align-items: baseline; }
+.number { font-family: Georgia, "Times New Roman", serif; font-size: 23px; font-weight: 400; font-variant-numeric: tabular-nums; min-width: 1.15em; }
+.unit { font-size: 10px; color: #928682; }
+.star { animation: shimmer 7s ease-in-out infinite; }
+@keyframes shimmer { 0%, 100% { opacity: .35; } 50% { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .star { animation: none; } }
+@media (max-width: 360px) {
+  .promise { font-size: 12px; letter-spacing: 1.5px; }
+  .clock { gap: 10px; }
+  .number { font-size: 22px; }
+}

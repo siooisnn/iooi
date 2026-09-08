@@ -1,5 +1,10 @@
 /* White Peach is isolated here. Warm colors remain the fallbacks in globals.css.
    Keep future shape/layout changes scoped to :root[data-theme="white-pink"]. */
+:root[data-theme="white-pink"] .home-body.moon-home {
+  background: radial-gradient(ellipse at 18% 20%, #f3eae333, transparent 48%), radial-gradient(ellipse at 90% 51%, #e4edf340, transparent 45%), #fdfcfb;
+  padding: 4px 20px 24px;
+  gap: 4px;
+}
 :root[data-theme="white-pink"] {
   color-scheme: light;
   --bg-warm: #f5f5f5;

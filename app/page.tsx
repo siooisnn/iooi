@@ -8,6 +8,7 @@ import { ContextDebugPanel } from "./components/ContextDebugPanel";
 import { GroupChatView } from "./components/GroupChatView";
 import { NotificationButton } from "./components/NotificationButton";
 import { ThemePicker } from "./components/ThemePicker";
+import { MoonLetter } from "./components/MoonLetter";
 import { useTheme, useThemePage } from "./components/ThemeProvider";
 import { readChatResponse } from "./lib/chat-stream";
 import { useChatScrollPosition } from "./lib/use-chat-scroll-position";
@@ -1165,7 +1166,7 @@ export default function Home() {
         </div>
       )}
       <div className="chat-container">
-        {tab === "home" && <HomeView settings={settings} fragments={fragments} setFragments={setFragments} aiMood={aiMood} />}
+        {tab === "home" && <HomeView settings={settings} aiMood={aiMood} />}
         {tab === "chat" && settings.chatEntryStyle === "list" && chatView === "list" && (
           <ChatListView
             assistantMode="claude"
@@ -1173,6 +1174,8 @@ export default function Home() {
             updateSettings={updateSettings}
             sessions={sessions}
             heartbeatLog={heartbeatLog}
+            fragments={fragments}
+            setFragments={setFragments}
             setActiveSessionId={setActiveSessionId}
             createSession={createSession}
             renameSession={renameSession}
@@ -1210,6 +1213,8 @@ export default function Home() {
             updateSettings={updateSettings}
             sessions={gptSessions}
             heartbeatLog={[]}
+            fragments={fragments}
+            setFragments={setFragments}
             setActiveSessionId={setGptActiveSessionId}
             createSession={createGptSession}
             renameSession={renameGptSession}
@@ -1428,6 +1433,8 @@ function ChatListView({
   updateSettings,
   sessions,
   heartbeatLog,
+  fragments,
+  setFragments,
   setActiveSessionId,
   createSession,
   renameSession,
@@ -1441,6 +1448,8 @@ function ChatListView({
   updateSettings: (patch: Partial<Settings>) => void;
   sessions: ChatSession[];
   heartbeatLog: Array<{ time: string; action: string; reason: string }>;
+  fragments: FragmentEntry[];
+  setFragments: React.Dispatch<React.SetStateAction<FragmentEntry[]>>;
   setActiveSessionId: (id: string) => void;
   createSession: () => void;
   renameSession: (id: string, name: string) => void;
@@ -1455,6 +1464,17 @@ function ChatListView({
   const [query, setQuery] = useState("");
   const [openActionsFor, setOpenActionsFor] = useState<string | null>(null);
   const [showHbLog, setShowHbLog] = useState(false);
+  const [showFragments, setShowFragments] = useState(false);
+  const fragmentEntry = (
+    <button className="chat-entry-item chat-entry-fragments" onClick={() => setShowFragments(true)}>
+      <span className="chat-entry-avatar chat-entry-avatar-small" aria-hidden="true">✎</span>
+      <div className="chat-entry-main">
+        <div className="chat-entry-row"><span className="chat-entry-name">碎片</span></div>
+        <p className="chat-entry-preview">碎片化时代，我选择碎片化写作。</p>
+      </div>
+      <span className="chat-entry-side"><span className="chat-entry-time">{fragments.length ? `${fragments.length} 片` : ""}</span></span>
+    </button>
+  );
   const swipeRef = useRef<{ id: string; startX: number; startY: number; dx: number; dy: number; dragging: boolean } | null>(null);
   const blockClickRef = useRef(false);
 
@@ -1662,7 +1682,8 @@ function ChatListView({
             timelineEntries.map((entry) => entry.kind === "session" ? (
               <SwipeSessionRow key={entry.session.id} session={entry.session} />
             ) : (
-              <button key={`heartbeat-${entry.heartbeat.time}`} className="chat-entry-item chat-entry-subscribe" onClick={() => setShowHbLog(true)}>
+              <Fragment key={`heartbeat-${entry.heartbeat.time}`}>
+              <button className="chat-entry-item chat-entry-subscribe" onClick={() => setShowHbLog(true)}>
                 <span className="chat-entry-avatar chat-entry-avatar-small chat-entry-avatar-hb"><span>💗</span></span>
                 <div className="chat-entry-main">
                   <div className="chat-entry-row">
@@ -1674,11 +1695,15 @@ function ChatListView({
                   <span className="chat-entry-time">{entry.heartbeat.time}</span>
                 </span>
               </button>
+              {fragmentEntry}
+              </Fragment>
             ))
           )}
+          {!latestHeartbeat && fragmentEntry}
         </div>
       </section>
 
+      {showFragments && <FragmentsView fragments={fragments} setFragments={setFragments} onClose={() => setShowFragments(false)} />}
       {showHbLog && (
         <div className="hb-log-overlay">
           <header className="chat-header chat-room-header">
@@ -1742,14 +1767,12 @@ function GroupAvatarStack({
   );
 }
 
-function HomeView({ settings, fragments, setFragments, aiMood }: {
+function HomeView({ settings, aiMood }: {
   settings: Settings;
-  fragments: FragmentEntry[];
-  setFragments: React.Dispatch<React.SetStateAction<FragmentEntry[]>>;
   aiMood: { emoji: string; ts: number };
 }) {
   const [now, setNow] = useState<number | null>(null);
-  const [showFragments, setShowFragments] = useState(false);
+  const theme = useTheme();
 
   useEffect(() => {
     const updateNow = () => setNow(Date.now());
@@ -1762,7 +1785,7 @@ function HomeView({ settings, fragments, setFragments, aiMood }: {
   }, []);
 
   const start = new Date(settings.startDate).getTime();
-  const diff = now === null ? 0 : Math.max(0, now - start);
+  const diff = now === null || !Number.isFinite(start) ? 0 : Math.max(0, now - start);
   const days = Math.floor(diff / (1000 * 60 * 60 * 24));
   const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
   const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
@@ -1785,7 +1808,7 @@ function HomeView({ settings, fragments, setFragments, aiMood }: {
         </div>
       </header>
 
-      <section className="home-body">
+      <section className={`home-body${theme === "white-pink" ? " moon-home" : ""}`}>
         {isAnniversary && (
           <div className="petals" aria-hidden>
             {Array.from({ length: 12 }).map((_, i) => (
@@ -1794,6 +1817,9 @@ function HomeView({ settings, fragments, setFragments, aiMood }: {
           </div>
         )}
 
+        {theme === "white-pink" ? (
+          <MoonLetter days={days} hours={hours} minutes={minutes} seconds={seconds} ready={now !== null && Number.isFinite(start)} />
+        ) : <>
         <div className="home-greeting">
           <p className="greeting-text">{getGreeting()}，{settings.userName}</p>
           <p style={{ fontSize: "13px", color: "var(--text-secondary)", marginTop: "6px", textAlign: "center" }}>
@@ -1830,23 +1856,8 @@ function HomeView({ settings, fragments, setFragments, aiMood }: {
         <div className="home-quote">
           <p>此后我们的每一秒都是恩赐。</p>
         </div>
-        {/* 碎片写作入口 */}
-        <button className="home-card fragment-home-card" onClick={() => setShowFragments(true)}>
-          <div className="home-card-header">
-            <span className="home-card-title">碎片🧩</span>
-            <span className="home-card-meta fragment-home-count">{fragments.length > 0 ? `${fragments.length} 片` : "新"}</span>
-          </div>
-          <p className="home-card-content fragment-home-line">碎片化时代，我选择碎片化写作。</p>
-        </button>
+        </>}
       </section>
-
-      {showFragments && (
-        <FragmentsView
-          fragments={fragments}
-          setFragments={setFragments}
-          onClose={() => setShowFragments(false)}
-        />
-      )}
     </>
   );
 }
@@ -1971,7 +1982,7 @@ function FragmentsView({ fragments, setFragments, onClose }: {
   return (
     <div className="fragment-overlay">
       <header className="fragment-header">
-        <button type="button" className="fragment-round-button" onClick={onClose} aria-label="返回首页">
+        <button type="button" className="fragment-round-button" onClick={onClose} aria-label="返回聊天列表">
           <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6" /></svg>
         </button>
         <div className="fragment-page-heading">
