@@ -53,7 +53,7 @@ ${chatText}
 - 用${me}第一人称写，像给自己留便签，不要像客服总结。
 - 保留正在进行中的话题、约定、情绪状态、还没解决的问题、刚刚形成的上下文。
 - 不要记录无意义寒暄；不要夸张；不要写标题。
-- 合并进已有缓存，整体不超过900字。
+- 合并进已有缓存，整体不超过1600字。
 - 直接输出缓存正文。`;
 
     const isGpt = String(modelId || "").includes("gpt-5.6");
@@ -71,7 +71,7 @@ ${chatText}
         body: JSON.stringify({
           model: "openai/gpt-5.6-sol",
           messages: [{ role: "user", content: prompt }],
-          max_tokens: isGroup ? 1500 : 1100,
+          max_tokens: isGroup ? 1500 : 2000,
           ...(["none", "low", "medium", "high", "xhigh", "max"].includes(reasoningEffort)
             ? { reasoning_effort: reasoningEffort }
             : {}),

@@ -1,5 +1,6 @@
 import { withGroupStore, withStore } from "@/app/lib/store";
 import { isClaudeCodeEnabled, normalizeClaudeCodeModel, runClaudeCodeChat } from "@/app/lib/claude-code";
+import { extractSummerSearchTarget } from "@/app/lib/summer-search-query";
 import { createVisibleReplyStream } from "@/app/lib/visible-reply-stream";
 import {
   filterDuplicateSummerWrites,
@@ -356,13 +357,7 @@ function cleanSummerSearchQuery(query: string): { query: string; label: string }
     return { query: [...dates, text.includes("日记") ? "日记 xiaoshu" : "xiaoshu"].join(" "), label: dates.join("、") };
   }
 
-  const quoted = text.match(/[“"']([^“”"']{2,40})[”"']/);
-  if (quoted?.[1]) return { query: quoted[1], label: quoted[1] };
-
-  const compact = text
-    .replace(/^(逗你了|好了|修好了|再试试|帮我|你|老公|宝宝|王酥酥|看看|搜下|搜索|查一下|查下|翻翻|记不记得|还记得)[，,\s]*/g, "")
-    .replace(/[？?！!。~～]+/g, " ")
-    .trim();
+  const compact = extractSummerSearchTarget(text);
   const label = compact.length > 28 ? `${compact.slice(0, 28)}…` : compact;
   return { query: compact || text, label: label || text.slice(0, 28) };
 }
@@ -892,14 +887,21 @@ export async function POST(request: Request) {
 
     if (summerSearchRequested) {
       if (!summerExactDate || summerExactDate.includes("没有找到")) {
+        const cleanedSearch = cleanSummerSearchQuery(query);
+        const normalizedSearchQuery = normalizeSummerSearchQuery(cleanedSearch.query);
         try {
-          const toolName = shouldReadSummerRef(query) ? "read" : "search";
-          const raw = await callSummerTool(toolName, toolName === "read" ? { ref: query, limit: 8 } : { query, limit: 5 });
+          const toolName = shouldReadSummerRef(cleanedSearch.query) ? "read" : "search";
+          const raw = await callSummerTool(
+            toolName,
+            toolName === "read"
+              ? { ref: cleanedSearch.query, limit: 8 }
+              : { query: normalizedSearchQuery, limit: 5 },
+          );
           const result = toolName === "read"
             ? structuredFromRead(parseSummerJson<SummerReadResult>(raw))
             : parseSummerJson<SummerStructuredResult>(raw);
           summerSearch = renderStructuredSearch(result);
-          const label = result.cleaned?.label || result.query || query.slice(0, 32);
+          const label = result.cleaned?.label || cleanedSearch.label;
           const count = (result.results || result.items || []).length;
           summerCalls.push({
             tool: toolName,
@@ -908,8 +910,7 @@ export async function POST(request: Request) {
             count,
           });
         } catch {
-          const cleanedSearch = cleanSummerSearchQuery(query);
-          summerSearch = await callSummerTool("search", { query: normalizeSummerSearchQuery(cleanedSearch.query), limit: 5 });
+          summerSearch = await callSummerTool("search", { query: normalizedSearchQuery, limit: 5 });
           summerCalls.push({
             tool: "search",
             label: `检索 summer：${cleanedSearch.label}`,
@@ -1014,6 +1015,7 @@ ${combinedDynamicPrompt}
         modelId: requestedModel,
         reasoningEffort: thinking ? reasoningEffort : "low",
         webSearch: Boolean(webSearch),
+        currentUserText: String(groupUserText || latestUserText(requestMessages)),
         priority: "interactive",
         // In stream mode, closing the browser only stops viewing. The server
         // keeps generating and writes the completed reply to history.
@@ -1159,12 +1161,18 @@ ${combinedDynamicPrompt}
   const visibleReply = createVisibleReplyStream();
   let connected = true;
   let streamController: ReadableStreamDefaultController<Uint8Array> | null = null;
+  let heartbeatTimer: ReturnType<typeof setInterval> | null = null;
+  const stopHeartbeat = () => {
+    if (heartbeatTimer) clearInterval(heartbeatTimer);
+    heartbeatTimer = null;
+  };
   const emit = (event: Record<string, unknown>) => {
     if (!connected || !streamController) return;
     try {
       streamController.enqueue(encoder.encode(`${JSON.stringify(event)}\n`));
     } catch {
       connected = false;
+      stopHeartbeat();
     }
   };
   const responseStream = new ReadableStream<Uint8Array>({
@@ -1173,16 +1181,23 @@ ${combinedDynamicPrompt}
       // WebKit may buffer tiny streamed responses. A harmless ignored field
       // gets the first event over its threshold without changing visible text.
       emit({ type: "start", padding: " ".repeat(1100) });
+      // Search/tool turns deliberately withhold intermediate prose until the
+      // final answer is safe to show. Keep the proxy connection active while
+      // that work is silent so Nginx's 60-second idle timeout cannot turn a
+      // healthy background generation into a false client-side failure.
+      heartbeatTimer = setInterval(() => emit({ type: "heartbeat" }), 15_000);
     },
     cancel() {
       connected = false;
       streamController = null;
+      stopHeartbeat();
     },
   });
   const job = executeChat((delta) => {
     const visible = visibleReply.push(delta);
     if (visible) emit({ type: "delta", text: visible });
   }).then((result) => {
+    stopHeartbeat();
     visibleReply.finish();
     emit({ type: result.status === 200 ? "done" : "error", status: result.status, ...result.body });
     if (connected && streamController) {

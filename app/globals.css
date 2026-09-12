@@ -1613,6 +1613,22 @@ body {
   min-width: 0;
 }
 
+.attach-file-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.composer-upload-error {
+  margin: 0 4px 7px 54px;
+  color: var(--theme-secondary, #9b7565);
+  font-size: 11px;
+  line-height: 1.4;
+}
+
 .input-wrapper {
   display: flex; align-items: flex-end; gap: 8px;
   background: rgba(255, 255, 255, 0.86);

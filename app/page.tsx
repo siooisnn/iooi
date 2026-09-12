@@ -84,7 +84,7 @@ type CacheStats = {
   time?: string;
 };
 
-type ReplyRequestState = "idle" | "preparing" | "waiting" | "slow" | "very-slow" | "paused" | "failed";
+type ReplyRequestState = "idle" | "preparing" | "waiting" | "searching" | "slow" | "very-slow" | "paused" | "failed";
 type AssistantMode = "claude" | "gpt";
 type GptReasoningEffort = "none" | "low" | "medium" | "high" | "xhigh" | "max";
 type ClaudeReasoningEffort = "low" | "medium" | "high" | "max";
@@ -93,10 +93,11 @@ const REPLY_REQUEST_LABELS: Record<ReplyRequestState, string> = {
   idle: "",
   preparing: "正在整理这轮消息…",
   waiting: "正在连接并等待回复…",
+  searching: "酥酥正在搜索并整理资料…",
   slow: "回复有点慢，仍在等待…",
-  "very-slow": "等得有点久，网络可能不稳定，可以点右侧暂停",
+  "very-slow": "这轮还在后台处理，完成后会自动出现；请先不要重复发送",
   paused: "已暂停等待；如果请求已经送达，回复稍后仍可能回来",
-  failed: "这次没有连上服务器，消息已经保留",
+  failed: "连接中断了，但消息已经保存；后台回复完成后，重新打开会自动取回",
 };
 
 type SummerCall = {
@@ -191,8 +192,8 @@ const MODELS = [
   { id: "opus47", label: "Opus 4.7", apiId: "claude-opus-4-7" },
   { id: "opus46", label: "Opus 4.6", apiId: "claude-opus-4-6" },
 ];
-const CONTEXT_WINDOW_ROUNDS = 18;
-const SESSION_CACHE_KEEP_MESSAGES = 24;
+const CONTEXT_WINDOW_ROUNDS = 30;
+const SESSION_CACHE_KEEP_MESSAGES = 48;
 const SESSION_CACHE_MIN_NEW_MESSAGES = 8;
 
 // 输入框随机小话
@@ -411,25 +412,27 @@ function preferChatMessage(current: Message, incoming: Message) {
 }
 
 function mergeChatMessages(current: Message[], incoming: Message[]) {
-  const merged: Message[] = [];
-  const indexes = new Map<string, number>();
-  const pushOrReplace = (message: Message) => {
-    const key = chatMessageKey(message);
-    const existingIndex = indexes.get(key);
-    if (existingIndex === undefined) {
-      indexes.set(key, merged.length);
-      merged.push(message);
-    } else {
-      merged[existingIndex] = preferChatMessage(merged[existingIndex], message);
-    }
-  };
+  const messagesByKey = new Map<string, Message>();
   for (const message of current) {
-    pushOrReplace(message);
+    messagesByKey.set(chatMessageKey(message), message);
   }
   for (const message of incoming) {
-    pushOrReplace(message);
+    const key = chatMessageKey(message);
+    const existing = messagesByKey.get(key);
+    messagesByKey.set(key, existing ? preferChatMessage(existing, message) : message);
   }
-  return merged;
+
+  // The server snapshot is authoritative for ordering. This keeps a reply
+  // recovered after an iOS/background disconnect beside its original user
+  // message instead of appending it below newer local-only messages.
+  const orderedKeys = [...incoming, ...current].map(chatMessageKey);
+  const seen = new Set<string>();
+  return orderedKeys.flatMap((key) => {
+    if (seen.has(key)) return [];
+    seen.add(key);
+    const message = messagesByKey.get(key);
+    return message ? [message] : [];
+  });
 }
 
 function mergeChatSessionLists(
@@ -2063,15 +2066,20 @@ function ChatView({
   const isGpt = assistantMode === "gpt";
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState("");
   const [streamingReply, setStreamingReply] = useState("");
   const [replyRequestState, setReplyRequestState] = useState<ReplyRequestState>("idle");
+  const [replyRequestDetail, setReplyRequestDetail] = useState("");
   const [showSessions, setShowSessions] = useState(false);
   const [showModelMenu, setShowModelMenu] = useState(false);
   const [editingName, setEditingName] = useState<string | null>(null);
   const [editNameValue, setEditNameValue] = useState("");
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const sessionMessagesRef = useRef<Message[]>(session.messages);
   const sendingRef = useRef(false);
+  const uploadingRef = useRef(false);
   const summaryInFlightRef = useRef(false);
   const replyRequestIdRef = useRef(0);
   const pausedReplyRequestIdRef = useRef<number | null>(null);
@@ -2126,6 +2134,7 @@ function ChatView({
     pausedReplyRequestIdRef.current = active.id;
     clearReplyStatusTimers();
     setReplyRequestState("paused");
+    setReplyRequestDetail("");
     setStreamingReply("");
     active.controller.abort();
   }
@@ -2416,6 +2425,7 @@ function ChatView({
     pausedReplyRequestIdRef.current = null;
     clearReplyStatusTimers();
     setReplyRequestState("preparing");
+    setReplyRequestDetail("");
     setStreamingReply("");
     setLoading(true);
 
@@ -2508,7 +2518,8 @@ function ChatView({
               return proposal ? [proposal] : [];
             });
 
-      setReplyRequestState("waiting");
+      const webSearchEnabled = isGpt ? settings.gptWebSearch : settings.webSearch;
+      setReplyRequestState(webSearchEnabled ? "searching" : "waiting");
       replyStatusTimersRef.current = [
         setTimeout(() => {
           if (activeReplyRequestRef.current?.id === requestId && !controller.signal.aborted) {
@@ -2547,6 +2558,10 @@ function ChatView({
             }
           });
       setStreamingReply("");
+      const responseStatus = typeof data.status === "number" ? data.status : res.status;
+      if (!res.ok || responseStatus >= 400) {
+        throw new Error(data.reply || "模型请求没有完成");
+      }
       if (data.cache) {
         const nextCache: CacheStats = { ...data.cache, ...contextMeta, time: new Date().toLocaleString("zh-CN", { timeZone: APP_TIME_ZONE }) };
         setLastCache(nextCache);
@@ -2608,6 +2623,7 @@ function ChatView({
       sessionMessagesRef.current = mergeChatMessages(sessionMessagesRef.current, finalMessages);
       updateMessages((msgs) => mergeChatMessages(msgs, finalMessages));
       setReplyRequestState("idle");
+      setReplyRequestDetail("");
 
       // Long-term memory belongs to summer. iooi only maintains the rolling session summary here.
       void ensureSessionCache(finalMessages);
@@ -2616,14 +2632,18 @@ function ChatView({
       const wasPaused = controller.signal.aborted && pausedReplyRequestIdRef.current === requestId;
       if (wasPaused) {
         setReplyRequestState("paused");
+        setReplyRequestDetail("");
       } else {
         setReplyRequestState("failed");
+        const serverFailure = error instanceof Error ? error.message.trim() : "";
         const failureText = typeof navigator !== "undefined" && !navigator.onLine
-          ? "现在网络断开了。刚才的消息已经保留，网络恢复后再发一次就好。"
+          ? "现在网络断开了，但刚才的消息已经保存。网络恢复后先重新打开看看；如果仍没有回复，再发送一次。"
+          : serverFailure.includes("没有转用 API")
+            ? serverFailure
           : error instanceof SyntaxError
-            ? "服务器返回的内容不完整。刚才的消息已经保留，可以再试一次。"
-            : "这次没有连上服务器。刚才的消息已经保留，可以再试一次。";
-        updateMessages((msgs) => [...msgs, { role: "assistant", content: failureText, time: getTime(), date: getTodayStr() }]);
+            ? "连接中途断开了，但消息已经保存。酥酥可能仍在后台回复，先别重复发送，稍后重新打开会自动取回。"
+            : "连接中断了，但消息已经保存。酥酥可能仍在后台回复，先别重复发送，稍后重新打开会自动取回。";
+        setReplyRequestDetail(failureText);
       }
     } finally {
       setStreamingReply("");
@@ -2638,39 +2658,42 @@ function ChatView({
     }
   }
 
-  async function uploadFile() {
-    const input = document.createElement("input");
-    input.type = "file";
-    input.accept = isGpt
-      ? "image/*,application/pdf,.txt,.md,.csv"
-      : "image/jpeg,image/png,image/gif,image/webp";
-    input.onchange = async (e) => {
-      const file = (e.target as HTMLInputElement).files?.[0];
-      if (!file) return;
+  async function uploadFile(event: React.ChangeEvent<HTMLInputElement>) {
+    const picker = event.currentTarget;
+    const file = picker.files?.[0];
+    picker.value = "";
+    if (!file || uploadingRef.current || loading) return;
 
-      const formData = new FormData();
-      formData.append("file", file);
+    uploadingRef.current = true;
+    setUploading(true);
+    setUploadError("");
+    const formData = new FormData();
+    formData.append("file", file);
 
-      try {
-        const res = await apiFetch("/api/upload", { method: "POST", body: formData });
-        const data = await res.json();
-        if (data.url) {
-          followLatest();
-          const isImage = file.type.startsWith("image/");
-          const msg: Message = {
-            role: "user",
-            content: isImage ? "" : `📄 ${file.name}`,
-            time: getTime(),
-            date: getTodayStr(),
-            ...(isImage ? { image: data.url } : { file: data.url }),
-          };
-          const nextMessages = mergeChatMessages(sessionMessagesRef.current, [...sessionMessagesRef.current, msg]);
-          sessionMessagesRef.current = nextMessages;
-          updateMessages(() => nextMessages);
-        }
-      } catch {}
-    };
-    input.click();
+    try {
+      const res = await apiFetch("/api/upload", { method: "POST", body: formData });
+      const data = await res.json();
+      if (!res.ok || !data.url) throw new Error(data.error || "上传失败");
+
+      followLatest();
+      const isImage = file.type.startsWith("image/");
+      const msg: Message = {
+        role: "user",
+        content: isImage ? "" : `📄 ${file.name}`,
+        time: getTime(),
+        date: getTodayStr(),
+        ...(isImage ? { image: data.url } : { file: data.url }),
+      };
+      const nextMessages = mergeChatMessages(sessionMessagesRef.current, [...sessionMessagesRef.current, msg]);
+      sessionMessagesRef.current = nextMessages;
+      updateMessages(() => nextMessages);
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : "上传失败";
+      setUploadError(`${reason}，请再试一次。`);
+    } finally {
+      uploadingRef.current = false;
+      setUploading(false);
+    }
   }
 
   function handleBackToList() {
@@ -2847,7 +2870,7 @@ function ChatView({
             </div>
           </div>
         )}
-        {((loading && !streamingReply) || replyRequestState === "paused") && (
+        {((loading && !streamingReply) || replyRequestState === "paused" || replyRequestState === "failed") && (
           <div className="msg-row msg-row-ai">
             {assistantAvatar
               ? <img src={assistantAvatar} className="avatar avatar-img" alt="" />
@@ -2856,7 +2879,7 @@ function ChatView({
             <div className="msg-content-ai">
               <div className={`msg-bubble msg-bubble-ai reply-status-bubble reply-status-${replyRequestState}`} aria-live="polite">
                 {loading && <div className="typing-dots"><span /><span /><span /></div>}
-                <span className="reply-status-text">{REPLY_REQUEST_LABELS[replyRequestState]}</span>
+                <span className="reply-status-text">{replyRequestDetail || REPLY_REQUEST_LABELS[replyRequestState]}</span>
               </div>
             </div>
           </div>
@@ -2973,16 +2996,34 @@ function ChatView({
             {!isGpt && <ClaudeUsageBadge />}
           </div>
         )}
+        {uploadError && <p className="composer-upload-error" role="alert">{uploadError}</p>}
         <div className="composer-row">
-          <button
-            className="attach-btn attach-btn-separate"
-            onClick={uploadFile}
+          <input
+            ref={fileInputRef}
+            type="file"
+            className="attach-file-input"
+            accept={isGpt
+              ? "image/*,application/pdf,.txt,.md,.csv"
+              : "image/jpeg,image/png,image/gif,image/webp"}
+            disabled={uploading || loading}
+            onChange={(event) => void uploadFile(event)}
             aria-label={isGpt ? "上传图片或文件" : "上传图片"}
-            title={isGpt ? "上传图片或文件" : "上传图片"}
+          />
+          <button
+            type="button"
+            className={`attach-btn attach-btn-separate${uploading ? " attach-btn-uploading" : ""}`}
+            onClick={() => fileInputRef.current?.click()}
+            disabled={uploading || loading}
+            aria-label={uploading ? "正在上传" : (isGpt ? "上传图片或文件" : "上传图片")}
+            title={uploading ? "正在上传" : (isGpt ? "上传图片或文件" : "上传图片")}
           >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48" />
-            </svg>
+            {uploading ? (
+              <span className="attach-upload-spinner" />
+            ) : (
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48" />
+              </svg>
+            )}
           </button>
           <div className="input-wrapper">
             <textarea
@@ -2992,7 +3033,7 @@ function ChatView({
             <button
               type="button"
               onClick={loading ? pauseReply : sendMessage}
-              disabled={!loading && !input.trim()}
+              disabled={!loading && (!input.trim() || uploading)}
               className={`send-btn${loading ? " pause-reply-btn" : ""}`}
               aria-label={loading ? "暂停等待回复" : "发送消息"}
               title={loading ? "暂停等待回复" : "发送"}
