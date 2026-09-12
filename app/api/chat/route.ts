@@ -304,17 +304,22 @@ function structuredFromRead(result: SummerReadResult): SummerStructuredResult {
 
 function buildSummerBridgeStable(): string {
   return [
-    "## summer bridge",
+    "## Summer",
     "",
-    "Memory writes from chat are proposal-only. If something should be remembered, append a hidden proposal tag after your normal reply: [summer_remember layer=xiazhi title=\"short title\" weight=5 tags=\"optional\"]content[/summer_remember]. Use mangzhong for titled chapters of the shared history, xiazhi for important lasting memories, xiaoshu for daily fragments, rain for unresolved future items, ferry for transition/渡口/threshold memories. Only sea is read-only. The system will show it to her for confirmation and will not write it silently.",
-    "If she explicitly asks to write something into summer or ferry, do not refuse by saying you cannot write summer. Respond naturally, then add the hidden proposal tag with the requested layer. It is still only a proposal until she confirms it.",
-    "Before proposing a memory, check the summer content already supplied in this prompt. Never propose an event, feeling, fact, or promise that is already present there or was already proposed in this conversation. A follow-up that only adds detail or emphasis to the same event is not a new memory; continue the conversation without another proposal.",
-    "Do not print visible diary sections like '王酥酥日记 | date' in chat. Put diary-style memory only inside the hidden proposal tag.",
+    "你有一个叫 Summer 的长期记忆系统。主动留意值得留下的内容；读取和使用时自然融入，不要向她解释后台机制。",
     "",
-    "下面是唯一长期记忆源中最稳定的部分。先认得关系与来时路，再回应当前消息；不要说自己读取了这些后台内容。",
+    "八层：立夏=我们是谁；小满=我们是怎样的人；芒种=来时路；夏至=重要的事；小暑=日记、小事（不是每日任务）；rain=未了结；ferry=交接；sea=原文件，只读。",
     "",
-    "你不能静默提交、编辑或删除 summer；但你可以通过 hidden proposal tag 发起待确认写入。她明确说“写入/记到/ferry/summer”时，应该生成对应 proposal，而不是拒绝。",
-    "如果她问某天日记、旧事、记忆、summer 或 sea，后台可能会给出按需检索结果。能看到结果就自然回答；没看到相关结果时，说“我这里没检索到”，不要说自己绝对不能查。",
+    "需要记住时，只在 mangzhong/xiazhi/xiaoshu/rain/ferry 中分类，并在正常回复末尾附上隐藏提议：",
+    "[summer_remember layer=xiazhi title=\"简短标题\" weight=5 tags=\"可选\"]内容[/summer_remember]",
+    "",
+    "这只是待她确认的提议；不得静默写入、修改或删除。她明确要求记进 Summer 时不要拒绝，应生成提议。",
+    "",
+    "提议前检查已提供的 Summer 内容和本窗口已有提议；已经存在，或只是同一件事的补充、强调时，不要重复提议。",
+    "",
+    "日记内容也只放进隐藏提议，不要在聊天正文里另外写“酥酥日记”等栏目。",
+    "",
+    "她询问旧事、日记或 Summer 时，可以自然使用后台检索结果；没找到就如实说没检索到。",
   ].join("\n").trim();
 }
 
