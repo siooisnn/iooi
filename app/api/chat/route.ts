@@ -76,19 +76,40 @@ function loadClaudeImage(url: string): ImageBlock {
   return { type: "image", source: { type: "base64", media_type: mediaType, data } };
 }
 
+function imageLoadErrorMessage(error: unknown) {
+  return error instanceof Error ? error.message : "图片读取失败";
+}
+
 function collectClaudeImages(messages: ChatRequestMessage[]) {
   const images = new Map<string, ImageBlock>();
+  const skipped = new Map<string, string>();
   let totalSize = 0;
   for (const message of [...messages].reverse()) {
     const url = String(message.image || "");
-    if (!url || images.has(url) || images.size >= CLAUDE_IMAGE_COUNT_LIMIT) continue;
-    const image = loadClaudeImage(url);
+    if (!url || images.has(url) || skipped.has(url)) continue;
+    if (images.size >= CLAUDE_IMAGE_COUNT_LIMIT) {
+      skipped.set(url, `本轮最多附带 ${CLAUDE_IMAGE_COUNT_LIMIT} 张图片`);
+      continue;
+    }
+    let image: ImageBlock;
+    try {
+      image = loadClaudeImage(url);
+    } catch (error) {
+      // A stale, missing, or oversized image in recent history must not poison
+      // every later text-only turn. Keep the chat moving and tell Claude that
+      // this particular image was not actually attached.
+      skipped.set(url, imageLoadErrorMessage(error));
+      continue;
+    }
     const size = Buffer.byteLength(image.source.data, "utf8");
-    if (totalSize + size > CLAUDE_IMAGE_TOTAL_LIMIT) continue;
+    if (totalSize + size > CLAUDE_IMAGE_TOTAL_LIMIT) {
+      skipped.set(url, "本轮图片总大小超过 20MB 上限");
+      continue;
+    }
     images.set(url, image);
     totalSize += size;
   }
-  return images;
+  return { images, skipped };
 }
 
 function cacheControl(): { type: "ephemeral"; ttl?: "1h" } {
@@ -821,14 +842,7 @@ export async function POST(request: Request) {
     logChatTiming({ status: "disabled", total_ms: Date.now() - requestStartedAt, user_persist_ms: userPersistMs });
     return Response.json({ reply: "Claude 订阅通道暂时不可用；这条消息没有转用 API。" }, { status: 503 });
   }
-  let imageBlocks = new Map<string, ImageBlock>();
-  try {
-    imageBlocks = collectClaudeImages(requestMessages);
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "图片读取失败";
-    logChatTiming({ status: "image_error", total_ms: Date.now() - requestStartedAt, user_persist_ms: userPersistMs });
-    return Response.json({ reply: `${message}；这条消息没有转用 API。` }, { status: 422 });
-  }
+  const { images: imageBlocks, skipped: skippedImages } = collectClaudeImages(requestMessages);
 
   // --- System 数组里只放稳定部分,带 cache_control ---
   // dynamicPrompt(summary/mood/时间/unresolved cares)每轮都变,
@@ -948,7 +962,16 @@ export async function POST(request: Request) {
   // 图片只从 iooi 自己的 uploads 目录读取并交给 Claude 订阅；文件仍明确拒绝，不会切换到 API。
   const anthropicMessages: Array<{ role: string; content: string | Array<TextBlock | ImageBlock> }> = requestMessages.map((msg) => {
     const image = msg.image ? imageBlocks.get(msg.image) : undefined;
-    if (!image) return { role: msg.role, content: String(msg.content || "") };
+    if (!image) {
+      const skippedReason = msg.image ? skippedImages.get(msg.image) : "";
+      const unavailableImageNote = skippedReason
+        ? `【系统提示：这张图片没有随本轮请求发送（${skippedReason}）。请不要声称已经看到图片。】`
+        : "";
+      return {
+        role: msg.role,
+        content: [String(msg.content || ""), unavailableImageNote].filter(Boolean).join("\n"),
+      };
+    }
     return {
       role: msg.role,
       content: [
