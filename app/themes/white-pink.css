@@ -197,6 +197,11 @@
   padding-bottom: 8px;
 }
 
+:root[data-theme="white-pink"] .app-bg[data-font-size="large"] :is(.chat-entry-pinned, .chat-entry-item, .chat-entry-subscribe) {
+  padding-top: 13px;
+  padding-bottom: 13px;
+}
+
 :root[data-theme="white-pink"] .chat-entry-history {
   gap: 0;
 }
@@ -210,6 +215,11 @@
 :root[data-theme="white-pink"] .chat-entry-side {
   top: 8px;
   bottom: 8px;
+}
+
+:root[data-theme="white-pink"] .app-bg[data-font-size="large"] .chat-entry-side {
+  top: 13px;
+  bottom: 13px;
 }
 
 :root[data-theme="white-pink"] .chat-entry-tag {
