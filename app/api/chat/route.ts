@@ -2,7 +2,9 @@ import { withGroupStore, withStore } from "@/app/lib/store";
 import { isClaudeCodeEnabled, normalizeClaudeCodeModel, runClaudeCodeChat } from "@/app/lib/claude-code";
 import { extractSummerSearchTarget } from "@/app/lib/summer-search-query";
 import { createVisibleReplyStream } from "@/app/lib/visible-reply-stream";
+import { isExplicitSummerWriteRequest } from "@/app/lib/summer-write-intent";
 import {
+  findDuplicateSummerWrite,
   filterDuplicateSummerWrites,
   summerWriteFromUnknown,
   summerWritesFromSnapshot,
@@ -323,7 +325,7 @@ function structuredFromRead(result: SummerReadResult): SummerStructuredResult {
   };
 }
 
-function buildSummerBridgeStable(): string {
+function buildSummerBridgeStable(directWritesEnabled: boolean): string {
   return [
     "## Summer",
     "",
@@ -334,7 +336,9 @@ function buildSummerBridgeStable(): string {
     "需要记住时，只在 mangzhong/xiazhi/xiaoshu/rain/ferry 中分类，并在正常回复末尾附上隐藏提议：",
     "[summer_remember layer=xiazhi title=\"简短标题\" weight=5 tags=\"可选\"]内容[/summer_remember]",
     "",
-    "这只是待她确认的提议；不得静默写入、修改或删除。她明确要求记进 Summer 时不要拒绝，应生成提议。",
+    directWritesEnabled
+      ? "如果是你主动发现值得记住的内容，这只是待她确认的提议，不得静默写入。她明确要求写进 Summer 时也要生成同样的隐藏块，系统会立即替她写入，无需她再点确认。"
+      : "这只是待她确认的提议；不得静默写入、修改或删除。她明确要求记进 Summer 时不要拒绝，应生成提议。",
     "",
     "提议前检查已提供的 Summer 内容和本窗口已有提议；已经存在，或只是同一件事的补充、强调时，不要重复提议。",
     "",
@@ -352,12 +356,7 @@ function shouldSearchSummer(query: string): boolean {
 }
 
 function isSummerWriteOnlyIntent(query: string): boolean {
-  const text = query.trim();
-  if (!text) return false;
-  const wantsWrite = /写进|写入|写到|记下|记住|存进|存到|加进|加到|放进|放到|收进|录入/.test(text);
-  if (!wantsWrite) return false;
-  const wantsSearch = /找|查|搜|翻|看.*日记|读.*日记|记不记得|还记得|想起来|之前|以前|那天|哪天|碎片\s*\d{1,3}|\d{1,2}[.-]\d{1,2}|\d{1,2}月\d{1,2}日?|20\d{2}-\d{1,2}-\d{1,2}/i.test(text);
-  return !wantsSearch;
+  return isExplicitSummerWriteRequest(query);
 }
 
 function shouldReadSummerRef(query: string): boolean {
@@ -537,6 +536,81 @@ async function createSummerProposals(proposals: SummerWrite[]): Promise<SummerWr
   }));
 }
 
+let directSummerWriteTail: Promise<void> = Promise.resolve();
+
+async function serializeDirectSummerWrite<T>(task: () => Promise<T>) {
+  const previous = directSummerWriteTail;
+  let release!: () => void;
+  directSummerWriteTail = new Promise<void>((resolve) => { release = resolve; });
+  await previous;
+  try {
+    return await task();
+  } finally {
+    release();
+  }
+}
+
+async function commitDirectSummerWrites(proposals: SummerWrite[]): Promise<{
+  writes: SummerWrite[];
+  calls: SummerCall[];
+}> {
+  return serializeDirectSummerWrite(async () => {
+    const calls: SummerCall[] = [];
+    let existingWrites: ReturnType<typeof summerWritesFromSnapshot>;
+    try {
+      existingWrites = summerWritesFromSnapshot(await readSummerState());
+      calls.push({ tool: "read", label: "写入前检查 Summer 重复内容", status: "used" });
+    } catch {
+      calls.push({ tool: "read", label: "Summer 写入前去重检查失败", status: "miss" });
+      return { writes: await createSummerProposals(proposals), calls };
+    }
+
+    const comparisonPool = [...existingWrites];
+    const writes: SummerWrite[] = [];
+    for (let index = 0; index < proposals.length; index += 1) {
+      const proposal = proposals[index];
+      const duplicate = findDuplicateSummerWrite(proposal, comparisonPool);
+      if (duplicate) {
+        writes.push({
+          ...proposal,
+          id: duplicate.id || `iooi-duplicate-${Date.now()}-${index}`,
+          status: "duplicate",
+        });
+        continue;
+      }
+
+      try {
+        await callSummerTool("edit", {
+          action: "add",
+          layer: proposal.layer,
+          title: proposal.title,
+          content: proposal.content,
+          source: "iooi-chat-direct",
+          weight: proposal.weight,
+          due: proposal.due,
+          tags: proposal.tags,
+        });
+        const committed = {
+          ...proposal,
+          id: proposal.id || `iooi-direct-${Date.now()}-${index}`,
+          status: "committed",
+        };
+        writes.push(committed);
+        comparisonPool.push(committed);
+      } catch {
+        const [pending] = await createSummerProposals([proposal]);
+        writes.push(pending);
+        calls.push({
+          tool: "edit",
+          label: `Summer 写入失败，已保留待确认：${proposal.title || proposal.layer}`,
+          status: "miss",
+        });
+      }
+    }
+    return { writes, calls };
+  });
+}
+
 function latestUserText(messages: Array<{ role: string; content?: string }>): string {
   for (let i = messages.length - 1; i >= 0; i--) {
     const msg = messages[i];
@@ -598,8 +672,13 @@ function summerCallContent(call: SummerCall): string {
 
 function summerWriteProposalContent(proposal: SummerWrite): string {
   const layerName: Record<string, string> = { mangzhong: "芒种", xiazhi: "夏至", xiaoshu: "小暑", rain: "rain", ferry: "ferry" };
+  const status = proposal.status === "duplicate"
+    ? "已存在"
+    : proposal.status === "committed"
+      ? "已加入"
+      : "提议写入";
   const meta = [
-    `summer · 提议写入${layerName[proposal.layer] || proposal.layer}`,
+    `summer · ${status}${layerName[proposal.layer] || proposal.layer}`,
     proposal.title || "未命名",
     typeof proposal.weight === "number" ? `权重 ${proposal.weight}` : "",
   ].filter(Boolean).join(" · ");
@@ -667,9 +746,10 @@ async function persistRound(
         });
       });
       for (const proposal of summerWriteProposals) {
+        const committed = proposal.status === "committed" || proposal.status === "duplicate";
         pushAssistant({
           role: "assistant",
-          source: "summer_write_proposal",
+          source: committed ? "summer_write_committed" : "summer_write_proposal",
           content: summerWriteProposalContent(proposal),
           proposal,
           time: now,
@@ -857,16 +937,24 @@ export async function POST(request: Request) {
   let summerExactDate = "";
   let summerState: SummerState | null = null;
   const summerCalls: SummerCall[] = [];
+  const query = String(groupUserText || userMsg?.content || latestUserText(requestMessages));
+  const directSummerWriteRequested = !skipPersist && isSummerWriteOnlyIntent(query);
   const summerStartedAt = Date.now();
   let summerMs = 0;
   try {
-    const query = String(groupUserText || latestUserText(requestMessages));
     const [summerWake, currentSummerState] = await Promise.all([
       readSummerWake(),
       readSummerState(),
     ]);
     summerState = currentSummerState;
-    const summerStable = [buildSummerBridgeStable(), String(summerWake.stable || "").trim()]
+    if (!skipPersist) {
+      summerCalls.push({
+        tool: "wake",
+        label: "已读取 Summer 唤醒内容与记忆状态",
+        status: "used",
+      });
+    }
+    const summerStable = [buildSummerBridgeStable(!skipPersist), String(summerWake.stable || "").trim()]
       .filter(Boolean)
       .join("\n\n");
     const summerDynamic = String(summerWake.dynamic || "").trim();
@@ -955,6 +1043,9 @@ export async function POST(request: Request) {
 
   const combinedDynamicPrompt = [
     dynamicPrompt,
+    directSummerWriteRequested
+      ? "【本轮 Summer 操作】她明确要求写入 Summer。请把整理后的可写内容放进 summer_remember 隐藏块；系统会直接写入，不要让她再点确认。"
+      : "",
     summerExactDate,
     summerSearch,
   ].filter(Boolean).join("\n\n");
@@ -1056,8 +1147,6 @@ ${combinedDynamicPrompt}
       let reply = data.reply || "没有收到回复";
       const thinkingContent = "";
 
-      // Chat-origin writes are proposals only. They are shown to the user but
-      // never committed here, which prevents duplicate hidden writes.
       const proposalStartedAt = Date.now();
       const earlierProposals = Array.isArray(recentSummerProposals)
         ? recentSummerProposals.flatMap((value: unknown) => {
@@ -1065,11 +1154,26 @@ ${combinedDynamicPrompt}
             return parsed ? [parsed] : [];
           })
         : [];
-      const novelProposals = filterDuplicateSummerWrites(
-        collectSummerWriteProposals(reply),
-        [...summerWritesFromSnapshot(summerState), ...earlierProposals],
-      );
-      const summerWriteProposals = await createSummerProposals(novelProposals);
+      const collectedProposals = collectSummerWriteProposals(reply);
+      let summerWriteProposals: SummerWrite[];
+      if (directSummerWriteRequested && collectedProposals.length) {
+        const directResult = await commitDirectSummerWrites(collectedProposals);
+        summerWriteProposals = directResult.writes;
+        summerCalls.push(...directResult.calls);
+      } else {
+        const novelProposals = filterDuplicateSummerWrites(
+          collectedProposals,
+          [...summerWritesFromSnapshot(summerState), ...earlierProposals],
+        );
+        summerWriteProposals = await createSummerProposals(novelProposals);
+        if (directSummerWriteRequested && collectedProposals.length === 0) {
+          summerCalls.push({
+            tool: "edit",
+            label: "没有收到可写入 Summer 的整理内容",
+            status: "miss",
+          });
+        }
+      }
       reply = stripVisibleSummerDiary(stripSummerWriteTags(reply));
       const proposalMs = Date.now() - proposalStartedAt;
 
@@ -1141,7 +1245,7 @@ ${combinedDynamicPrompt}
             status: cacheStatus,
             reason: cacheReason,
             summer_used: summerUsed,
-            summer_writes: 0,
+            summer_writes: summerWriteProposals.filter((proposal) => proposal.status === "committed").length,
             summer_write_proposals: summerWriteProposals,
             summer_calls: summerCalls,
             web_search_used: Boolean(webSearch),

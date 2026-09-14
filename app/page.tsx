@@ -10,6 +10,7 @@ import { NotificationButton } from "./components/NotificationButton";
 import { ThemePicker } from "./components/ThemePicker";
 import { MoonLetter } from "./components/MoonLetter";
 import { useTheme, useThemePage } from "./components/ThemeProvider";
+import { buildChatContext } from "./lib/chat-context";
 import { readChatResponse } from "./lib/chat-stream";
 import { useChatScrollPosition } from "./lib/use-chat-scroll-position";
 
@@ -67,6 +68,7 @@ type CacheStats = {
   context_user_turns?: number;
   context_chars?: number;
   context_window_rounds?: number;
+  context_mode?: "full-window" | "rolling-summary";
   context_truncated?: boolean;
   context_omitted_messages?: number;
   summary_used?: boolean;
@@ -2442,16 +2444,14 @@ function ChatView({
     }
 
     try {
-      // Never make the live reply wait for an automatic summary. The current
-      // cached summary is enough for this turn; refresh it after the reply.
+      // Claude private windows send their complete visible text history. GPT
+      // keeps the existing rolling-summary behavior.
       const sessionCache = {
-        summary: session.summary || "",
+        summary: isGpt ? session.summary || "" : "",
         until: session.summarizedUntil || 0,
         updated: false,
       };
-      // 上下文组装：气泡合并 + 按轮数截取。
-      type CtxMsg = { role: "user" | "assistant"; content: string; image?: string; file?: string };
-      const allMsgs: CtxMsg[] = [
+      const allMsgs = [
         ...messagesWithUser.filter((m) => !m.source?.startsWith("summer_")).map((m) => {
           return {
             role: m.role, content: m.content,
@@ -2459,54 +2459,14 @@ function ChatView({
           };
         }),
       ];
-
-      // 2. 合并连续同 role 的纯文本气泡，带图片/文件的消息保持独立。
-      const merged: CtxMsg[] = [];
-      for (const m of allMsgs) {
-        const last = merged[merged.length - 1];
-        if (last && last.role === m.role && !m.image && !m.file && !last.image && !last.file) {
-          last.content += "\n\n" + m.content;
-        } else {
-          merged.push({ ...m });
-        }
-      }
-
-      // 3. 按轮截取最近30轮(一轮 = 一条合并后的user消息)
-      const MAX_ROUNDS = CONTEXT_WINDOW_ROUNDS;
-      let rounds = 0;
-      let startIdx = 0;
-      let contextTruncated = false;
-      for (let i = merged.length - 1; i >= 0; i--) {
-        if (merged[i].role === "user") {
-          rounds++;
-          if (rounds >= MAX_ROUNDS) {
-            startIdx = i;
-            contextTruncated = i > 0;
-            break;
-          }
-        }
-      }
-      let contextMsgs = merged.slice(startIdx);
-
-      // 4. Anthropic要求首条是user(auto-care可能让会话以assistant开头)
-      if (contextMsgs[0] && contextMsgs[0].role === "assistant") {
-        contextMsgs = [{ role: "user", content: "【接续之前的对话】" }, ...contextMsgs];
-      }
-
-      // 5. 只为最近5条保留图片/文件数据,更早的只留文字(节省token)
-      const keepMediaFrom = Math.max(0, contextMsgs.length - 5);
-      contextMsgs = contextMsgs.map((m, i) =>
-        i >= keepMediaFrom ? m : { role: m.role, content: m.content }
-      );
-
+      const context = buildChatContext(allMsgs, {
+        mode: isGpt ? "rolling-summary" : "full-window",
+        maxUserTurns: CONTEXT_WINDOW_ROUNDS,
+      });
+      const contextMsgs = context.messages;
       const contextMeta = {
-        context_messages: contextMsgs.length,
-        context_user_turns: contextMsgs.filter((m) => m.role === "user").length,
-        context_chars: contextMsgs.reduce((n, m) => n + (m.content?.length || 0), 0),
-        context_window_rounds: MAX_ROUNDS,
-        context_truncated: contextTruncated,
-        context_omitted_messages: contextTruncated ? startIdx : 0,
-        summary_used: Boolean(sessionCache.summary),
+        ...context.stats,
+        summary_used: isGpt && Boolean(sessionCache.summary),
       };
       const recentSummerProposals = isGpt
         ? []
@@ -2538,7 +2498,7 @@ function ChatView({
         body: JSON.stringify({
           modelId: currentModelId,
           systemPrompt: buildStablePrompt(),
-          dynamicPrompt: buildDynamicPrompt(sessionCache.summary),
+          dynamicPrompt: buildDynamicPrompt(isGpt ? sessionCache.summary : undefined),
           messages: contextMsgs,
           thinking: !isGpt && settings.thinking,
           webSearch: isGpt ? settings.gptWebSearch : settings.webSearch,
@@ -2600,10 +2560,12 @@ function ChatView({
         };
       });
       const summerWriteMsgs: Message[] = (data.cache?.summer_write_proposals || []).map((proposal: SummerWriteProposal) => {
+        const committed = proposal.status === "committed" || proposal.status === "duplicate";
+        const duplicate = proposal.status === "duplicate";
         return {
           role: "assistant" as const,
-          source: "summer_write_proposal",
-          content: proposalCardContent(proposal),
+          source: committed ? "summer_write_committed" : "summer_write_proposal",
+          content: proposalCardContent(proposal, duplicate ? "已存在" : committed ? "已加入" : "提议写入"),
           proposal,
           time: now,
           date: today,
@@ -2625,8 +2587,9 @@ function ChatView({
       setReplyRequestState("idle");
       setReplyRequestDetail("");
 
-      // Long-term memory belongs to summer. iooi only maintains the rolling session summary here.
-      void ensureSessionCache(finalMessages);
+      // GPT keeps its rolling cache. Claude private windows deliberately keep
+      // the complete active-window text and neither generate nor inject one.
+      if (isGpt) void ensureSessionCache(finalMessages);
     } catch (error) {
       setStreamingReply("");
       const wasPaused = controller.signal.aborted && pausedReplyRequestIdRef.current === requestId;
@@ -4098,7 +4061,7 @@ function SettingsView({
         </div>
         </>}
 
-        <div className="settings-group">
+        {isGpt && <div className="settings-group">
           <h2 className="settings-group-title">会话缓存</h2>
           <p className="settings-hint">
             把当前窗口已经滑出 30 轮外的旧聊天压成一段前情，后续聊天会带上。
@@ -4116,7 +4079,7 @@ function SettingsView({
             当前可压缩：{manualCache.slice.length} 条；已缓存长度：{session?.summary?.length || 0} 字
           </p>
           {cacheMessage && <p className="settings-hint" style={{ color: cacheMessage.startsWith("生成失败") ? "var(--theme-accent, #c4866c)" : "var(--theme-success, #5b8a6b)" }}>{cacheMessage}</p>}
-        </div>
+        </div>}
 
         <CacheStatusPanel cache={lastCache} />
         <ContextDebugPanel

@@ -13,6 +13,7 @@ export type CacheStats = {
   context_user_turns?: number;
   context_chars?: number;
   context_window_rounds?: number;
+  context_mode?: "full-window" | "rolling-summary";
   context_truncated?: boolean;
   context_omitted_messages?: number;
   summary_used?: boolean;
@@ -67,7 +68,7 @@ export function CacheStatusPanel({ cache }: { cache: CacheStats | null }) {
           <div>summer:<span style={{ marginLeft: "8px", color: cache.summer_used ? "var(--theme-success, #5b8a6b)" : "var(--text-light)" }}>{cache.summer_used ? "已接管长期记忆" : "未接入"}</span></div>
           {typeof cache.context_messages === "number" && (
             <div>本轮上下文:<span style={{ marginLeft: "8px", color: "var(--theme-muted, #8a7d75)" }}>
-              {cache.context_messages} 条 / {cache.context_user_turns ?? 0} 轮用户 / 窗口 {cache.context_window_rounds ?? 30} 轮
+              {cache.context_messages} 条 / {cache.context_user_turns ?? 0} 轮用户 / {cache.context_mode === "full-window" ? "当前窗口全文" : `窗口 ${cache.context_window_rounds ?? 30} 轮`}
             </span></div>
           )}
           <div>截断:<span style={{ marginLeft: "8px", color: cache.context_truncated ? "var(--theme-accent, #c4866c)" : "var(--theme-success, #5b8a6b)" }}>

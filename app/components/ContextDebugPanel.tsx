@@ -47,14 +47,14 @@ export function ContextDebugPanel({
           {cache ? (
             <>
               <div>上轮实际发送:<span style={{ marginLeft: "8px", color: "var(--theme-muted, #8a7d75)" }}>{cache.context_messages ?? "-"} 条 / {cache.context_user_turns ?? "-"} 轮用户</span></div>
-              <div>窗口上限:<span style={{ marginLeft: "8px", color: "var(--theme-muted, #8a7d75)" }}>{cache.context_window_rounds ?? 30} 轮用户</span></div>
+              <div>发送方式:<span style={{ marginLeft: "8px", color: "var(--theme-muted, #8a7d75)" }}>{cache.context_mode === "full-window" ? "当前窗口全文" : `最近 ${cache.context_window_rounds ?? 30} 轮`}</span></div>
               <div>是否截断:<span style={{ marginLeft: "8px", color: cache.context_truncated ? "var(--accent-text)" : "var(--theme-success, #5b8a6b)" }}>
                 {cache.context_truncated ? `是，省略 ${cache.context_omitted_messages ?? 0} 条更早消息` : "否"}
               </span></div>
               {typeof cache.context_chars === "number" && (
                 <div>上轮文字量:<span style={{ marginLeft: "8px", color: "var(--theme-muted, #8a7d75)" }}>{cache.context_chars} 字符</span></div>
               )}
-              <div>旧摘要/旧记忆:<span style={{ marginLeft: "8px", color: "var(--text-light)" }}>不再注入</span></div>
+              <div>会话摘要:<span style={{ marginLeft: "8px", color: "var(--text-light)" }}>{cache.context_mode === "full-window" ? "不生成、不注入" : cache.summary_used ? "已注入" : "未使用"}</span></div>
             </>
           ) : (
             <p className="settings-hint">还没有上一轮发送记录。</p>
