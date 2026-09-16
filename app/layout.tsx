@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import "./themes/white-pink.css";
 import "./themes/picker.css";
+import "./themes/chat-glass.css";
 import { ThemeProvider } from "./components/ThemeProvider";
 import { THEME_INIT_SCRIPT } from "./lib/theme";
 
@@ -11,7 +12,7 @@ export const metadata: Metadata = {
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
-    statusBarStyle: "default",
+    statusBarStyle: "black-translucent",
     title: "iooi",
   },
 };

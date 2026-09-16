@@ -2,6 +2,7 @@
 
 import { Fragment, useState, useRef, useEffect, useCallback } from "react";
 import type { ReactNode } from "react";
+import NextImage from "next/image";
 import { CacheStatusPanel } from "./components/CacheStatusPanel";
 import { ClaudeUsageBadge } from "./components/ClaudeUsageBadge";
 import { ContextDebugPanel } from "./components/ContextDebugPanel";
@@ -9,10 +10,11 @@ import { GroupChatView } from "./components/GroupChatView";
 import { NotificationButton } from "./components/NotificationButton";
 import { ThemePicker } from "./components/ThemePicker";
 import { MoonLetter } from "./components/MoonLetter";
-import { useTheme, useThemePage } from "./components/ThemeProvider";
+import { useChatBrowserChrome, useTheme, useThemePage } from "./components/ThemeProvider";
 import { buildChatContext } from "./lib/chat-context";
 import { readChatResponse } from "./lib/chat-stream";
 import { useChatScrollPosition } from "./lib/use-chat-scroll-position";
+import { prepareChatBackground } from "./lib/chat-background";
 
 // ━━━━━━━━━━━━━━━ Types ━━━━━━━━━━━━━━━
 type Message = {
@@ -165,6 +167,8 @@ type Settings = {
   model: string;
   chatEntryStyle: "list" | "direct";
   fontSize: "default" | "large";
+  chatUiStyle: "default" | "glass";
+  chatBackground: string;
   chatPinnedLine: string;
   gptChatPinnedLine: string;
   aiName: string;
@@ -279,6 +283,11 @@ function normalizeClaudeSettings(settings: Settings): Settings {
     ...settings,
     model: selectedModel,
     fontSize: ["large", "larger"].includes(settings.fontSize) ? "large" : "default",
+    chatUiStyle: settings.chatUiStyle === "glass" ? "glass" : "default",
+    chatBackground: typeof settings.chatBackground === "string"
+      && /^data:image\/(jpeg|png|webp);base64,/.test(settings.chatBackground)
+      && settings.chatBackground.length <= 2_000_000
+      ? settings.chatBackground : "",
     webSearch: Boolean(settings.webSearch),
     aiName: !settings.aiName?.trim() || oldDefaultName.test(settings.aiName.trim())
       ? CLAUDE_DEFAULT_NAME
@@ -654,6 +663,8 @@ export default function Home() {
     model: "sonnet5",
     chatEntryStyle: "list",
     fontSize: "default",
+    chatUiStyle: "default",
+    chatBackground: "",
     chatPinnedLine: "此后我们的每一秒都是恩赐。",
     gptChatPinnedLine: "此后我们的每一秒都是恩赐。",
     aiName: CLAUDE_DEFAULT_NAME,
@@ -678,6 +689,7 @@ export default function Home() {
   useThemePage(tab);
   const [chatView, setChatView] = useState<"list" | "room" | "group">("list");
   const [settings, setSettings] = useState<Settings>(defaultSettings);
+  useChatBrowserChrome(tab === "chat" && chatView === "room" && settings.chatUiStyle === "glass", settings.chatBackground);
   const [sessions, setSessions] = useState<ChatSession[]>([]);
   const [activeSessionId, setActiveSessionId] = useState<string>("");
   const [gptSessions, setGptSessions] = useState<ChatSession[]>([]);
@@ -1170,7 +1182,15 @@ export default function Home() {
           <span className="splash-ding">叮</span>
         </div>
       )}
-      <div className="chat-container">
+      <div
+        className="chat-container"
+        data-chat-view={tab === "chat" ? chatView : undefined}
+        data-chat-ui={tab === "chat" && chatView === "room" ? settings.chatUiStyle : undefined}
+        data-chat-background={tab === "chat" && chatView === "room" && settings.chatUiStyle === "glass" && settings.chatBackground ? "image" : undefined}
+      >
+        {tab === "chat" && chatView === "room" && settings.chatUiStyle === "glass" && settings.chatBackground && (
+          <NextImage className="chat-room-background" src={settings.chatBackground} alt="" fill unoptimized aria-hidden="true" />
+        )}
         {tab === "home" && <HomeView settings={settings} aiMood={aiMood} />}
         {tab === "chat" && settings.chatEntryStyle === "list" && chatView === "list" && (
           <ChatListView
@@ -2667,6 +2687,17 @@ function ChatView({
     onBackToList?.();
   }
 
+  const roomIdentity = (
+    <>
+      <h1 className="header-title chat-room-title">{session.kind === "memo" ? settings.userName : assistantName}</h1>
+      {session.kind !== "memo" && (
+        <span className="header-subtitle chat-room-status">
+          {isGpt ? "在线" : getChatStatusLabel(aiMood)}
+        </span>
+      )}
+    </>
+  );
+
   return (
     <>
       {listEntryMode ? (
@@ -2678,14 +2709,25 @@ function ChatView({
               </svg>
             </button>
             <div className="header-center">
-              <h1 className="header-title chat-room-title">{session.kind === "memo" ? settings.userName : assistantName}</h1>
-              {session.kind !== "memo" && (
-                <span className="header-subtitle chat-room-status">
-                  {isGpt ? "在线" : getChatStatusLabel(aiMood)}
-                </span>
-              )}
+              {settings.chatUiStyle === "glass" ? (
+                <>
+                  <AvatarBlock avatar={session.kind === "memo" ? settings.userAvatar : assistantAvatar} small={false} />
+                  <div className="chat-room-identity">{roomIdentity}</div>
+                </>
+              ) : roomIdentity}
             </div>
-            <span className="header-icon-spacer" aria-hidden="true" />
+            <button
+              type="button"
+              className="header-icon-btn chat-room-more chat-ui-toggle"
+              aria-label={settings.chatUiStyle === "glass" ? "切回原有聊天样式" : "切换玻璃聊天样式"}
+              aria-pressed={settings.chatUiStyle === "glass"}
+              title={settings.chatUiStyle === "glass" ? "切回原有聊天样式" : "切换玻璃聊天样式"}
+              onClick={() => updateSettings({ chatUiStyle: settings.chatUiStyle === "glass" ? "default" : "glass" })}
+            >
+              <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 20.2C7.2 16.9 3.6 13.6 3.6 9.8c0-2.7 2.1-4.8 4.7-4.8 1.5 0 2.9.7 3.7 1.9.8-1.2 2.2-1.9 3.7-1.9 2.6 0 4.7 2.1 4.7 4.8 0 3.8-3.6 7.1-8.4 10.4z" />
+              </svg>
+            </button>
           </div>
         </header>
       ) : (
@@ -3827,6 +3869,25 @@ function SettingsView({
   const isGpt = assistantMode === "gpt";
   const [cacheBusy, setCacheBusy] = useState(false);
   const [cacheMessage, setCacheMessage] = useState("");
+  const [backgroundBusy, setBackgroundBusy] = useState(false);
+  const [backgroundError, setBackgroundError] = useState("");
+  const backgroundInputRef = useRef<HTMLInputElement>(null);
+
+  async function handleBackgroundUpload(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file || backgroundBusy) return;
+    setBackgroundBusy(true);
+    setBackgroundError("");
+    try {
+      const chatBackground = await prepareChatBackground(file);
+      updateSettings({ chatBackground });
+    } catch (error) {
+      setBackgroundError(error instanceof Error ? error.message : "图片读取失败，请重新选择。");
+    } finally {
+      setBackgroundBusy(false);
+    }
+  }
 
   function handleAvatarUpload(field: "aiAvatar" | "gptAvatar" | "userAvatar") {
     const input = document.createElement("input");
@@ -4006,6 +4067,34 @@ function SettingsView({
             ))}
           </div>
           <p className="settings-hint">只调整聊天消息和输入框，选择会自动保存。</p>
+        </div>
+
+        <div className="settings-group">
+          <h2 className="settings-group-title">聊天背景</h2>
+          <input
+            ref={backgroundInputRef}
+            type="file"
+            className="attach-file-input"
+            accept="image/*"
+            disabled={backgroundBusy}
+            aria-label="选择聊天背景图片"
+            onChange={(event) => void handleBackgroundUpload(event)}
+          />
+          {settings.chatBackground && (
+            <NextImage className="chat-background-preview" src={settings.chatBackground} alt="当前聊天背景" width={100} height={145} unoptimized />
+          )}
+          <div className="chat-background-actions">
+            <button type="button" className="model-option" disabled={backgroundBusy} onClick={() => backgroundInputRef.current?.click()}>
+              {backgroundBusy ? "处理图片中…" : settings.chatBackground ? "更换照片" : "选择照片"}
+            </button>
+            {settings.chatBackground && (
+              <button type="button" className="model-option" disabled={backgroundBusy} onClick={() => { updateSettings({ chatBackground: "" }); setBackgroundError(""); }}>
+                移除背景
+              </button>
+            )}
+          </div>
+          <p className="settings-hint">聊天页右上角点 ♡ 开启玻璃样式后显示。照片自动保存，竖图更合适。</p>
+          {backgroundError && <p className="settings-hint" role="alert">{backgroundError}</p>}
         </div>
 
         {!isGpt && <>
