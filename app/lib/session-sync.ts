@@ -7,6 +7,7 @@ type StoredMessage = {
   file?: string;
   thinking?: string;
   source?: string;
+  roundId?: string;
   speaker?: "claude" | "gpt";
   proposal?: { id?: string; status?: string };
 };
@@ -43,8 +44,11 @@ function messageKey(message: StoredMessage) {
     return ["summer_proposal", proposalId].join("\u0001");
   }
   const content = (message.content || "").trim().replace(/\s+/g, " ");
-  if (message.role === "assistant" && content.length >= 4 && !message.image && !message.file) {
-    return [message.role || "", message.speaker || "", message.source || "", content].join("\u0001");
+  if (message.roundId && message.role === "assistant") {
+    return [message.role, message.speaker || "", message.source || "", message.roundId, content].join("\u0001");
+  }
+  if (message.role === "assistant" && message.source !== "summer_call" && content.length >= 4 && !message.image && !message.file) {
+    return [message.role, message.speaker || "", message.source || "", content].join("\u0001");
   }
   return [
     message.role || "",

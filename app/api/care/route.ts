@@ -3,6 +3,7 @@ import { join } from "path";
 import webpush from "web-push";
 import { readStore, withStore } from "@/app/lib/store";
 import { isClaudeCodeEnabled, runClaudeCodeChat } from "@/app/lib/claude-code";
+import { latestUserSession, messageTimestamp } from "@/app/lib/chat-timeline";
 
 export const runtime = "nodejs";
 
@@ -25,16 +26,15 @@ function cstToday() {
 }
 // 把 "2026/6/12"+"14:30" 拼成准确时间戳(消息里存的是CST)
 function parseMsgTime(date?: string, time?: string): number | null {
-  if (!date) return null;
-  const t = new Date(`${date.replaceAll("/", "-")} ${time || "00:00"}:00 +08:00`).getTime();
-  return Number.isNaN(t) ? null : t;
+  return messageTimestamp({ date, time }) || null;
 }
 function hoursAgo(ts: number | null): number {
   if (!ts) return 9999;
   return (Date.now() - ts) / 3600000;
 }
 
-type Msg = { role: string; content: string; time?: string; date?: string; thinking?: string };
+type Msg = { role: string; content: string; time?: string; date?: string; thinking?: string; source?: string };
+type CareSession = { id: string; kind?: string; messages: Msg[] };
 type HeartbeatLog = { time: string; action: string; reason: string };
 
 function dailyCareCount(careState: Record<string, unknown>, today: string): number {
@@ -58,7 +58,8 @@ export async function POST() {
     if (!snapshot) return Response.json({ action: "silent", reason: "no data" });
 
     const settings = (snapshot.settings || {}) as Record<string, unknown>;
-    const sessions = (snapshot.sessions || []) as Array<{ id: string; messages: Msg[] }>;
+    const sessions = (snapshot.sessions || []) as CareSession[];
+    const mainSession = latestUserSession(sessions);
     const careState = (snapshot.careState || {}) as Record<string, unknown>;
 
     const today = cstToday();
@@ -80,7 +81,7 @@ export async function POST() {
       } else {
         let lastUserTs: number | null = null;
         let recentLines: string[] = [];
-        for (const s of sessions) {
+        for (const s of sessions.filter((session) => session.kind !== "memo" && session.kind !== "group")) {
           for (const m of s.messages || []) {
             if (m.role === "user") {
               const ts = parseMsgTime(m.date, m.time);
@@ -92,9 +93,8 @@ export async function POST() {
         if (awayHours < USER_AWAY_HOURS) {
           reason = "她刚来过/还在,不需要主动";
         } else {
-          const mainSession = sessions[0];
           if (mainSession?.messages?.length) {
-            recentLines = mainSession.messages.slice(-6).map(
+            recentLines = mainSession.messages.filter((m) => !m.source?.startsWith("summer_")).slice(-6).map(
               (m) => `${m.role === "user" ? settings.userName || "她" : settings.aiName || "我"}：${(m.content || "").slice(0, 80)}`
             );
           }
@@ -210,19 +210,22 @@ ${recentLines.length ? `- 最近的对话片段:\n${recentLines.map((l) => "  " 
           log(cs, action, reason);
           return;
         }
-        const ss = (store.sessions || []) as Array<{ id: string; messages: Msg[] }>;
-        if (!ss[0]) {
+        const ss = (store.sessions || []) as CareSession[];
+        const target = latestUserSession(ss);
+        const latestUserTs = Math.max(0, ...(target?.messages || []).filter((m) => m.role === "user").map(messageTimestamp));
+        if (!target || target.id !== mainSession?.id || hoursAgo(latestUserTs) < USER_AWAY_HOURS) {
           careMessage = null;
           action = "silent";
-          reason = "没有可接收主动关心的会话";
+          reason = "最近聊天窗口已变化、她刚来过或没有可接收主动关心的会话";
           log(cs, action, reason);
           return;
         }
-        ss[0].messages.push({
+        target.messages.push({
             role: "assistant",
             content: careMessage,
             time: cstTime(),
             date: sendDay,
+            source: "heartbeat",
           } as Msg);
         cs.todayDate = sendDay;
         cs.todayCount = count + 1;

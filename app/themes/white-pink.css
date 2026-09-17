@@ -1,5 +1,4 @@
-/* White Peach is isolated here. Warm colors remain the fallbacks in globals.css.
-   Keep future shape/layout changes scoped to :root[data-theme="white-pink"]. */
+/* White Peach is the app appearance. */
 :root[data-theme="white-pink"] .home-body.moon-home {
   background: radial-gradient(ellipse at 18% 20%, #f3eae333, transparent 48%), radial-gradient(ellipse at 90% 51%, #e4edf340, transparent 45%), #fdfcfb;
   padding: 4px 20px 24px;
@@ -28,7 +27,7 @@
   --shadow-card: none;
   --shadow-bubble: none;
 
-  /* Shared surfaces, ink and controls previously using individual warm shades. */
+  /* Shared surfaces, ink and controls and controls. */
   --theme-accent: var(--accent);
   --theme-link: var(--accent-text);
   --theme-text: var(--text-primary);
@@ -197,7 +196,7 @@
   padding-bottom: 8px;
 }
 
-:root[data-theme="white-pink"] .app-bg[data-font-size="large"] :is(.chat-entry-pinned, .chat-entry-item, .chat-entry-subscribe) {
+:root[data-theme="white-pink"] .app-bg :is(.chat-entry-pinned, .chat-entry-item, .chat-entry-subscribe) {
   padding-top: 13px;
   padding-bottom: 13px;
 }
@@ -217,7 +216,7 @@
   bottom: 8px;
 }
 
-:root[data-theme="white-pink"] .app-bg[data-font-size="large"] .chat-entry-side {
+:root[data-theme="white-pink"] .app-bg .chat-entry-side {
   top: 13px;
   bottom: 13px;
 }
@@ -234,7 +233,7 @@
   color: #9a9aa1;
 }
 
-/* Muted rose metadata, without the heavier strokes used by the warm theme. */
+/* Muted rose metadata, for secondary text. */
 :root[data-theme="white-pink"] :is(.single-room-header .chat-room-status, .group-speaker-meta) {
   color: #a97889;
   font-weight: 400;
@@ -282,7 +281,7 @@
   --theme-surface-soft: #ffffff;
 }
 
-/* Hide before hydration as well as after it; the warm theme keeps its entrance. */
+/* No startup overlay. */
 :root[data-theme="white-pink"] .splash {
   display: none;
 }

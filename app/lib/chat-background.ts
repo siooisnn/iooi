@@ -1,4 +1,9 @@
 // Keep the photo in the existing settings sync, just like the profile avatars.
+export function normalizeChatBackground(value: unknown): string {
+  return typeof value === "string" && /^data:image\/(jpeg|png|webp);base64,/.test(value)
+    && value.length <= 2_000_000 ? value : "";
+}
+
 export async function prepareChatBackground(file: File): Promise<string> {
   if (!file.type.startsWith("image/")) throw new Error("请选择图片文件。");
   if (file.size > 25 * 1024 * 1024) throw new Error("图片太大，请选择小于 25MB 的照片。");

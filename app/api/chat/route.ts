@@ -23,7 +23,7 @@ function cstTime() {
 function cstToday() {
   return new Date().toLocaleDateString("zh-CN", { timeZone: "Asia/Shanghai" });
 }
-type StoreMsg = { role: string; content: string; time?: string; date?: string; thinking?: string; image?: string; file?: string; source?: string; speaker?: "claude" | "gpt"; proposal?: SummerWrite };
+type StoreMsg = { role: string; content: string; time?: string; date?: string; thinking?: string; image?: string; file?: string; source?: string; roundId?: string; speaker?: "claude" | "gpt"; proposal?: SummerWrite };
 type TextBlock = {
   type: "text";
   text: string;
@@ -693,13 +693,14 @@ async function persistRound(
   summerCalls: SummerCall[] = [],
   summerWriteProposals: SummerWrite[] = []
 ) {
-  if (!sessionId || !reply) return;
+  const stamp = { time: cstTime(), date: cstToday() };
+  if (!sessionId || !reply) return stamp;
   try {
     const diaryRegex = /\[日记\]([\s\S]*?)\[\/日记\]/g;
     const cleanReply = reply.replace(diaryRegex, "").replace(/\[心情[:：].+?\]/g, "").trim();
     const parts = cleanReply.split(/\n{2,}/).filter((p) => p.trim());
-    const now = cstTime();
-    const today = cstToday();
+    const now = stamp.time;
+    const today = stamp.date;
 
     await withStore((store) => {
       const sessions = (store.sessions || []) as Array<{ id: string; name: string; messages: StoreMsg[] }>;
@@ -722,7 +723,8 @@ async function persistRound(
         return;
       }
 
-      const tailKeys = new Set(msgs.slice(-16).filter((m) => m.role === "assistant").map(storeMessageKey));
+      const lastUserIndex = msgs.findLastIndex((m) => m.role === "user");
+      const tailKeys = new Set(msgs.slice(lastUserIndex + 1).filter((m) => m.role === "assistant").map(storeMessageKey));
       const pushAssistant = (message: StoreMsg) => {
         const key = storeMessageKey(message);
         if (tailKeys.has(key)) return;
@@ -733,6 +735,7 @@ async function persistRound(
         pushAssistant({
           role: "assistant",
           source: "summer_call",
+          roundId: userMsg?.roundId,
           content: summerCallContent(call),
           time: now,
           date: today,
@@ -741,7 +744,7 @@ async function persistRound(
       parts.forEach((p, i) => {
         const c = p.trim();
         pushAssistant({
-          role: "assistant", content: c, time: now, date: today,
+          role: "assistant", content: c, time: now, date: today, roundId: userMsg?.roundId,
           ...(i === 0 && thinkingContent ? { thinking: thinkingContent } : {}),
         });
       });
@@ -760,6 +763,7 @@ async function persistRound(
   } catch {
     // 落地失败不影响正常返回
   }
+  return stamp;
 }
 
 async function persistUserMessage(sessionId: string | undefined, userMsg: StoreMsg | undefined) {
@@ -1180,8 +1184,9 @@ ${combinedDynamicPrompt}
       const persistStartedAt = Date.now();
       const groupPersistedTime = skipPersist && groupSessionId ? cstTime() : "";
       const groupPersistedDate = skipPersist && groupSessionId ? cstToday() : "";
+      let replyStamp: { time: string; date: string } | undefined;
       if (!skipPersist) {
-        await persistRound(sessionId, userMsg, reply, thinkingContent, summerCalls, summerWriteProposals);
+        replyStamp = await persistRound(sessionId, userMsg, reply, thinkingContent, summerCalls, summerWriteProposals);
       } else if (groupSessionId) {
         await persistGroupRound(
           String(groupSessionId),
@@ -1248,6 +1253,8 @@ ${combinedDynamicPrompt}
             summer_writes: summerWriteProposals.filter((proposal) => proposal.status === "committed").length,
             summer_write_proposals: summerWriteProposals,
             summer_calls: summerCalls,
+            reply_persisted_time: replyStamp?.time,
+            reply_persisted_date: replyStamp?.date,
             web_search_used: Boolean(webSearch),
             total_ms: totalMs,
             user_persist_ms: userPersistMs,

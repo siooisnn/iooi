@@ -8,13 +8,14 @@ import { ClaudeUsageBadge } from "./components/ClaudeUsageBadge";
 import { ContextDebugPanel } from "./components/ContextDebugPanel";
 import { GroupChatView } from "./components/GroupChatView";
 import { NotificationButton } from "./components/NotificationButton";
-import { ThemePicker } from "./components/ThemePicker";
+import { ChatBackgroundSetting } from "./components/ChatBackgroundSetting";
 import { MoonLetter } from "./components/MoonLetter";
-import { useChatBrowserChrome, useTheme, useThemePage } from "./components/ThemeProvider";
+import { useChatBrowserChrome, useThemePage } from "./components/ThemeProvider";
 import { buildChatContext } from "./lib/chat-context";
 import { readChatResponse } from "./lib/chat-stream";
 import { useChatScrollPosition } from "./lib/use-chat-scroll-position";
-import { prepareChatBackground } from "./lib/chat-background";
+import { normalizeChatBackground } from "./lib/chat-background";
+import { alignLegacySummerCalls, messageTimestamp } from "./lib/chat-timeline";
 
 // ━━━━━━━━━━━━━━━ Types ━━━━━━━━━━━━━━━
 type Message = {
@@ -26,6 +27,7 @@ type Message = {
   file?: string;
   thinking?: string;
   source?: string;
+  roundId?: string;
   speaker?: "claude" | "gpt";
   proposal?: SummerWriteProposal;
 };
@@ -169,6 +171,7 @@ type Settings = {
   fontSize: "default" | "large";
   chatUiStyle: "default" | "glass";
   chatBackground: string;
+  gptChatBackground?: string;
   chatPinnedLine: string;
   gptChatPinnedLine: string;
   aiName: string;
@@ -284,10 +287,11 @@ function normalizeClaudeSettings(settings: Settings): Settings {
     model: selectedModel,
     fontSize: ["large", "larger"].includes(settings.fontSize) ? "large" : "default",
     chatUiStyle: settings.chatUiStyle === "glass" ? "glass" : "default",
-    chatBackground: typeof settings.chatBackground === "string"
-      && /^data:image\/(jpeg|png|webp);base64,/.test(settings.chatBackground)
-      && settings.chatBackground.length <= 2_000_000
-      ? settings.chatBackground : "",
+    chatBackground: normalizeChatBackground(settings.chatBackground),
+    // Preserve the old shared photo on first upgrade; an explicit empty value
+    // means GPT's background was removed and must not fall back to Claude's.
+    gptChatBackground: normalizeChatBackground(settings.gptChatBackground === undefined
+      ? settings.chatBackground : settings.gptChatBackground),
     webSearch: Boolean(settings.webSearch),
     aiName: !settings.aiName?.trim() || oldDefaultName.test(settings.aiName.trim())
       ? CLAUDE_DEFAULT_NAME
@@ -393,7 +397,10 @@ function chatMessageKey(message: Message) {
     return ["summer_proposal", proposalId].join("\u0001");
   }
   const content = (message.content || "").trim().replace(/\s+/g, " ");
-  if (message.role === "assistant" && content.length >= 4 && !message.image && !message.file) {
+  if (message.roundId && message.role === "assistant") {
+    return [message.role, message.speaker || "", message.source || "", message.roundId, content].join("\u0001");
+  }
+  if (message.role === "assistant" && message.source !== "summer_call" && content.length >= 4 && !message.image && !message.file) {
     return [message.role, message.speaker || "", message.source || "", content].join("\u0001");
   }
   return [
@@ -508,16 +515,6 @@ function getAppHour() {
   return Number(hourPart) % 24;
 }
 
-function getGreeting() {
-  const h = getAppHour();
-  if (h < 6) return "夜深了，还没睡呢";
-  if (h < 9) return "早上好";
-  if (h < 12) return "上午好";
-  if (h < 14) return "中午好";
-  if (h < 18) return "下午好";
-  if (h < 22) return "晚上好";
-  return "夜深了，还没睡呢";
-}
 
 // ── Storage ──
 function loadLocal<T>(key: string, fallback: T): T {
@@ -685,11 +682,11 @@ export default function Home() {
   };
 
   const [tab, setTab] = useState<"home" | "chat" | "diary" | "settings">("home");
-  const theme = useTheme();
   useThemePage(tab);
   const [chatView, setChatView] = useState<"list" | "room" | "group">("list");
   const [settings, setSettings] = useState<Settings>(defaultSettings);
-  useChatBrowserChrome(tab === "chat" && chatView === "room" && settings.chatUiStyle === "glass", settings.chatBackground);
+  const activeChatBackground = settings.chatEntryStyle === "direct" ? settings.gptChatBackground || "" : settings.chatBackground;
+  useChatBrowserChrome(tab === "chat" && chatView === "room" && settings.chatUiStyle === "glass", activeChatBackground);
   const [sessions, setSessions] = useState<ChatSession[]>([]);
   const [activeSessionId, setActiveSessionId] = useState<string>("");
   const [gptSessions, setGptSessions] = useState<ChatSession[]>([]);
@@ -831,13 +828,6 @@ export default function Home() {
       navigator.serviceWorker.register("/sw.js").catch(() => {});
     }
   }, [mounted]);
-
-  // 开屏动画
-  const [splash, setSplash] = useState(true);
-  useEffect(() => {
-    const t = setTimeout(() => setSplash(false), 1100);
-    return () => clearTimeout(t);
-  }, []);
 
   // Force sync when user switches away (prevents message loss on iOS)
   const latestData = useRef({ sessions, gptSessions, groupSessions, settings, moods, fragments });
@@ -1176,22 +1166,16 @@ export default function Home() {
 
   return (
     <main className="app-bg" data-font-size={settings.fontSize}>
-      {splash && theme !== "white-pink" && (
-        <div className="splash">
-          <img src="/icon-192.png" alt="" className="splash-pig" />
-          <span className="splash-ding">叮</span>
-        </div>
-      )}
       <div
         className="chat-container"
         data-chat-view={tab === "chat" ? chatView : undefined}
         data-chat-ui={tab === "chat" && chatView === "room" ? settings.chatUiStyle : undefined}
-        data-chat-background={tab === "chat" && chatView === "room" && settings.chatUiStyle === "glass" && settings.chatBackground ? "image" : undefined}
+        data-chat-background={tab === "chat" && chatView === "room" && settings.chatUiStyle === "glass" && activeChatBackground ? "image" : undefined}
       >
-        {tab === "chat" && chatView === "room" && settings.chatUiStyle === "glass" && settings.chatBackground && (
-          <NextImage className="chat-room-background" src={settings.chatBackground} alt="" fill unoptimized aria-hidden="true" />
+        {tab === "chat" && chatView === "room" && settings.chatUiStyle === "glass" && activeChatBackground && (
+          <NextImage className="chat-room-background" src={activeChatBackground} alt="" fill unoptimized aria-hidden="true" />
         )}
-        {tab === "home" && <HomeView settings={settings} aiMood={aiMood} />}
+        {tab === "home" && <HomeView settings={settings} />}
         {tab === "chat" && settings.chatEntryStyle === "list" && chatView === "list" && (
           <ChatListView
             assistantMode="claude"
@@ -1373,21 +1357,15 @@ function getIdleStatus(): string {
 }
 
 function parseMessageDateTime(message?: Pick<Message, "date" | "time">) {
-  if (!message?.date) return null;
-  const dateMatch = message.date.match(/(\d{4})\D+(\d{1,2})\D+(\d{1,2})/);
-  const timeMatch = (message.time || "").match(/(\d{1,2}):(\d{2})/);
-  if (!dateMatch) return null;
-  return new Date(
-    Number(dateMatch[1]),
-    Number(dateMatch[2]) - 1,
-    Number(dateMatch[3]),
-    timeMatch ? Number(timeMatch[1]) : 0,
-    timeMatch ? Number(timeMatch[2]) : 0
-  );
+  const timestamp = messageTimestamp(message);
+  return timestamp ? new Date(timestamp) : null;
 }
 
 function getLatestSessionMessage(session: ChatSession) {
-  return [...session.messages].reverse().find((m) => m.source !== "summer_write_ignored");
+  return session.messages.reduce<Message | undefined>((latest, message) => {
+    if (message.source?.startsWith("summer_")) return latest;
+    return !latest || messageTimestamp(message) >= messageTimestamp(latest) ? message : latest;
+  }, undefined);
 }
 
 function getSessionStamp(session: ChatSession) {
@@ -1485,7 +1463,6 @@ function ChatListView({
 }) {
   const isGpt = assistantMode === "gpt";
   const assistantAvatar = isGpt ? settings.gptAvatar : settings.aiAvatar;
-  const theme = useTheme();
   const [query, setQuery] = useState("");
   const [openActionsFor, setOpenActionsFor] = useState<string | null>(null);
   const [showHbLog, setShowHbLog] = useState(false);
@@ -1658,11 +1635,10 @@ function ChatListView({
           </div>
           <button className="header-icon-btn chat-list-new" aria-label="新聊天" onClick={startNewChat}>＋</button>
         </div>
-        {theme !== "white-pink" && searchField}
       </header>
 
       <section className="chat-entry-body" onClick={() => setOpenActionsFor(null)}>
-        {theme === "white-pink" && searchField}
+        {searchField}
         <p className="chat-entry-pinned-line" onClick={editPinnedLine} title="点击修改">{pinnedLine}</p>
 
         {showGroupEntry && (
@@ -1792,12 +1768,8 @@ function GroupAvatarStack({
   );
 }
 
-function HomeView({ settings, aiMood }: {
-  settings: Settings;
-  aiMood: { emoji: string; ts: number };
-}) {
+function HomeView({ settings }: { settings: Settings }) {
   const [now, setNow] = useState<number | null>(null);
-  const theme = useTheme();
 
   useEffect(() => {
     const updateNow = () => setNow(Date.now());
@@ -1833,7 +1805,7 @@ function HomeView({ settings, aiMood }: {
         </div>
       </header>
 
-      <section className={`home-body${theme === "white-pink" ? " moon-home" : ""}`}>
+      <section className="home-body moon-home">
         {isAnniversary && (
           <div className="petals" aria-hidden>
             {Array.from({ length: 12 }).map((_, i) => (
@@ -1842,46 +1814,7 @@ function HomeView({ settings, aiMood }: {
           </div>
         )}
 
-        {theme === "white-pink" ? (
           <MoonLetter days={days} hours={hours} minutes={minutes} seconds={seconds} ready={now !== null && Number.isFinite(start)} />
-        ) : <>
-        <div className="home-greeting">
-          <p className="greeting-text">{getGreeting()}，{settings.userName}</p>
-          <p style={{ fontSize: "13px", color: "var(--text-secondary)", marginTop: "6px", textAlign: "center" }}>
-            {settings.aiName}
-            {" "}
-            {aiMood.emoji && now !== null && (now - aiMood.ts) < 3600000
-              ? `现在 ${aiMood.emoji}`
-              : getIdleStatus()}
-          </p>
-        </div>
-
-        <div className="home-counter">
-          <p className="counter-label">在一起</p>
-          <div className="counter-numbers">
-            <div className="counter-item">
-              <span className="counter-value">{days}</span>
-              <span className="counter-unit">天</span>
-            </div>
-            <div className="counter-item">
-              <span className="counter-value">{hours}</span>
-              <span className="counter-unit">时</span>
-            </div>
-            <div className="counter-item">
-              <span className="counter-value">{minutes}</span>
-              <span className="counter-unit">分</span>
-            </div>
-            <div className="counter-item">
-              <span className="counter-value">{seconds}</span>
-              <span className="counter-unit">秒</span>
-            </div>
-          </div>
-        </div>
-
-        <div className="home-quote">
-          <p>此后我们的每一秒都是恩赐。</p>
-        </div>
-        </>}
       </section>
     </>
   );
@@ -2108,6 +2041,7 @@ function ChatView({
   const activeReplyRequestRef = useRef<{ id: number; controller: AbortController } | null>(null);
   const replyStatusTimersRef = useRef<Array<ReturnType<typeof setTimeout>>>([]);
   const [initialMessageCount] = useState(() => session.messages.length);
+  const displayMessages = alignLegacySummerCalls(session.messages);
   const { scrollRef, handleScroll, followLatest } = useChatScrollPosition(
     `iooi-scroll-${assistantMode}-${session.id}`,
     session.messages.length + streamingReply.length,
@@ -2426,7 +2360,7 @@ function ChatView({
     if (!input.trim() || loading || sendingRef.current) return;
     sendingRef.current = true;
     const userText = input;
-    const userMsg: Message = { role: "user", content: userText, time: getTime(), date: getTodayStr() };
+    const userMsg: Message = { role: "user", content: userText, time: getTime(), date: getTodayStr(), ...(!isGpt ? { roundId: genId() } : {}) };
     followLatest();
     const baseMessages = sessionMessagesRef.current;
     const messagesWithUser = [...baseMessages, userMsg];
@@ -2562,8 +2496,8 @@ function ChatView({
       reply = reply.replace(/\[心情[:：].+?\]/g, "").trim();
 
       const parts = reply.split(/\n{2,}/).filter((p: string) => p.trim());
-      const now = getTime();
-      const today = getTodayStr();
+      const now = data.cache?.reply_persisted_time || getTime();
+      const today = data.cache?.reply_persisted_date || getTodayStr();
       const summerCallMsgs: Message[] = (data.cache?.summer_calls || []).map((call: SummerCall) => {
         const bits = [
           "summer",
@@ -2574,6 +2508,7 @@ function ChatView({
         return {
           role: "assistant" as const,
           source: "summer_call",
+          roundId: userMsg.roundId,
           content: bits.join(" · "),
           time: now,
           date: today,
@@ -2594,6 +2529,7 @@ function ChatView({
       const newMsgs: Message[] = parts.map((p: string, i: number) => ({
         role: "assistant" as const,
         content: p.trim(),
+        roundId: userMsg.roundId,
         time: now,
         date: today,
         ...(i === 0 && thinkingContent ? { thinking: thinkingContent } : {}),
@@ -2755,13 +2691,13 @@ function ChatView({
         {session.messages.length === 0 && (
           <div className="empty-chat"><p>说点什么开始聊天吧</p></div>
         )}
-        {session.messages.map((message, index) => {
+        {displayMessages.map((message, index) => {
           if (message.source === "summer_write_ignored") return null;
           const isSummerUtility = listEntryMode && isSummerUtilityMessage(message);
           const animateMessage = !listEntryMode || index >= initialMessageCount;
-          const prevMsg = index > 0 ? session.messages[index - 1] : null;
-          const nextMsg = index < session.messages.length - 1 ? session.messages[index + 1] : null;
-          const prevDate = index > 0 ? session.messages[index - 1].date : null;
+          const prevMsg = index > 0 ? displayMessages[index - 1] : null;
+          const nextMsg = index < displayMessages.length - 1 ? displayMessages[index + 1] : null;
+          const prevDate = index > 0 ? displayMessages[index - 1].date : null;
           const showDateSep = listEntryMode ? shouldShowChatRoomTime(message, prevMsg) : message.date && message.date !== prevDate;
           const compactTop = !!prevMsg && prevMsg.role === message.role && !showDateSep;
           const compactBottom = !!nextMsg && nextMsg.role === message.role && nextMsg.date === message.date;
@@ -3869,26 +3805,6 @@ function SettingsView({
   const isGpt = assistantMode === "gpt";
   const [cacheBusy, setCacheBusy] = useState(false);
   const [cacheMessage, setCacheMessage] = useState("");
-  const [backgroundBusy, setBackgroundBusy] = useState(false);
-  const [backgroundError, setBackgroundError] = useState("");
-  const backgroundInputRef = useRef<HTMLInputElement>(null);
-
-  async function handleBackgroundUpload(event: React.ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0];
-    event.target.value = "";
-    if (!file || backgroundBusy) return;
-    setBackgroundBusy(true);
-    setBackgroundError("");
-    try {
-      const chatBackground = await prepareChatBackground(file);
-      updateSettings({ chatBackground });
-    } catch (error) {
-      setBackgroundError(error instanceof Error ? error.message : "图片读取失败，请重新选择。");
-    } finally {
-      setBackgroundBusy(false);
-    }
-  }
-
   function handleAvatarUpload(field: "aiAvatar" | "gptAvatar" | "userAvatar") {
     const input = document.createElement("input");
     input.type = "file";
@@ -3990,7 +3906,6 @@ function SettingsView({
       </header>
 
       <section className="settings-body">
-        <ThemePicker />
         <div className="settings-group">
           <h2 className="settings-group-title">称呼与头像</h2>
           <div className="avatar-upload-row">
@@ -4049,7 +3964,7 @@ function SettingsView({
         </div>
 
         <div className="settings-group">
-          <h2 className="settings-group-title" id="font-size-title">字体大小</h2>
+          <h2 className="settings-group-title" id="font-size-title">聊天字体大小</h2>
           <div className="font-size-options" role="group" aria-labelledby="font-size-title">
             {([
               { value: "default", label: "默认" },
@@ -4066,36 +3981,19 @@ function SettingsView({
               </button>
             ))}
           </div>
-          <p className="settings-hint">只调整聊天消息和输入框，选择会自动保存。</p>
+          <p className="settings-hint">只调整聊天页，消息列表始终使用大一号的样式。选择会自动保存。</p>
         </div>
 
-        <div className="settings-group">
-          <h2 className="settings-group-title">聊天背景</h2>
-          <input
-            ref={backgroundInputRef}
-            type="file"
-            className="attach-file-input"
-            accept="image/*"
-            disabled={backgroundBusy}
-            aria-label="选择聊天背景图片"
-            onChange={(event) => void handleBackgroundUpload(event)}
-          />
-          {settings.chatBackground && (
-            <NextImage className="chat-background-preview" src={settings.chatBackground} alt="当前聊天背景" width={100} height={145} unoptimized />
-          )}
-          <div className="chat-background-actions">
-            <button type="button" className="model-option" disabled={backgroundBusy} onClick={() => backgroundInputRef.current?.click()}>
-              {backgroundBusy ? "处理图片中…" : settings.chatBackground ? "更换照片" : "选择照片"}
-            </button>
-            {settings.chatBackground && (
-              <button type="button" className="model-option" disabled={backgroundBusy} onClick={() => { updateSettings({ chatBackground: "" }); setBackgroundError(""); }}>
-                移除背景
-              </button>
-            )}
-          </div>
-          <p className="settings-hint">聊天页右上角点 ♡ 开启玻璃样式后显示。照片自动保存，竖图更合适。</p>
-          {backgroundError && <p className="settings-hint" role="alert">{backgroundError}</p>}
-        </div>
+        <ChatBackgroundSetting
+          name={settings.aiName || CLAUDE_DEFAULT_NAME}
+          background={settings.chatBackground}
+          onChange={(chatBackground) => updateSettings({ chatBackground })}
+        />
+        <ChatBackgroundSetting
+          name={settings.gptName || "GPT"}
+          background={settings.gptChatBackground || ""}
+          onChange={(gptChatBackground) => updateSettings({ gptChatBackground })}
+        />
 
         {!isGpt && <>
         <div className="settings-group">
