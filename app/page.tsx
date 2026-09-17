@@ -1402,10 +1402,10 @@ function formatChatRoomTime(date: Date) {
   return `${date.getMonth() + 1}.${date.getDate()} ${time}`;
 }
 
-function getChatStatusLabel(aiMood: { emoji: string; ts: number }) {
+function getChatStatusLabel(aiMood: { emoji: string; ts: number }, complete = false) {
   const raw = aiMood.emoji || getIdleStatus();
-  const label = raw.replace(/[^\p{Script=Han}A-Za-z0-9]+/gu, " ").trim().split(/\s+/)[0] || "期待";
-  return `${label}…`;
+  const label = raw.replace(/[^\p{Script=Han}A-Za-z0-9]+/gu, " ").trim() || "期待";
+  return complete ? label : `${label.split(/\s+/)[0]}…`;
 }
 
 function shouldShowChatRoomTime(message: Message, prevMessage?: Message | null) {
@@ -2041,7 +2041,13 @@ function ChatView({
   const activeReplyRequestRef = useRef<{ id: number; controller: AbortController } | null>(null);
   const replyStatusTimersRef = useRef<Array<ReturnType<typeof setTimeout>>>([]);
   const [initialMessageCount] = useState(() => session.messages.length);
-  const displayMessages = alignLegacySummerCalls(session.messages);
+  const quietSummerWake = listEntryMode && settings.chatUiStyle === "glass";
+  // Keep stored indices for proposal actions while excluding routine wake
+  // notices from visible neighbours, timestamps and bubble grouping.
+  const displayMessages = alignLegacySummerCalls(session.messages)
+    .map((message, index) => ({ message, index }))
+    .filter(({ message }) => !(quietSummerWake && message.source === "summer_call" &&
+      message.content.includes("已读取 Summer 唤醒内容与记忆状态")));
   const { scrollRef, handleScroll, followLatest } = useChatScrollPosition(
     `iooi-scroll-${assistantMode}-${session.id}`,
     session.messages.length + streamingReply.length,
@@ -2460,6 +2466,7 @@ function ChatView({
           sessionId: session.id,
           userMsg,
           recentSummerProposals,
+          quietSummerWake,
           stream: !isGpt,
         }),
         signal: controller.signal,
@@ -2628,7 +2635,7 @@ function ChatView({
       <h1 className="header-title chat-room-title">{session.kind === "memo" ? settings.userName : assistantName}</h1>
       {session.kind !== "memo" && (
         <span className="header-subtitle chat-room-status">
-          {isGpt ? "在线" : getChatStatusLabel(aiMood)}
+          {isGpt ? "在线" : getChatStatusLabel(aiMood, settings.chatUiStyle === "glass")}
         </span>
       )}
     </>
@@ -2655,9 +2662,9 @@ function ChatView({
             <button
               type="button"
               className="header-icon-btn chat-room-more chat-ui-toggle"
-              aria-label={settings.chatUiStyle === "glass" ? "切回原有聊天样式" : "切换玻璃聊天样式"}
+              aria-label={settings.chatUiStyle === "glass" ? "暮光 · 切回原有聊天样式" : "切换暮光聊天样式"}
               aria-pressed={settings.chatUiStyle === "glass"}
-              title={settings.chatUiStyle === "glass" ? "切回原有聊天样式" : "切换玻璃聊天样式"}
+              title={settings.chatUiStyle === "glass" ? "暮光 · 切回原有聊天样式" : "切换暮光聊天样式"}
               onClick={() => updateSettings({ chatUiStyle: settings.chatUiStyle === "glass" ? "default" : "glass" })}
             >
               <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
@@ -2691,13 +2698,13 @@ function ChatView({
         {session.messages.length === 0 && (
           <div className="empty-chat"><p>说点什么开始聊天吧</p></div>
         )}
-        {displayMessages.map((message, index) => {
+        {displayMessages.map(({ message, index }, displayIndex) => {
           if (message.source === "summer_write_ignored") return null;
           const isSummerUtility = listEntryMode && isSummerUtilityMessage(message);
           const animateMessage = !listEntryMode || index >= initialMessageCount;
-          const prevMsg = index > 0 ? displayMessages[index - 1] : null;
-          const nextMsg = index < displayMessages.length - 1 ? displayMessages[index + 1] : null;
-          const prevDate = index > 0 ? displayMessages[index - 1].date : null;
+          const prevMsg = displayIndex > 0 ? displayMessages[displayIndex - 1].message : null;
+          const nextMsg = displayIndex < displayMessages.length - 1 ? displayMessages[displayIndex + 1].message : null;
+          const prevDate = prevMsg?.date;
           const showDateSep = listEntryMode ? shouldShowChatRoomTime(message, prevMsg) : message.date && message.date !== prevDate;
           const compactTop = !!prevMsg && prevMsg.role === message.role && !showDateSep;
           const compactBottom = !!nextMsg && nextMsg.role === message.role && nextMsg.date === message.date;

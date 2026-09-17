@@ -1,4 +1,4 @@
-/* This appearance belongs only to an open private chat, independent of theme. */
+/* 暮光: this appearance belongs only to an open private chat, independent of theme. */
 @media (max-width: 480px) {
   :root[data-chat-chrome="glass"],
   :root[data-chat-chrome="glass"] body {
@@ -55,7 +55,7 @@
 .chat-container[data-chat-ui="glass"][data-chat-background="image"] {
   --chat-glass-surface: rgba(39, 46, 58, 0.36);
   --chat-glass-border: rgba(255, 255, 255, 0.32);
-  --chat-glass-ink: #fff;
+  --chat-glass-ink: #f8eee8;
   --chat-glass-muted: rgba(255, 255, 255, 0.78);
   --chat-glass-shadow: 0 4px 18px rgba(0, 0, 0, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.2);
 }
@@ -119,6 +119,8 @@
   z-index: 1;
   display: flex;
   flex-direction: row;
+  flex-wrap: wrap;
+  justify-content: center;
   align-items: baseline;
   max-width: 100%;
   min-width: 0;
@@ -141,8 +143,12 @@
 }
 
 .chat-container[data-chat-ui="glass"] .single-room-header .chat-room-status {
-  max-width: 50%;
-  flex: 0 0 auto;
+  max-width: 100%;
+  flex: 0 1 auto;
+  overflow: visible;
+  text-overflow: clip;
+  white-space: normal;
+  overflow-wrap: anywhere;
   margin: 0;
   align-self: baseline;
   line-height: 13px;
@@ -224,13 +230,13 @@
 }
 
 .chat-container[data-chat-ui="glass"] .msg-bubble-ai:not(.msg-bubble-summer-utility) {
-  --chat-bubble-surface: rgba(216, 218, 224, 0.72);
-  color: #3c3f47;
+  --chat-bubble-surface: rgba(44, 40, 50, 0.68);
+  color: #f8eee8;
 }
 
 .chat-container[data-chat-ui="glass"] .msg-bubble-user {
-  --chat-bubble-surface: #fce0e9;
-  color: #573d48;
+  --chat-bubble-surface: #b44c73;
+  color: #f8eee8;
 }
 
 /* One masked surface joins the rounded body and tail without doubled alpha. */
@@ -263,11 +269,12 @@
 
 .chat-container[data-chat-ui="glass"] .msg-bubble-ai:not(.msg-bubble-summer-utility) .chat-message-link {
   color: inherit;
-  text-decoration-color: rgba(60, 63, 71, 0.5);
+  text-decoration-color: rgba(248, 238, 232, 0.65);
 }
 
 .chat-container[data-chat-ui="glass"] .msg-bubble-user .chat-message-link {
-  color: #92506b;
+  color: inherit;
+  text-decoration-color: rgba(248, 238, 232, 0.65);
 }
 
 .app-bg[data-font-size="large"] .chat-container[data-chat-ui="glass"] .msg-bubble:not(.msg-bubble-summer-utility) {
@@ -316,6 +323,16 @@
 
 .chat-container[data-chat-ui="glass"] .claude-usage-row b {
   color: var(--chat-glass-ink);
+}
+
+/* Keep every quota label legible, including theme-colored numbers and resets. */
+.app-bg .chat-container[data-chat-ui="glass"] .chat-footer .claude-usage-popover {
+  --chat-glass-surface: rgba(44, 40, 50, 0.68);
+}
+
+.app-bg .chat-container[data-chat-ui="glass"] .chat-footer .claude-usage-popover,
+.app-bg .chat-container[data-chat-ui="glass"] .chat-footer .claude-usage-popover * {
+  color: #fff;
 }
 
 .chat-container[data-chat-ui="glass"] :is(.chat-config-option-active, .chat-config-switch-on) {

@@ -901,6 +901,7 @@ export async function POST(request: Request) {
     groupUserText,
     skipPersist,
     recentSummerProposals,
+    quietSummerWake,
     stream,
     groupSessionId,
     groupSessionName,
@@ -951,7 +952,7 @@ export async function POST(request: Request) {
       readSummerState(),
     ]);
     summerState = currentSummerState;
-    if (!skipPersist) {
+    if (!skipPersist && !quietSummerWake) {
       summerCalls.push({
         tool: "wake",
         label: "已读取 Summer 唤醒内容与记忆状态",

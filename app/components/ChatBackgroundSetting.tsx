@@ -45,7 +45,7 @@ export function ChatBackgroundSetting({ name, background, onChange }: {
           </button>
         )}
       </div>
-      <p className="settings-hint">只用于和{name}的聊天，照片自动保存。聊天页右上角点 ♡ 开启玻璃样式后显示。</p>
+      <p className="settings-hint">只用于和{name}的聊天，照片自动保存。聊天页右上角点 ♡ 开启「暮光」后显示。</p>
       {error && <p className="settings-hint" role="alert">{error}</p>}
     </div>
   );
