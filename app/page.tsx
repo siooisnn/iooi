@@ -1,7 +1,7 @@
 "use client";
 
 import { Fragment, useState, useRef, useEffect, useCallback } from "react";
-import type { ReactNode } from "react";
+import type { CSSProperties, ReactNode } from "react";
 import NextImage from "next/image";
 import { CacheStatusPanel } from "./components/CacheStatusPanel";
 import { ClaudeUsageBadge } from "./components/ClaudeUsageBadge";
@@ -14,6 +14,7 @@ import { useChatBrowserChrome, useThemePage } from "./components/ThemeProvider";
 import { buildChatContext } from "./lib/chat-context";
 import { readChatResponse } from "./lib/chat-stream";
 import { useChatScrollPosition } from "./lib/use-chat-scroll-position";
+import { useTwilightLayout } from "./lib/use-twilight-layout";
 import { normalizeChatBackground } from "./lib/chat-background";
 import { alignLegacySummerCalls, messageTimestamp } from "./lib/chat-timeline";
 
@@ -170,6 +171,7 @@ type Settings = {
   chatEntryStyle: "list" | "direct";
   fontSize: "default" | "large";
   chatUiStyle: "default" | "glass";
+  twilightBubbleColor: TwilightBubbleColor;
   chatBackground: string;
   gptChatBackground?: string;
   chatPinnedLine: string;
@@ -201,6 +203,14 @@ const MODELS = [
   { id: "opus47", label: "Opus 4.7", apiId: "claude-opus-4-7" },
   { id: "opus46", label: "Opus 4.6", apiId: "claude-opus-4-6" },
 ];
+const TWILIGHT_BUBBLE_COLORS = [
+  { value: "rose", label: "玫瑰粉", color: "#b44c73" },
+  { value: "blue", label: "雾蓝", color: "#3979a8" },
+  { value: "sage", label: "鼠尾草绿", color: "#527b69" },
+  { value: "lilac", label: "丁香紫", color: "#8064a2" },
+  { value: "caramel", label: "焦糖棕", color: "#946548" },
+] as const;
+type TwilightBubbleColor = typeof TWILIGHT_BUBBLE_COLORS[number]["value"];
 const CONTEXT_WINDOW_ROUNDS = 30;
 const SESSION_CACHE_KEEP_MESSAGES = 48;
 const SESSION_CACHE_MIN_NEW_MESSAGES = 8;
@@ -287,6 +297,8 @@ function normalizeClaudeSettings(settings: Settings): Settings {
     model: selectedModel,
     fontSize: ["large", "larger"].includes(settings.fontSize) ? "large" : "default",
     chatUiStyle: settings.chatUiStyle === "glass" ? "glass" : "default",
+    twilightBubbleColor: TWILIGHT_BUBBLE_COLORS.some((color) => color.value === settings.twilightBubbleColor)
+      ? settings.twilightBubbleColor : "rose",
     chatBackground: normalizeChatBackground(settings.chatBackground),
     // Preserve the old shared photo on first upgrade; an explicit empty value
     // means GPT's background was removed and must not fall back to Claude's.
@@ -661,6 +673,7 @@ export default function Home() {
     chatEntryStyle: "list",
     fontSize: "default",
     chatUiStyle: "default",
+    twilightBubbleColor: "rose",
     chatBackground: "",
     chatPinnedLine: "此后我们的每一秒都是恩赐。",
     gptChatPinnedLine: "此后我们的每一秒都是恩赐。",
@@ -1165,11 +1178,15 @@ export default function Home() {
   }
 
   return (
-    <main className="app-bg" data-font-size={settings.fontSize}>
+    <main className="app-bg" data-font-size={settings.fontSize}
+      data-twilight-room={tab === "chat" && chatView === "room" && settings.chatUiStyle === "glass" ? "true" : undefined}>
       <div
         className="chat-container"
         data-chat-view={tab === "chat" ? chatView : undefined}
         data-chat-ui={tab === "chat" && chatView === "room" ? settings.chatUiStyle : undefined}
+        style={tab === "chat" && chatView === "room" && settings.chatUiStyle === "glass"
+          ? { "--twilight-user-bubble": (TWILIGHT_BUBBLE_COLORS.find((color) => color.value === settings.twilightBubbleColor) || TWILIGHT_BUBBLE_COLORS[0]).color } as CSSProperties
+          : undefined}
         data-chat-background={tab === "chat" && chatView === "room" && settings.chatUiStyle === "glass" && activeChatBackground ? "image" : undefined}
       >
         {tab === "chat" && chatView === "room" && settings.chatUiStyle === "glass" && activeChatBackground && (
@@ -2052,6 +2069,7 @@ function ChatView({
     `iooi-scroll-${assistantMode}-${session.id}`,
     session.messages.length + streamingReply.length,
   );
+  useTwilightLayout(quietSummerWake, scrollRef);
 
   // ── 巧思:随机输入提示 / 扣6彩蛋 ──
   const [heartRain, setHeartRain] = useState(false);
@@ -3989,6 +4007,26 @@ function SettingsView({
             ))}
           </div>
           <p className="settings-hint">只调整聊天页，消息列表始终使用大一号的样式。选择会自动保存。</p>
+        </div>
+
+        <div className="settings-group">
+          <h2 className="settings-group-title" id="twilight-color-title">暮光气泡颜色</h2>
+          <div className="twilight-color-options" role="group" aria-labelledby="twilight-color-title">
+            {TWILIGHT_BUBBLE_COLORS.map((color) => (
+              <button
+                key={color.value}
+                type="button"
+                className={`model-option ${settings.twilightBubbleColor === color.value ? "model-option-active" : ""}`}
+                style={{ "--twilight-swatch-color": color.color } as CSSProperties}
+                aria-pressed={settings.twilightBubbleColor === color.value}
+                onClick={() => updateSettings({ twilightBubbleColor: color.value })}
+              >
+                <span className="twilight-color-swatch" style={{ background: color.color }} aria-hidden="true" />
+                {color.label}
+              </button>
+            ))}
+          </div>
+          <p className="settings-hint">只调整暮光里你的实色气泡，文字保持白色。选择会自动保存。</p>
         </div>
 
         <ChatBackgroundSetting
