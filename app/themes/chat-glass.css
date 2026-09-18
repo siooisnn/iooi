@@ -74,7 +74,7 @@
 
 .settings-body .twilight-color-options .model-option[aria-pressed="true"] {
   border-color: var(--twilight-swatch-color);
-  color: var(--twilight-swatch-color);
+  color: var(--twilight-swatch-ink, var(--twilight-swatch-color));
 }
 
 .twilight-color-options .model-option:focus-visible {
@@ -266,9 +266,20 @@
   position: absolute;
   inset: 0;
   flex: none;
-  padding: calc(var(--twilight-header-space, 120px) + 12px) 18px calc(var(--twilight-footer-space, 116px) + 18px);
+  padding: calc(var(--twilight-header-space, 120px) + 12px) 18px 0;
   scroll-padding-top: calc(var(--twilight-header-space, 120px) + 12px);
-  scroll-padding-bottom: calc(var(--twilight-footer-space, 116px) + 18px);
+  scroll-padding-bottom: calc(var(--twilight-footer-space, 116px) + 28px);
+}
+
+/* The whole room scrolls behind the individual floating controls. A real
+   spacer keeps the last message reachable even with Safari's flex padding. */
+.chat-container[data-chat-ui="glass"] .chat-messages::after {
+  content: "";
+  flex: 0 0 calc(var(--twilight-footer-space, 116px) + 18px);
+}
+
+.chat-container[data-chat-ui="glass"] .chat-messages > * {
+  flex-shrink: 0;
 }
 
 .chat-container[data-chat-ui="glass"] .msg-row > :is(.avatar, .avatar-img) {
@@ -312,9 +323,43 @@
   text-shadow: none;
 }
 
-.chat-container[data-chat-ui="glass"] .msg-bubble-user {
+.chat-container[data-chat-ui="glass"] .msg-bubble-user:not(.msg-bubble-summer-utility) {
   --chat-bubble-surface: var(--twilight-user-bubble, #b44c73);
+  color: var(--twilight-user-ink, #fff);
+  --chat-glass-filter: none;
+}
+
+.app-bg .chat-container[data-chat-ui="glass"] .msg-bubble-summer-utility {
   color: #fff;
+}
+
+.chat-container[data-chat-ui="glass"] .summer-collapse-toggle {
+  color: #fff;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
+}
+
+.chat-container[data-chat-ui="glass"] .summer-collapse-content {
+  color: #fff;
+  background: rgba(0, 0, 0, 0.48);
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  border-radius: 12px;
+  padding: 10px 12px;
+}
+
+.chat-container[data-chat-ui="glass"] .msg-bubble-summer-utility .chat-message-link {
+  color: inherit;
+  text-decoration-color: rgba(255, 255, 255, 0.7);
+}
+
+.app-bg .chat-container[data-chat-ui="glass"] :is(.summer-proposal-actions button,
+  .summer-proposal-editor input, .summer-proposal-editor select, .summer-proposal-editor textarea) {
+  color: #fff;
+  background: rgba(0, 0, 0, 0.65);
+  border-color: rgba(255, 255, 255, 0.4);
+}
+
+.chat-container[data-chat-ui="glass"] .summer-proposal-editor :is(input, textarea)::placeholder {
+  color: rgba(255, 255, 255, 0.8);
 }
 
 /* One masked surface joins the rounded body and tail without doubled alpha. */

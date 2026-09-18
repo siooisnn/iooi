@@ -67,8 +67,8 @@ function watchTwilightBubbles(messages: HTMLElement) {
   };
 }
 
-// The message scroller fills the room; only its first/last content reserves
-// space for the floating controls. Insets follow safe areas and textarea growth.
+// The message scroller fills the room behind the floating controls. Its final
+// spacer follows safe areas and textarea growth; top padding clears the header.
 export function useTwilightLayout(enabled: boolean, scrollRef: RefObject<HTMLElement | null>) {
   const followingBottom = useRef(true);
   useEffect(() => {
