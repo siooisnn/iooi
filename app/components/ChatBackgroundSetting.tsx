@@ -5,8 +5,9 @@ import type { ChangeEvent } from "react";
 import Image from "next/image";
 import { prepareChatBackground } from "../lib/chat-background";
 
-export function ChatBackgroundSetting({ name, background, onChange }: {
+export function ChatBackgroundSetting({ name, background, onChange, group = false }: {
   name: string;
+  group?: boolean;
   background: string;
   onChange: (background: string) => void;
 }) {
@@ -31,9 +32,9 @@ export function ChatBackgroundSetting({ name, background, onChange }: {
 
   return (
     <div className="settings-group">
-      <h2 className="settings-group-title">{name}的聊天背景</h2>
+      <h2 className="settings-group-title">{group ? "群聊背景" : `${name}的聊天背景`}</h2>
       <input ref={inputRef} type="file" className="attach-file-input" accept="image/*"
-        disabled={busy} aria-label={`选择${name}的聊天背景图片`} onChange={(event) => void upload(event)} />
+        disabled={busy} aria-label={`选择${group ? "群聊背景" : `${name}的聊天背景`}图片`} onChange={(event) => void upload(event)} />
       {background && <Image className="chat-background-preview" src={background} alt={`${name}的当前聊天背景`} width={100} height={145} unoptimized />}
       <div className="chat-background-actions">
         <button type="button" className="model-option" disabled={busy} onClick={() => inputRef.current?.click()}>
@@ -45,7 +46,7 @@ export function ChatBackgroundSetting({ name, background, onChange }: {
           </button>
         )}
       </div>
-      <p className="settings-hint">只用于和{name}的聊天，照片自动保存。聊天页右上角点 ♡ 开启「暮光」后显示。</p>
+      <p className="settings-hint">{group ? "只用于群聊" : `只用于和${name}的聊天`}，照片自动保存。在上方选择「暮光」主题后显示。</p>
       {error && <p className="settings-hint" role="alert">{error}</p>}
     </div>
   );

@@ -4,7 +4,7 @@ import { Fragment, useState, useRef, useEffect, useCallback } from "react";
 import type { CSSProperties, ReactNode } from "react";
 import NextImage from "next/image";
 import { CacheStatusPanel } from "./components/CacheStatusPanel";
-import { ClaudeUsageBadge } from "./components/ClaudeUsageBadge";
+import { ClaudeUsageCircle, ClaudeUsageDetails, useClaudeUsage } from "./components/ClaudeUsageBadge";
 import { ContextDebugPanel } from "./components/ContextDebugPanel";
 import { GroupChatView } from "./components/GroupChatView";
 import { NotificationButton } from "./components/NotificationButton";
@@ -174,6 +174,7 @@ type Settings = {
   twilightBubbleColor: TwilightBubbleColor;
   chatBackground: string;
   gptChatBackground?: string;
+  groupChatBackground?: string;
   chatPinnedLine: string;
   gptChatPinnedLine: string;
   aiName: string;
@@ -301,6 +302,7 @@ function normalizeClaudeSettings(settings: Settings): Settings {
     twilightBubbleColor: TWILIGHT_BUBBLE_COLORS.some((color) => color.value === settings.twilightBubbleColor)
       ? settings.twilightBubbleColor : "rose",
     chatBackground: normalizeChatBackground(settings.chatBackground),
+    groupChatBackground: normalizeChatBackground(settings.groupChatBackground),
     // Preserve the old shared photo on first upgrade; an explicit empty value
     // means GPT's background was removed and must not fall back to Claude's.
     gptChatBackground: normalizeChatBackground(settings.gptChatBackground === undefined
@@ -699,9 +701,9 @@ export default function Home() {
   useThemePage(tab);
   const [chatView, setChatView] = useState<"list" | "room" | "group">("list");
   const [settings, setSettings] = useState<Settings>(defaultSettings);
-  const activeChatBackground = settings.chatEntryStyle === "direct" ? settings.gptChatBackground || "" : settings.chatBackground;
+  const activeChatBackground = chatView === "group" ? settings.groupChatBackground || "" : settings.chatEntryStyle === "direct" ? settings.gptChatBackground || "" : settings.chatBackground;
   const twilightBubble = TWILIGHT_BUBBLE_COLORS.find((color) => color.value === settings.twilightBubbleColor) || TWILIGHT_BUBBLE_COLORS[0];
-  useChatBrowserChrome(tab === "chat" && chatView === "room" && settings.chatUiStyle === "glass", activeChatBackground);
+  useChatBrowserChrome(tab === "chat" && chatView !== "list" && settings.chatUiStyle === "glass", activeChatBackground);
   const [sessions, setSessions] = useState<ChatSession[]>([]);
   const [activeSessionId, setActiveSessionId] = useState<string>("");
   const [gptSessions, setGptSessions] = useState<ChatSession[]>([]);
@@ -1181,17 +1183,17 @@ export default function Home() {
 
   return (
     <main className="app-bg" data-font-size={settings.fontSize}
-      data-twilight-room={tab === "chat" && chatView === "room" && settings.chatUiStyle === "glass" ? "true" : undefined}>
+      data-twilight-room={tab === "chat" && chatView !== "list" && settings.chatUiStyle === "glass" ? "true" : undefined}>
       <div
         className="chat-container"
         data-chat-view={tab === "chat" ? chatView : undefined}
-        data-chat-ui={tab === "chat" && chatView === "room" ? settings.chatUiStyle : undefined}
-        style={tab === "chat" && chatView === "room" && settings.chatUiStyle === "glass"
+        data-chat-ui={tab === "chat" && (chatView === "room" || (chatView === "group" && settings.chatUiStyle === "glass")) ? settings.chatUiStyle : undefined}
+        style={tab === "chat" && chatView !== "list" && settings.chatUiStyle === "glass"
           ? { "--twilight-user-bubble": twilightBubble.color, "--twilight-user-ink": twilightBubble.ink } as CSSProperties
           : undefined}
-        data-chat-background={tab === "chat" && chatView === "room" && settings.chatUiStyle === "glass" && activeChatBackground ? "image" : undefined}
+        data-chat-background={tab === "chat" && chatView !== "list" && settings.chatUiStyle === "glass" && activeChatBackground ? "image" : undefined}
       >
-        {tab === "chat" && chatView === "room" && settings.chatUiStyle === "glass" && activeChatBackground && (
+        {tab === "chat" && chatView !== "list" && settings.chatUiStyle === "glass" && activeChatBackground && (
           <NextImage className="chat-room-background" src={activeChatBackground} alt="" fill unoptimized aria-hidden="true" />
         )}
         {tab === "home" && <HomeView settings={settings} />}
@@ -2038,6 +2040,7 @@ function ChatView({
   onBackToList?: () => void;
 }) {
   const isGpt = assistantMode === "gpt";
+  const claudeUsage = useClaudeUsage(!isGpt && session.kind !== "memo");
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -2101,8 +2104,6 @@ function ChatView({
   const assistantAvatar = isGpt ? settings.gptAvatar : settings.aiAvatar;
   const currentModelId = isGpt ? GPT_MODEL_ID : currentModel.apiId;
   const currentModelLabel = isGpt ? "GPT-5.6" : `订阅 · ${currentModel.label}`;
-  const gptReasoningLabel = GPT_REASONING_OPTIONS.find((option) => option.value === settings.gptReasoningEffort)?.label || "Medium";
-  const claudeReasoningLabel = CLAUDE_REASONING_OPTIONS.find((option) => option.value === settings.claudeReasoningEffort)?.label || "High";
   const summerEndpoint = isGpt ? "/api/gpt/summer" : "/api/summer";
 
   function clearReplyStatusTimers() {
@@ -2682,13 +2683,14 @@ function ChatView({
             <button
               type="button"
               className="header-icon-btn chat-room-more chat-ui-toggle"
-              aria-label={settings.chatUiStyle === "glass" ? "暮光 · 切回原有聊天样式" : "切换暮光聊天样式"}
-              aria-pressed={settings.chatUiStyle === "glass"}
-              title={settings.chatUiStyle === "glass" ? "暮光 · 切回原有聊天样式" : "切换暮光聊天样式"}
-              onClick={() => updateSettings({ chatUiStyle: settings.chatUiStyle === "glass" ? "default" : "glass" })}
+              aria-label="聊天设置"
+              aria-expanded={showModelMenu}
+              title="聊天设置"
+              onClick={() => setShowModelMenu((open) => !open)}
             >
-              <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M12 20.2C7.2 16.9 3.6 13.6 3.6 9.8c0-2.7 2.1-4.8 4.7-4.8 1.5 0 2.9.7 3.7 1.9.8-1.2 2.2-1.9 3.7-1.9 2.6 0 4.7 2.1 4.7 4.8 0 3.8-3.6 7.1-8.4 10.4z" />
+              <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                <path d="m9.5 3-.6 2.4-2 .9-2.3-.7L2 10l1.8 1.7v2.2L2 15.6l2.6 4.4 2.3-.7 2 .9.6 2.4h5l.6-2.4 2-.9 2.3.7 2.6-4.4-1.8-1.7v-2.2L22 10l-2.6-4.4-2.3.7-2-.9L14.5 3Z" transform="translate(0 -1) scale(1 .95)" />
+                <circle cx="12" cy="12" r="3" />
               </svg>
             </button>
           </div>
@@ -2705,13 +2707,97 @@ function ChatView({
               <h1 className="header-title">{isGpt ? "GPT" : "iooi"}</h1>
               <span className="header-subtitle" style={{ color: "var(--accent-text)" }}>{assistantName} {!isGpt && (aiMood.emoji || "")} · {currentModelLabel}</span>
             </div>
-            <button className="header-icon-btn" onClick={createSession}>
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
+            <button className="header-icon-btn" aria-label="聊天设置" aria-expanded={showModelMenu} onClick={() => setShowModelMenu((open) => !open)}>
+              <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                <path d="m9.5 3-.6 2.4-2 .9-2.3-.7L2 10l1.8 1.7v2.2L2 15.6l2.6 4.4 2.3-.7 2 .9.6 2.4h5l.6-2.4 2-.9 2.3.7 2.6-4.4-1.8-1.7v-2.2L22 10l-2.6-4.4-2.3.7-2-.9L14.5 3Z" transform="translate(0 -1) scale(1 .95)" />
+                <circle cx="12" cy="12" r="3" />
               </svg>
             </button>
           </div>
         </header>
+      )}
+
+      {session.kind !== "memo" && showModelMenu && (
+        <div className="chat-config-panel room-settings-panel" role="dialog" aria-label="聊天设置">
+          <div className="room-settings-heading"><b>聊天设置</b><button type="button" onClick={() => setShowModelMenu(false)} aria-label="关闭聊天设置">×</button></div>
+          {!isGpt && <ClaudeUsageDetails {...claudeUsage} />}
+          <section className="chat-config-section">
+            <p>MODEL</p>
+            <div className="chat-config-options">
+              {isGpt ? (
+                <button type="button" className="chat-config-option chat-config-option-active" disabled>
+                  {currentModelLabel}
+                </button>
+              ) : MODELS.map((model) => (
+                <button
+                  type="button"
+                  key={model.id}
+                  className={`chat-config-option${settings.model === model.id ? " chat-config-option-active" : ""}`}
+                  onClick={() => updateSettings({ model: model.id })}
+                >
+                  {model.label}
+                </button>
+              ))}
+            </div>
+            {!isGpt && <p className="settings-hint">酥酥纯文字只走 Claude 订阅；失败时不会改走 API。</p>}
+          </section>
+
+          <section className="chat-config-section">
+            <p>INTELLIGENCE</p>
+            <div className="chat-config-options">
+              {(isGpt ? GPT_REASONING_OPTIONS : CLAUDE_REASONING_OPTIONS).map((option) => {
+                const active = isGpt
+                  ? settings.gptReasoningEffort === option.value
+                  : settings.claudeReasoningEffort === option.value;
+                return (
+                  <button
+                    type="button"
+                    key={option.value}
+                    className={`chat-config-option${active ? " chat-config-option-active" : ""}`}
+                    onClick={() => isGpt
+                      ? updateSettings({ gptReasoningEffort: option.value as GptReasoningEffort })
+                      : updateSettings({ claudeReasoningEffort: option.value as ClaudeReasoningEffort })}
+                  >
+                    {option.label}
+                  </button>
+                );
+              })}
+            </div>
+          </section>
+
+          {!isGpt && (
+            <section className="chat-config-section chat-config-toggle-section">
+              <p>EXTENDED THINKING</p>
+              <button
+                type="button"
+                className={`chat-config-switch${settings.thinking ? " chat-config-switch-on" : ""}`}
+                role="switch"
+                aria-checked={settings.thinking}
+                onClick={() => updateSettings({ thinking: !settings.thinking })}
+              >
+                <span>{settings.thinking ? "On" : "Off"}</span><i />
+              </button>
+            </section>
+          )}
+
+          <section className="chat-config-section chat-config-toggle-section">
+            <p>WEB SEARCH</p>
+            <button
+              type="button"
+              className={`chat-config-switch${(isGpt ? settings.gptWebSearch : settings.webSearch) ? " chat-config-switch-on" : ""}`}
+              role="switch"
+              aria-checked={isGpt ? settings.gptWebSearch : settings.webSearch}
+              onClick={() => {
+                updateSettings(isGpt
+                  ? { gptWebSearch: !settings.gptWebSearch }
+                  : { webSearch: !settings.webSearch });
+              }}
+            >
+              <span>{(isGpt ? settings.gptWebSearch : settings.webSearch) ? "On" : "Off"}</span><i />
+            </button>
+          </section>
+          {!isGpt && <p className="settings-hint">订阅图片和搜索已接入；文件稍后开放。</p>}
+        </div>
       )}
 
       <section className="chat-messages" ref={scrollRef} onScroll={handleScroll}>
@@ -2865,105 +2951,6 @@ function ChatView({
       )}
 
       <footer className="chat-footer single-chat-footer">
-        {session.kind !== "memo" && showModelMenu && (
-          <div className="chat-config-panel">
-            <section className="chat-config-section">
-              <p>MODEL</p>
-              <div className="chat-config-options">
-                {isGpt ? (
-                  <button type="button" className="chat-config-option chat-config-option-active" disabled>
-                    {currentModelLabel}
-                  </button>
-                ) : MODELS.map((model) => (
-                  <button
-                    type="button"
-                    key={model.id}
-                    className={`chat-config-option${settings.model === model.id ? " chat-config-option-active" : ""}`}
-                    onClick={() => updateSettings({ model: model.id })}
-                  >
-                    {model.label}
-                  </button>
-                ))}
-              </div>
-              {!isGpt && <p className="settings-hint">酥酥纯文字只走 Claude 订阅；失败时不会改走 API。</p>}
-            </section>
-
-            <section className="chat-config-section">
-              <p>INTELLIGENCE</p>
-              <div className="chat-config-options">
-                {(isGpt ? GPT_REASONING_OPTIONS : CLAUDE_REASONING_OPTIONS).map((option) => {
-                  const active = isGpt
-                    ? settings.gptReasoningEffort === option.value
-                    : settings.claudeReasoningEffort === option.value;
-                  return (
-                    <button
-                      type="button"
-                      key={option.value}
-                      className={`chat-config-option${active ? " chat-config-option-active" : ""}`}
-                      onClick={() => isGpt
-                        ? updateSettings({ gptReasoningEffort: option.value as GptReasoningEffort })
-                        : updateSettings({ claudeReasoningEffort: option.value as ClaudeReasoningEffort })}
-                    >
-                      {option.label}
-                    </button>
-                  );
-                })}
-              </div>
-            </section>
-
-            {!isGpt && (
-              <section className="chat-config-section chat-config-toggle-section">
-                <p>EXTENDED THINKING</p>
-                <button
-                  type="button"
-                  className={`chat-config-switch${settings.thinking ? " chat-config-switch-on" : ""}`}
-                  role="switch"
-                  aria-checked={settings.thinking}
-                  onClick={() => updateSettings({ thinking: !settings.thinking })}
-                >
-                  <span>{settings.thinking ? "On" : "Off"}</span><i />
-                </button>
-              </section>
-            )}
-
-            <section className="chat-config-section chat-config-toggle-section">
-              <p>WEB SEARCH</p>
-              <button
-                type="button"
-                className={`chat-config-switch${(isGpt ? settings.gptWebSearch : settings.webSearch) ? " chat-config-switch-on" : ""}`}
-                role="switch"
-                aria-checked={isGpt ? settings.gptWebSearch : settings.webSearch}
-                onClick={() => {
-                  updateSettings(isGpt
-                    ? { gptWebSearch: !settings.gptWebSearch }
-                    : { webSearch: !settings.webSearch });
-                }}
-              >
-                <span>{(isGpt ? settings.gptWebSearch : settings.webSearch) ? "On" : "Off"}</span><i />
-              </button>
-            </section>
-            {!isGpt && <p className="settings-hint">订阅图片和搜索已接入；文件稍后开放。</p>}
-          </div>
-        )}
-        {session.kind !== "memo" && (
-          <div className="single-chat-control-row">
-            <button
-              type="button"
-              className={`chat-control-pill${showModelMenu ? " chat-control-pill-active" : ""}`}
-              onClick={() => setShowModelMenu((open) => !open)}
-              aria-expanded={showModelMenu}
-              aria-label="切换模型和推理强度"
-            >
-              <span>{currentModelLabel}</span>
-              <i>·</i>
-              <span>{isGpt ? gptReasoningLabel : (settings.thinking ? claudeReasoningLabel : "Off")}</span>
-              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <polyline points="6 9 12 15 18 9" />
-              </svg>
-            </button>
-            {!isGpt && <ClaudeUsageBadge />}
-          </div>
-        )}
         {uploadError && <p className="composer-upload-error" role="alert">{uploadError}</p>}
         <div className="composer-row">
           <input
@@ -3018,6 +3005,7 @@ function ChatView({
               )}
             </button>
           </div>
+          {!isGpt && session.kind !== "memo" && <ClaudeUsageCircle {...claudeUsage} />}
         </div>
       </footer>
 
@@ -4031,6 +4019,17 @@ function SettingsView({
           <p className="settings-hint">只调整暮光聊天页里你的实色气泡，文字保持白色。选择会自动保存。</p>
         </div>
 
+        <div className="settings-group">
+          <h2 className="settings-group-title">聊天主题</h2>
+          <div className="chat-theme-options" role="group" aria-label="聊天主题">
+            {([['default', '经典'], ['glass', '暮光']] as const).map(([value, label]) => (
+              <button type="button" key={value} className={`model-option ${settings.chatUiStyle === value ? "model-option-active" : ""}`}
+                aria-pressed={settings.chatUiStyle === value} onClick={() => updateSettings({ chatUiStyle: value })}>{label}</button>
+            ))}
+          </div>
+          <p className="settings-hint">私聊和群聊共用主题，选择会自动保存。</p>
+        </div>
+
         <ChatBackgroundSetting
           name={settings.aiName || CLAUDE_DEFAULT_NAME}
           background={settings.chatBackground}
@@ -4040,6 +4039,12 @@ function SettingsView({
           name={settings.gptName || "GPT"}
           background={settings.gptChatBackground || ""}
           onChange={(gptChatBackground) => updateSettings({ gptChatBackground })}
+        />
+        <ChatBackgroundSetting
+          name="群聊"
+          background={settings.groupChatBackground || ""}
+          onChange={(groupChatBackground) => updateSettings({ groupChatBackground })}
+          group
         />
 
         {!isGpt && <>

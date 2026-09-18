@@ -3,6 +3,9 @@
 import { Fragment, useCallback, useEffect, useRef, useState } from "react";
 import { readChatResponse } from "../lib/chat-stream";
 import { useChatScrollPosition } from "../lib/use-chat-scroll-position";
+import { useTwilightLayout } from "../lib/use-twilight-layout";
+import { ClaudeUsageCircle, useClaudeUsage } from "./ClaudeUsageBadge";
+import { messageTimestamp } from "../lib/chat-timeline";
 
 export type GroupSpeaker = "claude" | "gpt";
 
@@ -40,6 +43,7 @@ type GroupSession = {
 };
 
 type GroupSettings = {
+  chatUiStyle: "default" | "glass";
   aiName: string;
   gptName: string;
   userName: string;
@@ -322,6 +326,9 @@ export function GroupChatView({
   const [replyState, setReplyState] = useState<ReplyState>("idle");
   const [activeSpeaker, setActiveSpeaker] = useState<GroupSpeaker | null>(null);
   const [showSessions, setShowSessions] = useState(false);
+  const [showMenu, setShowMenu] = useState(false);
+  const claudeUsage = useClaudeUsage();
+  const twilight = settings.chatUiStyle === "glass";
   const [showWebSearchMenu, setShowWebSearchMenu] = useState(false);
   const [summarizing, setSummarizing] = useState(false);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -334,6 +341,7 @@ export function GroupChatView({
     `iooi-scroll-group-${session.id}`,
     session.messages.length + (streamingReply?.text.length || 0),
   );
+  useTwilightLayout(twilight, scrollRef);
 
   const clearTimers = useCallback(() => {
     for (const timer of timersRef.current) clearTimeout(timer);
@@ -419,6 +427,7 @@ export function GroupChatView({
         })
       : await response.json();
     setStreamingReply(null);
+    if (speaker === "claude") window.dispatchEvent(new Event("claude-usage-updated"));
     const responseStatus = typeof data.status === "number" ? data.status : response.status;
     if (responseStatus >= 400) throw new Error(data.reply || "模型请求失败");
 
@@ -677,16 +686,31 @@ export function GroupChatView({
     const name = speakerName(speaker, settings);
     const prefix = `@${name} `;
     setInput((current) => current.startsWith(prefix) ? current : `${prefix}${current}`);
+    setShowMenu(false);
+    setShowWebSearchMenu(false);
     requestAnimationFrame(() => inputRef.current?.focus());
   }
 
-  const displayedMessages = visibleGroupMessages(session.messages);
+  const displayedMessages = visibleGroupMessages(session.messages).filter(({ message }) =>
+    !(twilight && message.source === "summer_call" && message.content.includes("已读取 Summer 唤醒内容与记忆状态")));
+  function messageTime(message: GroupChatMessage) {
+    if (message.date && message.date !== today()) {
+      const stamp = messageTimestamp(message);
+      const day = stamp ? new Intl.DateTimeFormat("zh-CN", { timeZone: "Asia/Shanghai", month: "numeric", day: "numeric" }).format(stamp) : message.date;
+      return `${day} ${message.time}`;
+    }
+    return message.time;
+  }
+  function sameRun(left: GroupChatMessage | undefined, right: GroupChatMessage | undefined) {
+    return !!left && !!right && !left.source?.startsWith("summer_") && !right.source?.startsWith("summer_")
+      && left.role === right.role && left.speaker === right.speaker && left.date === right.date;
+  }
   const groupOrdinal = session.name.match(/(\d+)\s*$/)?.[1]
     || String(Math.max(1, sessions.findIndex((group) => group.id === session.id) + 1));
 
   return (
     <>
-      <header className="chat-header chat-room-header">
+      <header className="chat-header chat-room-header group-room-header">
         <div className="header-top">
           <button className="header-icon-btn chat-room-back" onClick={onBack} aria-label="返回">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -701,7 +725,8 @@ export function GroupChatView({
             aria-label={`${session.name}${session.summary ? "，已记住前情" : ""}${summarizing ? "，整理前情中" : ""}`}
           >
             <h1 className="header-title chat-room-title">一个群</h1>
-            <span className="header-subtitle chat-room-status">
+            {twilight && <svg className="group-session-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><polyline points="6 9 12 15 18 9" /></svg>}
+            {!twilight && <span className="header-subtitle chat-room-status">
               <svg className="group-session-people" width="17" height="17" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
                 <circle cx="8.5" cy="7.5" r="3.25" />
                 <circle cx="16.5" cy="8.5" r="2.5" />
@@ -710,9 +735,10 @@ export function GroupChatView({
               </svg>
               <span>{groupOrdinal}</span>
               <svg className="group-session-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9" /></svg>
-            </span>
+            </span>}
           </button>
-          <button className="header-icon-btn group-session-new" type="button" onClick={() => { createSession(); setShowSessions(false); }} aria-label="新群聊">＋</button>
+          {twilight ? <div className="group-user-avatar" aria-label={settings.userName || "我的头像"}><Avatar src={settings.userAvatar} user /></div> :
+            <button className="header-icon-btn group-session-new" type="button" onClick={() => { createSession(); setShowSessions(false); }} aria-label="新群聊">＋</button>}
         </div>
       </header>
 
@@ -746,13 +772,19 @@ export function GroupChatView({
           const owner = message.speaker ? speakerName(message.speaker, settings) : "";
           const avatar = message.speaker === "gpt" ? settings.gptAvatar : settings.aiAvatar;
           const showDate = displayedIndex === 0 || message.date !== displayedMessages[displayedIndex - 1]?.message.date;
+          const previous = displayedMessages[displayedIndex - 1]?.message;
+          const next = displayedMessages[displayedIndex + 1]?.message;
+          const compactTop = twilight && sameRun(previous, message);
+          const compactBottom = twilight && (sameRun(message, next) || (!next && !isUser && !isUtility && !!streamingReply && streamingReply.speaker === message.speaker && !!streamingReply.text && message.date === today()));
           return (
             <div key={`${message.time}-${index}`}>
-              {showDate && message.date && <div className="date-separator"><span className="date-separator-text">{message.date}</span></div>}
-              <div className={`msg-row ${isUser ? "msg-row-user" : "msg-row-ai"} ${isUtility ? "msg-row-summer-utility" : ""}`}>
-                {!isUser && !isUtility && <Avatar src={avatar} />}
+              {!twilight && showDate && message.date && <div className="date-separator"><span className="date-separator-text">{message.date}</span></div>}
+              <div className={`msg-row ${isUser ? "msg-row-user" : "msg-row-ai"} ${isUtility ? "msg-row-summer-utility" : ""} ${compactTop ? "msg-row-compact-top" : ""} ${compactBottom ? "msg-row-compact-bottom" : ""}`}>
+                {!isUser && !isUtility && (!twilight ? <Avatar src={avatar} /> : !compactBottom && (
+                  <div className="group-message-identity"><Avatar src={avatar} /><span className="group-avatar-time">{messageTime(message)}</span></div>
+                ))}
                 <div className={isUser ? "msg-content-user" : "msg-content-ai"}>
-                  <span className={`msg-time ${!isUser ? "group-speaker-meta" : ""}`}>{!isUser && owner ? `${owner} · ` : ""}{message.time}</span>
+                  {!twilight && <span className={`msg-time ${!isUser ? "group-speaker-meta" : ""}`}>{!isUser && owner ? `${owner} · ` : ""}{message.time}</span>}
                   {isUtility ? (
                     <div className={`group-summer-card ${message.source === "summer_write_ignored" ? "group-summer-card-muted" : ""}`}>
                       <div className="group-summer-owner">{owner} · 独立 Summer</div>
@@ -783,16 +815,16 @@ export function GroupChatView({
                     </div>
                   )}
                 </div>
-                {isUser && <Avatar src={settings.userAvatar} user />}
+                {isUser && !twilight && <Avatar src={settings.userAvatar} user />}
               </div>
             </div>
           );
         })}
         {streamingReply?.text && (
           <div className="msg-row msg-row-ai msg-row-streaming">
-            <Avatar src={streamingReply.speaker === "gpt" ? settings.gptAvatar : settings.aiAvatar} />
+            {twilight ? <div className="group-message-identity"><Avatar src={streamingReply.speaker === "gpt" ? settings.gptAvatar : settings.aiAvatar} /><span className="group-avatar-time">{nowTime()}</span></div> : <Avatar src={streamingReply.speaker === "gpt" ? settings.gptAvatar : settings.aiAvatar} />}
             <div className="msg-content-ai">
-              <span className="msg-time group-speaker-meta">{speakerName(streamingReply.speaker, settings)}</span>
+              {!twilight && <span className="msg-time group-speaker-meta">{speakerName(streamingReply.speaker, settings)}</span>}
               <div className="msg-bubble msg-bubble-ai msg-bubble-streaming" aria-live="polite">
                 {renderGroupContent(streamingReply.text)}
               </div>
@@ -813,7 +845,7 @@ export function GroupChatView({
       </section>
 
       <footer className="chat-footer group-chat-footer">
-        {showWebSearchMenu && (
+        {showMenu && showWebSearchMenu && (
           <div className="group-web-search-panel" aria-label="Web Search 设置">
             <div className="group-web-search-option">
               <span>{settings.aiName || "王酥酥"}</span>
@@ -843,7 +875,7 @@ export function GroupChatView({
             </div>
           </div>
         )}
-        <div className="group-mention-row">
+        {showMenu && <div className="group-mention-row group-composer-menu" role="group" aria-label="群聊菜单">
           <button type="button" onClick={() => insertMention("claude")}>@{settings.aiName || "王酥酥"}</button>
           <button type="button" onClick={() => insertMention("gpt")}>@{settings.gptName || "GPT"}</button>
           <button
@@ -855,8 +887,12 @@ export function GroupChatView({
           >
             Web Search
           </button>
-        </div>
+        </div>}
         <div className="composer-row">
+          <button type="button" className="attach-btn attach-btn-separate group-menu-trigger" aria-label="群聊菜单" aria-expanded={showMenu}
+            onClick={() => { setShowMenu((open) => !open); setShowWebSearchMenu(false); }}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16" /></svg>
+          </button>
           <button
             type="button"
             className={`attach-btn attach-btn-separate${uploading ? " attach-btn-uploading" : ""}`}
@@ -900,6 +936,7 @@ export function GroupChatView({
               )}
             </button>
           </div>
+          <ClaudeUsageCircle {...claudeUsage} />
         </div>
       </footer>
     </>
