@@ -1770,7 +1770,7 @@ body {
   resize: none; line-height: 1.4; max-height: 120px; min-height: 36px; padding: 8px 0;
 }
 
-.chat-input::placeholder { font-size: 14px; color: var(--text-light); }
+.chat-input::placeholder { font-size: 14px; color: var(--text-light); opacity: 0.55; }
 
 .send-btn {
   width: 36px; height: 36px; border-radius: 50%; border: none;
@@ -3507,6 +3507,14 @@ body {
   box-shadow: 0 10px 30px rgba(var(--theme-shadow-rgb, 110, 82, 69), .15);
 }
 .group-chat-footer .group-web-search-panel { position: absolute; left: 14px; right: 14px; bottom: calc(100% + 76px); margin: 0; }
+.group-chat-footer .group-bubble-color-panel {
+  position: absolute; left: 14px; right: 14px; bottom: calc(100% + 76px); margin: 0;
+  padding: 12px; border: 1px solid var(--border-soft); border-radius: 18px;
+  background: rgba(var(--theme-surface-rgb, 255, 252, 249), .96);
+  box-shadow: 0 10px 30px rgba(var(--theme-shadow-rgb, 110, 82, 69), .15);
+}
+.group-bubble-color-panel > p { margin: 0 0 9px; color: var(--text-light); font-size: 10px; letter-spacing: .08em; }
+.group-bubble-color-trigger-active { border-color: var(--accent) !important; }
 .group-menu-trigger { cursor: pointer; }
 @media (max-width: 360px) {
   .group-chat-footer .composer-row { gap: 6px; }

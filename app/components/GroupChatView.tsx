@@ -1,9 +1,10 @@
 "use client";
 
-import { Fragment, useCallback, useEffect, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useRef, useState, type CSSProperties } from "react";
 import { readChatResponse } from "../lib/chat-stream";
 import { useChatScrollPosition } from "../lib/use-chat-scroll-position";
 import { useTwilightLayout } from "../lib/use-twilight-layout";
+import { TWILIGHT_BUBBLE_COLORS, type TwilightBubbleColor } from "../lib/twilight-bubbles";
 import { ClaudeUsageCircle, useClaudeUsage } from "./ClaudeUsageBadge";
 import { messageTimestamp } from "../lib/chat-timeline";
 
@@ -56,6 +57,7 @@ type GroupSettings = {
   gptWebSearch: boolean;
   gptReasoningEffort: string;
   claudeReasoningEffort: string;
+  groupTwilightBubbleColor?: TwilightBubbleColor;
 };
 
 type ModelMessage = {
@@ -312,7 +314,7 @@ export function GroupChatView({
   sessions: GroupSession[];
   settings: GroupSettings;
   claudeModelId: string;
-  updateSettings: (partial: Partial<Pick<GroupSettings, "webSearch" | "gptWebSearch">>) => void;
+  updateSettings: (partial: Partial<Pick<GroupSettings, "webSearch" | "gptWebSearch" | "groupTwilightBubbleColor">>) => void;
   updateMessages: (updater: (messages: GroupChatMessage[]) => GroupChatMessage[]) => void;
   updateSummary: (summary: string, until: number) => void;
   setActiveSessionId: (id: string) => void;
@@ -330,6 +332,7 @@ export function GroupChatView({
   const claudeUsage = useClaudeUsage();
   const twilight = settings.chatUiStyle === "glass";
   const [showWebSearchMenu, setShowWebSearchMenu] = useState(false);
+  const [showBubbleColorMenu, setShowBubbleColorMenu] = useState(false);
   const [summarizing, setSummarizing] = useState(false);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const messagesRef = useRef(session.messages);
@@ -845,6 +848,30 @@ export function GroupChatView({
       </section>
 
       <footer className="chat-footer group-chat-footer">
+        {showMenu && showBubbleColorMenu && (
+          <div className="group-bubble-color-panel" aria-label="群聊暮光气泡颜色">
+            <p>暮光气泡颜色</p>
+            <div className="twilight-color-options" role="group" aria-label="群聊暮光气泡颜色">
+              {TWILIGHT_BUBBLE_COLORS.map((color) => {
+                const selected = settings.groupTwilightBubbleColor === color.value;
+                return (
+                  <button
+                    key={color.value}
+                    type="button"
+                    className={`twilight-color-option${selected ? " twilight-color-option-active" : ""}`}
+                    style={{ "--twilight-swatch-color": color.color } as CSSProperties}
+                    aria-label={color.label}
+                    aria-pressed={selected}
+                    title={color.label}
+                    onClick={() => updateSettings({ groupTwilightBubbleColor: color.value })}
+                  >
+                    <span className="twilight-color-swatch" style={{ background: color.color }} aria-hidden="true" />
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
         {showMenu && showWebSearchMenu && (
           <div className="group-web-search-panel" aria-label="Web Search 设置">
             <div className="group-web-search-option">
@@ -882,15 +909,25 @@ export function GroupChatView({
             type="button"
             className={`group-web-search-trigger${showWebSearchMenu || settings.webSearch || settings.gptWebSearch ? " group-web-search-trigger-active" : ""}`}
             aria-expanded={showWebSearchMenu}
-            onClick={() => setShowWebSearchMenu((open) => !open)}
+            onClick={() => { setShowWebSearchMenu((open) => !open); setShowBubbleColorMenu(false); }}
             disabled={loading}
           >
             Web Search
           </button>
+          {twilight && (
+            <button
+              type="button"
+              className={`group-bubble-color-trigger${showBubbleColorMenu ? " group-bubble-color-trigger-active" : ""}`}
+              aria-expanded={showBubbleColorMenu}
+              onClick={() => { setShowBubbleColorMenu((open) => !open); setShowWebSearchMenu(false); }}
+            >
+              气泡颜色
+            </button>
+          )}
         </div>}
         <div className="composer-row">
           <button type="button" className="attach-btn attach-btn-separate group-menu-trigger" aria-label="群聊菜单" aria-expanded={showMenu}
-            onClick={() => { setShowMenu((open) => !open); setShowWebSearchMenu(false); }}>
+            onClick={() => { setShowMenu((open) => !open); setShowWebSearchMenu(false); setShowBubbleColorMenu(false); }}>
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16" /></svg>
           </button>
           <button

@@ -15,6 +15,7 @@ import { buildChatContext } from "./lib/chat-context";
 import { readChatResponse } from "./lib/chat-stream";
 import { useChatScrollPosition } from "./lib/use-chat-scroll-position";
 import { useTwilightLayout } from "./lib/use-twilight-layout";
+import { resolveTwilightBubbleColor, TWILIGHT_BUBBLE_COLORS, type TwilightBubbleColor } from "./lib/twilight-bubbles";
 import { normalizeChatBackground } from "./lib/chat-background";
 import { alignLegacySummerCalls, messageTimestamp } from "./lib/chat-timeline";
 
@@ -172,6 +173,8 @@ type Settings = {
   fontSize: "default" | "large";
   chatUiStyle: "default" | "glass";
   twilightBubbleColor: TwilightBubbleColor;
+  gptTwilightBubbleColor?: TwilightBubbleColor;
+  groupTwilightBubbleColor?: TwilightBubbleColor;
   chatBackground: string;
   gptChatBackground?: string;
   groupChatBackground?: string;
@@ -204,15 +207,6 @@ const MODELS = [
   { id: "opus47", label: "Opus 4.7", apiId: "claude-opus-4-7" },
   { id: "opus46", label: "Opus 4.6", apiId: "claude-opus-4-6" },
 ];
-const TWILIGHT_BUBBLE_COLORS = [
-  { value: "rose", label: "玫瑰粉", color: "#b44c73", ink: "#fff" },
-  { value: "blue", label: "雾蓝", color: "#3979a8", ink: "#fff" },
-  { value: "sage", label: "鼠尾草绿", color: "#527b69", ink: "#fff" },
-  { value: "lilac", label: "丁香紫", color: "#8064a2", ink: "#fff" },
-  { value: "caramel", label: "焦糖棕", color: "#946548", ink: "#fff" },
-  { value: "bright-blue", label: "亮蓝", color: "#007aff", ink: "#fff" },
-] as const;
-type TwilightBubbleColor = typeof TWILIGHT_BUBBLE_COLORS[number]["value"];
 const CONTEXT_WINDOW_ROUNDS = 30;
 const SESSION_CACHE_KEEP_MESSAGES = 48;
 const SESSION_CACHE_MIN_NEW_MESSAGES = 8;
@@ -294,13 +288,15 @@ function normalizeClaudeSettings(settings: Settings): Settings {
     "claude-opus-4-6": "opus46",
   };
   const selectedModel = modelAliases[modelValue] || "sonnet5";
+  const legacyTwilightBubbleColor = resolveTwilightBubbleColor(settings.twilightBubbleColor);
   return {
     ...settings,
     model: selectedModel,
     fontSize: ["large", "larger"].includes(settings.fontSize) ? "large" : "default",
     chatUiStyle: settings.chatUiStyle === "glass" ? "glass" : "default",
-    twilightBubbleColor: TWILIGHT_BUBBLE_COLORS.some((color) => color.value === settings.twilightBubbleColor)
-      ? settings.twilightBubbleColor : "rose",
+    twilightBubbleColor: legacyTwilightBubbleColor,
+    gptTwilightBubbleColor: resolveTwilightBubbleColor(settings.gptTwilightBubbleColor, legacyTwilightBubbleColor),
+    groupTwilightBubbleColor: resolveTwilightBubbleColor(settings.groupTwilightBubbleColor, legacyTwilightBubbleColor),
     chatBackground: normalizeChatBackground(settings.chatBackground),
     groupChatBackground: normalizeChatBackground(settings.groupChatBackground),
     // Preserve the old shared photo on first upgrade; an explicit empty value
@@ -702,7 +698,12 @@ export default function Home() {
   const [chatView, setChatView] = useState<"list" | "room" | "group">("list");
   const [settings, setSettings] = useState<Settings>(defaultSettings);
   const activeChatBackground = chatView === "group" ? settings.groupChatBackground || "" : settings.chatEntryStyle === "direct" ? settings.gptChatBackground || "" : settings.chatBackground;
-  const twilightBubble = TWILIGHT_BUBBLE_COLORS.find((color) => color.value === settings.twilightBubbleColor) || TWILIGHT_BUBBLE_COLORS[0];
+  const activeTwilightBubbleColor = chatView === "group"
+    ? settings.groupTwilightBubbleColor
+    : settings.chatEntryStyle === "direct"
+      ? settings.gptTwilightBubbleColor
+      : settings.twilightBubbleColor;
+  const twilightBubble = TWILIGHT_BUBBLE_COLORS.find((color) => color.value === activeTwilightBubbleColor) || TWILIGHT_BUBBLE_COLORS[0];
   useChatBrowserChrome(tab === "chat" && chatView !== "list" && settings.chatUiStyle === "glass", activeChatBackground);
   const [sessions, setSessions] = useState<ChatSession[]>([]);
   const [activeSessionId, setActiveSessionId] = useState<string>("");
@@ -2796,7 +2797,33 @@ function ChatView({
               <span>{(isGpt ? settings.gptWebSearch : settings.webSearch) ? "On" : "Off"}</span><i />
             </button>
           </section>
-          {!isGpt && <p className="settings-hint">订阅图片和搜索已接入；文件稍后开放。</p>}
+          {settings.chatUiStyle === "glass" && (
+            <section className="chat-config-section">
+              <p>MY BUBBLE</p>
+              <div className="chat-config-options twilight-color-options" role="group" aria-label={`${assistantName}暮光气泡颜色`}>
+                {TWILIGHT_BUBBLE_COLORS.map((color) => {
+                  const selected = (isGpt ? settings.gptTwilightBubbleColor : settings.twilightBubbleColor) === color.value;
+                  return (
+                    <button
+                      key={color.value}
+                      type="button"
+                      className={`chat-config-option twilight-color-option${selected ? " chat-config-option-active" : ""}`}
+                      style={{ "--twilight-swatch-color": color.color } as CSSProperties}
+                      aria-label={color.label}
+                      aria-pressed={selected}
+                      title={color.label}
+                      onClick={() => updateSettings(isGpt
+                        ? { gptTwilightBubbleColor: color.value }
+                        : { twilightBubbleColor: color.value })}
+                    >
+                      <span className="twilight-color-swatch" style={{ background: color.color }} aria-hidden="true" />
+                    </button>
+                  );
+                })}
+              </div>
+            </section>
+          )}
+          {!isGpt && <p className="settings-hint room-settings-capability-hint">订阅图片和搜索已接入；文件稍后开放。</p>}
         </div>
       )}
 
@@ -3997,26 +4024,6 @@ function SettingsView({
             ))}
           </div>
           <p className="settings-hint">只调整聊天页，消息列表始终使用大一号的样式。选择会自动保存。</p>
-        </div>
-
-        <div className="settings-group">
-          <h2 className="settings-group-title" id="twilight-color-title">暮光气泡颜色</h2>
-          <div className="twilight-color-options" role="group" aria-labelledby="twilight-color-title">
-            {TWILIGHT_BUBBLE_COLORS.map((color) => (
-              <button
-                key={color.value}
-                type="button"
-                className={`model-option ${settings.twilightBubbleColor === color.value ? "model-option-active" : ""}`}
-                style={{ "--twilight-swatch-color": color.color, "--twilight-swatch-ink": color.ink === "#fff" ? color.color : color.ink } as CSSProperties}
-                aria-pressed={settings.twilightBubbleColor === color.value}
-                onClick={() => updateSettings({ twilightBubbleColor: color.value })}
-              >
-                <span className="twilight-color-swatch" style={{ background: color.color }} aria-hidden="true" />
-                {color.label}
-              </button>
-            ))}
-          </div>
-          <p className="settings-hint">只调整暮光聊天页里你的实色气泡，文字保持白色。选择会自动保存。</p>
         </div>
 
         <div className="settings-group">
