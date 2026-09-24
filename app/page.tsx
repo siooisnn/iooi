@@ -202,6 +202,7 @@ type Settings = {
 const MODELS = [
   { id: "sonnet5", label: "Sonnet 5", apiId: "claude-sonnet-5" },
   { id: "sonnet46", label: "Sonnet 4.6", apiId: "claude-sonnet-4-6" },
+  { id: "opus55", label: "Opus 5.5", apiId: "claude-opus-5-5" },
   { id: "opus5", label: "Opus 5", apiId: "claude-opus-5" },
   { id: "opus48", label: "Opus 4.8", apiId: "claude-opus-4-8" },
   { id: "opus47", label: "Opus 4.7", apiId: "claude-opus-4-7" },
@@ -271,6 +272,10 @@ function normalizeClaudeSettings(settings: Settings): Settings {
     "sonnet4.6": "sonnet46",
     "claude-sonnet-4.6": "sonnet46",
     "claude-sonnet-4-6": "sonnet46",
+    opus55: "opus55",
+    "opus5.5": "opus55",
+    "claude-opus-5.5": "opus55",
+    "claude-opus-5-5": "opus55",
     opus5: "opus5",
     "claude-opus-5": "opus5",
     opus48: "opus48",
@@ -1184,6 +1189,7 @@ export default function Home() {
 
   return (
     <main className="app-bg" data-font-size={settings.fontSize}
+      data-fullscreen-shell={tab === "chat" && chatView !== "list" ? undefined : "true"}
       data-twilight-room={tab === "chat" && chatView !== "list" && settings.chatUiStyle === "glass" ? "true" : undefined}>
       <div
         className="chat-container"
@@ -2460,8 +2466,7 @@ function ChatView({
               return proposal ? [proposal] : [];
             });
 
-      const webSearchEnabled = isGpt ? settings.gptWebSearch : settings.webSearch;
-      setReplyRequestState(webSearchEnabled ? "searching" : "waiting");
+      setReplyRequestState("waiting");
       replyStatusTimersRef.current = [
         setTimeout(() => {
           if (activeReplyRequestRef.current?.id === requestId && !controller.signal.aborted) {

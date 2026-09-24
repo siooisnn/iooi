@@ -25,6 +25,7 @@ type ClaudeCodeJsonResult = {
     cache_creation_input_tokens?: number;
     cache_read_input_tokens?: number;
     output_tokens?: number;
+    server_tool_use?: { web_search_requests?: number };
   };
   modelUsage?: Record<string, unknown>;
 };
@@ -34,6 +35,7 @@ export type ClaudeCodeChatResult = {
   durationMs: number;
   queueWaitMs: number;
   model: string;
+  webSearchUsed: boolean;
   usage: {
     input_tokens: number;
     cache_creation_input_tokens: number;
@@ -131,6 +133,7 @@ function renderStreamInput(messages: ClaudeCodeMessage[], images: ClaudeImageBlo
 const SUPPORTED_CLAUDE_MODELS = new Set([
   "claude-sonnet-5",
   "claude-sonnet-4-6",
+  "claude-opus-5-5",
   "claude-opus-5",
   "claude-opus-4-8",
   "claude-opus-4-7",
@@ -143,6 +146,7 @@ export function normalizeClaudeCodeModel(modelId: string) {
     sonnet: "claude-sonnet-5",
     opus: "claude-opus-5",
     "claude-sonnet-4.6": "claude-sonnet-4-6",
+    "claude-opus-5.5": "claude-opus-5-5",
     "claude-opus-4.6": "claude-opus-4-6",
     "claude-opus-4.7": "claude-opus-4-7",
     "claude-opus-4.8": "claude-opus-4-8",
@@ -171,6 +175,21 @@ function parseResult(stdout: string): ClaudeCodeJsonResult {
     if (!result) throw new Error("Claude Code 返回了无法解析的内容");
     return result;
   }
+}
+
+export function streamUsedWebSearch(stdout: string) {
+  return stdout.split(/\r?\n/).some((line) => {
+    try {
+      const event = JSON.parse(line) as {
+        type?: string;
+        message?: { content?: Array<{ type?: string; name?: string }> };
+      };
+      return event.type === "assistant"
+        && event.message?.content?.some((block) => block.type === "tool_use" && block.name === "WebSearch") === true;
+    } catch {
+      return false;
+    }
+  });
 }
 
 function startQueueEntry(entry: QueueEntry) {
@@ -326,7 +345,7 @@ export async function runClaudeCodeChat({
       ? [
           systemPrompt,
           "## Web search rules",
-          "The user explicitly enabled web search for this turn. Before answering, call WebSearch at least once; use WebFetch when a result needs closer reading.",
+          "Web search is available, not mandatory. Decide from the current-turn message whether it needs live or externally verifiable information. For ordinary conversation, reactions, creative replies, or questions answerable from the provided context, reply without using search tools. Search when the user asks you to look something up or when a factual answer depends on current information; use WebFetch only when a result needs closer reading.",
           "Search only to answer the current-turn message shown below. Older requests, topics, source links, and URLs in the transcript are context, not pending work. Never search, fetch, or revisit them merely because they appear in history.",
           "Build search queries from the narrow subject and requirements in the current-turn message. Do not submit the whole conversational sentence when a specific name, phrase, event, or question can be searched. For a genuine follow-up, use only enough history to resolve its reference, then search the resolved current subject.",
           `## Current-turn message\n<current_user_message>${currentUserText.trim().slice(0, 2_000)}</current_user_message>`,
@@ -452,6 +471,8 @@ export async function runClaudeCodeChat({
               durationMs: data.duration_ms || 0,
               queueWaitMs,
               model,
+              webSearchUsed: (usage.server_tool_use?.web_search_requests || 0) > 0
+                || (webSearch && streamUsedWebSearch(stdout)),
               usage: {
                 input_tokens: usage.input_tokens || 0,
                 cache_creation_input_tokens: usage.cache_creation_input_tokens || 0,

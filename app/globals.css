@@ -2765,6 +2765,16 @@ body {
   }
 }
 
+/* Installed iOS pages can report 100dvh without the bottom safe area until
+   a tab interaction. Keep the shared tab shell full-height from first paint. */
+@media (max-width: 480px) and (display-mode: standalone) {
+  @supports (-webkit-touch-callout: none) {
+    html, body { height: 100vh; }
+    .app-bg[data-fullscreen-shell="true"] { min-height: 100vh; }
+    .app-bg[data-fullscreen-shell="true"] > .chat-container { height: 100vh; }
+  }
+}
+
 /* ━━━━━━━━━━━━ 软装工程 2026.6.11 ━━━━━━━━━━━━ */
 
 /* ── 深夜模式:暖夜色 ── */

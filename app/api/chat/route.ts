@@ -1256,7 +1256,7 @@ ${combinedDynamicPrompt}
             summer_calls: summerCalls,
             reply_persisted_time: replyStamp?.time,
             reply_persisted_date: replyStamp?.date,
-            web_search_used: Boolean(webSearch),
+            web_search_used: data.webSearchUsed,
             total_ms: totalMs,
             user_persist_ms: userPersistMs,
             summer_ms: summerMs,

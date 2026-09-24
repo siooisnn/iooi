@@ -97,8 +97,22 @@ export function useTwilightLayout(enabled: boolean, scrollRef: RefObject<HTMLEle
     const update = () => {
       const atBottom = previousHeader === null ? followingBottom.current
         : messages.scrollHeight - messages.scrollTop - messages.clientHeight <= 72;
-      app.style.setProperty("--twilight-viewport-height", `${viewport?.height ?? window.innerHeight}px`);
-      app.style.setProperty("--twilight-viewport-top", `${viewport?.offsetTop ?? 0}px`);
+      const visualHeight = viewport?.height ?? window.innerHeight;
+      const standalone = window.matchMedia("(display-mode: standalone)").matches
+        || (navigator as Navigator & { standalone?: boolean }).standalone === true;
+      const ios = /iPhone|iPad|iPod/.test(navigator.userAgent)
+        || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+      const landscape = window.screen.orientation?.type.startsWith("landscape")
+        ?? window.innerWidth > window.innerHeight;
+      const screenHeight = landscape
+        ? Math.min(window.screen.width, window.screen.height)
+        : Math.max(window.screen.width, window.screen.height);
+      const fullHeight = Math.max(window.innerHeight, document.documentElement.clientHeight, ios && standalone ? screenHeight : 0);
+      // iOS standalone can initially report a visual viewport that omits the
+      // bottom safe area. Keep keyboard resizing, but fill the screen at rest.
+      const keyboardOpen = fullHeight - visualHeight > 150;
+      app.style.setProperty("--twilight-viewport-height", `${ios && standalone && !keyboardOpen ? fullHeight : visualHeight}px`);
+      app.style.setProperty("--twilight-viewport-top", `${ios && standalone && !keyboardOpen ? 0 : viewport?.offsetTop ?? 0}px`);
       const top = Math.ceil(header.getBoundingClientRect().height);
       const bottom = Math.ceil(footer.getBoundingClientRect().height);
       room.style.setProperty("--twilight-header-space", `${top}px`);
@@ -126,13 +140,19 @@ export function useTwilightLayout(enabled: boolean, scrollRef: RefObject<HTMLEle
     observer.observe(footer, { box: "border-box" });
     observer.observe(room, { box: "border-box" });
     window.addEventListener("resize", schedule);
+    window.addEventListener("pageshow", schedule);
+    document.addEventListener("visibilitychange", schedule);
     viewport?.addEventListener("resize", schedule);
     viewport?.addEventListener("scroll", schedule);
+    const settleTimers = [250, 1000].map((delay) => setTimeout(schedule, delay));
     return () => {
       cancelAnimationFrame(frame);
+      settleTimers.forEach(clearTimeout);
       stopBubbles();
       observer.disconnect();
       window.removeEventListener("resize", schedule);
+      window.removeEventListener("pageshow", schedule);
+      document.removeEventListener("visibilitychange", schedule);
       viewport?.removeEventListener("resize", schedule);
       viewport?.removeEventListener("scroll", schedule);
       room.style.removeProperty("--twilight-header-space");
