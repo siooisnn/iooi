@@ -557,6 +557,23 @@ function saveLocal(key: string, val: unknown) {
   try { localStorage.setItem(key, JSON.stringify(val)); } catch {}
 }
 
+// 开发模式按会话记在本地:切 tab、返回列表、刷新都不会自己关掉。
+type DevelopmentProject = "iooi" | "summer";
+type DevelopmentModePref = { enabled: boolean; project: DevelopmentProject };
+const DEVELOPMENT_MODE_KEY = "iooi-development-mode";
+
+function loadDevelopmentModePrefs(): Record<string, DevelopmentModePref> {
+  const raw = loadLocalRaw<unknown>(DEVELOPMENT_MODE_KEY, {});
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return {};
+  const prefs: Record<string, DevelopmentModePref> = {};
+  for (const [id, value] of Object.entries(raw as Record<string, unknown>)) {
+    if (!value || typeof value !== "object") continue;
+    const { enabled, project } = value as Partial<DevelopmentModePref>;
+    prefs[id] = { enabled: enabled === true, project: project === "summer" ? "summer" : "iooi" };
+  }
+  return prefs;
+}
+
 // ── 小窝门锁:所有API请求自动带钥匙 ──
 function getToken() {
   if (typeof window === "undefined") return "";
@@ -2067,9 +2084,21 @@ function ChatView({
   const activeCodeTask = codeTaskStatus?.sessionId === session.id ? codeTaskStatus.task : null;
   const [showSessions, setShowSessions] = useState(false);
   const [showModelMenu, setShowModelMenu] = useState(false);
-  const [developmentModeState, setDevelopmentModeState] = useState({ sessionId: session.id, enabled: false });
-  const developmentMode = developmentModeState.sessionId === session.id && developmentModeState.enabled;
-  const [developmentProject, setDevelopmentProject] = useState<"iooi" | "summer">("iooi");
+  const [developmentModePrefs, setDevelopmentModePrefs] = useState(loadDevelopmentModePrefs);
+  const developmentModePref = developmentModePrefs[session.id];
+  const developmentMode = !isGpt && session.kind !== "memo" && developmentModePref?.enabled === true;
+  const developmentProject: DevelopmentProject = developmentModePref?.project ?? "iooi";
+  const developmentProjectLabel = developmentProject === "iooi" ? "iooi" : "Summer";
+  function updateDevelopmentModePref(patch: Partial<DevelopmentModePref>) {
+    const liveIds = new Set(sessions.map((item) => item.id));
+    const next: Record<string, DevelopmentModePref> = {};
+    for (const [id, pref] of Object.entries(developmentModePrefs)) {
+      if (liveIds.has(id)) next[id] = pref;
+    }
+    next[session.id] = { enabled: developmentMode, project: developmentProject, ...patch };
+    saveLocal(DEVELOPMENT_MODE_KEY, next);
+    setDevelopmentModePrefs(next);
+  }
   const [editingName, setEditingName] = useState<string | null>(null);
   const [editNameValue, setEditNameValue] = useState("");
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -2730,12 +2759,18 @@ function ChatView({
     onBackToList?.();
   }
 
+  const developmentBadge = developmentMode && (
+    <span className="dev-mode-badge" title={`开发模式 · ${developmentProjectLabel} 工作区`}>
+      开发中 · {developmentProjectLabel}
+    </span>
+  );
+
   const roomIdentity = (
     <>
       <h1 className="header-title chat-room-title">{session.kind === "memo" ? settings.userName : assistantName}</h1>
       {session.kind !== "memo" && (
         <span className="header-subtitle chat-room-status">
-          {isGpt ? "在线" : getChatStatusLabel(aiMood, settings.chatUiStyle === "glass")}
+          {developmentBadge || (isGpt ? "在线" : getChatStatusLabel(aiMood, settings.chatUiStyle === "glass"))}
         </span>
       )}
     </>
@@ -2784,7 +2819,7 @@ function ChatView({
             </button>
             <div className="header-center">
               <h1 className="header-title">{isGpt ? "GPT" : "iooi"}</h1>
-              <span className="header-subtitle" style={{ color: "var(--accent-text)" }}>{assistantName} {!isGpt && (aiMood.emoji || "")} · {currentModelLabel}</span>
+              <span className="header-subtitle" style={{ color: "var(--accent-text)" }}>{developmentBadge || <>{assistantName} {!isGpt && (aiMood.emoji || "")} · {currentModelLabel}</>}</span>
             </div>
             <button className="header-icon-btn" aria-label="聊天设置" aria-expanded={showModelMenu} onClick={() => setShowModelMenu((open) => !open)}>
               <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
@@ -2914,7 +2949,7 @@ function ChatView({
                 <p>开发模式</p>
                 <button type="button" className={`chat-config-switch${developmentMode ? " chat-config-switch-on" : ""}`}
                   role="switch" aria-checked={developmentMode} disabled={loading}
-                  onClick={() => setDevelopmentModeState({ sessionId: session.id, enabled: !developmentMode })}>
+                  onClick={() => updateDevelopmentModePref({ enabled: !developmentMode })}>
                   <span>{developmentMode ? "On" : "Off"}</span><i />
                 </button>
               </div>
@@ -2924,7 +2959,7 @@ function ChatView({
                     <button type="button" key={project} disabled={loading}
                       className={`chat-config-option${developmentProject === project ? " chat-config-option-active" : ""}`}
                       aria-pressed={developmentProject === project}
-                      onClick={() => setDevelopmentProject(project)}>
+                      onClick={() => updateDevelopmentModePref({ project })}>
                       {project === "iooi" ? "iooi" : "Summer"}
                     </button>
                   ))}
@@ -3090,9 +3125,17 @@ function ChatView({
         </div>
       )}
 
-      <footer className="chat-footer single-chat-footer">
-        {developmentMode && !isGpt && session.kind !== "memo" &&
-          <p className="settings-hint" role="status">开发模式 · {developmentProject === "iooi" ? "iooi" : "Summer"} 工作区</p>}
+      <footer className={`chat-footer single-chat-footer${developmentMode ? " chat-footer-dev-mode" : ""}`}>
+        {developmentMode && (
+          <div className="dev-mode-banner" role="status">
+            <span className="dev-mode-banner-dot" aria-hidden="true" />
+            <span className="dev-mode-banner-text">开发中 · 消息会发给 {developmentProjectLabel} 工作区</span>
+            <button type="button" className="dev-mode-banner-off" disabled={loading}
+              onClick={() => updateDevelopmentModePref({ enabled: false })}>
+              关闭
+            </button>
+          </div>
+        )}
         {uploadError && <p className="composer-upload-error" role="alert">{uploadError}</p>}
         <div className="composer-row">
           <input
