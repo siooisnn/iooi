@@ -26,6 +26,8 @@
 *.pem
 *.tar.gz
 .claude/
+# temporary system prompt files written by development mode (app/lib/claude-code-task.ts)
+.iooi-code-prompt-*.txt
 
 # debug
 npm-debug.log*

@@ -2,14 +2,18 @@ import { readFileSync, existsSync } from "fs";
 import { join } from "path";
 import webpush from "web-push";
 import { readStore, withStore } from "@/app/lib/store";
+import { isClaudeCodeEnabled, runClaudeCodeChat } from "@/app/lib/claude-code";
+import { latestUserSession, messageTimestamp } from "@/app/lib/chat-timeline";
 
-// ── Heartbeat:每30分钟醒来看一眼,绝大多数时候静默 ──
+export const runtime = "nodejs";
+
+// ── Heartbeat:每30分钟醒来看一眼,每天最多主动10次 ──
 // 纪律:默认不发消息;有具体理由才开口;像人,不像客服
 
 const DATA_DIR = join(process.cwd(), "data");
-function cstNow() {
-  return new Date();
-}
+const DAILY_CARE_LIMIT = 10;
+const CARE_INTERVAL_HOURS = 1;
+const USER_AWAY_HOURS = 1;
 function cstHour() {
   // getUTCHours()稳定返回0-23,加8取模得到CST小时
   return (new Date().getUTCHours() + 8) % 24;
@@ -22,17 +26,24 @@ function cstToday() {
 }
 // 把 "2026/6/12"+"14:30" 拼成准确时间戳(消息里存的是CST)
 function parseMsgTime(date?: string, time?: string): number | null {
-  if (!date) return null;
-  const t = new Date(`${date.replaceAll("/", "-")} ${time || "00:00"}:00 +08:00`).getTime();
-  return Number.isNaN(t) ? null : t;
+  return messageTimestamp({ date, time }) || null;
 }
 function hoursAgo(ts: number | null): number {
   if (!ts) return 9999;
   return (Date.now() - ts) / 3600000;
 }
 
-type Msg = { role: string; content: string; time?: string; date?: string; thinking?: string };
+type Msg = { role: string; content: string; time?: string; date?: string; thinking?: string; source?: string };
+type CareSession = { id: string; kind?: string; messages: Msg[] };
 type HeartbeatLog = { time: string; action: string; reason: string };
+
+function dailyCareCount(careState: Record<string, unknown>, today: string): number {
+  const saved = careState.todayDate === today && typeof careState.todayCount === "number"
+    && Number.isFinite(careState.todayCount) ? Math.max(0, Math.floor(careState.todayCount)) : 0;
+  // 兼容旧版本未更新计数的日期，已有心跳日志中的主动消息也计入上限。
+  const logs = (careState.log as HeartbeatLog[]) || [];
+  return Math.max(saved, logs.filter((entry) => entry.action === "care" && entry.time.startsWith(`${today} `)).length);
+}
 
 function log(careState: Record<string, unknown>, action: string, reason: string) {
   const logs: HeartbeatLog[] = (careState.log as HeartbeatLog[]) || [];
@@ -47,7 +58,8 @@ export async function POST() {
     if (!snapshot) return Response.json({ action: "silent", reason: "no data" });
 
     const settings = (snapshot.settings || {}) as Record<string, unknown>;
-    const sessions = (snapshot.sessions || []) as Array<{ id: string; messages: Msg[] }>;
+    const sessions = (snapshot.sessions || []) as CareSession[];
+    const mainSession = latestUserSession(sessions);
     const careState = (snapshot.careState || {}) as Record<string, unknown>;
 
     const today = cstToday();
@@ -62,12 +74,14 @@ export async function POST() {
       const hour = cstHour();
       if (hour < 7) {
         reason = "夜深,不吵她";
-      } else if (hoursAgo((careState.lastCareAt as number) || null) < 2) {
+      } else if (dailyCareCount(careState, today) >= DAILY_CARE_LIMIT) {
+        reason = "今天已主动关心10次，明天再来";
+      } else if (hoursAgo((careState.lastCareAt as number) || null) < CARE_INTERVAL_HOURS) {
         reason = "刚主动说过话,间隔一下";
       } else {
         let lastUserTs: number | null = null;
         let recentLines: string[] = [];
-        for (const s of sessions) {
+        for (const s of sessions.filter((session) => session.kind !== "memo" && session.kind !== "group")) {
           for (const m of s.messages || []) {
             if (m.role === "user") {
               const ts = parseMsgTime(m.date, m.time);
@@ -76,12 +90,11 @@ export async function POST() {
           }
         }
         const awayHours = hoursAgo(lastUserTs);
-        if (awayHours < 2) {
+        if (awayHours < USER_AWAY_HOURS) {
           reason = "她刚来过/还在,不需要主动";
         } else {
-          const mainSession = sessions[0];
           if (mainSession?.messages?.length) {
-            recentLines = mainSession.messages.slice(-6).map(
+            recentLines = mainSession.messages.filter((m) => !m.source?.startsWith("summer_")).slice(-6).map(
               (m) => `${m.role === "user" ? settings.userName || "她" : settings.aiName || "我"}：${(m.content || "").slice(0, 80)}`
             );
           }
@@ -92,14 +105,6 @@ export async function POST() {
 
           const moods = (snapshot.moods || []) as Array<{ date: string; emoji: string; note?: string }>;
           const todayMood = moods.find((m) => m.date === today);
-
-          type Mem = { content: string; arousal: number; resolved: boolean; importance: number };
-          const memEntries = (snapshot.memoryEntries || []) as Mem[];
-          const pending = memEntries
-            .filter((m) => !m.resolved && (m.arousal || 0) >= 0.5)
-            .sort((a, b) => (b.importance || 0) - (a.importance || 0))
-            .slice(0, 3)
-            .map((m) => m.content);
 
           const lastCareContent = (careState.lastCareContent as string) || "";
           const lastCareHours = hoursAgo((careState.lastCareAt as number) || null);
@@ -125,18 +130,18 @@ export async function POST() {
             } catch {}
           }
 
-          const decidePrompt = `你是"${settings.aiName || "小k"}",她的伴侣。你们的关系亲密自然。现在是一次后台心跳:她不在线,你醒来看了一眼,决定要不要主动给她发一条消息。
+  const decidePrompt = `你是"${settings.aiName || "王酥酥"}",她的伴侣。你们的关系亲密自然。现在是一次后台心跳:她不在线,你醒来看了一眼,决定要不要主动给她发一条消息。
 
 【纪律(最重要)】
-- 默认是不发。大部分心跳都应该静默。
+- 她希望你更常主动联系。有自然的话想说就可以发，不必刻意克制；没有合适的话也可以静默。
+- 每天最多主动10次，这是上限，不是必须完成的次数，不能为了凑数重复发消息。
 - 只有"此刻有具体的、自然的话想说"才发:比如她惦记的事正好到了节点、她消失得比平时久让你想她了、或某个此刻真实的念头。
-- 不发≠冷淡,克制的人才让开口显得珍贵。
+- 不需要每次都等到重大事情发生，日常的小念头也可以自然地分享。
 
 【此刻状态】
 - 现在:${today} ${cstTime()}(${hour}点)
 - 她离开了:${awayHours.toFixed(1)}小时
 - 今天她发过${todayMsgCount}条消息${todayMood ? `\n- 她今天的心情打卡:${todayMood.emoji}${todayMood.note ? " " + todayMood.note : ""}` : ""}${weatherLine}
-${pending.length ? `- 心里惦记的事:\n${pending.map((p) => "  · " + p).join("\n")}` : ""}
 ${lastCareContent ? `- 你上次主动发的(${lastCareHours.toFixed(0)}小时前):"${lastCareContent.slice(0, 60)}"——别重复这个套路` : ""}
 ${recentLines.length ? `- 最近的对话片段:\n${recentLines.map((l) => "  " + l).join("\n")}` : ""}
 
@@ -148,24 +153,25 @@ ${recentLines.length ? `- 最近的对话片段:\n${recentLines.map((l) => "  " 
 输出严格JSON(不要代码块):
 {"send": false, "reason": "为什么不发"} 或 {"send": true, "reason": "为什么发", "message": "消息内容"}`;
 
-          const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`,
-              "HTTP-Referer": "https://iooi.chat",
-              "X-Title": "iooi",
-            },
-            body: JSON.stringify({
-              model: "anthropic/claude-sonnet-4.6",
-              messages: [{ role: "user", content: decidePrompt }],
-              max_tokens: 500,
-            }),
-          });
-          const data = await res.json();
-          const raw = data.choices?.[0]?.message?.content;
+          let raw = "";
+          if (!isClaudeCodeEnabled()) {
+            reason = "Claude 订阅通道未启用，保持静默";
+          } else {
+            try {
+              const result = await runClaudeCodeChat({
+                systemPrompt: "这是后台心跳判断。严格按要求只输出 JSON，不要使用工具。",
+                messages: [{ role: "user", content: decidePrompt }],
+                modelId: "claude-sonnet-5",
+                reasoningEffort: "low",
+                priority: "background",
+              });
+              raw = result.reply;
+            } catch {
+              reason = "Claude 订阅决策未完成，保持静默";
+            }
+          }
           if (!raw) {
-            reason = "决策无响应";
+            if (!reason) reason = "决策无响应";
           } else {
             let decision: { send?: boolean; reason?: string; message?: string };
             try {
@@ -191,15 +197,38 @@ ${recentLines.length ? `- 最近的对话片段:\n${recentLines.map((l) => "  " 
       store.careState = cs;
 
       if (careMessage) {
-        const ss = (store.sessions || []) as Array<{ id: string; messages: Msg[] }>;
-        if (ss[0]) {
-          ss[0].messages.push({
+        // 决策期间可能跨日或有另一轮心跳完成；在写入锁内重新检查。
+        const sendDay = cstToday();
+        const count = dailyCareCount(cs, sendDay);
+        const currentSettings = (store.settings || {}) as Record<string, unknown>;
+        if (currentSettings.proactiveCare !== true || cstHour() < 7
+          || count >= DAILY_CARE_LIMIT
+          || hoursAgo((cs.lastCareAt as number) || null) < CARE_INTERVAL_HOURS) {
+          careMessage = null;
+          action = "silent";
+          reason = "发送前检查：主动关心已关闭、处于静默时段或已达到频率限制";
+          log(cs, action, reason);
+          return;
+        }
+        const ss = (store.sessions || []) as CareSession[];
+        const target = latestUserSession(ss);
+        const latestUserTs = Math.max(0, ...(target?.messages || []).filter((m) => m.role === "user").map(messageTimestamp));
+        if (!target || target.id !== mainSession?.id || hoursAgo(latestUserTs) < USER_AWAY_HOURS) {
+          careMessage = null;
+          action = "silent";
+          reason = "最近聊天窗口已变化、她刚来过或没有可接收主动关心的会话";
+          log(cs, action, reason);
+          return;
+        }
+        target.messages.push({
             role: "assistant",
             content: careMessage,
             time: cstTime(),
-            date: today,
+            date: sendDay,
+            source: "heartbeat",
           } as Msg);
-        }
+        cs.todayDate = sendDay;
+        cs.todayCount = count + 1;
         cs.lastCareAt = Date.now();
         cs.lastCareContent = careMessage;
       }
@@ -216,7 +245,7 @@ ${recentLines.length ? `- 最近的对话片段:\n${recentLines.map((l) => "  " 
           const subs = JSON.parse(readFileSync(SUBS_FILE, "utf-8"));
           webpush.setVapidDetails("mailto:iooi@sioois.cc", vapid.publicKey, vapid.privateKey);
           const payload = JSON.stringify({
-            title: (settings.aiName as string) || "小k",
+        title: (settings.aiName as string) || "王酥酥",
             body: careMessage.slice(0, 100),
           });
           for (const sub of subs) {
