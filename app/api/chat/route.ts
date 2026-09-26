@@ -1,6 +1,9 @@
 import { withGroupStore, withStore } from "@/app/lib/store";
 import { isClaudeCodeEnabled, normalizeClaudeCodeModel, runClaudeCodeChat } from "@/app/lib/claude-code";
-import { isCodeProject, runClaudeCodeTask } from "@/app/lib/claude-code-task";
+import { isCodeProject, isCodeTaskRunning, runClaudeCodeTask } from "@/app/lib/claude-code-task";
+import { startCodeTask, updateCodeTask } from "@/app/lib/code-task-state";
+import { startCodeRelease } from "@/app/lib/code-release";
+import { parseCodeReleaseCommand } from "@/app/lib/code-release-command";
 import { extractSummerSearchTarget } from "@/app/lib/summer-search-query";
 import { createVisibleReplyStream } from "@/app/lib/visible-reply-stream";
 import { isExplicitSummerWriteRequest } from "@/app/lib/summer-write-intent";
@@ -922,18 +925,36 @@ export async function POST(request: Request) {
       return Response.json({ reply: "开发模式尚未在服务器启用。" }, { status: 503 });
     }
     if (!isCodeProject(codeMode?.project) || skipPersist || groupSessionId || !sessionId
+      || !/^[a-zA-Z0-9_-]{1,100}$/.test(sessionId)
       || !userMsg || typeof userMsg.content !== "string" || !userMsg.content.trim()
       || userMsg.content.length > 12_000 || requestMessages.some((message) => message.file || message.image)) {
       return Response.json({ reply: "开发任务内容无效；请选择 iooi 或 Summer，并只发送文字。" }, { status: 400 });
     }
+    if (isCodeTaskRunning()) {
+      return Response.json({ reply: "已有一个开发任务正在执行，请等它完成后再发下一条。" }, { status: 409 });
+    }
     const taskSource = `code_task_${codeMode.project}`;
     userMsg.source = taskSource;
+    const releaseAction = parseCodeReleaseCommand(userMsg.content);
+    if (releaseAction) {
+      await persistUserMessage(sessionId, userMsg);
+      try {
+        await startCodeRelease(releaseAction, codeMode.project, sessionId, userMsg.roundId || `${Date.now()}`);
+        return Response.json({ reply: "", status: 202, cache: { backend: "code-release" } });
+      } catch (error) {
+        const reason = error instanceof Error ? error.message : "发布任务未能启动";
+        await persistRound(sessionId, userMsg, `发布任务未能启动：${reason}`, "", [], [], taskSource, true);
+        return Response.json({ reply: reason }, { status: 502 });
+      }
+    }
     const recentTaskMessages = requestMessages
       .filter((message) => (message.role === "user" || message.role === "assistant") && typeof message.content === "string")
-      .slice(-8)
-      .map((message) => `${message.role === "user" ? "用户" : "Claude"}：${message.content!.slice(0, 3_000)}`)
+      .slice(-40)
+      .map((message) => `${message.role === "user" ? "用户" : "Claude"}：${message.content!.slice(0, 1_500)}`)
       .join("\n\n");
     await persistUserMessage(sessionId, userMsg);
+    const taskId = userMsg.roundId || `${Date.now()}`;
+    await startCodeTask(sessionId, taskId, codeMode.project);
     const encoder = new TextEncoder();
     let controller: ReadableStreamDefaultController<Uint8Array> | null = null;
     let connected = true;
@@ -951,6 +972,7 @@ export async function POST(request: Request) {
     });
     const heartbeat = setInterval(() => emit({ type: "heartbeat" }), 15_000);
     const job = (async () => {
+      let progressWrites = Promise.resolve();
       try {
         const reply = await runClaudeCodeTask({
           project: codeMode.project,
@@ -958,14 +980,22 @@ export async function POST(request: Request) {
             ? `此前同一项目的开发对话（仅供上下文）：\n${recentTaskMessages}\n\n本轮要执行的指令：\n${userMsg.content.trim()}`
             : userMsg.content.trim(),
           modelId: String(modelId || "claude-sonnet-5"),
+          onProgress: (progress) => {
+            emit({ type: "progress", text: progress });
+            progressWrites = progressWrites.then(() => updateCodeTask(sessionId, taskId, "running", progress));
+          },
         });
+        await progressWrites;
         const stamp = await persistRound(sessionId, userMsg, reply, "", [], [], taskSource, true);
+        await updateCodeTask(sessionId, taskId, "done", "任务已完成");
         emit({ type: "done", status: 200, reply, cache: {
           backend: "claude-code", reply_persisted_time: stamp.time, reply_persisted_date: stamp.date,
         } });
       } catch (error) {
         const reply = error instanceof Error ? error.message : "开发任务失败";
+        await progressWrites.catch(() => {});
         await persistRound(sessionId, userMsg, `开发任务未完成：${reply}`, "", [], [], taskSource, true);
+        await updateCodeTask(sessionId, taskId, "error", `任务未完成：${reply}`);
         emit({ type: "error", status: 502, reply });
       } finally {
         clearInterval(heartbeat);

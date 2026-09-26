@@ -2,6 +2,7 @@ import { existsSync, readFileSync } from "fs";
 import { join } from "path";
 import * as iconv from "iconv-lite";
 import { withGptStore } from "@/app/lib/store";
+import { allowedGptApiId, DEFAULT_GPT_MODEL } from "@/app/lib/gpt-models";
 
 type StoreMessage = {
   role: string;
@@ -329,7 +330,7 @@ export async function POST(request: Request) {
         ? "如果确实值得写入长期记忆，在正常回复末尾附加隐藏标签：[summer_remember layer=xiaoshu title=\"简短标题\" weight=5 tags=\"可选\"]内容[/summer_remember]。这只是待用户确认的提议，不会自动写入。"
         : "",
     ].filter(Boolean);
-    const model = process.env.GPT_MODEL_ID || "openai/gpt-5.6-sol";
+    const model = allowedGptApiId(body.modelId) || allowedGptApiId(process.env.GPT_MODEL_ID) || DEFAULT_GPT_MODEL.apiId;
     const reasoningEffort = REASONING_EFFORTS.has(String(body.reasoningEffort || ""))
       ? String(body.reasoningEffort)
       : "medium";

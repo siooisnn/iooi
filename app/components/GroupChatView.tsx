@@ -303,6 +303,7 @@ export function GroupChatView({
   sessions,
   settings,
   claudeModelId,
+  gptModelId,
   updateSettings,
   updateMessages,
   updateSummary,
@@ -314,6 +315,7 @@ export function GroupChatView({
   sessions: GroupSession[];
   settings: GroupSettings;
   claudeModelId: string;
+  gptModelId: string;
   updateSettings: (partial: Partial<Pick<GroupSettings, "webSearch" | "gptWebSearch" | "groupTwilightBubbleColor">>) => void;
   updateMessages: (updater: (messages: GroupChatMessage[]) => GroupChatMessage[]) => void;
   updateSummary: (summary: string, until: number) => void;
@@ -396,7 +398,7 @@ export function GroupChatView({
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        modelId: speaker === "gpt" ? "openai/gpt-5.6-sol" : claudeModelId,
+        modelId: speaker === "gpt" ? gptModelId : claudeModelId,
         systemPrompt: groupSystemPrompt(speaker, settings),
         dynamicPrompt: [
           `【当前时间】\n${currentContext()}`,

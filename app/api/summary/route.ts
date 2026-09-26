@@ -1,4 +1,5 @@
 import { isClaudeCodeEnabled, runClaudeCodeChat } from "@/app/lib/claude-code";
+import { allowedGptApiId } from "@/app/lib/gpt-models";
 
 export const runtime = "nodejs";
 
@@ -56,7 +57,8 @@ ${chatText}
 - 合并进已有缓存，整体不超过1600字。
 - 直接输出缓存正文。`;
 
-    const isGpt = String(modelId || "").includes("gpt-5.6");
+    const gptModelId = allowedGptApiId(modelId);
+    const isGpt = Boolean(gptModelId);
     let summary = "";
 
     if (isGpt) {
@@ -69,7 +71,7 @@ ${chatText}
           "X-Title": "iooi",
         },
         body: JSON.stringify({
-          model: "openai/gpt-5.6-sol",
+          model: gptModelId,
           messages: [{ role: "user", content: prompt }],
           max_tokens: isGroup ? 1500 : 2000,
           ...(["none", "low", "medium", "high", "xhigh", "max"].includes(reasoningEffort)

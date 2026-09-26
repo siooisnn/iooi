@@ -115,16 +115,26 @@ function collectImageBlocks(messages: ClaudeCodeMessage[]) {
   ));
 }
 
-function renderStreamInput(messages: ClaudeCodeMessage[], images: ClaudeImageBlock[]) {
-  const transcript = renderTranscript(messages) || "请看附带的图片。";
+export function renderStreamInput(messages: ClaudeCodeMessage[]) {
+  const latestUserIndex = messages.findLastIndex((message) => message.role === "user");
+  const content: Array<{ type: "text"; text: string } | ClaudeImageBlock> = [];
+  messages.forEach((message, index) => {
+    const label = message.role === "assistant"
+      ? "【你之前的回复（历史）】"
+      : index === latestUserIndex
+        ? "【用户本轮消息（只回答这一条）】"
+        : "【用户较早消息（仅供上下文）】";
+    content.push({ type: "text", text: `${label}\n${messageText(message.content)}` });
+    if (Array.isArray(message.content)) {
+      content.push(...message.content.filter(isClaudeImageBlock));
+    }
+  });
+  content.push({ type: "text", text: "请只回答标注为本轮消息的内容；较早图片只是历史上下文，不是新请求。" });
   return `${JSON.stringify({
     type: "user",
     message: {
       role: "user",
-      content: [
-        { type: "text", text: transcript },
-        ...images,
-      ],
+      content,
     },
     parent_tool_use_id: null,
   })}\n`;
@@ -328,7 +338,7 @@ export async function runClaudeCodeChat({
       "--output-format", usesStreamingOutput ? "stream-json" : "json",
     ];
     const transcript = renderTranscript(messages);
-    const stdinPayload = usesImages ? renderStreamInput(messages, imageBlocks) : transcript;
+    const stdinPayload = usesImages ? renderStreamInput(messages) : transcript;
     if (webSearch) {
       args.push("--allowedTools", availableTools, "--permission-mode", "dontAsk");
     }

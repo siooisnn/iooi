@@ -18,6 +18,9 @@ import { useTwilightLayout } from "./lib/use-twilight-layout";
 import { resolveTwilightBubbleColor, TWILIGHT_BUBBLE_COLORS, type TwilightBubbleColor } from "./lib/twilight-bubbles";
 import { normalizeChatBackground } from "./lib/chat-background";
 import { alignLegacySummerCalls, messageTimestamp } from "./lib/chat-timeline";
+import { DEFAULT_GPT_MODEL, GPT_MODELS, resolveGptModel } from "./lib/gpt-models";
+import type { CodeTaskState } from "./lib/code-task-state";
+import type { CodeReleaseState } from "./lib/code-release";
 
 // ━━━━━━━━━━━━━━━ Types ━━━━━━━━━━━━━━━
 type Message = {
@@ -169,6 +172,7 @@ function arrayBufferToBase64(buffer: ArrayBuffer): string {
 
 type Settings = {
   model: string;
+  gptModel: string;
   chatEntryStyle: "list" | "direct";
   fontSize: "default" | "large";
   chatUiStyle: "default" | "glass";
@@ -232,7 +236,6 @@ const DEFAULT_PROMPT = `你是王酥酥。以 summer 中保存的关系、人格
 中文自然交流，不要自称“我是 AI”或“作为语言模型”。
 不要用 markdown 格式；如果内容有多个部分或话题转换，用换行分成几段发，每段独立成一条消息。`;
 
-const GPT_MODEL_ID = "openai/gpt-5.6-sol";
 const GPT_REASONING_OPTIONS: Array<{ value: GptReasoningEffort; label: string }> = [
   { value: "low", label: "Low" },
   { value: "medium", label: "Medium" },
@@ -297,6 +300,7 @@ function normalizeClaudeSettings(settings: Settings): Settings {
   return {
     ...settings,
     model: selectedModel,
+    gptModel: resolveGptModel(settings.gptModel).id,
     fontSize: ["large", "larger"].includes(settings.fontSize) ? "large" : "default",
     chatUiStyle: settings.chatUiStyle === "glass" ? "glass" : "default",
     twilightBubbleColor: legacyTwilightBubbleColor,
@@ -674,6 +678,7 @@ function ThinkingBlock({ content }: { content: string }) {
 export default function Home() {
   const defaultSettings: Settings = {
     model: "sonnet5",
+    gptModel: DEFAULT_GPT_MODEL.id,
     chatEntryStyle: "list",
     fontSize: "default",
     chatUiStyle: "default",
@@ -1289,6 +1294,7 @@ export default function Home() {
             sessions={groupSessions}
             settings={settings}
             claudeModelId={(MODELS.find((model) => model.id === settings.model) || MODELS[0]).apiId}
+            gptModelId={resolveGptModel(settings.gptModel).apiId}
             updateSettings={updateSettings}
             updateMessages={updateGroupMessages}
             updateSummary={updateGroupSummary}
@@ -2055,6 +2061,10 @@ function ChatView({
   const [streamingReply, setStreamingReply] = useState("");
   const [replyRequestState, setReplyRequestState] = useState<ReplyRequestState>("idle");
   const [replyRequestDetail, setReplyRequestDetail] = useState("");
+  const [codeTaskStatus, setCodeTaskStatus] = useState<{
+    sessionId: string; task: CodeTaskState | CodeReleaseState | null;
+  } | null>(null);
+  const activeCodeTask = codeTaskStatus?.sessionId === session.id ? codeTaskStatus.task : null;
   const [showSessions, setShowSessions] = useState(false);
   const [showModelMenu, setShowModelMenu] = useState(false);
   const [developmentModeState, setDevelopmentModeState] = useState({ sessionId: session.id, enabled: false });
@@ -2112,8 +2122,9 @@ function ChatView({
   const currentModel = MODELS.find((m) => m.id === settings.model) || MODELS[0];
   const assistantName = isGpt ? (settings.gptName || "GPT") : settings.aiName;
   const assistantAvatar = isGpt ? settings.gptAvatar : settings.aiAvatar;
-  const currentModelId = isGpt ? GPT_MODEL_ID : currentModel.apiId;
-  const currentModelLabel = isGpt ? "GPT-5.6" : `订阅 · ${currentModel.label}`;
+  const currentGptModel = resolveGptModel(settings.gptModel);
+  const currentModelId = isGpt ? currentGptModel.apiId : currentModel.apiId;
+  const currentModelLabel = isGpt ? currentGptModel.label : `订阅 · ${currentModel.label}`;
   const summerEndpoint = isGpt ? "/api/gpt/summer" : "/api/summer";
 
   function clearReplyStatusTimers() {
@@ -2127,7 +2138,7 @@ function ChatView({
     pausedReplyRequestIdRef.current = active.id;
     clearReplyStatusTimers();
     setReplyRequestState("paused");
-    setReplyRequestDetail("");
+    setReplyRequestDetail(developmentMode && !isGpt ? "已停止等待画面，开发任务仍在服务器执行。" : "");
     setStreamingReply("");
     active.controller.abort();
   }
@@ -2146,6 +2157,45 @@ function ChatView({
   useEffect(() => {
     sessionMessagesRef.current = session.messages;
   }, [session.id, session.messages]);
+
+  useEffect(() => {
+    if (isGpt || session.kind === "memo") return;
+    let disposed = false;
+    let lastSyncedTask = "";
+    const checkTask = async () => {
+      try {
+        const query = `sessionId=${encodeURIComponent(session.id)}`;
+        const [taskResponse, releaseResponse] = await Promise.all([
+          apiFetch(`/api/code-task?${query}`), apiFetch(`/api/code-release?${query}`),
+        ]);
+        if (!taskResponse.ok || !releaseResponse.ok) return;
+        const [taskData, releaseData] = await Promise.all([
+          taskResponse.json() as Promise<{ task?: CodeTaskState | null }>,
+          releaseResponse.json() as Promise<{ task?: CodeReleaseState | null }>,
+        ]);
+        if (disposed) return;
+        const task = [taskData.task, releaseData.task]
+          .filter((item): item is CodeTaskState | CodeReleaseState => Boolean(item))
+          .sort((a, b) => b.startedAt - a.startedAt)[0] || null;
+        setCodeTaskStatus({ sessionId: session.id, task });
+        if (task && (task.status === "done" || task.status === "error") && lastSyncedTask !== task.taskId) {
+          const sync = await apiFetch("/api/sync");
+          if (!sync.ok || disposed) return;
+          const server = await sync.json() as { sessions?: ChatSession[] };
+          const remote = server.sessions?.find((item) => item.id === session.id);
+          if (remote && !disposed) {
+            updateMessages((messages) => mergeChatMessages(messages, remote.messages));
+            lastSyncedTask = task.taskId;
+          }
+        }
+      } catch { /* The next poll retries after network recovery. */ }
+    };
+    void checkTask();
+    const timer = setInterval(() => { if (document.visibilityState === "visible") void checkTask(); }, 4_000);
+    const onVisible = () => { if (document.visibilityState === "visible") void checkTask(); };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => { disposed = true; clearInterval(timer); document.removeEventListener("visibilitychange", onVisible); };
+  }, [isGpt, session.id, session.kind, updateMessages]);
 
 
   function handleInputChange(e: React.ChangeEvent<HTMLTextAreaElement>) {
@@ -2495,7 +2545,7 @@ function ChatView({
           dynamicPrompt: codeRequest ? undefined : buildDynamicPrompt(isGpt ? sessionCache.summary : undefined),
           messages: codeRequest
             ? baseMessages.filter((message) => message.source === `code_task_${developmentProject}`)
-                .slice(-8).map((message) => ({ role: message.role, content: message.content }))
+                .slice(-40).map((message) => ({ role: message.role, content: message.content }))
             : contextMsgs,
           ...(codeRequest ? { codeMode: { project: developmentProject } } : {}),
           thinking: !isGpt && settings.thinking,
@@ -2515,6 +2565,10 @@ function ChatView({
             if (!controller.signal.aborted && activeReplyRequestRef.current?.id === requestId) {
               setStreamingReply((current) => current + delta);
             }
+          }, (progress) => {
+            if (codeRequest && !controller.signal.aborted && activeReplyRequestRef.current?.id === requestId) {
+              setReplyRequestDetail(progress);
+            }
           });
       setStreamingReply("");
       const responseStatus = typeof data.status === "number" ? data.status : res.status;
@@ -2530,6 +2584,11 @@ function ChatView({
       }
       if (!isGpt && data.cache?.backend === "claude-code") {
         window.dispatchEvent(new Event("claude-usage-updated"));
+      }
+      if (codeRequest && data.cache?.backend === "code-release") {
+        setReplyRequestState("idle");
+        setReplyRequestDetail("");
+        return;
       }
       let reply: string = data.reply || "...";
       const thinkingContent: string = data.thinking || "";
@@ -2597,7 +2656,7 @@ function ChatView({
       const wasPaused = controller.signal.aborted && pausedReplyRequestIdRef.current === requestId;
       if (wasPaused) {
         setReplyRequestState("paused");
-        setReplyRequestDetail("");
+        setReplyRequestDetail(codeRequest ? "已停止等待画面，开发任务仍在服务器执行。" : "");
       } else {
         setReplyRequestState("failed");
         const serverFailure = error instanceof Error ? error.message.trim() : "";
@@ -2744,11 +2803,16 @@ function ChatView({
           <section className="chat-config-section">
             <p>MODEL</p>
             <div className="chat-config-options">
-              {isGpt ? (
-                <button type="button" className="chat-config-option chat-config-option-active" disabled>
-                  {currentModelLabel}
+              {isGpt ? GPT_MODELS.map((model) => (
+                <button
+                  type="button"
+                  key={model.id}
+                  className={`chat-config-option${currentGptModel.id === model.id ? " chat-config-option-active" : ""}`}
+                  onClick={() => updateSettings({ gptModel: model.id })}
+                >
+                  {model.label}
                 </button>
-              ) : MODELS.map((model) => (
+              )) : MODELS.map((model) => (
                 <button
                   type="button"
                   key={model.id}
@@ -2760,6 +2824,7 @@ function ChatView({
               ))}
             </div>
             {!isGpt && <p className="settings-hint">酥酥纯文字只走 Claude 订阅；失败时不会改走 API。</p>}
+            {isGpt && <p className="settings-hint">GPT-6 Astra 的单价约为 Sol 的 5 倍。</p>}
           </section>
 
           <section className="chat-config-section">
@@ -2864,7 +2929,7 @@ function ChatView({
                     </button>
                   ))}
                 </div>
-                <p className="settings-hint">仅处理当前文字指令；修改保存在服务器工作区。部署需要单独审核。</p>
+                <p className="settings-hint">开发对话与普通聊天各用自己的上下文。改完后单独发送“部署”或“推送到 GitHub”；只有收到明确指令才执行。</p>
               </>}
             </section>
           )}
@@ -2996,7 +3061,8 @@ function ChatView({
             </div>
           </div>
         )}
-        {((loading && !streamingReply) || replyRequestState === "paused" || replyRequestState === "failed") && (
+        {((loading && !streamingReply) || replyRequestState === "paused" || replyRequestState === "failed"
+          || (!loading && (activeCodeTask?.status === "running" || activeCodeTask?.status === "interrupted"))) && (
           <div className="msg-row msg-row-ai">
             {assistantAvatar
               ? <img src={assistantAvatar} className="avatar avatar-img" alt="" />
@@ -3005,7 +3071,9 @@ function ChatView({
             <div className="msg-content-ai">
               <div className={`msg-bubble msg-bubble-ai reply-status-bubble reply-status-${replyRequestState}`} aria-live="polite">
                 {loading && <div className="typing-dots"><span /><span /><span /></div>}
-                <span className="reply-status-text">{replyRequestDetail || REPLY_REQUEST_LABELS[replyRequestState]}</span>
+                <span className="reply-status-text">{loading || replyRequestState === "paused" || replyRequestState === "failed"
+                  ? replyRequestDetail || REPLY_REQUEST_LABELS[replyRequestState]
+                  : activeCodeTask?.progress}</span>
               </div>
             </div>
           </div>
@@ -3962,7 +4030,7 @@ function SettingsView({
           messages: slice.map((m) => ({ role: m.role, content: m.content })),
           aiName: isGpt ? "GPT" : settings.aiName,
           userName: settings.userName,
-          modelId: isGpt ? GPT_MODEL_ID : currentModel.apiId,
+          modelId: isGpt ? resolveGptModel(settings.gptModel).apiId : currentModel.apiId,
           reasoningEffort: isGpt ? settings.gptReasoningEffort : undefined,
         }),
       });

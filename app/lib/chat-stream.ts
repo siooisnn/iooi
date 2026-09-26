@@ -9,6 +9,7 @@ export type StreamReply = {
 export async function readChatResponse<T extends StreamReply>(
   response: Response,
   onDelta: (text: string) => void,
+  onProgress?: (text: string) => void,
 ): Promise<T> {
   const contentType = response.headers.get("content-type") || "";
   if (!contentType.includes("application/x-ndjson")) return response.json() as Promise<T>;
@@ -25,6 +26,8 @@ export async function readChatResponse<T extends StreamReply>(
     const event = JSON.parse(line) as T & { type?: string; text?: string };
     if (event.type === "delta" && typeof event.text === "string") {
       pendingDelta += event.text;
+    } else if (event.type === "progress" && typeof event.text === "string") {
+      onProgress?.(event.text);
     } else if (event.type === "done" || event.type === "error") {
       finalEvent = event;
     }
