@@ -1,5 +1,6 @@
 import { withGroupStore, withStore } from "@/app/lib/store";
 import { isClaudeCodeEnabled, normalizeClaudeCodeModel, runClaudeCodeChat } from "@/app/lib/claude-code";
+import { isCodeProject, runClaudeCodeTask } from "@/app/lib/claude-code-task";
 import { extractSummerSearchTarget } from "@/app/lib/summer-search-query";
 import { createVisibleReplyStream } from "@/app/lib/visible-reply-stream";
 import { isExplicitSummerWriteRequest } from "@/app/lib/summer-write-intent";
@@ -691,7 +692,9 @@ async function persistRound(
   reply: string,
   thinkingContent: string,
   summerCalls: SummerCall[] = [],
-  summerWriteProposals: SummerWrite[] = []
+  summerWriteProposals: SummerWrite[] = [],
+  replySource?: string,
+  allowLaterUser = false,
 ) {
   const stamp = { time: cstTime(), date: cstToday() };
   if (!sessionId || !reply) return stamp;
@@ -719,7 +722,7 @@ async function persistRound(
         if (!exists) msgs.push(userMsg);
       }
 
-      if (hasLaterUserMessage(msgs, userMsg)) {
+      if (!allowLaterUser && hasLaterUserMessage(msgs, userMsg)) {
         return;
       }
 
@@ -745,6 +748,7 @@ async function persistRound(
         const c = p.trim();
         pushAssistant({
           role: "assistant", content: c, time: now, date: today, roundId: userMsg?.roundId,
+          ...(replySource ? { source: replySource } : {}),
           ...(i === 0 && thinkingContent ? { thinking: thinkingContent } : {}),
         });
       });
@@ -906,8 +910,78 @@ export async function POST(request: Request) {
     groupSessionId,
     groupSessionName,
     groupSpeakerName,
+    codeMode,
   } = await request.json();
   const requestMessages: ChatRequestMessage[] = Array.isArray(messages) ? messages : [];
+  if (codeMode !== undefined) {
+    const token = process.env.IOOI_TOKEN;
+    if (!token || request.headers.get("x-iooi-token") !== token) {
+      return Response.json({ reply: "开发模式需要 iooi 访问密钥。" }, { status: 403 });
+    }
+    if (process.env.IOOI_CODE_ENABLED !== "true" || !isClaudeCodeEnabled()) {
+      return Response.json({ reply: "开发模式尚未在服务器启用。" }, { status: 503 });
+    }
+    if (!isCodeProject(codeMode?.project) || skipPersist || groupSessionId || !sessionId
+      || !userMsg || typeof userMsg.content !== "string" || !userMsg.content.trim()
+      || userMsg.content.length > 12_000 || requestMessages.some((message) => message.file || message.image)) {
+      return Response.json({ reply: "开发任务内容无效；请选择 iooi 或 Summer，并只发送文字。" }, { status: 400 });
+    }
+    const taskSource = `code_task_${codeMode.project}`;
+    userMsg.source = taskSource;
+    const recentTaskMessages = requestMessages
+      .filter((message) => (message.role === "user" || message.role === "assistant") && typeof message.content === "string")
+      .slice(-8)
+      .map((message) => `${message.role === "user" ? "用户" : "Claude"}：${message.content!.slice(0, 3_000)}`)
+      .join("\n\n");
+    await persistUserMessage(sessionId, userMsg);
+    const encoder = new TextEncoder();
+    let controller: ReadableStreamDefaultController<Uint8Array> | null = null;
+    let connected = true;
+    const emit = (event: Record<string, unknown>) => {
+      if (!connected || !controller) return;
+      try { controller.enqueue(encoder.encode(`${JSON.stringify(event)}\n`)); }
+      catch { connected = false; }
+    };
+    const responseStream = new ReadableStream<Uint8Array>({
+      start(streamController) {
+        controller = streamController;
+        emit({ type: "start", padding: " ".repeat(1100) });
+      },
+      cancel() { connected = false; controller = null; },
+    });
+    const heartbeat = setInterval(() => emit({ type: "heartbeat" }), 15_000);
+    const job = (async () => {
+      try {
+        const reply = await runClaudeCodeTask({
+          project: codeMode.project,
+          instruction: recentTaskMessages
+            ? `此前同一项目的开发对话（仅供上下文）：\n${recentTaskMessages}\n\n本轮要执行的指令：\n${userMsg.content.trim()}`
+            : userMsg.content.trim(),
+          modelId: String(modelId || "claude-sonnet-5"),
+        });
+        const stamp = await persistRound(sessionId, userMsg, reply, "", [], [], taskSource, true);
+        emit({ type: "done", status: 200, reply, cache: {
+          backend: "claude-code", reply_persisted_time: stamp.time, reply_persisted_date: stamp.date,
+        } });
+      } catch (error) {
+        const reply = error instanceof Error ? error.message : "开发任务失败";
+        await persistRound(sessionId, userMsg, `开发任务未完成：${reply}`, "", [], [], taskSource, true);
+        emit({ type: "error", status: 502, reply });
+      } finally {
+        clearInterval(heartbeat);
+        const activeController = controller as ReadableStreamDefaultController<Uint8Array> | null;
+        if (connected && activeController) {
+          try { activeController.close(); } catch { /* Browser disconnected. */ }
+        }
+      }
+    })();
+    after(async () => { await job; });
+    return new Response(responseStream, { headers: {
+      "Content-Type": "application/x-ndjson; charset=utf-8",
+      "Cache-Control": "no-cache, no-transform", "X-Accel-Buffering": "no",
+      "X-Content-Type-Options": "nosniff",
+    } });
+  }
   let userPersistMs = 0;
   if (!skipPersist) {
     const persistStartedAt = Date.now();

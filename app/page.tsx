@@ -2057,6 +2057,9 @@ function ChatView({
   const [replyRequestDetail, setReplyRequestDetail] = useState("");
   const [showSessions, setShowSessions] = useState(false);
   const [showModelMenu, setShowModelMenu] = useState(false);
+  const [developmentModeState, setDevelopmentModeState] = useState({ sessionId: session.id, enabled: false });
+  const developmentMode = developmentModeState.sessionId === session.id && developmentModeState.enabled;
+  const [developmentProject, setDevelopmentProject] = useState<"iooi" | "summer">("iooi");
   const [editingName, setEditingName] = useState<string | null>(null);
   const [editNameValue, setEditNameValue] = useState("");
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -2392,9 +2395,13 @@ function ChatView({
 
   async function sendMessage() {
     if (!input.trim() || loading || sendingRef.current) return;
+    const codeRequest = !isGpt && session.kind !== "memo" && developmentMode;
     sendingRef.current = true;
     const userText = input;
-    const userMsg: Message = { role: "user", content: userText, time: getTime(), date: getTodayStr(), ...(!isGpt ? { roundId: genId() } : {}) };
+    const userMsg: Message = { role: "user", content: userText, time: getTime(), date: getTodayStr(),
+      ...(!isGpt ? { roundId: genId() } : {}),
+      ...(codeRequest ? { source: `code_task_${developmentProject}` } : {}),
+    };
     followLatest();
     const baseMessages = sessionMessagesRef.current;
     const messagesWithUser = [...baseMessages, userMsg];
@@ -2415,7 +2422,7 @@ function ChatView({
     pausedReplyRequestIdRef.current = null;
     clearReplyStatusTimers();
     setReplyRequestState("preparing");
-    setReplyRequestDetail("");
+    setReplyRequestDetail(codeRequest ? `正在检查并修改 ${developmentProject === "iooi" ? "iooi" : "Summer"} 代码，可能需要几分钟…` : "");
     setStreamingReply("");
     setLoading(true);
 
@@ -2440,7 +2447,7 @@ function ChatView({
         updated: false,
       };
       const allMsgs = [
-        ...messagesWithUser.filter((m) => !m.source?.startsWith("summer_")).map((m) => {
+        ...messagesWithUser.filter((m) => !m.source?.startsWith("summer_") && !m.source?.startsWith("code_task_")).map((m) => {
           return {
             role: m.role, content: m.content,
             ...(m.image ? { image: m.image } : {}), ...(m.file ? { file: m.file } : {}),
@@ -2484,9 +2491,13 @@ function ChatView({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           modelId: currentModelId,
-          systemPrompt: buildStablePrompt(),
-          dynamicPrompt: buildDynamicPrompt(isGpt ? sessionCache.summary : undefined),
-          messages: contextMsgs,
+          systemPrompt: codeRequest ? undefined : buildStablePrompt(),
+          dynamicPrompt: codeRequest ? undefined : buildDynamicPrompt(isGpt ? sessionCache.summary : undefined),
+          messages: codeRequest
+            ? baseMessages.filter((message) => message.source === `code_task_${developmentProject}`)
+                .slice(-8).map((message) => ({ role: message.role, content: message.content }))
+            : contextMsgs,
+          ...(codeRequest ? { codeMode: { project: developmentProject } } : {}),
           thinking: !isGpt && settings.thinking,
           webSearch: isGpt ? settings.gptWebSearch : settings.webSearch,
           reasoningEffort: isGpt ? settings.gptReasoningEffort : settings.claudeReasoningEffort,
@@ -2563,6 +2574,7 @@ function ChatView({
       const newMsgs: Message[] = parts.map((p: string, i: number) => ({
         role: "assistant" as const,
         content: p.trim(),
+        ...(codeRequest ? { source: `code_task_${developmentProject}` } : {}),
         roundId: userMsg.roundId,
         time: now,
         date: today,
@@ -2589,7 +2601,9 @@ function ChatView({
       } else {
         setReplyRequestState("failed");
         const serverFailure = error instanceof Error ? error.message.trim() : "";
-        const failureText = typeof navigator !== "undefined" && !navigator.onLine
+        const failureText = codeRequest && serverFailure
+          ? `开发任务未完成：${serverFailure}。请先检查聊天记录或工作区，再决定是否重试。`
+          : typeof navigator !== "undefined" && !navigator.onLine
           ? "现在网络断开了，但刚才的消息已经保存。网络恢复后先重新打开看看；如果仍没有回复，再发送一次。"
           : serverFailure.includes("没有转用 API")
             ? serverFailure
@@ -2828,6 +2842,32 @@ function ChatView({
               </div>
             </section>
           )}
+
+          {!isGpt && (
+            <section className="chat-config-section">
+              <div className="chat-config-toggle-section development-mode-heading">
+                <p>开发模式</p>
+                <button type="button" className={`chat-config-switch${developmentMode ? " chat-config-switch-on" : ""}`}
+                  role="switch" aria-checked={developmentMode} disabled={loading}
+                  onClick={() => setDevelopmentModeState({ sessionId: session.id, enabled: !developmentMode })}>
+                  <span>{developmentMode ? "On" : "Off"}</span><i />
+                </button>
+              </div>
+              {developmentMode && <>
+                <div className="chat-config-options" role="group" aria-label="开发项目">
+                  {(["iooi", "summer"] as const).map((project) => (
+                    <button type="button" key={project} disabled={loading}
+                      className={`chat-config-option${developmentProject === project ? " chat-config-option-active" : ""}`}
+                      aria-pressed={developmentProject === project}
+                      onClick={() => setDevelopmentProject(project)}>
+                      {project === "iooi" ? "iooi" : "Summer"}
+                    </button>
+                  ))}
+                </div>
+                <p className="settings-hint">仅处理当前文字指令；修改保存在服务器工作区。部署需要单独审核。</p>
+              </>}
+            </section>
+          )}
           {!isGpt && <p className="settings-hint room-settings-capability-hint">订阅图片和搜索已接入；文件稍后开放。</p>}
         </div>
       )}
@@ -2983,6 +3023,8 @@ function ChatView({
       )}
 
       <footer className="chat-footer single-chat-footer">
+        {developmentMode && !isGpt && session.kind !== "memo" &&
+          <p className="settings-hint" role="status">开发模式 · {developmentProject === "iooi" ? "iooi" : "Summer"} 工作区</p>}
         {uploadError && <p className="composer-upload-error" role="alert">{uploadError}</p>}
         <div className="composer-row">
           <input
@@ -2992,7 +3034,7 @@ function ChatView({
             accept={isGpt
               ? "image/*,application/pdf,.txt,.md,.csv"
               : "image/jpeg,image/png,image/gif,image/webp"}
-            disabled={uploading || loading}
+            disabled={uploading || loading || developmentMode}
             onChange={(event) => void uploadFile(event)}
             aria-label={isGpt ? "上传图片或文件" : "上传图片"}
           />
@@ -3000,7 +3042,7 @@ function ChatView({
             type="button"
             className={`attach-btn attach-btn-separate${uploading ? " attach-btn-uploading" : ""}`}
             onClick={() => fileInputRef.current?.click()}
-            disabled={uploading || loading}
+            disabled={uploading || loading || developmentMode}
             aria-label={uploading ? "正在上传" : (isGpt ? "上传图片或文件" : "上传图片")}
             title={uploading ? "正在上传" : (isGpt ? "上传图片或文件" : "上传图片")}
           >
