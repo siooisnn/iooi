@@ -68,9 +68,6 @@ type ModelMessage = {
 };
 type ReplyState = "idle" | "preparing" | "waiting" | "slow" | "very-slow" | "paused";
 
-const GROUP_CONTEXT_ROUNDS = 18;
-const GROUP_SUMMARY_KEEP_MESSAGES = 36;
-const GROUP_SUMMARY_MIN_NEW_MESSAGES = 9;
 const GPT_GROUP_PROMPT = `你是 GPT，正在一个名为“一个群”的三人群聊里。群成员是用户、王酥酥（Claude）和你。
 你只能读取这间群聊的消息和属于 GPT 的独立 summer；不要读取、猜测或引用王酥酥（Claude）的私聊与 summer。`;
 
@@ -185,10 +182,10 @@ function visibleGroupMessages(messages: GroupChatMessage[]) {
   return visible;
 }
 
-function buildModelMessages(messages: GroupChatMessage[], target: GroupSpeaker, settings: GroupSettings) {
+function buildModelMessages(messages: GroupChatMessage[], target: GroupSpeaker, settings: GroupSettings, until: number) {
   const prepared: ModelMessage[] = [];
-  for (const { message } of visibleGroupMessages(messages)) {
-    if (message.source?.startsWith("summer_")) continue;
+  for (const { message, originalIndex } of visibleGroupMessages(messages)) {
+    if (originalIndex < until || message.source?.startsWith("summer_") || message.source === "group_error") continue;
     let next: ModelMessage;
     if (message.role === "user") {
       next = {
@@ -208,17 +205,7 @@ function buildModelMessages(messages: GroupChatMessage[], target: GroupSpeaker, 
     else prepared.push(next);
   }
 
-  let rounds = 0;
-  let start = 0;
-  for (let i = prepared.length - 1; i >= 0; i--) {
-    if (prepared[i].role !== "user") continue;
-    rounds++;
-    if (rounds >= GROUP_CONTEXT_ROUNDS) {
-      start = i;
-      break;
-    }
-  }
-  const sliced = prepared.slice(start);
+  const sliced = prepared;
   if (sliced[0]?.role === "assistant") {
     sliced.unshift({ role: "user", content: "【接续这间群之前的聊天】" });
   }
@@ -341,7 +328,6 @@ export function GroupChatView({
   const sendingRef = useRef(false);
   const activeControllerRef = useRef<AbortController | null>(null);
   const timersRef = useRef<Array<ReturnType<typeof setTimeout>>>([]);
-  const summaryInFlightRef = useRef(false);
   const { scrollRef, handleScroll, followLatest } = useChatScrollPosition(
     `iooi-scroll-group-${session.id}`,
     session.messages.length + (streamingReply?.text.length || 0),
@@ -391,6 +377,7 @@ export function GroupChatView({
     messages: GroupChatMessage[],
     userMessage: GroupChatMessage,
     signal: AbortSignal,
+    context: { summary: string; until: number },
   ) {
     beginSpeakerStatus(speaker);
     setStreamingReply(null);
@@ -402,10 +389,10 @@ export function GroupChatView({
         systemPrompt: groupSystemPrompt(speaker, settings),
         dynamicPrompt: [
           `【当前时间】\n${currentContext()}`,
-          session.summary ? `【群聊较早内容的共享摘要】\n${session.summary}` : "",
+          context.summary ? `【群聊较早内容的共享摘要】\n${context.summary}` : "",
           "这是群聊，不接入天气、心情墙或 heartbeat。",
         ].filter(Boolean).join("\n\n"),
-        messages: buildModelMessages(messages, speaker, settings),
+        messages: buildModelMessages(messages, speaker, settings, context.until),
         thinking: speaker === "claude" && settings.thinking,
         webSearch: speaker === "gpt" ? settings.gptWebSearch : settings.webSearch,
         reasoningEffort: speaker === "gpt" ? settings.gptReasoningEffort : settings.claudeReasoningEffort,
@@ -468,46 +455,30 @@ export function GroupChatView({
     return [...utilityMessages, ...replyMessages, ...proposalMessages];
   }
 
-  async function refreshSharedSummary(messages: GroupChatMessage[]) {
-    if (summaryInFlightRef.current) return;
-    const until = Math.max(0, messages.length - GROUP_SUMMARY_KEEP_MESSAGES);
-    const already = session.summarizedUntil || 0;
-    if (until - already < GROUP_SUMMARY_MIN_NEW_MESSAGES) return;
-
-    const olderMessages = visibleGroupMessages(messages)
-      .filter(({ message, originalIndex }) => originalIndex >= already && originalIndex < until && !message.source?.startsWith("summer_") && message.source !== "group_error")
-      .map(({ message }) => ({
-        role: message.role,
-        speaker: message.speaker,
-        content: message.content || (message.image ? "[发送了一张图片]" : message.file ? "[发送了一个文件]" : ""),
-      }))
-      .filter((message) => message.content.trim());
-    if (olderMessages.length === 0) return;
-
-    summaryInFlightRef.current = true;
-    setSummarizing(true);
+  async function prepareGroupContext(messages: GroupChatMessage[], signal: AbortSignal) {
+    const response = await groupFetch("/api/group-context", {
+      method: "POST", headers: { "Content-Type": "application/json" }, signal,
+      body: JSON.stringify({
+        sessionId: session.id,
+        systemPrompt: [groupSystemPrompt("claude", settings), groupSystemPrompt("gpt", settings)].join("\n"),
+        messages: visibleGroupMessages(messages)
+          .filter(({ message }) => !message.source?.startsWith("summer_") && message.source !== "group_error")
+          .map(({ message, originalIndex }) => ({
+            index: originalIndex, role: message.role,
+            speaker: message.role === "user" ? settings.userName || "用户" : speakerName(message.speaker || "claude", settings),
+            content: message.content || (message.image ? "[发送了一张图片]" : message.file ? "[发送了一个文件]" : ""),
+            media: Boolean(message.image || message.file),
+          })),
+      }),
+    });
     try {
-      const response = await groupFetch("/api/summary", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          mode: "group",
-          previousSummary: session.summary || "",
-          messages: olderMessages,
-          aiName: settings.aiName || "王酥酥",
-          gptName: settings.gptName || "GPT",
-          userName: settings.userName || "用户",
-          modelId: "claude-sonnet-5",
-        }),
+      const result = await readChatResponse<{ status?: number; reply?: string; summary: string; until: number }>(response, () => {}, (text) => {
+        if (!signal.aborted) setSummarizing(text.startsWith("正在压缩"));
       });
-      const data = await response.json();
-      if (response.ok && data.ok && data.summary) {
-        updateSummary(String(data.summary).trim(), until);
-      }
-    } catch {
-      // 摘要失败不影响当轮群聊，下次达到条件时会自动重试。
+      if ((result.status || response.status) >= 400) throw new Error(result.reply || "上下文压缩失败；原记录已保留。");
+      if (result.summary !== (session.summary || "") || result.until !== (session.summarizedUntil || 0)) updateSummary(result.summary, result.until);
+      return result;
     } finally {
-      summaryInFlightRef.current = false;
       setSummarizing(false);
     }
   }
@@ -536,7 +507,11 @@ export function GroupChatView({
       for (const speaker of targets) {
         if (controller.signal.aborted) break;
         try {
-          const additions = await requestSpeaker(speaker, working, userMessage, controller.signal);
+          setActiveSpeaker(speaker);
+          setStreamingReply(null);
+          const context = await prepareGroupContext(working, controller.signal);
+          if (controller.signal.aborted) break;
+          const additions = await requestSpeaker(speaker, working, userMessage, controller.signal, context);
           if (controller.signal.aborted) break;
           working = [...working, ...additions];
         } catch (error) {
@@ -547,7 +522,7 @@ export function GroupChatView({
             role: "assistant",
             speaker,
             source: "group_error",
-            content: speaker === "claude" && reason.includes("没有转用 API")
+            content: reason.includes("上下文") || (speaker === "claude" && reason.includes("没有转用 API"))
               ? reason
               : `${speakerName(speaker, settings)} 这次没有连上，另一位会继续回复。`,
             time: nowTime(),
@@ -559,7 +534,6 @@ export function GroupChatView({
       }
       if (!controller.signal.aborted) {
         setReplyState("idle");
-        void refreshSharedSummary(working);
       }
     } catch {
       if (controller.signal.aborted) setReplyState("paused");
@@ -681,7 +655,7 @@ export function GroupChatView({
     }));
   }
 
-  const statusText = replyState === "paused"
+  const statusText = summarizing ? "正在压缩上下文…" : replyState === "paused"
     ? "已暂停，已经收到的回复会保留"
     : activeSpeaker
       ? `${speakerName(activeSpeaker, settings)}${replyState === "preparing" ? " 正在准备…" : replyState === "slow" ? " 还在认真想…" : replyState === "very-slow" ? " 这轮有点久，仍在等待…" : " 正在回复…"}`

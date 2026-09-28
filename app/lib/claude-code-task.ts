@@ -2,6 +2,9 @@ import { spawn } from "child_process";
 import { chown, unlink, writeFile } from "fs/promises";
 import { randomUUID } from "crypto";
 import { normalizeClaudeCodeModel } from "./claude-code";
+import { compactContext } from "./compact-context";
+import { contextText, estimateTokens, WORK_CONTEXT_BUDGET, type ContextMessage } from "./context-budget";
+import { codeTaskProgress } from "./code-task-progress";
 
 export type CodeProject = "iooi" | "summer";
 
@@ -18,9 +21,11 @@ export function isCodeProject(value: unknown): value is CodeProject {
 
 export function isCodeTaskRunning() { return taskRunning; }
 
-export async function runClaudeCodeTask({ project, instruction, modelId, onProgress }: {
+export async function runClaudeCodeTask({ project, instruction, history = [], sessionId, modelId, onProgress }: {
   project: CodeProject;
   instruction: string;
+  history?: ContextMessage[];
+  sessionId: string;
   modelId: string;
   onProgress?: (progress: string) => void;
 }): Promise<string> {
@@ -38,6 +43,19 @@ export async function runClaudeCodeTask({ project, instruction, modelId, onProgr
     "If asked to work on the other project too, explain that the owner must select it in the development-mode project selector and send a separate task.",
   ].join("\n\n");
   try {
+    const context = await compactContext({
+      scope: `work:${project}:${sessionId}`,
+      messages: [...history, { index: history.length, role: "user", content: instruction }],
+      budget: WORK_CONTEXT_BUDGET, kind: "work",
+      overhead: 3_000 + estimateTokens(systemPrompt), onProgress,
+    });
+    const previous = history.filter((message) => message.index >= context.until).map(contextText).join("\n\n");
+    const prompt = [
+      context.summary ? `此前同一项目工作的摘要（只作前情）：\n${context.summary}` : "",
+      previous ? `此前同一项目的工作对话（只作前情）：\n${previous}` : "",
+      `本轮要执行的指令：\n${instruction}`,
+    ].filter(Boolean).join("\n\n");
+    onProgress?.("正在查看项目并处理当前指令…");
     await writeFile(/* turbopackIgnore: true */ systemFile, systemPrompt, { encoding: "utf8", mode: 0o600 });
     await chown(/* turbopackIgnore: true */ systemFile, uid, gid);
     const args = [
@@ -56,6 +74,9 @@ export async function runClaudeCodeTask({ project, instruction, modelId, onProgr
           PATH: "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
           HOME: "/home/claude-iooi", USER: "claude-iooi", LOGNAME: "claude-iooi",
           LANG: "C.UTF-8", NO_COLOR: "1",
+          // Claude Code reserves roughly 33k tokens before this effective window.
+          // Cross-turn history above uses a separate 150k input budget.
+          CLAUDE_CODE_AUTO_COMPACT_WINDOW: "183000",
         },
       });
       let stdout = "";
@@ -71,18 +92,11 @@ export async function runClaudeCodeTask({ project, instruction, modelId, onProgr
         try {
           const event = JSON.parse(line) as {
             type?: string;
+            subtype?: string;
+            status?: string | null;
             message?: { content?: Array<{ type?: string; name?: string }> };
           };
-          if (event.type !== "assistant") return;
-          for (const block of event.message?.content || []) {
-            if (block.type !== "tool_use") continue;
-            const label = block.name === "Edit" || block.name === "Write"
-              ? "正在修改代码…"
-              : block.name === "Bash"
-                ? "正在执行项目命令或检查…"
-                : "正在查看项目文件…";
-            report(label);
-          }
+          for (const progress of codeTaskProgress(event)) report(progress);
         } catch { /* Partial or non-JSON output is handled when the process exits. */ }
       };
       let settled = false;
@@ -129,7 +143,7 @@ export async function runClaudeCodeTask({ project, instruction, modelId, onProgr
         }
       });
       child.stdin.on("error", () => {});
-      child.stdin.end(instruction, "utf8");
+      child.stdin.end(prompt, "utf8");
     });
   } finally {
     taskRunning = false;

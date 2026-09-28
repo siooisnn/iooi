@@ -213,8 +213,6 @@ const MODELS = [
   { id: "opus46", label: "Opus 4.6", apiId: "claude-opus-4-6" },
 ];
 const CONTEXT_WINDOW_ROUNDS = 30;
-const SESSION_CACHE_KEEP_MESSAGES = 48;
-const SESSION_CACHE_MIN_NEW_MESSAGES = 8;
 
 // 输入框随机小话
 const INPUT_HINTS = [
@@ -2040,7 +2038,6 @@ function ChatView({
   session,
   sessions,
   updateMessages,
-  updateSummary,
   updateSettings,
   setLastCache,
   setAiMood,
@@ -2106,7 +2103,6 @@ function ChatView({
   const sessionMessagesRef = useRef<Message[]>(session.messages);
   const sendingRef = useRef(false);
   const uploadingRef = useRef(false);
-  const summaryInFlightRef = useRef(false);
   const replyRequestIdRef = useRef(0);
   const pausedReplyRequestIdRef = useRef<number | null>(null);
   const activeReplyRequestRef = useRef<{ id: number; controller: AbortController } | null>(null);
@@ -2426,52 +2422,6 @@ function ChatView({
     }));
   }
 
-  async function ensureSessionCache(allMessages: Message[], signal?: AbortSignal) {
-    if (summaryInFlightRef.current) {
-      return { summary: session.summary || "", until: session.summarizedUntil || 0, updated: false };
-    }
-    const cutoff = Math.max(0, allMessages.length - SESSION_CACHE_KEEP_MESSAGES);
-    const summarizedUntil = session.summarizedUntil || 0;
-    if (cutoff <= 0 || cutoff - summarizedUntil < SESSION_CACHE_MIN_NEW_MESSAGES) {
-      return { summary: session.summary || "", until: summarizedUntil, updated: false };
-    }
-
-    const slice = allMessages
-      .slice(summarizedUntil, cutoff)
-      .filter((m) => (m.role === "user" || m.role === "assistant") && !m.source?.startsWith("summer_"))
-      .map((m) => ({ role: m.role, content: m.content }));
-    if (slice.length < SESSION_CACHE_MIN_NEW_MESSAGES) {
-      return { summary: session.summary || "", until: summarizedUntil, updated: false };
-    }
-
-    summaryInFlightRef.current = true;
-    try {
-      const res = await apiFetch("/api/summary", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          previousSummary: session.summary || "",
-          messages: slice,
-          aiName: assistantName,
-          userName: settings.userName,
-          modelId: currentModelId,
-          reasoningEffort: isGpt ? settings.gptReasoningEffort : settings.claudeReasoningEffort,
-        }),
-        signal,
-      });
-      const data = await res.json();
-      if (data.ok && data.summary) {
-        updateSummary(data.summary, cutoff);
-        return { summary: String(data.summary), until: cutoff, updated: true };
-      }
-    } catch {
-      return { summary: session.summary || "", until: summarizedUntil, updated: false };
-    } finally {
-      summaryInFlightRef.current = false;
-    }
-    return { summary: session.summary || "", until: summarizedUntil, updated: false };
-  }
-
   async function sendMessage() {
     if (!input.trim() || loading || sendingRef.current) return;
     const codeRequest = !isGpt && session.kind !== "memo" && developmentMode;
@@ -2518,13 +2468,7 @@ function ChatView({
     }
 
     try {
-      // Claude private windows send their complete visible text history. GPT
-      // keeps the existing rolling-summary behavior.
-      const sessionCache = {
-        summary: isGpt ? session.summary || "" : "",
-        until: session.summarizedUntil || 0,
-        updated: false,
-      };
+      // Both private rooms retain complete visible text, with no rolling summary.
       const allMsgs = [
         ...messagesWithUser.filter((m) => !m.source?.startsWith("summer_") && !m.source?.startsWith("code_task_")).map((m) => {
           return {
@@ -2534,13 +2478,13 @@ function ChatView({
         }),
       ];
       const context = buildChatContext(allMsgs, {
-        mode: isGpt ? "rolling-summary" : "full-window",
+        mode: "full-window",
         maxUserTurns: CONTEXT_WINDOW_ROUNDS,
       });
       const contextMsgs = context.messages;
       const contextMeta = {
         ...context.stats,
-        summary_used: isGpt && Boolean(sessionCache.summary),
+        summary_used: false,
       };
       const recentSummerProposals = isGpt
         ? []
@@ -2571,10 +2515,10 @@ function ChatView({
         body: JSON.stringify({
           modelId: currentModelId,
           systemPrompt: codeRequest ? undefined : buildStablePrompt(),
-          dynamicPrompt: codeRequest ? undefined : buildDynamicPrompt(isGpt ? sessionCache.summary : undefined),
+          dynamicPrompt: codeRequest ? undefined : buildDynamicPrompt(),
           messages: codeRequest
             ? baseMessages.filter((message) => message.source === `code_task_${developmentProject}`)
-                .slice(-40).map((message) => ({ role: message.role, content: message.content }))
+                .map((message) => ({ role: message.role, content: message.content }))
             : contextMsgs,
           ...(codeRequest ? { codeMode: { project: developmentProject } } : {}),
           thinking: !isGpt && settings.thinking,
@@ -2679,7 +2623,6 @@ function ChatView({
 
       // GPT keeps its rolling cache. Claude private windows deliberately keep
       // the complete active-window text and neither generate nor inject one.
-      if (isGpt) void ensureSessionCache(finalMessages);
     } catch (error) {
       setStreamingReply("");
       const wasPaused = controller.signal.aborted && pausedReplyRequestIdRef.current === requestId;
@@ -2760,8 +2703,8 @@ function ChatView({
   }
 
   const developmentBadge = developmentMode && (
-    <span className="dev-mode-badge" title={`开发模式 · ${developmentProjectLabel} 工作区`}>
-      开发中 · {developmentProjectLabel}
+    <span className="dev-mode-badge" title={`工作模式 · ${developmentProjectLabel} 工作区`}>
+      工作中•{developmentProjectLabel}
     </span>
   );
 
@@ -2819,7 +2762,7 @@ function ChatView({
             </button>
             <div className="header-center">
               <h1 className="header-title">{isGpt ? "GPT" : "iooi"}</h1>
-              <span className="header-subtitle" style={{ color: "var(--accent-text)" }}>{developmentBadge || <>{assistantName} {!isGpt && (aiMood.emoji || "")} · {currentModelLabel}</>}</span>
+              <span className="header-subtitle" style={{ color: "var(--accent-text)" }}>{developmentMode ? <>{assistantName} {developmentBadge}</> : <>{assistantName} {!isGpt && (aiMood.emoji || "")} · {currentModelLabel}</>}</span>
             </div>
             <button className="header-icon-btn" aria-label="聊天设置" aria-expanded={showModelMenu} onClick={() => setShowModelMenu((open) => !open)}>
               <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
@@ -3125,17 +3068,7 @@ function ChatView({
         </div>
       )}
 
-      <footer className={`chat-footer single-chat-footer${developmentMode ? " chat-footer-dev-mode" : ""}`}>
-        {developmentMode && (
-          <div className="dev-mode-banner" role="status">
-            <span className="dev-mode-banner-dot" aria-hidden="true" />
-            <span className="dev-mode-banner-text">开发中 · 消息会发给 {developmentProjectLabel} 工作区</span>
-            <button type="button" className="dev-mode-banner-off" disabled={loading}
-              onClick={() => updateDevelopmentModePref({ enabled: false })}>
-              关闭
-            </button>
-          </div>
-        )}
+      <footer className="chat-footer single-chat-footer">
         {uploadError && <p className="composer-upload-error" role="alert">{uploadError}</p>}
         <div className="composer-row">
           <input

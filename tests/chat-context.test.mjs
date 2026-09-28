@@ -11,7 +11,7 @@ const conversation = [
   { role: "user", content: "晚上第三件事" },
 ];
 
-test("Claude full-window mode keeps every text message", () => {
+test("Claude and GPT private full-window mode keeps every text message", () => {
   const result = buildChatContext(conversation, { mode: "full-window", maxUserTurns: 2 });
   assert.equal(result.stats.context_mode, "full-window");
   assert.equal(result.stats.context_truncated, false);
@@ -20,7 +20,7 @@ test("Claude full-window mode keeps every text message", () => {
   assert.match(result.messages.at(-1).content, /晚上第三件事/);
 });
 
-test("rolling-summary mode still limits GPT to the configured turns", () => {
+test("legacy rolling-summary helper still honors its explicit turn budget", () => {
   const result = buildChatContext(conversation, { mode: "rolling-summary", maxUserTurns: 2 });
   assert.equal(result.stats.context_mode, "rolling-summary");
   assert.equal(result.stats.context_truncated, true);

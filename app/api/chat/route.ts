@@ -1,7 +1,8 @@
-import { withGroupStore, withStore } from "@/app/lib/store";
+import { readStore, withGroupStore, withStore } from "@/app/lib/store";
 import { isClaudeCodeEnabled, normalizeClaudeCodeModel, runClaudeCodeChat } from "@/app/lib/claude-code";
 import { isCodeProject, isCodeTaskRunning, runClaudeCodeTask } from "@/app/lib/claude-code-task";
 import { startCodeTask, updateCodeTask } from "@/app/lib/code-task-state";
+import { workContextHistory } from "@/app/lib/work-context";
 import { startCodeRelease } from "@/app/lib/code-release";
 import { parseCodeReleaseCommand } from "@/app/lib/code-release-command";
 import { extractSummerSearchTarget } from "@/app/lib/summer-search-query";
@@ -947,11 +948,10 @@ export async function POST(request: Request) {
         return Response.json({ reply: reason }, { status: 502 });
       }
     }
-    const recentTaskMessages = requestMessages
-      .filter((message) => (message.role === "user" || message.role === "assistant") && typeof message.content === "string")
-      .slice(-40)
-      .map((message) => `${message.role === "user" ? "用户" : "Claude"}：${message.content!.slice(0, 1_500)}`)
-      .join("\n\n");
+    // Read authoritative history scoped to this session and project. Ordinary
+    // private chat and the other project's tasks never enter the work prompt.
+    const savedSession = ((readStore()?.sessions || []) as Array<{ id: string; messages?: StoreMsg[] }>).find((s) => s.id === sessionId);
+    const taskHistory = workContextHistory(savedSession?.messages || [], codeMode.project, userMsg.roundId);
     await persistUserMessage(sessionId, userMsg);
     const taskId = userMsg.roundId || `${Date.now()}`;
     await startCodeTask(sessionId, taskId, codeMode.project);
@@ -976,9 +976,9 @@ export async function POST(request: Request) {
       try {
         const reply = await runClaudeCodeTask({
           project: codeMode.project,
-          instruction: recentTaskMessages
-            ? `此前同一项目的开发对话（仅供上下文）：\n${recentTaskMessages}\n\n本轮要执行的指令：\n${userMsg.content.trim()}`
-            : userMsg.content.trim(),
+          instruction: userMsg.content.trim(),
+          history: taskHistory,
+          sessionId,
           modelId: String(modelId || "claude-sonnet-5"),
           onProgress: (progress) => {
             emit({ type: "progress", text: progress });

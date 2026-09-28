@@ -7,7 +7,7 @@ function ensureDir() {
   if (!existsSync(DATA_DIR)) mkdirSync(DATA_DIR, { recursive: true });
 }
 
-function createJsonStore(filename: string) {
+function createJsonStore(filename: string, privateFile = false) {
   const dataFile = join(DATA_DIR, filename);
   const tmpFile = join(DATA_DIR, filename.replace(/\.json$/i, ".tmp.json"));
   let writeLock: Promise<void> = Promise.resolve();
@@ -33,7 +33,7 @@ function createJsonStore(filename: string) {
       ensureDir();
       const store = read() || {};
       const result = fn(store);
-      writeFileSync(tmpFile, JSON.stringify(store, null, 2), "utf-8");
+      writeFileSync(tmpFile, JSON.stringify(store, null, 2), { encoding: "utf-8", ...(privateFile ? { mode: 0o600 } : {}) });
       renameSync(tmpFile, dataFile);
       return result;
     } finally {
@@ -47,6 +47,7 @@ function createJsonStore(filename: string) {
 const mainStore = createJsonStore("store.json");
 const gptStore = createJsonStore("gpt-store.json");
 const groupStore = createJsonStore("group-store.json");
+const contextStore = createJsonStore("context-snapshots.json", true);
 
 export const readStore = mainStore.read;
 export const withStore = mainStore.write;
@@ -54,3 +55,5 @@ export const readGptStore = gptStore.read;
 export const withGptStore = gptStore.write;
 export const readGroupStore = groupStore.read;
 export const withGroupStore = groupStore.write;
+export const readContextStore = contextStore.read;
+export const withContextStore = contextStore.write;

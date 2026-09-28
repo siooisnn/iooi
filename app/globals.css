@@ -1411,83 +1411,11 @@ body {
   padding-top: 7px;
 }
 
-/* ── 开发模式:醒目标记 ── */
+/* 工作模式只在昵称旁显示普通文字。 */
 .dev-mode-badge {
-  display: inline-flex;
-  align-items: center;
-  padding: 1px 8px;
-  border-radius: 999px;
-  background: rgba(var(--theme-accent-rgb, 196, 134, 108), 0.9);
-  color: #fff;
-  font-size: 10.5px;
-  font-weight: 650;
-  letter-spacing: 0.5px;
-  line-height: 1.6;
-  white-space: nowrap;
-}
-
-.dev-mode-banner {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin: 0 2px 8px;
-  padding: 7px 8px 7px 12px;
-  border: 1px solid rgba(var(--theme-accent-rgb, 196, 134, 108), 0.45);
-  border-radius: 14px;
-  background: rgba(var(--theme-accent-rgb, 196, 134, 108), 0.14);
-  color: var(--theme-link, #a56f58);
-  font-size: 12px;
-  font-weight: 600;
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
-}
-
-.dev-mode-banner-dot {
-  flex-shrink: 0;
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: rgba(var(--theme-accent-rgb, 196, 134, 108), 1);
-  animation: dev-mode-pulse 1.8s ease-in-out infinite;
-}
-
-.dev-mode-banner-text {
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.dev-mode-banner-off {
-  flex-shrink: 0;
-  padding: 3px 10px;
-  border: none;
-  border-radius: 999px;
-  background: rgba(var(--theme-accent-rgb, 196, 134, 108), 0.9);
-  color: #fff;
+  color: inherit;
   font: inherit;
-  font-size: 11px;
-  cursor: pointer;
-}
-
-.dev-mode-banner-off:disabled {
-  opacity: 0.5;
-  cursor: default;
-}
-
-.chat-footer-dev-mode .input-wrapper {
-  outline: 1.5px solid rgba(var(--theme-accent-rgb, 196, 134, 108), 0.6);
-  outline-offset: 2px;
-}
-
-@keyframes dev-mode-pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.35; }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .dev-mode-banner-dot { animation: none; }
+  white-space: nowrap;
 }
 
 .group-mention-row {
