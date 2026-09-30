@@ -8,7 +8,8 @@ function syncBrowserChrome() {
   const root = document.documentElement;
   const color = root.dataset.chatChrome === "glass"
     ? root.style.getPropertyValue("--chat-chrome-color") || "#eee8f2"
-    : root.dataset.page === "diary" ? "#ffffff" : "#f5f5f5";
+    : root.dataset.page === "diary" ? "#ffffff"
+      : root.dataset.page === "home" && root.dataset.homeStyle === "wall" ? "#fae6eb" : "#f5f5f5";
   document.querySelector('meta[name="theme-color"]')?.setAttribute("content", color);
 }
 
@@ -29,6 +30,20 @@ export function useThemePage(page: "home" | "chat" | "diary" | "settings") {
       syncBrowserChrome();
     };
   }, [page]);
+}
+
+// The photo-wall home tints browser chrome to its striped wallpaper.
+export function useHomeWallChrome(active: boolean) {
+  useEffect(() => {
+    if (!active) return;
+    const root = document.documentElement;
+    root.dataset.homeStyle = "wall";
+    syncBrowserChrome();
+    return () => {
+      delete root.dataset.homeStyle;
+      syncBrowserChrome();
+    };
+  }, [active]);
 }
 
 // Extend the room backdrop to the document canvas and match browser chrome.

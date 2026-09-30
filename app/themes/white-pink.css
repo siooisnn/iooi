@@ -289,3 +289,25 @@
 :root[data-theme="white-pink"] :is(.home-body, .diary-body, .settings-body, .chat-messages) {
   animation: none;
 }
+
+/* ── Home photo wall: striped wallpaper runs under the status bar and nav ── */
+:root[data-theme="white-pink"] .chat-container[data-home-style="wall"] {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, .22), rgba(255, 255, 255, 0) 35%, rgba(190, 120, 130, .06) 100%),
+    repeating-linear-gradient(90deg, #f8dde3 0 22px, #fdf1f3 22px 44px);
+}
+:root[data-theme="white-pink"] .chat-container[data-home-style="wall"] .chat-header {
+  background: transparent;
+  border-bottom: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+:root[data-theme="white-pink"] .chat-container[data-home-style="wall"] .bottom-nav {
+  background: rgba(255, 248, 250, .6);
+  border-top: 1px solid rgba(255, 255, 255, .65);
+  backdrop-filter: blur(16px) saturate(1.3);
+  -webkit-backdrop-filter: blur(16px) saturate(1.3);
+}
+:root[data-theme="white-pink"] .chat-container[data-home-style="wall"] .nav-btn:not([aria-current="page"]) {
+  color: #8d7479;
+}

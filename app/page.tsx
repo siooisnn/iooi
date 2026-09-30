@@ -10,7 +10,8 @@ import { GroupChatView } from "./components/GroupChatView";
 import { NotificationButton } from "./components/NotificationButton";
 import { ChatBackgroundSetting } from "./components/ChatBackgroundSetting";
 import { MoonLetter } from "./components/MoonLetter";
-import { useChatBrowserChrome, useThemePage } from "./components/ThemeProvider";
+import { PhotoWall } from "./components/PhotoWall";
+import { useChatBrowserChrome, useHomeWallChrome, useThemePage } from "./components/ThemeProvider";
 import { buildChatContext } from "./lib/chat-context";
 import { readChatResponse } from "./lib/chat-stream";
 import { useChatScrollPosition } from "./lib/use-chat-scroll-position";
@@ -18,6 +19,8 @@ import { useTwilightLayout } from "./lib/use-twilight-layout";
 import { DEFAULT_TWILIGHT_GLASS, resolveTwilightBubbleColor, resolveTwilightGlass, TWILIGHT_BUBBLE_COLORS, type TwilightBubbleColor } from "./lib/twilight-bubbles";
 import { TwilightGlassSlider } from "./components/TwilightGlassSlider";
 import { normalizeChatBackground } from "./lib/chat-background";
+import { normalizeHomeStyle, normalizeHomeWallPhotos } from "./lib/home-wall";
+import type { HomeStyle } from "./lib/home-wall";
 import { alignLegacySummerCalls, messageTimestamp } from "./lib/chat-timeline";
 import { DEFAULT_GPT_MODEL, GPT_MODELS, resolveGptModel } from "./lib/gpt-models";
 import type { CodeTaskState } from "./lib/code-task-state";
@@ -190,6 +193,8 @@ type Settings = {
   chatBackground: string;
   gptChatBackground?: string;
   groupChatBackground?: string;
+  homeStyle: HomeStyle;
+  homeWallPhotos: string[];
   chatPinnedLine: string;
   gptChatPinnedLine: string;
   aiName: string;
@@ -315,6 +320,8 @@ function normalizeClaudeSettings(settings: Settings): Settings {
     twilightGlass: resolveTwilightGlass(settings.twilightGlass),
     chatBackground: normalizeChatBackground(settings.chatBackground),
     groupChatBackground: normalizeChatBackground(settings.groupChatBackground),
+    homeStyle: normalizeHomeStyle(settings.homeStyle),
+    homeWallPhotos: normalizeHomeWallPhotos(settings.homeWallPhotos),
     // Preserve the old shared photo on first upgrade; an explicit empty value
     // means GPT's background was removed and must not fall back to Claude's.
     gptChatBackground: normalizeChatBackground(settings.gptChatBackground === undefined
@@ -709,6 +716,8 @@ export default function Home() {
     twilightBubbleColor: "rose",
     twilightGlass: DEFAULT_TWILIGHT_GLASS,
     chatBackground: "",
+    homeStyle: "moon",
+    homeWallPhotos: [],
     chatPinnedLine: "此后我们的每一秒都是恩赐。",
     gptChatPinnedLine: "此后我们的每一秒都是恩赐。",
     aiName: CLAUDE_DEFAULT_NAME,
@@ -1241,11 +1250,12 @@ export default function Home() {
           ? { "--twilight-user-bubble": twilightBubble.color, "--twilight-user-ink": twilightBubble.ink } as CSSProperties
           : undefined}
         data-chat-background={tab === "chat" && chatView !== "list" && settings.chatUiStyle === "glass" && activeChatBackground ? "image" : undefined}
+        data-home-style={tab === "home" && settings.homeStyle === "wall" ? "wall" : undefined}
       >
         {tab === "chat" && chatView !== "list" && settings.chatUiStyle === "glass" && activeChatBackground && (
           <NextImage className="chat-room-background" src={activeChatBackground} alt="" fill unoptimized aria-hidden="true" />
         )}
-        {tab === "home" && <HomeView settings={settings} />}
+        {tab === "home" && <HomeView settings={settings} updateSettings={updateSettings} />}
         {tab === "chat" && settings.chatEntryStyle === "list" && chatView === "list" && (
           <ChatListView
             assistantMode="claude"
@@ -1840,8 +1850,10 @@ function GroupAvatarStack({
   );
 }
 
-function HomeView({ settings }: { settings: Settings }) {
+function HomeView({ settings, updateSettings }: { settings: Settings; updateSettings: (partial: Partial<Settings>) => void }) {
   const [now, setNow] = useState<number | null>(null);
+  const wall = settings.homeStyle === "wall";
+  useHomeWallChrome(wall);
 
   useEffect(() => {
     const updateNow = () => setNow(Date.now());
@@ -1865,6 +1877,31 @@ function HomeView({ settings }: { settings: Settings }) {
   const mmdd = currentDate ? `${currentDate.getMonth() + 1}.${currentDate.getDate()}` : "";
   const isAnniversary = mmdd === "4.19" || mmdd === "6.5";
 
+  const petals = isAnniversary && (
+    <div className="petals" aria-hidden>
+      {Array.from({ length: 12 }).map((_, i) => (
+        <span key={i} className="petal" style={{ left: `${(i * 83) % 100}%`, animationDelay: `${(i * 0.7) % 5}s`, animationDuration: `${6 + (i % 4)}s` }}>🌸</span>
+      ))}
+    </div>
+  );
+  const ready = now !== null && Number.isFinite(start);
+
+  if (wall) {
+    return (
+      <PhotoWall
+        photos={settings.homeWallPhotos}
+        onChangePhoto={(index, photo) => {
+          const homeWallPhotos = normalizeHomeWallPhotos(settings.homeWallPhotos);
+          homeWallPhotos[index] = photo;
+          updateSettings({ homeWallPhotos });
+        }}
+        days={days} hours={hours} minutes={minutes} seconds={seconds} ready={ready}
+      >
+        {petals}
+      </PhotoWall>
+    );
+  }
+
   return (
     <>
       <header className="chat-header home-header">
@@ -1878,15 +1915,9 @@ function HomeView({ settings }: { settings: Settings }) {
       </header>
 
       <section className="home-body moon-home">
-        {isAnniversary && (
-          <div className="petals" aria-hidden>
-            {Array.from({ length: 12 }).map((_, i) => (
-              <span key={i} className="petal" style={{ left: `${(i * 83) % 100}%`, animationDelay: `${(i * 0.7) % 5}s`, animationDuration: `${6 + (i % 4)}s` }}>🌸</span>
-            ))}
-          </div>
-        )}
+        {petals}
 
-          <MoonLetter days={days} hours={hours} minutes={minutes} seconds={seconds} ready={now !== null && Number.isFinite(start)} />
+          <MoonLetter days={days} hours={hours} minutes={minutes} seconds={seconds} ready={ready} />
       </section>
     </>
   );
@@ -4186,6 +4217,17 @@ function SettingsView({
               GrassFromAfar
             </button>
           </div>
+        </div>
+
+        <div className="settings-group">
+          <h2 className="settings-group-title">首页</h2>
+          <div className="chat-theme-options" role="group" aria-label="首页样式">
+            {([["moon", "月亮"], ["wall", "照片墙"]] as const).map(([value, label]) => (
+              <button type="button" key={value} className={`model-option ${settings.homeStyle === value ? "model-option-active" : ""}`}
+                aria-pressed={settings.homeStyle === value} onClick={() => updateSettings({ homeStyle: value })}>{label}</button>
+            ))}
+          </div>
+          <p className="settings-hint">照片墙上长按画框就能换照片，手机和电脑同步。选择会自动保存。</p>
         </div>
 
         <div className="settings-group">
