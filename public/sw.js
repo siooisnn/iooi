@@ -1,6 +1,6 @@
 // iooi service worker — push notifications
 
-const IOOI_SW_VERSION = "2026-07-31-summer-edit-1";
+const IOOI_SW_VERSION = "2026-09-30-push-notify-1";
 
 self.addEventListener("install", () => {
   self.skipWaiting();
@@ -36,7 +36,8 @@ self.addEventListener("push", (event) => {
       body: data.body,
       icon: "/icon-192.png",
       badge: "/icon-192.png",
-      tag: "iooi-care",
+      // 每条用独立 tag：同 tag 会静默替换上一条，锁屏上不响也不亮。
+      tag: `iooi-care-${Date.now()}`,
     })
   );
 });

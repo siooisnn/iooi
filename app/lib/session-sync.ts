@@ -1,9 +1,11 @@
+import { imageKey } from "./message-images";
 type StoredMessage = {
   role?: string;
   content?: string;
   time?: string;
   date?: string;
   image?: string;
+  images?: string[];
   file?: string;
   thinking?: string;
   source?: string;
@@ -47,7 +49,7 @@ function messageKey(message: StoredMessage) {
   if (message.roundId && message.role === "assistant") {
     return [message.role, message.speaker || "", message.source || "", message.roundId, content].join("\u0001");
   }
-  if (message.role === "assistant" && message.source !== "summer_call" && content.length >= 4 && !message.image && !message.file) {
+  if (message.role === "assistant" && message.source !== "summer_call" && content.length >= 4 && !imageKey(message) && !message.file) {
     return [message.role, message.speaker || "", message.source || "", content].join("\u0001");
   }
   return [
@@ -57,7 +59,7 @@ function messageKey(message: StoredMessage) {
     message.time || "",
     message.date || "",
     content,
-    message.image || "",
+    imageKey(message),
     message.file || "",
   ].join("\u0001");
 }

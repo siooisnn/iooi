@@ -2,6 +2,7 @@ export type ChatContextMessage = {
   role: "user" | "assistant";
   content: string;
   image?: string;
+  images?: string[];
   file?: string;
 };
 
@@ -27,8 +28,10 @@ export function buildChatContext(
       last
       && last.role === message.role
       && !message.image
+      && !message.images?.length
       && !message.file
       && !last.image
+      && !last.images?.length
       && !last.file
     ) {
       last.content += `\n\n${message.content}`;

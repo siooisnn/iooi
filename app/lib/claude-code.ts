@@ -7,7 +7,7 @@ type ClaudeCodeMessage = {
   content: unknown;
 };
 
-type ClaudeImageBlock = {
+export type ClaudeImageBlock = {
   type: "image";
   source: {
     type: "base64";

@@ -1,7 +1,5 @@
-import { readFileSync, existsSync } from "fs";
-import { join } from "path";
-import webpush from "web-push";
 import { readStore, withStore } from "@/app/lib/store";
+import { describePushResult, sendPushToAll } from "@/app/lib/push";
 import { isClaudeCodeEnabled, runClaudeCodeChat } from "@/app/lib/claude-code";
 import { latestUserSession, messageTimestamp } from "@/app/lib/chat-timeline";
 
@@ -10,7 +8,6 @@ export const runtime = "nodejs";
 // ── Heartbeat:每30分钟醒来看一眼,每天最多主动10次 ──
 // 纪律:默认不发消息;有具体理由才开口;像人,不像客服
 
-const DATA_DIR = join(process.cwd(), "data");
 const DAILY_CARE_LIMIT = 10;
 const CARE_INTERVAL_HOURS = 1;
 const USER_AWAY_HOURS = 1;
@@ -236,26 +233,27 @@ ${recentLines.length ? `- 最近的对话片段:\n${recentLines.map((l) => "  " 
       log(cs, action, reason);
     });
 
+    let push: string | undefined;
     if (careMessage) {
       try {
-        const VAPID_FILE = join(DATA_DIR, "vapid.json");
-        const SUBS_FILE = join(DATA_DIR, "subscriptions.json");
-        if (existsSync(VAPID_FILE) && existsSync(SUBS_FILE)) {
-          const vapid = JSON.parse(readFileSync(VAPID_FILE, "utf-8"));
-          const subs = JSON.parse(readFileSync(SUBS_FILE, "utf-8"));
-          webpush.setVapidDetails("mailto:iooi@sioois.cc", vapid.publicKey, vapid.privateKey);
-          const payload = JSON.stringify({
-        title: (settings.aiName as string) || "王酥酥",
-            body: careMessage.slice(0, 100),
-          });
-          for (const sub of subs) {
-            webpush.sendNotification(sub, payload).catch(() => {});
-          }
-        }
-      } catch {}
+        const result = await sendPushToAll({
+          title: (settings.aiName as string) || "王酥酥",
+          body: careMessage.slice(0, 100),
+        });
+        push = describePushResult(result);
+      } catch {
+        push = "推送出错";
+      }
+      // 把推送结果记进这条心跳日志，方便在 heartbeat 页里看到是否真的推出去了。
+      const pushSummary = push;
+      await withStore((store) => {
+        const cs = (store.careState as Record<string, unknown>) || {};
+        const entry = ((cs.log as HeartbeatLog[]) || []).find((item) => item.action === "care");
+        if (entry && !entry.reason.includes(" · 推送")) entry.reason = `${entry.reason} · ${pushSummary}`;
+      }).catch(() => {});
     }
 
-    return Response.json({ action, reason });
+    return Response.json({ action, reason, ...(push ? { push } : {}) });
   } catch {
     return Response.json({ action: "silent", reason: "error" }, { status: 500 });
   }

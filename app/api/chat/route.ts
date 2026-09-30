@@ -3,6 +3,7 @@ import { isClaudeCodeEnabled, normalizeClaudeCodeModel, runClaudeCodeChat } from
 import { isCodeProject, isCodeTaskRunning, runClaudeCodeTask } from "@/app/lib/claude-code-task";
 import { startCodeTask, updateCodeTask } from "@/app/lib/code-task-state";
 import { workContextHistory } from "@/app/lib/work-context";
+import { imageKey, messageImages, MAX_IMAGES_PER_MESSAGE, sanitizeMessageImages } from "@/app/lib/message-images";
 import { startCodeRelease } from "@/app/lib/code-release";
 import { parseCodeReleaseCommand } from "@/app/lib/code-release-command";
 import { extractSummerSearchTarget } from "@/app/lib/summer-search-query";
@@ -28,7 +29,7 @@ function cstTime() {
 function cstToday() {
   return new Date().toLocaleDateString("zh-CN", { timeZone: "Asia/Shanghai" });
 }
-type StoreMsg = { role: string; content: string; time?: string; date?: string; thinking?: string; image?: string; file?: string; source?: string; roundId?: string; speaker?: "claude" | "gpt"; proposal?: SummerWrite };
+type StoreMsg = { role: string; content: string; time?: string; date?: string; thinking?: string; image?: string; images?: string[]; file?: string; source?: string; roundId?: string; speaker?: "claude" | "gpt"; proposal?: SummerWrite };
 type TextBlock = {
   type: "text";
   text: string;
@@ -46,6 +47,7 @@ type ChatRequestMessage = {
   role: string;
   content?: string;
   image?: string;
+  images?: string[];
   file?: string;
 };
 
@@ -58,7 +60,9 @@ const CLAUDE_IMAGE_TYPES: Record<string, ImageBlock["source"]["media_type"]> = {
 };
 const CLAUDE_IMAGE_BASE64_LIMIT = 10 * 1024 * 1024;
 const CLAUDE_IMAGE_TOTAL_LIMIT = 20 * 1024 * 1024;
-const CLAUDE_IMAGE_COUNT_LIMIT = 3;
+// One message may carry up to nine images; a few recent history images can
+// still ride along. Browsers shrink photos before upload, so this rarely binds.
+const CLAUDE_IMAGE_COUNT_LIMIT = MAX_IMAGES_PER_MESSAGE + 3;
 
 function loadClaudeImage(url: string): ImageBlock {
   const uploadsDir = resolve(process.cwd(), "uploads");
@@ -91,8 +95,10 @@ function collectClaudeImages(messages: ChatRequestMessage[]) {
   const images = new Map<string, ImageBlock>();
   const skipped = new Map<string, string>();
   let totalSize = 0;
-  for (const message of [...messages].reverse()) {
-    const url = String(message.image || "");
+  // Newest message first so the current round's images win the budget, while
+  // images inside one message keep the order she picked them in.
+  const urls = [...messages].reverse().flatMap((message) => messageImages(message));
+  for (const url of urls) {
     if (!url || images.has(url) || skipped.has(url)) continue;
     if (images.size >= CLAUDE_IMAGE_COUNT_LIMIT) {
       skipped.set(url, `本轮最多附带 ${CLAUDE_IMAGE_COUNT_LIMIT} 张图片`);
@@ -644,12 +650,18 @@ function claudeSubscriptionFailure(error: unknown, searchEnabled = false): strin
     : "Claude 订阅通道这轮没有完成；这条消息没有转用 API，请稍后再试。";
 }
 
+function hasUserPayload(message: StoreMsg | undefined): message is StoreMsg {
+  return Boolean(message && (message.content || imageKey(message)));
+}
+
 function sameUserMessage(a: StoreMsg, b: StoreMsg) {
-  return a.role === "user" && a.content === b.content && a.time === b.time && a.date === b.date;
+  return a.role === "user" && a.content === b.content && a.time === b.time && a.date === b.date
+    && imageKey(a) === imageKey(b)
+    && (!a.roundId || !b.roundId || a.roundId === b.roundId);
 }
 
 function hasLaterUserMessage(msgs: StoreMsg[], userMsg: StoreMsg | undefined) {
-  if (!userMsg?.content) return false;
+  if (!hasUserPayload(userMsg)) return false;
   const index = msgs.findIndex((m) => sameUserMessage(m, userMsg));
   if (index < 0) return false;
   return msgs.slice(index + 1).some((m) => m.role === "user");
@@ -661,7 +673,7 @@ function storeMessageKey(message: StoreMsg) {
     message.speaker || "",
     message.source || "",
     (message.content || "").trim().replace(/\s+/g, " "),
-    message.image || "",
+    imageKey(message),
     message.file || "",
   ].join("\u0001");
 }
@@ -719,10 +731,8 @@ async function persistRound(
       }
       const msgs = session.messages || (session.messages = []);
 
-      if (userMsg && userMsg.content) {
-        const exists = msgs.slice(-8).some(
-          (m) => m.role === "user" && m.content === userMsg.content && m.time === userMsg.time
-        );
+      if (hasUserPayload(userMsg)) {
+        const exists = msgs.slice(-8).some((m) => sameUserMessage(m, userMsg));
         if (!exists) msgs.push(userMsg);
       }
 
@@ -775,7 +785,7 @@ async function persistRound(
 }
 
 async function persistUserMessage(sessionId: string | undefined, userMsg: StoreMsg | undefined) {
-  if (!sessionId || !userMsg?.content) return;
+  if (!sessionId || !hasUserPayload(userMsg)) return;
   try {
     await withStore((store) => {
       const sessions = (store.sessions || []) as Array<{ id: string; name: string; messages: StoreMsg[]; createdAt?: string }>;
@@ -786,9 +796,7 @@ async function persistUserMessage(sessionId: string | undefined, userMsg: StoreM
         store.sessions = sessions;
       }
       const msgs = session.messages || (session.messages = []);
-      const exists = msgs.slice(-12).some(
-        (m) => m.role === "user" && m.content === userMsg.content && m.time === userMsg.time
-      );
+      const exists = msgs.slice(-12).some((m) => sameUserMessage(m, userMsg));
       if (!exists) msgs.push(userMsg);
     });
   } catch {
@@ -905,7 +913,7 @@ export async function POST(request: Request) {
     webSearch,
     reasoningEffort,
     sessionId,
-    userMsg,
+    userMsg: rawUserMsg,
     groupUserText,
     skipPersist,
     recentSummerProposals,
@@ -916,7 +924,12 @@ export async function POST(request: Request) {
     groupSpeakerName,
     codeMode,
   } = await request.json();
-  const requestMessages: ChatRequestMessage[] = Array.isArray(messages) ? messages : [];
+  const requestMessages: ChatRequestMessage[] = Array.isArray(messages)
+    ? messages.map((message: ChatRequestMessage) => sanitizeMessageImages(message))
+    : [];
+  const userMsg: StoreMsg | undefined = rawUserMsg && typeof rawUserMsg === "object"
+    ? sanitizeMessageImages(rawUserMsg as StoreMsg)
+    : undefined;
   if (codeMode !== undefined) {
     const token = process.env.IOOI_TOKEN;
     if (!token || request.headers.get("x-iooi-token") !== token) {
@@ -925,18 +938,34 @@ export async function POST(request: Request) {
     if (process.env.IOOI_CODE_ENABLED !== "true" || !isClaudeCodeEnabled()) {
       return Response.json({ reply: "开发模式尚未在服务器启用。" }, { status: 503 });
     }
+    const taskImageUrls = messageImages(userMsg);
     if (!isCodeProject(codeMode?.project) || skipPersist || groupSessionId || !sessionId
       || !/^[a-zA-Z0-9_-]{1,100}$/.test(sessionId)
-      || !userMsg || typeof userMsg.content !== "string" || !userMsg.content.trim()
-      || userMsg.content.length > 12_000 || requestMessages.some((message) => message.file || message.image)) {
-      return Response.json({ reply: "开发任务内容无效；请选择 iooi 或 Summer，并只发送文字。" }, { status: 400 });
+      || !userMsg || typeof userMsg.content !== "string" || (!userMsg.content.trim() && !taskImageUrls.length)
+      || userMsg.content.length > 12_000 || userMsg.file
+      || requestMessages.some((message) => message.file || messageImages(message).length)) {
+      return Response.json({ reply: "开发任务内容无效；请选择 iooi 或 Summer，发送文字或图片（不支持文件）。" }, { status: 400 });
+    }
+    let taskImages: ImageBlock[] = [];
+    let taskImageBytes = 0;
+    try {
+      taskImages = taskImageUrls.map((url) => {
+        const image = loadClaudeImage(url);
+        taskImageBytes += Buffer.byteLength(image.source.data, "utf8");
+        return image;
+      });
+    } catch (error) {
+      return Response.json({ reply: imageLoadErrorMessage(error) }, { status: 400 });
+    }
+    if (taskImageBytes > CLAUDE_IMAGE_TOTAL_LIMIT) {
+      return Response.json({ reply: "这一轮图片总大小超过 20MB，请少选几张再发。" }, { status: 413 });
     }
     if (isCodeTaskRunning()) {
       return Response.json({ reply: "已有一个开发任务正在执行，请等它完成后再发下一条。" }, { status: 409 });
     }
     const taskSource = `code_task_${codeMode.project}`;
     userMsg.source = taskSource;
-    const releaseAction = parseCodeReleaseCommand(userMsg.content);
+    const releaseAction = taskImages.length ? null : parseCodeReleaseCommand(userMsg.content);
     if (releaseAction) {
       await persistUserMessage(sessionId, userMsg);
       try {
@@ -977,6 +1006,7 @@ export async function POST(request: Request) {
         const reply = await runClaudeCodeTask({
           project: codeMode.project,
           instruction: userMsg.content.trim(),
+          images: taskImages,
           history: taskHistory,
           sessionId,
           modelId: String(modelId || "claude-sonnet-5"),
@@ -1161,22 +1191,26 @@ export async function POST(request: Request) {
 
   // 图片只从 iooi 自己的 uploads 目录读取并交给 Claude 订阅；文件仍明确拒绝，不会切换到 API。
   const anthropicMessages: Array<{ role: string; content: string | Array<TextBlock | ImageBlock> }> = requestMessages.map((msg) => {
-    const image = msg.image ? imageBlocks.get(msg.image) : undefined;
-    if (!image) {
-      const skippedReason = msg.image ? skippedImages.get(msg.image) : "";
-      const unavailableImageNote = skippedReason
-        ? `【系统提示：这张图片没有随本轮请求发送（${skippedReason}）。请不要声称已经看到图片。】`
-        : "";
-      return {
-        role: msg.role,
-        content: [String(msg.content || ""), unavailableImageNote].filter(Boolean).join("\n"),
-      };
+    const urls = messageImages(msg);
+    const attached = urls.flatMap((url) => {
+      const image = imageBlocks.get(url);
+      return image ? [image] : [];
+    });
+    const unavailableNotes = urls.flatMap((url, index) => {
+      const reason = skippedImages.get(url);
+      if (!reason) return [];
+      const which = urls.length > 1 ? `第 ${index + 1} 张图片` : "这张图片";
+      return [`【系统提示：${which}没有随本轮请求发送（${reason}）。请不要声称已经看到它。】`];
+    });
+    const text = [String(msg.content || ""), ...unavailableNotes].filter(Boolean).join("\n");
+    if (!attached.length) {
+      return { role: msg.role, content: text };
     }
     return {
       role: msg.role,
       content: [
-        image,
-        { type: "text", text: String(msg.content || "请看这张图片。") },
+        ...attached,
+        { type: "text", text: text || (attached.length > 1 ? `请看这 ${attached.length} 张图片。` : "请看这张图片。") },
       ],
     };
   });

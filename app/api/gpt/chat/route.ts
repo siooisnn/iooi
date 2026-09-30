@@ -3,6 +3,7 @@ import { join } from "path";
 import * as iconv from "iconv-lite";
 import { withGptStore } from "@/app/lib/store";
 import { allowedGptApiId, DEFAULT_GPT_MODEL } from "@/app/lib/gpt-models";
+import { imageKey, messageImages, sanitizeMessageImages } from "@/app/lib/message-images";
 
 type StoreMessage = {
   role: string;
@@ -10,6 +11,7 @@ type StoreMessage = {
   time?: string;
   date?: string;
   image?: string;
+  images?: string[];
   file?: string;
   source?: string;
   proposal?: SummerWrite;
@@ -83,38 +85,40 @@ function readTextFile(filepath: string): string {
   return utf8;
 }
 
+function loadImageBlock(url: string): OpenRouterContentBlock | null {
+  const filename = url.split("/").pop() || "";
+  const filepath = join(process.cwd(), "uploads", filename);
+  const ext = filename.split(".").pop()?.toLowerCase() || "";
+  const mediaType = IMAGE_MIME_TYPES[ext];
+  if (!mediaType || !existsSync(filepath)) return null;
+  const data = readFileSync(filepath).toString("base64");
+  return { type: "image_url", image_url: { url: `data:${mediaType};base64,${data}` } };
+}
+
+function fileNote(message: StoreMessage): string {
+  if (!message.file) return "";
+  const filename = message.file.split("/").pop() || "";
+  const filepath = join(process.cwd(), "uploads", filename);
+  const ext = filename.split(".").pop()?.toLowerCase() || "";
+  if (!existsSync(filepath)) return "";
+  if (TEXT_EXTS.has(ext)) return `\n\n【文件内容】\n${readTextFile(filepath).slice(0, 10_000)}`;
+  return `（这是一个 ${ext || "未知格式"} 文件，暂时无法直接读取内容）`;
+}
+
 function prepareOpenRouterMessage(message: StoreMessage): OpenRouterMessage {
-  if (message.image) {
-    const filename = message.image.split("/").pop() || "";
-    const filepath = join(process.cwd(), "uploads", filename);
-    const ext = filename.split(".").pop()?.toLowerCase() || "";
-    const mediaType = IMAGE_MIME_TYPES[ext];
-    if (mediaType && existsSync(filepath)) {
-      const data = readFileSync(filepath).toString("base64");
-      return {
-        role: message.role,
-        content: [
-          { type: "text", text: message.content || "请查看这张图片。" },
-          { type: "image_url", image_url: { url: `data:${mediaType};base64,${data}` } },
-        ],
-      };
-    }
+  const text = `${message.content}${fileNote(message)}`;
+  const imageBlocks = messageImages(message).flatMap((url) => {
+    const block = loadImageBlock(url);
+    return block ? [block] : [];
+  });
+  if (imageBlocks.length) {
+    const fallback = imageBlocks.length > 1 ? `请查看这 ${imageBlocks.length} 张图片。` : "请查看这张图片。";
+    return {
+      role: message.role,
+      content: [{ type: "text", text: text || fallback }, ...imageBlocks],
+    };
   }
-
-  if (message.file) {
-    const filename = message.file.split("/").pop() || "";
-    const filepath = join(process.cwd(), "uploads", filename);
-    const ext = filename.split(".").pop()?.toLowerCase() || "";
-    if (existsSync(filepath)) {
-      if (TEXT_EXTS.has(ext)) {
-        const fileContent = readTextFile(filepath).slice(0, 10_000);
-        return { role: message.role, content: `${message.content}\n\n【文件内容】\n${fileContent}` };
-      }
-      return { role: message.role, content: `${message.content}（这是一个 ${ext || "未知格式"} 文件，暂时无法直接读取内容）` };
-    }
-  }
-
-  return { role: message.role, content: message.content };
+  return { role: message.role, content: text };
 }
 
 function gptSummerBaseUrl() {
@@ -235,11 +239,16 @@ function proposalCardContent(proposal: SummerWrite) {
 }
 
 function sameUserMessage(a: StoreMessage, b: StoreMessage) {
-  return a.role === "user" && a.content === b.content && a.time === b.time && a.date === b.date;
+  return a.role === "user" && a.content === b.content && a.time === b.time && a.date === b.date
+    && imageKey(a) === imageKey(b);
+}
+
+function hasUserPayload(message: StoreMessage | undefined): message is StoreMessage {
+  return Boolean(message && (message.content || imageKey(message) || message.file));
 }
 
 function hasLaterUserMessage(messages: StoreMessage[], userMessage?: StoreMessage) {
-  if (!userMessage?.content) return false;
+  if (!hasUserPayload(userMessage)) return false;
   const index = messages.findIndex((message) => sameUserMessage(message, userMessage));
   return index >= 0 && messages.slice(index + 1).some((message) => message.role === "user");
 }
@@ -264,7 +273,7 @@ async function persistRound(
       store.sessions = sessions;
     }
     const messages = session.messages || (session.messages = []);
-    if (userMessage?.content && !messages.slice(-8).some((message) => sameUserMessage(message, userMessage))) {
+    if (hasUserPayload(userMessage) && !messages.slice(-8).some((message) => sameUserMessage(message, userMessage))) {
       messages.push(userMessage);
     }
     if (hasLaterUserMessage(messages, userMessage)) return;
@@ -298,12 +307,13 @@ export async function POST(request: Request) {
     const rawMessages = (Array.isArray(body.messages) ? body.messages : []) as StoreMessage[];
     const messages: OpenRouterMessage[] = rawMessages
       .filter((message: StoreMessage) => message?.role === "user" || message?.role === "assistant")
-      .map((message: StoreMessage) => prepareOpenRouterMessage({
+      .map((message: StoreMessage) => prepareOpenRouterMessage(sanitizeMessageImages({
         role: message.role,
         content: String(message.content || ""),
         ...(typeof message.image === "string" ? { image: message.image } : {}),
-        ...(typeof message.file === "string" ? { file: message.file } : {}),
-      }));
+        ...(Array.isArray(message.images) ? { images: message.images } : {}),
+        ...(typeof message.file === "string" && /^\/uploads\/[A-Za-z0-9._-]{1,120}$/.test(message.file) ? { file: message.file } : {}),
+      })));
     const dynamicPrompt = String(body.dynamicPrompt || "").trim();
     if (dynamicPrompt) {
       for (let i = messages.length - 1; i >= 0; i--) {
@@ -320,7 +330,9 @@ export async function POST(request: Request) {
         break;
       }
     }
-    const userMessage = body.userMsg as StoreMessage | undefined;
+    const userMessage = body.userMsg && typeof body.userMsg === "object"
+      ? sanitizeMessageImages(body.userMsg as StoreMessage)
+      : undefined;
     const summerState = await readGptSummerState().catch(() => null);
     const summerConfigured = Boolean(gptSummerBaseUrl());
     const systemParts = [

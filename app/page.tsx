@@ -21,6 +21,8 @@ import { alignLegacySummerCalls, messageTimestamp } from "./lib/chat-timeline";
 import { DEFAULT_GPT_MODEL, GPT_MODELS, resolveGptModel } from "./lib/gpt-models";
 import type { CodeTaskState } from "./lib/code-task-state";
 import type { CodeReleaseState } from "./lib/code-release";
+import { imageFields, imageKey, MAX_IMAGES_PER_MESSAGE, messageImages } from "./lib/message-images";
+import { prepareImageForUpload } from "./lib/image-compress";
 
 // ━━━━━━━━━━━━━━━ Types ━━━━━━━━━━━━━━━
 type Message = {
@@ -29,6 +31,7 @@ type Message = {
   time: string;
   date?: string;
   image?: string;
+  images?: string[];
   file?: string;
   thinking?: string;
   source?: string;
@@ -36,6 +39,9 @@ type Message = {
   speaker?: "claude" | "gpt";
   proposal?: SummerWriteProposal;
 };
+
+// Picked but not yet sent; lives only in the composer until she presses send.
+type PendingAttachment = { id: string; kind: "image" | "file"; url: string; name: string };
 
 type ChatSession = {
   id: string;
@@ -418,7 +424,7 @@ function chatMessageKey(message: Message) {
   if (message.roundId && message.role === "assistant") {
     return [message.role, message.speaker || "", message.source || "", message.roundId, content].join("\u0001");
   }
-  if (message.role === "assistant" && message.source !== "summer_call" && content.length >= 4 && !message.image && !message.file) {
+  if (message.role === "assistant" && message.source !== "summer_call" && content.length >= 4 && !imageKey(message) && !message.file) {
     return [message.role, message.speaker || "", message.source || "", content].join("\u0001");
   }
   return [
@@ -428,7 +434,7 @@ function chatMessageKey(message: Message) {
     message.time || "",
     message.date || "",
     content,
-    message.image || "",
+    imageKey(message),
     message.file || "",
   ].join("\u0001");
 }
@@ -868,7 +874,19 @@ export default function Home() {
   useEffect(() => {
     if (!mounted || typeof window === "undefined") return;
     if ("serviceWorker" in navigator) {
-      navigator.serviceWorker.register("/sw.js").catch(() => {});
+      navigator.serviceWorker.register("/sw.js")
+        .then(async (reg) => {
+          // 每次打开都把当前订阅同步给服务器：iOS 可能已更换推送端点，服务器端旧的会在推送时被清理。
+          if (!("PushManager" in window) || !("Notification" in window) || Notification.permission !== "granted") return;
+          const sub = await reg.pushManager.getSubscription();
+          if (!sub) return;
+          await apiFetch("/api/push", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(sub.toJSON()),
+          });
+        })
+        .catch(() => {});
     }
   }, [mounted]);
 
@@ -1468,7 +1486,8 @@ function shouldShowChatRoomTime(message: Message, prevMessage?: Message | null) 
 
 function getSessionPreview(message?: Message) {
   if (!message) return "还没有消息";
-  if (message.image) return "发来一张图片";
+  const imageCount = messageImages(message).length;
+  if (imageCount) return message.content || (imageCount > 1 ? `发来 ${imageCount} 张图片` : "发来一张图片");
   if (message.file) return message.content || "发来一个文件";
   return message.content || "还没有消息";
 }
@@ -2072,6 +2091,7 @@ function ChatView({
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState("");
+  const [attachments, setAttachments] = useState<PendingAttachment[]>([]);
   const [streamingReply, setStreamingReply] = useState("");
   const [replyRequestState, setReplyRequestState] = useState<ReplyRequestState>("idle");
   const [replyRequestDetail, setReplyRequestDetail] = useState("");
@@ -2423,14 +2443,22 @@ function ChatView({
   }
 
   async function sendMessage() {
-    if (!input.trim() || loading || sendingRef.current) return;
+    if ((!input.trim() && !attachments.length) || loading || uploading || sendingRef.current) return;
     const codeRequest = !isGpt && session.kind !== "memo" && developmentMode;
+    // Work mode only takes screenshots; a stray file must not block the send.
+    const sendable = codeRequest ? attachments.filter((item) => item.kind === "image") : attachments;
+    if (!input.trim() && !sendable.length) return;
     sendingRef.current = true;
-    const userText = input;
+    const pendingFile = sendable.find((item) => item.kind === "file");
+    const userText = input.trim() || !pendingFile ? input : `📄 ${pendingFile.name}`;
     const userMsg: Message = { role: "user", content: userText, time: getTime(), date: getTodayStr(),
+      ...imageFields(sendable.filter((item) => item.kind === "image").map((item) => item.url)),
+      ...(pendingFile ? { file: pendingFile.url } : {}),
       ...(!isGpt ? { roundId: genId() } : {}),
       ...(codeRequest ? { source: `code_task_${developmentProject}` } : {}),
     };
+    setAttachments([]);
+    setUploadError("");
     followLatest();
     const baseMessages = sessionMessagesRef.current;
     const messagesWithUser = [...baseMessages, userMsg];
@@ -2462,7 +2490,7 @@ function ChatView({
     }
 
     // Auto-rename session on first message
-    if (session.messages.length === 0 && (session.name.startsWith("对话") || session.name.startsWith("GPT 对话"))) {
+    if (userText.trim() && session.messages.length === 0 && (session.name.startsWith("对话") || session.name.startsWith("GPT 对话"))) {
       const autoName = userText.slice(0, 20) + (userText.length > 20 ? "..." : "");
       renameSession(session.id, autoName);
     }
@@ -2473,7 +2501,7 @@ function ChatView({
         ...messagesWithUser.filter((m) => !m.source?.startsWith("summer_") && !m.source?.startsWith("code_task_")).map((m) => {
           return {
             role: m.role, content: m.content,
-            ...(m.image ? { image: m.image } : {}), ...(m.file ? { file: m.file } : {}),
+            ...imageFields(messageImages(m)), ...(m.file ? { file: m.file } : {}),
           };
         }),
       ];
@@ -2658,40 +2686,68 @@ function ChatView({
 
   async function uploadFile(event: React.ChangeEvent<HTMLInputElement>) {
     const picker = event.currentTarget;
-    const file = picker.files?.[0];
+    const picked = Array.from(picker.files || []);
     picker.value = "";
-    if (!file || uploadingRef.current || loading) return;
+    if (!picked.length || uploadingRef.current || loading) return;
+
+    const allowFiles = isGpt && !developmentMode;
+    const notes: string[] = [];
+    let imageSlots = MAX_IMAGES_PER_MESSAGE - attachments.filter((item) => item.kind === "image").length;
+    let fileSlot = allowFiles && !attachments.some((item) => item.kind === "file");
+    const queue: File[] = [];
+    for (const file of picked) {
+      if (file.type.startsWith("image/")) {
+        if (imageSlots > 0) { queue.push(file); imageSlots -= 1; }
+        else if (!notes.includes("image-limit")) notes.push("image-limit");
+      } else if (allowFiles && fileSlot) {
+        queue.push(file);
+        fileSlot = false;
+      } else if (!notes.includes("file")) {
+        notes.push("file");
+      }
+    }
+    const messages: string[] = notes.map((note) => note === "image-limit"
+      ? `一条消息最多 ${MAX_IMAGES_PER_MESSAGE} 张图片，多出来的没有加上`
+      : allowFiles ? "一条消息只能带一个文件" : "这里只能发图片");
+    if (!queue.length) {
+      setUploadError(messages.join("；") + "。");
+      return;
+    }
 
     uploadingRef.current = true;
     setUploading(true);
     setUploadError("");
-    const formData = new FormData();
-    formData.append("file", file);
-
     try {
-      const res = await apiFetch("/api/upload", { method: "POST", body: formData });
-      const data = await res.json();
-      if (!res.ok || !data.url) throw new Error(data.error || "上传失败");
-
-      followLatest();
-      const isImage = file.type.startsWith("image/");
-      const msg: Message = {
-        role: "user",
-        content: isImage ? "" : `📄 ${file.name}`,
-        time: getTime(),
-        date: getTodayStr(),
-        ...(isImage ? { image: data.url } : { file: data.url }),
-      };
-      const nextMessages = mergeChatMessages(sessionMessagesRef.current, [...sessionMessagesRef.current, msg]);
-      sessionMessagesRef.current = nextMessages;
-      updateMessages(() => nextMessages);
-    } catch (error) {
-      const reason = error instanceof Error ? error.message : "上传失败";
-      setUploadError(`${reason}，请再试一次。`);
+      for (const original of queue) {
+        const isImage = original.type.startsWith("image/");
+        try {
+          const file = isImage ? await prepareImageForUpload(original) : original;
+          const formData = new FormData();
+          formData.append("file", file);
+          const res = await apiFetch("/api/upload", { method: "POST", body: formData });
+          const data = await res.json();
+          if (!res.ok || !data.url) throw new Error(data.error || "上传失败");
+          setAttachments((current) => [...current, {
+            id: genId(),
+            kind: isImage ? "image" : "file",
+            url: data.url,
+            name: original.name,
+          }]);
+        } catch (error) {
+          const reason = error instanceof Error ? error.message : "上传失败";
+          messages.push(`${original.name || "一张图片"}：${reason}`);
+        }
+      }
     } finally {
       uploadingRef.current = false;
       setUploading(false);
+      if (messages.length) setUploadError(messages.join("；") + "。");
     }
+  }
+
+  function removeAttachment(id: string) {
+    setAttachments((current) => current.filter((item) => item.id !== id));
+    setUploadError("");
   }
 
   function handleBackToList() {
@@ -2954,9 +3010,17 @@ function ChatView({
                 )}
                 <div className={message.role === "user" ? "msg-content-user" : "msg-content-ai"}>
                   {!listEntryMode && <span className="msg-time">{message.source === "heartbeat" ? "💬 " : ""}{message.time}</span>}
-                  {message.image ? (
+                  {messageImages(message).length ? (
                     <div className={`msg-bubble msg-bubble-img ${message.role === "user" ? "msg-bubble-user" : "msg-bubble-ai"}`}>
-                      <img src={message.image} className="msg-image" alt="" onClick={() => window.open(message.image, "_blank")} />
+                      {messageImages(message).length === 1 ? (
+                        <img src={messageImages(message)[0]} className="msg-image" alt="" onClick={() => window.open(messageImages(message)[0], "_blank")} />
+                      ) : (
+                        <div className={`msg-image-grid${messageImages(message).length === 2 || messageImages(message).length === 4 ? " msg-image-grid-2" : ""}`}>
+                          {messageImages(message).map((url) => (
+                            <img key={url} src={url} className="msg-image-tile" alt="" onClick={() => window.open(url, "_blank")} />
+                          ))}
+                        </div>
+                      )}
                       {message.content && <p className="msg-image-caption">{renderContent(message.content)}</p>}
                     </div>
                   ) : (
@@ -3070,15 +3134,36 @@ function ChatView({
 
       <footer className="chat-footer single-chat-footer">
         {uploadError && <p className="composer-upload-error" role="alert">{uploadError}</p>}
+        {attachments.length > 0 && (
+          <div className="composer-attachments" aria-label="待发送的附件">
+            {attachments.map((item) => (
+              <div key={item.id} className={`composer-attachment${item.kind === "file" ? " composer-attachment-file" : ""}`}>
+                {item.kind === "image"
+                  ? <img src={item.url} alt="" />
+                  : <span className="composer-attachment-name">📄 {item.name}</span>}
+                <button
+                  type="button"
+                  className="composer-attachment-remove"
+                  onClick={() => removeAttachment(item.id)}
+                  aria-label={item.kind === "image" ? "移除这张图片" : "移除这个文件"}
+                  title="移除"
+                >
+                  ×
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
         <div className="composer-row">
           <input
             ref={fileInputRef}
             type="file"
+            multiple
             className="attach-file-input"
             accept={isGpt
               ? "image/*,application/pdf,.txt,.md,.csv"
-              : "image/jpeg,image/png,image/gif,image/webp"}
-            disabled={uploading || loading || developmentMode}
+              : "image/*"}
+            disabled={uploading || loading}
             onChange={(event) => void uploadFile(event)}
             aria-label={isGpt ? "上传图片或文件" : "上传图片"}
           />
@@ -3086,7 +3171,7 @@ function ChatView({
             type="button"
             className={`attach-btn attach-btn-separate${uploading ? " attach-btn-uploading" : ""}`}
             onClick={() => fileInputRef.current?.click()}
-            disabled={uploading || loading || developmentMode}
+            disabled={uploading || loading}
             aria-label={uploading ? "正在上传" : (isGpt ? "上传图片或文件" : "上传图片")}
             title={uploading ? "正在上传" : (isGpt ? "上传图片或文件" : "上传图片")}
           >
@@ -3106,7 +3191,7 @@ function ChatView({
             <button
               type="button"
               onClick={loading ? pauseReply : sendMessage}
-              disabled={!loading && (!input.trim() || uploading)}
+              disabled={!loading && ((!input.trim() && !attachments.length) || uploading)}
               className={`send-btn${loading ? " pause-reply-btn" : ""}`}
               aria-label={loading ? "暂停等待回复" : "发送消息"}
               title={loading ? "暂停等待回复" : "发送"}
@@ -4192,7 +4277,19 @@ function SettingsView({
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(subscription),
-              }).then(() => undefined)
+              }).then((res) => {
+                if (!res.ok) throw new Error("subscribe failed");
+              })
+            }
+            loadPublicKey={() =>
+              apiFetch("/api/push")
+                .then((res) => (res.ok ? res.json() : null))
+                .then((data: { publicKey?: string | null } | null) => data?.publicKey || null)
+            }
+            onTest={() =>
+              apiFetch("/api/push/test", { method: "POST" })
+                .then((res) => res.json())
+                .then((data: { summary?: string }) => data.summary || "已发送")
             }
           />
         </div>
