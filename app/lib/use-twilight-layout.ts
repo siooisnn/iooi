@@ -91,6 +91,7 @@ export function useTwilightLayout(enabled: boolean, scrollRef: RefObject<HTMLEle
     const footer = room?.querySelector<HTMLElement>(".chat-footer");
     if (!messages || !room || !app || !header || !footer) return;
 
+    const rootStyle = document.documentElement.style;
     let frame = 0;
     let previousHeader: number | null = null;
     const viewport = window.visualViewport;
@@ -111,8 +112,10 @@ export function useTwilightLayout(enabled: boolean, scrollRef: RefObject<HTMLEle
       // iOS standalone can initially report a visual viewport that omits the
       // bottom safe area. Keep keyboard resizing, but fill the screen at rest.
       const keyboardOpen = fullHeight - visualHeight > 150;
-      app.style.setProperty("--twilight-viewport-height", `${ios && standalone && !keyboardOpen ? fullHeight : visualHeight}px`);
-      app.style.setProperty("--twilight-viewport-top", `${ios && standalone && !keyboardOpen ? 0 : viewport?.offsetTop ?? 0}px`);
+      // Set on the document so the status-bar cap outside the room can match
+      // the room's backdrop; the room inherits the same values.
+      rootStyle.setProperty("--twilight-viewport-height", `${ios && standalone && !keyboardOpen ? fullHeight : visualHeight}px`);
+      rootStyle.setProperty("--twilight-viewport-top", `${ios && standalone && !keyboardOpen ? 0 : viewport?.offsetTop ?? 0}px`);
       const top = Math.ceil(header.getBoundingClientRect().height);
       const bottom = Math.ceil(footer.getBoundingClientRect().height);
       room.style.setProperty("--twilight-header-space", `${top}px`);
@@ -157,8 +160,8 @@ export function useTwilightLayout(enabled: boolean, scrollRef: RefObject<HTMLEle
       viewport?.removeEventListener("scroll", schedule);
       room.style.removeProperty("--twilight-header-space");
       room.style.removeProperty("--twilight-footer-space");
-      app.style.removeProperty("--twilight-viewport-height");
-      app.style.removeProperty("--twilight-viewport-top");
+      rootStyle.removeProperty("--twilight-viewport-height");
+      rootStyle.removeProperty("--twilight-viewport-top");
     };
   }, [enabled, scrollRef]);
 }

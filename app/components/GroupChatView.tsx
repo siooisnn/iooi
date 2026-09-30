@@ -5,6 +5,7 @@ import { readChatResponse } from "../lib/chat-stream";
 import { useChatScrollPosition } from "../lib/use-chat-scroll-position";
 import { useTwilightLayout } from "../lib/use-twilight-layout";
 import { TWILIGHT_BUBBLE_COLORS, type TwilightBubbleColor } from "../lib/twilight-bubbles";
+import { TwilightGlassSlider } from "./TwilightGlassSlider";
 import { ClaudeUsageCircle, useClaudeUsage } from "./ClaudeUsageBadge";
 import { messageTimestamp } from "../lib/chat-timeline";
 import { stripObjectPlaceholders } from "../lib/message-images";
@@ -59,6 +60,7 @@ type GroupSettings = {
   gptReasoningEffort: string;
   claudeReasoningEffort: string;
   groupTwilightBubbleColor?: TwilightBubbleColor;
+  twilightGlass: number;
 };
 
 type ModelMessage = {
@@ -304,7 +306,7 @@ export function GroupChatView({
   settings: GroupSettings;
   claudeModelId: string;
   gptModelId: string;
-  updateSettings: (partial: Partial<Pick<GroupSettings, "webSearch" | "gptWebSearch" | "groupTwilightBubbleColor">>) => void;
+  updateSettings: (partial: Partial<Pick<GroupSettings, "webSearch" | "gptWebSearch" | "groupTwilightBubbleColor" | "twilightGlass">>) => void;
   updateMessages: (updater: (messages: GroupChatMessage[]) => GroupChatMessage[]) => void;
   updateSummary: (summary: string, until: number) => void;
   setActiveSessionId: (id: string) => void;
@@ -847,6 +849,8 @@ export function GroupChatView({
                 );
               })}
             </div>
+            <p className="group-glass-heading">玻璃质感</p>
+            <TwilightGlassSlider value={settings.twilightGlass} onChange={(twilightGlass) => updateSettings({ twilightGlass })} />
           </div>
         )}
         {showMenu && showWebSearchMenu && (
@@ -898,7 +902,7 @@ export function GroupChatView({
               aria-expanded={showBubbleColorMenu}
               onClick={() => { setShowBubbleColorMenu((open) => !open); setShowWebSearchMenu(false); }}
             >
-              气泡颜色
+              气泡和玻璃
             </button>
           )}
         </div>}

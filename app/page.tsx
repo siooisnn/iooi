@@ -15,7 +15,8 @@ import { buildChatContext } from "./lib/chat-context";
 import { readChatResponse } from "./lib/chat-stream";
 import { useChatScrollPosition } from "./lib/use-chat-scroll-position";
 import { useTwilightLayout } from "./lib/use-twilight-layout";
-import { resolveTwilightBubbleColor, TWILIGHT_BUBBLE_COLORS, type TwilightBubbleColor } from "./lib/twilight-bubbles";
+import { DEFAULT_TWILIGHT_GLASS, resolveTwilightBubbleColor, resolveTwilightGlass, TWILIGHT_BUBBLE_COLORS, type TwilightBubbleColor } from "./lib/twilight-bubbles";
+import { TwilightGlassSlider } from "./components/TwilightGlassSlider";
 import { normalizeChatBackground } from "./lib/chat-background";
 import { alignLegacySummerCalls, messageTimestamp } from "./lib/chat-timeline";
 import { DEFAULT_GPT_MODEL, GPT_MODELS, resolveGptModel } from "./lib/gpt-models";
@@ -185,6 +186,7 @@ type Settings = {
   twilightBubbleColor: TwilightBubbleColor;
   gptTwilightBubbleColor?: TwilightBubbleColor;
   groupTwilightBubbleColor?: TwilightBubbleColor;
+  twilightGlass: number;
   chatBackground: string;
   gptChatBackground?: string;
   groupChatBackground?: string;
@@ -310,6 +312,7 @@ function normalizeClaudeSettings(settings: Settings): Settings {
     twilightBubbleColor: legacyTwilightBubbleColor,
     gptTwilightBubbleColor: resolveTwilightBubbleColor(settings.gptTwilightBubbleColor, legacyTwilightBubbleColor),
     groupTwilightBubbleColor: resolveTwilightBubbleColor(settings.groupTwilightBubbleColor, legacyTwilightBubbleColor),
+    twilightGlass: resolveTwilightGlass(settings.twilightGlass),
     chatBackground: normalizeChatBackground(settings.chatBackground),
     groupChatBackground: normalizeChatBackground(settings.groupChatBackground),
     // Preserve the old shared photo on first upgrade; an explicit empty value
@@ -704,6 +707,7 @@ export default function Home() {
     fontSize: "default",
     chatUiStyle: "default",
     twilightBubbleColor: "rose",
+    twilightGlass: DEFAULT_TWILIGHT_GLASS,
     chatBackground: "",
     chatPinnedLine: "此后我们的每一秒都是恩赐。",
     gptChatPinnedLine: "此后我们的每一秒都是恩赐。",
@@ -735,7 +739,7 @@ export default function Home() {
       ? settings.gptTwilightBubbleColor
       : settings.twilightBubbleColor;
   const twilightBubble = TWILIGHT_BUBBLE_COLORS.find((color) => color.value === activeTwilightBubbleColor) || TWILIGHT_BUBBLE_COLORS[0];
-  useChatBrowserChrome(tab === "chat" && chatView !== "list" && settings.chatUiStyle === "glass", activeChatBackground);
+  useChatBrowserChrome(tab === "chat" && chatView !== "list" && settings.chatUiStyle === "glass", activeChatBackground, settings.twilightGlass);
   const [sessions, setSessions] = useState<ChatSession[]>([]);
   const [activeSessionId, setActiveSessionId] = useState<string>("");
   const [gptSessions, setGptSessions] = useState<ChatSession[]>([]);
@@ -2940,6 +2944,8 @@ function ChatView({
                   );
                 })}
               </div>
+              <p>GLASS</p>
+              <TwilightGlassSlider value={settings.twilightGlass} onChange={(twilightGlass) => updateSettings({ twilightGlass })} />
             </section>
           )}
 
@@ -4213,6 +4219,14 @@ function SettingsView({
           </div>
           <p className="settings-hint">私聊和群聊共用主题，选择会自动保存。</p>
         </div>
+
+        {settings.chatUiStyle === "glass" && (
+          <div className="settings-group">
+            <h2 className="settings-group-title">玻璃质感</h2>
+            <TwilightGlassSlider value={settings.twilightGlass} onChange={(twilightGlass) => updateSettings({ twilightGlass })} />
+            <p className="settings-hint">调节暮光里按钮、气泡和顶部的模糊程度，私聊和群聊共用。拉到最左就是完全透明不模糊。</p>
+          </div>
+        )}
 
         <ChatBackgroundSetting
           name={settings.aiName || CLAUDE_DEFAULT_NAME}

@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import type { ReactNode } from "react";
+import { twilightGlassScale } from "../lib/twilight-bubbles";
 
 function syncBrowserChrome() {
   const root = document.documentElement;
@@ -32,7 +33,14 @@ export function useThemePage(page: "home" | "chat" | "diary" | "settings") {
 
 // Extend the room backdrop to the document canvas and match browser chrome.
 // iOS can still reserve a status-bar region outside the web viewport.
-export function useChatBrowserChrome(active: boolean, background: string) {
+export function useChatBrowserChrome(active: boolean, background: string, glass: number) {
+  useEffect(() => {
+    if (!active) return;
+    const root = document.documentElement;
+    root.style.setProperty("--twilight-glass", twilightGlassScale(glass));
+    return () => { root.style.removeProperty("--twilight-glass"); };
+  }, [active, glass]);
+
   useEffect(() => {
     if (!active) return;
     const root = document.documentElement;

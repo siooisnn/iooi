@@ -19,3 +19,14 @@ test("new room-specific colors inherit the legacy color on first upgrade", () =>
 test("invalid stored colors fall back safely", () => {
   assert.equal(resolveTwilightBubbleColor("not-a-color"), "rose");
 });
+
+test("glass strength defaults to the original blur and stays in range", async () => {
+  const { DEFAULT_TWILIGHT_GLASS, resolveTwilightGlass, twilightGlassScale } = await import("../app/lib/twilight-bubbles.ts");
+  assert.equal(resolveTwilightGlass(undefined), DEFAULT_TWILIGHT_GLASS);
+  assert.equal(resolveTwilightGlass("80"), DEFAULT_TWILIGHT_GLASS);
+  assert.equal(resolveTwilightGlass(-10), 0);
+  assert.equal(resolveTwilightGlass(140), 100);
+  assert.equal(twilightGlassScale(DEFAULT_TWILIGHT_GLASS), "1");
+  assert.equal(twilightGlassScale(0), "0");
+  assert.equal(twilightGlassScale(100), "2");
+});

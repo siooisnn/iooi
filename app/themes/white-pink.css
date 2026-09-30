@@ -304,6 +304,25 @@
   background-color: var(--chrome-bg);
 }
 
+/* Glass rooms: the cap keeps a solid color for iOS, then paints the top slice
+   of the room backdrop over it. The layer is sized like the room and blurred
+   like the edge beneath the header (chat-glass.css), so the photo looks full
+   screen. */
 :root[data-chat-chrome="glass"] .status-bar-cap {
+  overflow: hidden;
   background-color: var(--chat-chrome-color, #eee8f2);
+}
+
+:root[data-chat-chrome="glass"] .status-bar-cap::before {
+  content: "";
+  position: absolute;
+  top: var(--twilight-viewport-top, 0px);
+  left: 0;
+  right: 0;
+  height: var(--twilight-viewport-height, 100dvh);
+  background-image: var(--chat-document-background);
+  background-position: center;
+  background-size: cover;
+  background-repeat: no-repeat;
+  filter: blur(calc(8px * var(--twilight-glass, 1)));
 }

@@ -20,7 +20,9 @@
 
   /* The status-bar cap turns off iOS's own top-edge blur, which also blurred
      the avatar, back and settings buttons. This softer edge sits beneath the
-     header (z-index 30), so only messages scrolling up behind it go soft. */
+     header (z-index 30), so only messages scrolling up behind it go soft. The
+     cap shows the same backdrop blurred by the same amount, so the photo runs
+     unbroken to the top of the screen. */
   .app-bg .chat-container[data-chat-ui="glass"]::after {
     content: "";
     position: absolute;
@@ -30,10 +32,7 @@
     z-index: 20;
     height: calc(var(--twilight-header-space, 120px) + 12px);
     pointer-events: none;
-    background: linear-gradient(to bottom,
-      var(--chat-chrome-color, #eee8f2) env(safe-area-inset-top),
-      transparent calc(env(safe-area-inset-top) + 28px));
-    --chat-edge-filter: blur(8px);
+    --chat-edge-filter: blur(calc(8px * var(--twilight-glass, 1)));
     backdrop-filter: var(--chat-edge-filter);
     mask: linear-gradient(to bottom, #000 calc(env(safe-area-inset-top) + 20px), transparent 100%);
   }
@@ -132,6 +131,40 @@
 
 .chat-config-panel .twilight-color-option {
   min-width: 30px;
+}
+
+.twilight-glass-slider {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 320px;
+  font-size: 11px;
+  color: var(--text-light);
+}
+
+.twilight-glass-slider input[type="range"] {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 28px;
+  margin: 0;
+  accent-color: var(--twilight-user-bubble, var(--accent, #b44c73));
+  touch-action: pan-y;
+}
+
+.twilight-glass-value {
+  min-width: 2.2em;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.chat-config-section > .twilight-color-options + p,
+.group-bubble-color-panel > .group-glass-heading {
+  margin-top: 12px;
+}
+
+.chat-container[data-chat-ui="glass"] .twilight-glass-slider {
+  max-width: none;
+  color: #fff;
 }
 
 .app-bg .chat-container[data-chat-ui="glass"] {
@@ -284,7 +317,7 @@
   border: 1px solid var(--chat-glass-border);
   color: var(--chat-glass-ink);
   box-shadow: var(--chat-glass-shadow);
-  --chat-glass-filter: blur(10px) saturate(110%);
+  --chat-glass-filter: blur(calc(10px * var(--twilight-glass, 1))) saturate(calc(1 + 0.1 * var(--twilight-glass, 1)));
   backdrop-filter: var(--chat-glass-filter);
 }
 
@@ -357,13 +390,13 @@
   backdrop-filter: none;
   color: #fff;
   text-shadow: none;
-  --chat-glass-filter: blur(14px) saturate(120%);
+  --chat-glass-filter: blur(calc(14px * var(--twilight-glass, 1))) saturate(calc(1 + 0.2 * var(--twilight-glass, 1)));
   --chat-bubble-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 60'%3E%3Cpath fill='black' d='M28 0H72A22 22 0 0 1 94 22V35A22 22 0 0 1 72 57H28C19 57 8 60 1 60Q0.1 60 1 59C5 55 6 50 6 43V22A22 22 0 0 1 28 0Z'/%3E%3C/svg%3E");
 }
 
 .chat-container[data-chat-ui="glass"] .msg-bubble-ai:not(.msg-bubble-summer-utility) {
   --chat-bubble-surface: rgba(0, 0, 0, 0.3);
-  --chat-glass-filter: blur(8px) saturate(110%);
+  --chat-glass-filter: blur(calc(8px * var(--twilight-glass, 1))) saturate(calc(1 + 0.1 * var(--twilight-glass, 1)));
   color: #fff;
   text-shadow: none;
 }
@@ -487,7 +520,7 @@
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35);
   color: var(--chat-glass-ink);
   opacity: 1;
-  --chat-glass-filter: blur(12px);
+  --chat-glass-filter: blur(calc(12px * var(--twilight-glass, 1)));
   backdrop-filter: var(--chat-glass-filter);
 }
 
@@ -567,7 +600,7 @@
   background: var(--chat-glass-surface);
   border: 1px solid var(--chat-glass-border);
   color: var(--chat-glass-ink); box-shadow: var(--chat-glass-shadow);
-  --chat-glass-filter: blur(10px) saturate(110%);
+  --chat-glass-filter: blur(calc(10px * var(--twilight-glass, 1))) saturate(calc(1 + 0.1 * var(--twilight-glass, 1)));
   backdrop-filter: var(--chat-glass-filter);
 }
 .app-bg .chat-container[data-chat-ui="glass"] .room-settings-panel {

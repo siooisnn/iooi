@@ -17,3 +17,15 @@ export function resolveTwilightBubbleColor(
     ? value as TwilightBubbleColor
     : fallback;
 }
+
+// Glass strength is a 0–100 slider; 50 keeps the original 暮光 blur.
+export const DEFAULT_TWILIGHT_GLASS = 50;
+
+export function resolveTwilightGlass(value: unknown): number {
+  const number = typeof value === "number" ? value : Number.NaN;
+  return Number.isFinite(number) ? Math.min(100, Math.max(0, Math.round(number))) : DEFAULT_TWILIGHT_GLASS;
+}
+
+export function twilightGlassScale(value: number): string {
+  return String(resolveTwilightGlass(value) / DEFAULT_TWILIGHT_GLASS);
+}
