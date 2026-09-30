@@ -11,13 +11,14 @@ const MOVE_TOLERANCE = 10;
 
 // Positions are percentages of the wall box (height 1.15-1.32x its width).
 // The top row hangs from the top edge and the bottom row sits on the bottom
-// edge, so taller phones only widen the gap between rows.
+// edge, so taller phones only widen the gap between rows. The bottom row sits
+// a little above that edge so it doesn't crowd the note below.
 // Frame 0 is the 4:3 landscape; the other three are squares of different sizes.
 const FRAMES: Array<{ left: number; top?: number; bottom?: number; width: number; tilt: number; hung?: boolean }> = [
   { left: 3, top: 3, width: 58, tilt: 0 },
   { left: 68, top: 10, width: 29, tilt: -2, hung: true },
-  { left: 6, bottom: 6, width: 36, tilt: 1.5 },
-  { left: 49, bottom: 1, width: 47, tilt: -0.6 },
+  { left: 6, bottom: 13, width: 36, tilt: 1.5 },
+  { left: 49, bottom: 8, width: 47, tilt: -0.6 },
 ];
 
 type Press = { index: number; x: number; y: number; timer: number };

@@ -296,7 +296,9 @@
     linear-gradient(180deg, rgba(255, 255, 255, .22), rgba(255, 255, 255, 0) 35%, rgba(190, 120, 130, .06) 100%),
     repeating-linear-gradient(90deg, #f8dde3 0 22px, #fdf1f3 22px 44px);
 }
+/* The door plate sits 16px lower than other titles so iOS's status-bar blur doesn't reach it. */
 :root[data-theme="white-pink"] .chat-container[data-home-style="wall"] .chat-header {
+  padding-top: calc(23px + env(safe-area-inset-top));
   background: transparent;
   border-bottom: none;
   backdrop-filter: none;
