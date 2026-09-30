@@ -1,4 +1,3 @@
-import { imageKey } from "./message-images";
 type StoredMessage = {
   role?: string;
   content?: string;
@@ -38,6 +37,17 @@ function deletedIdSet(...lists: unknown[]) {
     }
   }
   return ids;
+}
+
+// Same key as messageImages() in message-images.ts: legacy `image` first, then
+// `images`, de-duplicated. Kept local so this module has no relative imports
+// and can be loaded directly by the node test runner.
+function imageKey(message: StoredMessage) {
+  const urls = [
+    ...(typeof message.image === "string" && message.image ? [message.image] : []),
+    ...(Array.isArray(message.images) ? message.images.filter((url): url is string => typeof url === "string" && Boolean(url)) : []),
+  ];
+  return [...new Set(urls)].join("|");
 }
 
 function messageKey(message: StoredMessage) {
