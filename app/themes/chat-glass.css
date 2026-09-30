@@ -160,7 +160,7 @@
 
 .chat-container[data-chat-ui="glass"] :is(.chat-room-back, .chat-ui-toggle, .chat-entry-avatar,
   .chat-room-identity, .input-wrapper, .attach-btn-separate, .chat-control-pill,
-  .claude-usage-pill, .claude-usage-popover, .chat-config-panel) {
+  .claude-usage-pill, .claude-usage-popover, .chat-config-panel, .composer-attachment) {
   pointer-events: auto;
 }
 
