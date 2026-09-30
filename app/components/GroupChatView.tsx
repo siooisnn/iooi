@@ -7,6 +7,7 @@ import { useTwilightLayout } from "../lib/use-twilight-layout";
 import { TWILIGHT_BUBBLE_COLORS, type TwilightBubbleColor } from "../lib/twilight-bubbles";
 import { ClaudeUsageCircle, useClaudeUsage } from "./ClaudeUsageBadge";
 import { messageTimestamp } from "../lib/chat-timeline";
+import { stripObjectPlaceholders } from "../lib/message-images";
 
 export type GroupSpeaker = "claude" | "gpt";
 
@@ -484,7 +485,7 @@ export function GroupChatView({
   }
 
   async function sendMessage() {
-    const text = input.trim();
+    const text = stripObjectPlaceholders(input).trim();
     if (!text || loading || uploading || sendingRef.current) return;
     sendingRef.current = true;
     followLatest();

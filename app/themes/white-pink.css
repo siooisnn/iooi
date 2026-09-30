@@ -289,3 +289,21 @@
 :root[data-theme="white-pink"] :is(.home-body, .diary-body, .settings-body, .chat-messages) {
   animation: none;
 }
+
+/* iOS 26+ blurs the top scroll edge unless a fixed element with a solid
+   background touches it. That system blur sits above every page control, so
+   the status-bar area is always capped; glass rooms draw their own soft edge
+   beneath the floating header (see chat-glass.css). */
+.status-bar-cap {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 50;
+  height: env(safe-area-inset-top);
+  background-color: var(--chrome-bg);
+}
+
+:root[data-chat-chrome="glass"] .status-bar-cap {
+  background-color: var(--chat-chrome-color, #eee8f2);
+}

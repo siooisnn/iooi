@@ -3,7 +3,7 @@ import { isClaudeCodeEnabled, normalizeClaudeCodeModel, runClaudeCodeChat } from
 import { isCodeProject, isCodeTaskRunning, runClaudeCodeTask } from "@/app/lib/claude-code-task";
 import { startCodeTask, updateCodeTask } from "@/app/lib/code-task-state";
 import { workContextHistory } from "@/app/lib/work-context";
-import { imageKey, messageImages, MAX_IMAGES_PER_MESSAGE, sanitizeMessageImages } from "@/app/lib/message-images";
+import { imageKey, messageImages, MAX_IMAGES_PER_MESSAGE, sanitizeIncomingMessage } from "@/app/lib/message-images";
 import { startCodeRelease } from "@/app/lib/code-release";
 import { parseCodeReleaseCommand } from "@/app/lib/code-release-command";
 import { extractSummerSearchTarget } from "@/app/lib/summer-search-query";
@@ -925,10 +925,10 @@ export async function POST(request: Request) {
     codeMode,
   } = await request.json();
   const requestMessages: ChatRequestMessage[] = Array.isArray(messages)
-    ? messages.map((message: ChatRequestMessage) => sanitizeMessageImages(message))
+    ? messages.map((message: ChatRequestMessage) => sanitizeIncomingMessage(message))
     : [];
   const userMsg: StoreMsg | undefined = rawUserMsg && typeof rawUserMsg === "object"
-    ? sanitizeMessageImages(rawUserMsg as StoreMsg)
+    ? sanitizeIncomingMessage(rawUserMsg as StoreMsg)
     : undefined;
   if (codeMode !== undefined) {
     const token = process.env.IOOI_TOKEN;

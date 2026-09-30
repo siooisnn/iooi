@@ -36,6 +36,24 @@ export function sanitizeMessageImages<T extends { image?: unknown; images?: unkn
   return Object.assign(next, imageFields(urls));
 }
 
+// iOS dictation, stickers and Genmoji can leave U+FFFC (the "object
+// replacement" placeholder for an inline attachment) in a plain textarea.
+// Models read it as an image that failed to load, so it never reaches them.
+const OBJECT_PLACEHOLDER = /￼/g;
+
+export function stripObjectPlaceholders(text: string) {
+  return text.replace(OBJECT_PLACEHOLDER, "");
+}
+
+// Server-side cleanup for every incoming chat message, including history
+// saved before placeholders were stripped in the browser.
+export function sanitizeIncomingMessage<T extends { content?: unknown; image?: unknown; images?: unknown }>(message: T): T {
+  const next = sanitizeMessageImages(message);
+  return typeof next.content === "string"
+    ? { ...next, content: stripObjectPlaceholders(next.content) }
+    : next;
+}
+
 export function imageKey(message: { image?: unknown; images?: unknown }) {
   return messageImages(message).join("|");
 }

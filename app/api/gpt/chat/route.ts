@@ -3,7 +3,7 @@ import { join } from "path";
 import * as iconv from "iconv-lite";
 import { withGptStore } from "@/app/lib/store";
 import { allowedGptApiId, DEFAULT_GPT_MODEL } from "@/app/lib/gpt-models";
-import { imageKey, messageImages, sanitizeMessageImages } from "@/app/lib/message-images";
+import { imageKey, messageImages, sanitizeIncomingMessage } from "@/app/lib/message-images";
 
 type StoreMessage = {
   role: string;
@@ -307,7 +307,7 @@ export async function POST(request: Request) {
     const rawMessages = (Array.isArray(body.messages) ? body.messages : []) as StoreMessage[];
     const messages: OpenRouterMessage[] = rawMessages
       .filter((message: StoreMessage) => message?.role === "user" || message?.role === "assistant")
-      .map((message: StoreMessage) => prepareOpenRouterMessage(sanitizeMessageImages({
+      .map((message: StoreMessage) => prepareOpenRouterMessage(sanitizeIncomingMessage({
         role: message.role,
         content: String(message.content || ""),
         ...(typeof message.image === "string" ? { image: message.image } : {}),
@@ -331,7 +331,7 @@ export async function POST(request: Request) {
       }
     }
     const userMessage = body.userMsg && typeof body.userMsg === "object"
-      ? sanitizeMessageImages(body.userMsg as StoreMessage)
+      ? sanitizeIncomingMessage(body.userMsg as StoreMessage)
       : undefined;
     const summerState = await readGptSummerState().catch(() => null);
     const summerConfigured = Boolean(gptSummerBaseUrl());

@@ -21,7 +21,7 @@ import { alignLegacySummerCalls, messageTimestamp } from "./lib/chat-timeline";
 import { DEFAULT_GPT_MODEL, GPT_MODELS, resolveGptModel } from "./lib/gpt-models";
 import type { CodeTaskState } from "./lib/code-task-state";
 import type { CodeReleaseState } from "./lib/code-release";
-import { imageFields, imageKey, MAX_IMAGES_PER_MESSAGE, messageImages } from "./lib/message-images";
+import { imageFields, imageKey, MAX_IMAGES_PER_MESSAGE, messageImages, stripObjectPlaceholders } from "./lib/message-images";
 import { prepareImageForUpload } from "./lib/image-compress";
 
 // ━━━━━━━━━━━━━━━ Types ━━━━━━━━━━━━━━━
@@ -2447,10 +2447,11 @@ function ChatView({
     const codeRequest = !isGpt && session.kind !== "memo" && developmentMode;
     // Work mode only takes screenshots; a stray file must not block the send.
     const sendable = codeRequest ? attachments.filter((item) => item.kind === "image") : attachments;
-    if (!input.trim() && !sendable.length) return;
+    const typed = stripObjectPlaceholders(input);
+    if (!typed.trim() && !sendable.length) return;
     sendingRef.current = true;
     const pendingFile = sendable.find((item) => item.kind === "file");
-    const userText = input.trim() || !pendingFile ? input : `📄 ${pendingFile.name}`;
+    const userText = typed.trim() || !pendingFile ? typed : `📄 ${pendingFile.name}`;
     const userMsg: Message = { role: "user", content: userText, time: getTime(), date: getTodayStr(),
       ...imageFields(sendable.filter((item) => item.kind === "image").map((item) => item.url)),
       ...(pendingFile ? { file: pendingFile.url } : {}),
