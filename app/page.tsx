@@ -4224,7 +4224,7 @@ function SettingsView({
           <div className="settings-group">
             <h2 className="settings-group-title">玻璃质感</h2>
             <TwilightGlassSlider value={settings.twilightGlass} onChange={(twilightGlass) => updateSettings({ twilightGlass })} />
-            <p className="settings-hint">调节暮光里按钮、气泡和顶部的模糊程度，私聊和群聊共用。拉到最左就是完全透明不模糊。</p>
+            <p className="settings-hint">调节暮光里按钮、输入框和气泡的模糊程度，私聊和群聊共用。拉到最左就是完全透明不模糊。</p>
           </div>
         )}
 

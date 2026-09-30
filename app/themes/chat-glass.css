@@ -17,37 +17,6 @@
     border-radius: 0;
     box-shadow: none;
   }
-
-  /* The status-bar cap turns off iOS's own top-edge blur, which also blurred
-     the avatar, back and settings buttons. This softer edge sits beneath the
-     header (z-index 30), so only messages scrolling up behind it go soft. The
-     cap shows the same backdrop blurred by the same amount, so the photo runs
-     unbroken to the top of the screen. */
-  .app-bg .chat-container[data-chat-ui="glass"]::after {
-    content: "";
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    z-index: 20;
-    height: calc(var(--twilight-header-space, 120px) + 12px);
-    pointer-events: none;
-    --chat-edge-filter: blur(calc(8px * var(--twilight-glass, 1)));
-    backdrop-filter: var(--chat-edge-filter);
-    mask: linear-gradient(to bottom, #000 calc(env(safe-area-inset-top) + 20px), transparent 100%);
-  }
-
-  @supports (-webkit-backdrop-filter: blur(1px)) {
-    .app-bg .chat-container[data-chat-ui="glass"]::after {
-      -webkit-backdrop-filter: var(--chat-edge-filter);
-    }
-  }
-
-  @supports (-webkit-mask-image: linear-gradient(#000, #000)) {
-    .app-bg .chat-container[data-chat-ui="glass"]::after {
-      -webkit-mask: linear-gradient(to bottom, #000 calc(env(safe-area-inset-top) + 20px), transparent 100%);
-    }
-  }
 }
 
 @media (max-width: 480px) {

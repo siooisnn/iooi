@@ -35,11 +35,7 @@ export default function RootLayout({
         <link rel="apple-touch-icon" href="/icon-192.png" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
       </head>
-      <body>
-        {/* A solid fixed strip on the top edge lets iOS use a hard color edge instead of its blurred scroll edge. */}
-        <div className="status-bar-cap" aria-hidden="true" />
-        <ThemeProvider>{children}</ThemeProvider>
-      </body>
+      <body><ThemeProvider>{children}</ThemeProvider></body>
     </html>
   );
 }
