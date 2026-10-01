@@ -359,14 +359,14 @@
   backdrop-filter: none;
   color: #fff;
   text-shadow: none;
-  --chat-glass-filter: blur(calc(14px * var(--twilight-glass, 1))) saturate(calc(1 + 0.2 * var(--twilight-glass, 1)));
+  /* Bubbles are solid: the background never tints or greys the text. */
+  --chat-glass-filter: none;
   --chat-bubble-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 60'%3E%3Cpath fill='black' d='M28 0H72A22 22 0 0 1 94 22V35A22 22 0 0 1 72 57H28C19 57 8 60 1 60Q0.1 60 1 59C5 55 6 50 6 43V22A22 22 0 0 1 28 0Z'/%3E%3C/svg%3E");
 }
 
 .chat-container[data-chat-ui="glass"] .msg-bubble-ai:not(.msg-bubble-summer-utility) {
-  --chat-bubble-surface: rgba(0, 0, 0, 0.3);
-  --chat-glass-filter: blur(calc(8px * var(--twilight-glass, 1))) saturate(calc(1 + 0.1 * var(--twilight-glass, 1)));
-  color: #fff;
+  --chat-bubble-surface: var(--twilight-ai-bubble, #2c2c2e);
+  color: var(--twilight-ai-ink, #fff);
   text-shadow: none;
 }
 
@@ -429,22 +429,14 @@
   transform: scaleX(-1);
 }
 
-.chat-container[data-chat-ui="glass"] .msg-bubble-ai:not(.msg-bubble-summer-utility)::before {
-  background-image: linear-gradient(145deg, rgba(255, 255, 255, 0.08), transparent 65%);
-}
-
 .chat-container[data-chat-ui="glass"] .msg-bubble-user::after {
   content: none;
 }
 
-.chat-container[data-chat-ui="glass"] .msg-bubble-ai:not(.msg-bubble-summer-utility) .chat-message-link {
-  color: inherit;
-  text-decoration-color: rgba(255, 255, 255, 0.65);
-}
-
+.chat-container[data-chat-ui="glass"] .msg-bubble-ai:not(.msg-bubble-summer-utility) .chat-message-link,
 .chat-container[data-chat-ui="glass"] .msg-bubble-user .chat-message-link {
   color: inherit;
-  text-decoration-color: rgba(255, 255, 255, 0.65);
+  text-decoration-color: color-mix(in srgb, currentColor 60%, transparent);
 }
 
 .app-bg[data-font-size="large"] .chat-container[data-chat-ui="glass"] .msg-bubble:not(.msg-bubble-summer-utility) {
@@ -546,9 +538,6 @@
   .chat-container[data-chat-ui="glass"] .msg-bubble:not(.msg-bubble-summer-utility) {
     -webkit-backdrop-filter: none;
   }
-  .chat-container[data-chat-ui="glass"] .msg-bubble:not(.msg-bubble-summer-utility)::before {
-    -webkit-backdrop-filter: var(--chat-glass-filter);
-  }
 }
 
 @supports (-webkit-mask-image: linear-gradient(#000, #000)) {
@@ -557,9 +546,25 @@
   }
 }
 
-.chat-container[data-chat-ui="glass"] .date-separator-text {
-  color: #fff;
+/* Loose labels sit on near-solid pills so they read on any photo. */
+.app-bg .chat-container[data-chat-ui="glass"] {
+  --chat-stamp-surface: rgba(38, 36, 40, 0.78);
+  --chat-stamp-ink: #fff;
+}
+
+.app-bg .chat-container[data-chat-ui="glass"] :is(.date-separator-text, .msg-time, .empty-chat p) {
+  display: inline-block;
+  width: max-content;
+  max-width: 100%;
+  padding: 2px 9px;
+  border-radius: 999px;
+  background: var(--chat-stamp-surface);
+  color: var(--chat-stamp-ink);
   text-shadow: none;
+}
+
+.app-bg .chat-container[data-chat-ui="glass"] .empty-chat p {
+  padding: 5px 14px;
 }
 
 /* Group rooms share the same floating controls and continuous bubble masks. */
@@ -577,16 +582,24 @@
   max-height: max(80px, calc(var(--twilight-viewport-height, 100dvh) - var(--twilight-header-space, 100px) - 84px));
   color: #fff;
 }
-.app-bg .chat-container[data-chat-ui="glass"] .context-usage-popover {
-  background: var(--chat-glass-surface); border-color: var(--chat-glass-border); color: var(--chat-glass-ink);
-  box-shadow: var(--chat-glass-shadow); backdrop-filter: var(--chat-glass-filter);
-}
-.chat-container[data-chat-ui="glass"] .context-usage-popover small { color: rgba(255, 255, 255, .82); }
-.app-bg .chat-container[data-chat-ui="glass"] .context-usage-ring {
-  border: 1px solid var(--chat-glass-border); border-radius: 50%; background: var(--chat-glass-surface);
+/* Same size as the 32px gear; in group rooms it sits on the avatar's baseline. */
+.chat-container[data-chat-ui="glass"] .single-room-header .context-usage-control { top: 10px; transform: none; }
+.app-bg .chat-container[data-chat-ui="glass"] .context-usage-badge {
+  height: 32px; min-width: 40px; padding: 0 9px;
+  border: 1px solid var(--chat-glass-border); background: var(--chat-glass-surface);
+  background-image: linear-gradient(145deg, rgba(255, 255, 255, 0.12), transparent 65%);
   color: #fff; box-shadow: var(--chat-glass-shadow);
+  --chat-glass-filter: blur(calc(10px * var(--twilight-glass, 1))) saturate(calc(1 + 0.1 * var(--twilight-glass, 1)));
+  backdrop-filter: var(--chat-glass-filter); -webkit-backdrop-filter: var(--chat-glass-filter);
 }
-.chat-container[data-chat-ui="glass"] .context-usage-track { stroke: #fff; opacity: .65; }
+/* Dark enough to read over any bubble or photo behind it. */
+.app-bg .chat-container[data-chat-ui="glass"] .context-usage-popover {
+  background: rgba(0, 0, 0, .72); border-color: rgba(255, 255, 255, .28); color: #fff;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, .28);
+  backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px);
+}
+.app-bg .chat-container[data-chat-ui="glass"] .context-usage-popover * { color: #fff; }
+.app-bg .chat-container[data-chat-ui="glass"] .context-usage-popover small { color: rgba(255, 255, 255, .78); }
 .chat-container[data-chat-ui="glass"] .room-settings-panel .claude-usage-details * { color: #fff; }
 .chat-container[data-chat-ui="glass"] .group-room-header .header-top { align-items: center; justify-content: space-between; gap: 12px; }
 .chat-container[data-chat-ui="glass"] .group-room-header .chat-room-back {
@@ -618,8 +631,8 @@
 }
 .chat-container[data-chat-ui="glass"] .group-avatar-time {
   position: absolute; top: calc(100% + 4px); left: 0; width: max-content;
-  white-space: nowrap; font-size: 10px; line-height: 12px; color: #fff;
-  text-shadow: 0 1px 3px rgba(0, 0, 0, .6);
+  white-space: nowrap; font-size: 10px; line-height: 12px; padding: 1px 5px; border-radius: 999px;
+  background: var(--chat-stamp-surface); color: var(--chat-stamp-ink); text-shadow: none;
 }
 .chat-container[data-chat-ui="glass"][data-chat-view="group"] .msg-content-ai { max-width: 90%; }
 .chat-container[data-chat-ui="glass"][data-chat-view="group"] .msg-row-ai:not(.msg-row-compact-top) { margin-top: 8px; }
@@ -646,7 +659,6 @@
 }
 .app-bg .chat-container[data-chat-ui="glass"] :is(.group-composer-menu, .group-web-search-panel,
   .group-bubble-color-panel, .group-summer-card, .room-settings-panel, .group-session-switcher) * { color: #fff; }
-.app-bg .chat-container[data-chat-ui="glass"] .empty-chat p { color: #fff; }
 .chat-container[data-chat-ui="glass"][data-chat-view="group"] .chat-messages {
   padding-left: max(6px, env(safe-area-inset-left));
 }
@@ -654,4 +666,88 @@
   margin-bottom: 20px;
 }
 
-.app-bg .chat-container[data-chat-ui="glass"] .reply-status-text { color: #fff; }
+.app-bg .chat-container[data-chat-ui="glass"] .reply-status-text { color: inherit; }
+
+/* Bubble pickers: tone pills and a sample "字" for the AI bubble. */
+.twilight-ai-swatch {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  flex-basis: 22px;
+  font-size: 11px;
+  line-height: 1;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.12);
+}
+
+.twilight-tone-options {
+  display: flex;
+  gap: 6px;
+}
+
+.twilight-tone-option {
+  min-width: 56px;
+  height: 30px;
+  padding: 0 12px;
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.28);
+  color: #fff;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.twilight-tone-option-active {
+  background: rgba(255, 255, 255, 0.22);
+  border-color: rgba(255, 255, 255, 0.9);
+}
+
+/* 浅色: white frosted bars with warm dark ink, for pale backgrounds.
+   Pop-up panels stay dark so their white labels keep working. */
+.app-bg .chat-container[data-chat-ui="glass"][data-twilight-tone="light"] {
+  --chat-glass-surface: rgba(255, 255, 255, 0.62);
+  --chat-glass-border: rgba(255, 255, 255, 0.86);
+  --chat-glass-ink: #3d2e25;
+  --chat-glass-muted: rgba(61, 46, 37, 0.72);
+  --chat-glass-shadow: 0 4px 18px rgba(80, 50, 40, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  --chat-stamp-surface: rgba(255, 251, 246, 0.9);
+  --chat-stamp-ink: #6b5446;
+}
+
+.app-bg .chat-container[data-chat-ui="glass"][data-twilight-tone="light"] :is(.chat-room-back, .chat-ui-toggle,
+  .chat-room-identity, .input-wrapper, .attach-btn.attach-btn-separate, .chat-control-pill, .claude-usage-pill,
+  .context-usage-badge, .group-session-title, .group-user-avatar, .send-btn) {
+  --chat-glass-filter: blur(calc(20px * var(--twilight-glass, 1))) saturate(calc(1 + 0.6 * var(--twilight-glass, 1)));
+}
+
+.app-bg .chat-container[data-chat-ui="glass"][data-twilight-tone="light"] :is(.chat-config-panel, .claude-usage-popover,
+  .group-composer-menu, .group-web-search-panel, .group-bubble-color-panel, .group-session-switcher, .room-settings-panel) {
+  --chat-glass-surface: rgba(0, 0, 0, 0.55);
+  --chat-glass-border: rgba(255, 255, 255, 0.4);
+  --chat-glass-ink: #fff;
+  --chat-glass-muted: #fff;
+  --chat-glass-shadow: 0 4px 18px rgba(0, 0, 0, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.3);
+}
+
+.app-bg .chat-container[data-chat-ui="glass"][data-twilight-tone="light"] .chat-footer .send-btn {
+  background: rgba(255, 255, 255, 0.7);
+}
+
+.app-bg .chat-container[data-chat-ui="glass"][data-twilight-tone="light"] .chat-input::placeholder {
+  color: rgba(61, 46, 37, 0.45);
+}
+
+.app-bg .chat-container[data-chat-ui="glass"][data-twilight-tone="light"] .context-usage-badge {
+  color: var(--chat-glass-ink);
+}
+
+.app-bg .chat-container[data-chat-ui="glass"][data-twilight-tone="light"] :is(.chat-ui-toggle, .chat-room-back,
+  .chat-control-pill, .claude-usage-pill, .attach-btn.attach-btn-separate):hover {
+  border-color: #fff;
+}
+
+/* A faint lift keeps white bubbles from melting into a white wall. */
+.chat-container[data-chat-ui="glass"][data-twilight-tone="light"] .msg-bubble:not(.msg-bubble-summer-utility):not(.msg-bubble-img) {
+  filter: drop-shadow(0 1px 1.5px rgba(70, 40, 30, 0.12));
+}

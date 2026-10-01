@@ -7,7 +7,7 @@ import { CacheStatusPanel } from "./components/CacheStatusPanel";
 import { ClaudeUsageCircle, ClaudeUsageDetails, useClaudeUsage } from "./components/ClaudeUsageBadge";
 import { ContextDebugPanel } from "./components/ContextDebugPanel";
 import { GroupChatView } from "./components/GroupChatView";
-import { ContextUsageRing, type UsageMessage } from "./components/ContextUsageRing";
+import { ContextUsageBadge, type UsageMessage } from "./components/ContextUsageBadge";
 import { NotificationButton } from "./components/NotificationButton";
 import { ChatBackgroundSetting } from "./components/ChatBackgroundSetting";
 import { MoonLetter } from "./components/MoonLetter";
@@ -17,7 +17,7 @@ import { buildChatContext } from "./lib/chat-context";
 import { readChatResponse } from "./lib/chat-stream";
 import { useChatScrollPosition } from "./lib/use-chat-scroll-position";
 import { useTwilightLayout } from "./lib/use-twilight-layout";
-import { DEFAULT_TWILIGHT_GLASS, resolveTwilightBubbleColor, resolveTwilightGlass, TWILIGHT_BUBBLE_COLORS, type TwilightBubbleColor } from "./lib/twilight-bubbles";
+import { DEFAULT_TWILIGHT_GLASS, resolveTwilightAiBubble, resolveTwilightBubbleColor, resolveTwilightGlass, resolveTwilightTone, TWILIGHT_AI_BUBBLES, TWILIGHT_BUBBLE_COLORS, TWILIGHT_TONES, type TwilightAiBubble, type TwilightBubbleColor, type TwilightTone } from "./lib/twilight-bubbles";
 import { TwilightGlassSlider } from "./components/TwilightGlassSlider";
 import { normalizeChatBackground } from "./lib/chat-background";
 import { normalizeHomeStyle, normalizeHomeWallPhotos } from "./lib/home-wall";
@@ -191,6 +191,10 @@ type Settings = {
   twilightBubbleColor: TwilightBubbleColor;
   gptTwilightBubbleColor?: TwilightBubbleColor;
   groupTwilightBubbleColor?: TwilightBubbleColor;
+  twilightTone?: TwilightTone;
+  gptTwilightTone?: TwilightTone;
+  groupTwilightTone?: TwilightTone;
+  twilightAiBubble?: TwilightAiBubble;
   twilightGlass: number;
   chatBackground: string;
   gptChatBackground?: string;
@@ -319,6 +323,10 @@ function normalizeClaudeSettings(settings: Settings): Settings {
     twilightBubbleColor: legacyTwilightBubbleColor,
     gptTwilightBubbleColor: resolveTwilightBubbleColor(settings.gptTwilightBubbleColor, legacyTwilightBubbleColor),
     groupTwilightBubbleColor: resolveTwilightBubbleColor(settings.groupTwilightBubbleColor, legacyTwilightBubbleColor),
+    twilightTone: resolveTwilightTone(settings.twilightTone),
+    gptTwilightTone: resolveTwilightTone(settings.gptTwilightTone),
+    groupTwilightTone: resolveTwilightTone(settings.groupTwilightTone),
+    twilightAiBubble: resolveTwilightAiBubble(settings.twilightAiBubble),
     twilightGlass: resolveTwilightGlass(settings.twilightGlass),
     chatBackground: normalizeChatBackground(settings.chatBackground),
     groupChatBackground: normalizeChatBackground(settings.groupChatBackground),
@@ -715,7 +723,7 @@ export default function Home() {
     chatEntryStyle: "list",
     fontSize: "default",
     chatUiStyle: "default",
-    twilightBubbleColor: "rose",
+    twilightBubbleColor: "berry",
     twilightGlass: DEFAULT_TWILIGHT_GLASS,
     chatBackground: "",
     homeStyle: "moon",
@@ -750,6 +758,12 @@ export default function Home() {
       ? settings.gptTwilightBubbleColor
       : settings.twilightBubbleColor;
   const twilightBubble = TWILIGHT_BUBBLE_COLORS.find((color) => color.value === activeTwilightBubbleColor) || TWILIGHT_BUBBLE_COLORS[0];
+  const activeTwilightTone = resolveTwilightTone(chatView === "group"
+    ? settings.groupTwilightTone
+    : settings.chatEntryStyle === "direct"
+      ? settings.gptTwilightTone
+      : settings.twilightTone);
+  const twilightAiBubble = TWILIGHT_AI_BUBBLES.find((bubble) => bubble.value === settings.twilightAiBubble) || TWILIGHT_AI_BUBBLES[0];
   useChatBrowserChrome(tab === "chat" && chatView !== "list" && settings.chatUiStyle === "glass", activeChatBackground, settings.twilightGlass);
   const [sessions, setSessions] = useState<ChatSession[]>([]);
   const [activeSessionId, setActiveSessionId] = useState<string>("");
@@ -1249,8 +1263,15 @@ export default function Home() {
         data-chat-view={tab === "chat" ? chatView : undefined}
         data-chat-ui={tab === "chat" && (chatView === "room" || (chatView === "group" && settings.chatUiStyle === "glass")) ? settings.chatUiStyle : undefined}
         style={tab === "chat" && chatView !== "list" && settings.chatUiStyle === "glass"
-          ? { "--twilight-user-bubble": twilightBubble.color, "--twilight-user-ink": twilightBubble.ink } as CSSProperties
+          ? {
+            "--twilight-user-bubble": twilightBubble.color,
+            "--twilight-user-ink": twilightBubble.ink,
+            ...(activeTwilightTone === "light"
+              ? { "--twilight-ai-bubble": twilightAiBubble.color, "--twilight-ai-ink": twilightAiBubble.ink }
+              : {}),
+          } as CSSProperties
           : undefined}
+        data-twilight-tone={tab === "chat" && chatView !== "list" && settings.chatUiStyle === "glass" ? activeTwilightTone : undefined}
         data-chat-background={tab === "chat" && chatView !== "list" && settings.chatUiStyle === "glass" && activeChatBackground ? "image" : undefined}
         data-home-style={tab === "home" && settings.homeStyle === "wall" ? "wall" : undefined}
       >
@@ -2835,7 +2856,7 @@ function ChatView({
                 </>
               ) : roomIdentity}
             </div>
-            {developmentMode && <ContextUsageRing kind="work" sessionId={session.id} project={developmentProject} messages={workUsageMessages} />}
+            {developmentMode && <ContextUsageBadge kind="work" sessionId={session.id} project={developmentProject} messages={workUsageMessages} />}
             <button
               type="button"
               className="header-icon-btn chat-room-more chat-ui-toggle"
@@ -2863,7 +2884,7 @@ function ChatView({
               <h1 className="header-title">{isGpt ? "GPT" : "iooi"}</h1>
               <span className="header-subtitle" style={{ color: "var(--accent-text)" }}>{developmentMode ? <>{assistantName} {developmentBadge}</> : <>{assistantName} {!isGpt && (aiMood.emoji || "")} · {currentModelLabel}</>}</span>
             </div>
-            {developmentMode && <ContextUsageRing kind="work" sessionId={session.id} project={developmentProject} messages={workUsageMessages} />}
+            {developmentMode && <ContextUsageBadge kind="work" sessionId={session.id} project={developmentProject} messages={workUsageMessages} />}
             <button className="header-icon-btn" aria-label="聊天设置" aria-expanded={showModelMenu} onClick={() => setShowModelMenu((open) => !open)}>
               <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
                 <path d="m9.5 3-.6 2.4-2 .9-2.3-.7L2 10l1.8 1.7v2.2L2 15.6l2.6 4.4 2.3-.7 2 .9.6 2.4h5l.6-2.4 2-.9 2.3.7 2.6-4.4-1.8-1.7v-2.2L22 10l-2.6-4.4-2.3.7-2-.9L14.5 3Z" transform="translate(0 -1) scale(1 .95)" />
@@ -2961,6 +2982,35 @@ function ChatView({
           </section>
           {settings.chatUiStyle === "glass" && (
             <section className="chat-config-section">
+              <p>TONE</p>
+              <div className="chat-config-options" role="group" aria-label={`${assistantName}暮光浅色深色`}>
+                {TWILIGHT_TONES.map((tone) => {
+                  const selected = resolveTwilightTone(isGpt ? settings.gptTwilightTone : settings.twilightTone) === tone.value;
+                  return (
+                    <button key={tone.value} type="button" aria-pressed={selected}
+                      className={`chat-config-option${selected ? " chat-config-option-active" : ""}`}
+                      onClick={() => updateSettings(isGpt ? { gptTwilightTone: tone.value } : { twilightTone: tone.value })}>
+                      {tone.label}
+                    </button>
+                  );
+                })}
+              </div>
+              {resolveTwilightTone(isGpt ? settings.gptTwilightTone : settings.twilightTone) === "light" && <>
+                <p>AI BUBBLE</p>
+                <div className="chat-config-options twilight-color-options" role="group" aria-label={`${assistantName}气泡`}>
+                  {TWILIGHT_AI_BUBBLES.map((bubble) => {
+                    const selected = resolveTwilightAiBubble(settings.twilightAiBubble) === bubble.value;
+                    return (
+                      <button key={bubble.value} type="button" aria-pressed={selected} aria-label={bubble.label} title={bubble.label}
+                        className={`chat-config-option twilight-color-option${selected ? " chat-config-option-active" : ""}`}
+                        style={{ "--twilight-swatch-color": bubble.ink } as CSSProperties}
+                        onClick={() => updateSettings({ twilightAiBubble: bubble.value })}>
+                        <span className="twilight-color-swatch twilight-ai-swatch" style={{ background: bubble.color, color: bubble.ink }} aria-hidden="true">字</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </>}
               <p>MY BUBBLE</p>
               <div className="chat-config-options twilight-color-options" role="group" aria-label={`${assistantName}暮光气泡颜色`}>
                 {TWILIGHT_BUBBLE_COLORS.map((color) => {

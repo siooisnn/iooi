@@ -1,16 +1,16 @@
 "use client";
 
-import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, type CSSProperties } from "react";
 import { readChatResponse } from "../lib/chat-stream";
 import { useChatScrollPosition } from "../lib/use-chat-scroll-position";
 import { useTwilightLayout } from "../lib/use-twilight-layout";
-import { TWILIGHT_BUBBLE_COLORS, type TwilightBubbleColor } from "../lib/twilight-bubbles";
+import { resolveTwilightAiBubble, resolveTwilightTone, TWILIGHT_AI_BUBBLES, TWILIGHT_BUBBLE_COLORS, TWILIGHT_TONES, type TwilightAiBubble, type TwilightBubbleColor, type TwilightTone } from "../lib/twilight-bubbles";
 import { TwilightGlassSlider } from "./TwilightGlassSlider";
 import { ClaudeUsageCircle, useClaudeUsage } from "./ClaudeUsageBadge";
 import { messageTimestamp } from "../lib/chat-timeline";
 import { imageFields, MAX_IMAGES_PER_MESSAGE, messageImages, stripObjectPlaceholders } from "../lib/message-images";
 import { prepareImageForUpload } from "../lib/image-compress";
-import { ContextUsageRing, type UsageMessage } from "./ContextUsageRing";
+import { ContextUsageBadge, type UsageMessage } from "./ContextUsageBadge";
 
 type PendingAttachment = { id: string; kind: "image" | "file"; url: string; name: string };
 
@@ -65,6 +65,8 @@ type GroupSettings = {
   gptReasoningEffort: string;
   claudeReasoningEffort: string;
   groupTwilightBubbleColor?: TwilightBubbleColor;
+  groupTwilightTone?: TwilightTone;
+  twilightAiBubble?: TwilightAiBubble;
   twilightGlass: number;
 };
 
@@ -312,7 +314,7 @@ export function GroupChatView({
   settings: GroupSettings;
   claudeModelId: string;
   gptModelId: string;
-  updateSettings: (partial: Partial<Pick<GroupSettings, "webSearch" | "gptWebSearch" | "groupTwilightBubbleColor" | "twilightGlass">>) => void;
+  updateSettings: (partial: Partial<Pick<GroupSettings, "webSearch" | "gptWebSearch" | "groupTwilightBubbleColor" | "groupTwilightTone" | "twilightAiBubble" | "twilightGlass">>) => void;
   updateMessages: (updater: (messages: GroupChatMessage[]) => GroupChatMessage[]) => void;
   updateSummary: (summary: string, until: number) => void;
   setActiveSessionId: (id: string) => void;
@@ -336,6 +338,7 @@ export function GroupChatView({
   const [summarizing, setSummarizing] = useState(false);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const uploadingRef = useRef(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const messagesRef = useRef(session.messages);
   const sendingRef = useRef(false);
   const activeControllerRef = useRef<AbortController | null>(null);
@@ -575,60 +578,57 @@ export function GroupChatView({
     }
   }
 
-  async function uploadFile() {
-    if (uploadingRef.current || loading) return;
-    const picker = document.createElement("input");
-    picker.type = "file";
-    picker.multiple = true;
-    picker.accept = "image/*,application/pdf,.txt,.md,.csv";
-    picker.onchange = async (event) => {
-      const picked = Array.from((event.target as HTMLInputElement).files || []);
-      if (!picked.length || uploadingRef.current || loading) return;
-      const notes: string[] = [];
-      let imageSlots = MAX_IMAGES_PER_MESSAGE - attachments.filter((item) => item.kind === "image").length;
-      let fileSlot = !attachments.some((item) => item.kind === "file");
-      const queue: File[] = [];
-      for (const file of picked) {
-        if (file.type.startsWith("image/")) {
-          if (imageSlots > 0) { queue.push(file); imageSlots -= 1; }
-          else if (!notes.includes("image-limit")) notes.push("image-limit");
-        } else if (fileSlot) {
-          queue.push(file);
-          fileSlot = false;
-        } else if (!notes.includes("file")) notes.push("file");
-      }
-      const messages: string[] = notes.map((note) => note === "image-limit"
-        ? `一条消息最多 ${MAX_IMAGES_PER_MESSAGE} 张图片，多出来的没有加上`
-        : "一条消息只能带一个文件");
-      if (!queue.length) { setUploadError(messages.join("；") + "。"); return; }
-      uploadingRef.current = true;
-      setUploading(true);
-      setUploadError("");
-      try {
-        for (const original of queue) {
-          const isImage = original.type.startsWith("image/");
-          try {
-            const file = isImage ? await prepareImageForUpload(original) : original;
-            const formData = new FormData();
-            formData.append("file", file);
-            const response = await groupFetch("/api/upload", { method: "POST", body: formData });
-            const data = await response.json();
-            if (!response.ok || !data.url) throw new Error(data.error || "上传失败");
-            setAttachments((current) => [...current, {
-              id: Math.random().toString(36).slice(2), kind: isImage ? "image" : "file",
-              url: data.url, name: original.name,
-            }]);
-          } catch (error) {
-            messages.push(`${original.name || "一张图片"}：${error instanceof Error ? error.message : "上传失败"}`);
-          }
+  // The picker lives in the DOM (see the hidden input below). A detached
+  // input can be garbage-collected on iOS before "change" fires, which made
+  // a picked photo silently vanish and need two or three tries.
+  async function uploadFile(event: ChangeEvent<HTMLInputElement>) {
+    const picker = event.currentTarget;
+    const picked = Array.from(picker.files || []);
+    picker.value = "";
+    if (!picked.length || uploadingRef.current || loading) return;
+    const notes: string[] = [];
+    let imageSlots = MAX_IMAGES_PER_MESSAGE - attachments.filter((item) => item.kind === "image").length;
+    let fileSlot = !attachments.some((item) => item.kind === "file");
+    const queue: File[] = [];
+    for (const file of picked) {
+      if (file.type.startsWith("image/")) {
+        if (imageSlots > 0) { queue.push(file); imageSlots -= 1; }
+        else if (!notes.includes("image-limit")) notes.push("image-limit");
+      } else if (fileSlot) {
+        queue.push(file);
+        fileSlot = false;
+      } else if (!notes.includes("file")) notes.push("file");
+    }
+    const messages: string[] = notes.map((note) => note === "image-limit"
+      ? `一条消息最多 ${MAX_IMAGES_PER_MESSAGE} 张图片，多出来的没有加上`
+      : "一条消息只能带一个文件");
+    if (!queue.length) { setUploadError(messages.join("；") + "。"); return; }
+    uploadingRef.current = true;
+    setUploading(true);
+    setUploadError("");
+    try {
+      for (const original of queue) {
+        const isImage = original.type.startsWith("image/");
+        try {
+          const file = isImage ? await prepareImageForUpload(original) : original;
+          const formData = new FormData();
+          formData.append("file", file);
+          const response = await groupFetch("/api/upload", { method: "POST", body: formData });
+          const data = await response.json();
+          if (!response.ok || !data.url) throw new Error(data.error || "上传失败");
+          setAttachments((current) => [...current, {
+            id: Math.random().toString(36).slice(2), kind: isImage ? "image" : "file",
+            url: data.url, name: original.name,
+          }]);
+        } catch (error) {
+          messages.push(`${original.name || "一张图片"}：${error instanceof Error ? error.message : "上传失败"}`);
         }
-      } finally {
-        uploadingRef.current = false;
-        setUploading(false);
-        if (messages.length) setUploadError(messages.join("；") + "。");
       }
-    };
-    picker.click();
+    } finally {
+      uploadingRef.current = false;
+      setUploading(false);
+      if (messages.length) setUploadError(messages.join("；") + "。");
+    }
   }
 
   function removeAttachment(id: string) {
@@ -761,7 +761,7 @@ export function GroupChatView({
             </span>}
           </button>
           <div className="group-header-actions">
-            <ContextUsageRing kind="group" sessionId={session.id} messages={usageMessages} systemPrompt={usageSystemPrompt} />
+            <ContextUsageBadge kind="group" sessionId={session.id} messages={usageMessages} systemPrompt={usageSystemPrompt} />
             {twilight ? <div className="group-user-avatar" aria-label={settings.userName || "我的头像"}><Avatar src={settings.userAvatar} user /></div> :
               <button className="header-icon-btn group-session-new" type="button" onClick={() => { createSession(); setShowSessions(false); }} aria-label="新群聊">＋</button>}
           </div>
@@ -893,7 +893,36 @@ export function GroupChatView({
         )}
         {showMenu && showBubbleColorMenu && (
           <div className="group-bubble-color-panel" aria-label="群聊暮光气泡颜色">
-            <p>暮光气泡颜色</p>
+            <p>浅色 / 深色</p>
+            <div className="twilight-tone-options" role="group" aria-label="群聊暮光浅色深色">
+              {TWILIGHT_TONES.map((tone) => {
+                const selected = resolveTwilightTone(settings.groupTwilightTone) === tone.value;
+                return (
+                  <button key={tone.value} type="button" aria-pressed={selected}
+                    className={`twilight-tone-option${selected ? " twilight-tone-option-active" : ""}`}
+                    onClick={() => updateSettings({ groupTwilightTone: tone.value })}>
+                    {tone.label}
+                  </button>
+                );
+              })}
+            </div>
+            {resolveTwilightTone(settings.groupTwilightTone) === "light" && <>
+              <p className="group-glass-heading">他们的气泡</p>
+              <div className="twilight-color-options" role="group" aria-label="群聊 AI 气泡">
+                {TWILIGHT_AI_BUBBLES.map((bubble) => {
+                  const selected = resolveTwilightAiBubble(settings.twilightAiBubble) === bubble.value;
+                  return (
+                    <button key={bubble.value} type="button" aria-pressed={selected} aria-label={bubble.label} title={bubble.label}
+                      className={`twilight-color-option${selected ? " twilight-color-option-active" : ""}`}
+                      style={{ "--twilight-swatch-color": bubble.ink } as CSSProperties}
+                      onClick={() => updateSettings({ twilightAiBubble: bubble.value })}>
+                      <span className="twilight-color-swatch twilight-ai-swatch" style={{ background: bubble.color, color: bubble.ink }} aria-hidden="true">字</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </>}
+            <p className="group-glass-heading">我的气泡</p>
             <div className="twilight-color-options" role="group" aria-label="群聊暮光气泡颜色">
               {TWILIGHT_BUBBLE_COLORS.map((color) => {
                 const selected = settings.groupTwilightBubbleColor === color.value;
@@ -975,10 +1004,20 @@ export function GroupChatView({
             onClick={() => { setShowMenu((open) => !open); setShowWebSearchMenu(false); setShowBubbleColorMenu(false); }}>
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16" /></svg>
           </button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            multiple
+            className="attach-file-input"
+            accept="image/*,application/pdf,.txt,.md,.csv"
+            disabled={uploading || loading}
+            onChange={(event) => void uploadFile(event)}
+            aria-label="上传图片或文件"
+          />
           <button
             type="button"
             className={`attach-btn attach-btn-separate${uploading ? " attach-btn-uploading" : ""}`}
-            onClick={() => void uploadFile()}
+            onClick={() => fileInputRef.current?.click()}
             disabled={uploading || loading}
             aria-label={uploading ? "正在上传" : "上传图片或文件"}
             title={uploading ? "正在上传" : "上传图片或文件"}

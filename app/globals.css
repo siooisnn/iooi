@@ -3600,34 +3600,33 @@ body {
   letter-spacing: -.3px; box-shadow: 0 4px 16px rgba(var(--theme-shadow-rgb, 110, 82, 69), .12);
 }
 .composer-usage-stale { border-style: dashed; }
+/* Context usage: a "37%" pill that floats beside the header's right-hand
+   control. Absolute so the centred avatar / room name / group title stay put. */
 .context-usage-control {
-  position: relative; z-index: 250; flex: 0 0 32px; width: 32px; height: 32px;
+  position: absolute; z-index: 250; right: 40px; top: 50%; transform: translateY(-50%);
 }
-.context-usage-ring {
-  position: relative; display: block; width: 32px; height: 32px; padding: 0;
-  border: 0; background: transparent; color: var(--text-secondary); cursor: pointer;
-}
-.context-usage-ring svg {
-  position: absolute; inset: 0; width: 32px; height: 32px;
-  transform: rotate(-90deg); fill: none; stroke-width: 3;
-}
-.context-usage-track { stroke: var(--text-light); opacity: .42; }
-.context-usage-progress { stroke: var(--accent); stroke-linecap: round; transition: stroke-dasharray .2s; }
-.context-usage-ring span {
-  position: relative; font-size: 9px; line-height: 32px; font-weight: 700;
-  font-variant-numeric: tabular-nums;
+.context-usage-badge {
+  display: flex; align-items: center; justify-content: center;
+  min-width: 32px; height: 28px; padding: 0 8px; border-radius: 999px;
+  border: 1px solid var(--border-soft); background: rgba(255, 255, 255, .86);
+  color: var(--text-secondary); font: inherit; font-size: 11px; font-weight: 600;
+  font-variant-numeric: tabular-nums; letter-spacing: -.2px; white-space: nowrap; cursor: pointer;
 }
 .context-usage-popover {
-  position: absolute; right: 0; top: calc(100% + 9px); width: 238px;
+  position: absolute; right: 0; top: calc(100% + 8px); width: 230px;
   max-width: calc(100vw - 28px); padding: 12px 14px;
   border: 1px solid var(--border-soft); border-radius: 14px;
   background: var(--bg-chat); color: var(--text-primary);
   box-shadow: 0 12px 28px rgba(var(--theme-shadow-rgb, 110, 82, 69), .18);
-  text-align: left; font-size: 12px;
+  text-align: left; font-size: 12px; line-height: 1.4;
 }
-.context-usage-popover p { margin: 8px 0 0; line-height: 1.4; }
-.context-usage-popover small { display: block; margin-top: 10px; color: var(--text-light); line-height: 1.4; }
-.group-header-actions { display: flex; flex: 0 0 auto; align-items: center; gap: 10px; }
+.context-usage-popover p { margin: 6px 0 0; }
+.context-usage-popover small { display: block; margin-top: 8px; color: var(--text-light); }
+/* Group rooms: the actions box is only as wide as the avatar (or "+"), so the
+   back button and it stay symmetric and the title stays centred. The pill
+   hangs to its left, bottom-aligned with the larger avatar. */
+.group-header-actions { position: relative; display: flex; flex: 0 0 auto; align-items: center; }
+.group-header-actions .context-usage-control { right: calc(100% + 8px); top: auto; bottom: 0; transform: none; }
 .chat-container .room-settings-panel {
   position: absolute; z-index: 65; left: 14px; right: 14px; top: 86px; bottom: auto;
   margin: 0; max-height: min(560px, calc(100dvh - 160px));
