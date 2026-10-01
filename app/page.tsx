@@ -1,12 +1,13 @@
 "use client";
 
-import { Fragment, useState, useRef, useEffect, useCallback } from "react";
+import { Fragment, useState, useRef, useEffect, useCallback, useMemo } from "react";
 import type { CSSProperties, ReactNode } from "react";
 import NextImage from "next/image";
 import { CacheStatusPanel } from "./components/CacheStatusPanel";
 import { ClaudeUsageCircle, ClaudeUsageDetails, useClaudeUsage } from "./components/ClaudeUsageBadge";
 import { ContextDebugPanel } from "./components/ContextDebugPanel";
 import { GroupChatView } from "./components/GroupChatView";
+import { ContextUsageRing, type UsageMessage } from "./components/ContextUsageRing";
 import { NotificationButton } from "./components/NotificationButton";
 import { ChatBackgroundSetting } from "./components/ChatBackgroundSetting";
 import { MoonLetter } from "./components/MoonLetter";
@@ -27,6 +28,7 @@ import type { CodeTaskState } from "./lib/code-task-state";
 import type { CodeReleaseState } from "./lib/code-release";
 import { imageFields, imageKey, MAX_IMAGES_PER_MESSAGE, messageImages, stripObjectPlaceholders } from "./lib/message-images";
 import { prepareImageForUpload } from "./lib/image-compress";
+import { workContextHistory } from "./lib/work-context";
 
 // ━━━━━━━━━━━━━━━ Types ━━━━━━━━━━━━━━━
 type Message = {
@@ -1209,7 +1211,7 @@ export default function Home() {
     return (
       <main className="app-bg">
         <div className="lock-screen">
-          <img src="/icon-192.png" alt="" className="lock-pig" />
+          <img src="/icon-bear-192.png" alt="" className="lock-icon" />
           <p className="lock-title">这是我们的小窗</p>
           <p className="lock-sub">输入钥匙进门</p>
           <input
@@ -2141,6 +2143,10 @@ function ChatView({
   const developmentMode = !isGpt && session.kind !== "memo" && developmentModePref?.enabled === true;
   const developmentProject: DevelopmentProject = developmentModePref?.project ?? "iooi";
   const developmentProjectLabel = developmentProject === "iooi" ? "iooi" : "Summer";
+  const workUsageMessages = useMemo<UsageMessage[]>(
+    () => workContextHistory(session.messages, developmentProject),
+    [session.messages, developmentProject],
+  );
   function updateDevelopmentModePref(patch: Partial<DevelopmentModePref>) {
     const liveIds = new Set(sessions.map((item) => item.id));
     const next: Record<string, DevelopmentModePref> = {};
@@ -2829,6 +2835,7 @@ function ChatView({
                 </>
               ) : roomIdentity}
             </div>
+            {developmentMode && <ContextUsageRing kind="work" sessionId={session.id} project={developmentProject} messages={workUsageMessages} />}
             <button
               type="button"
               className="header-icon-btn chat-room-more chat-ui-toggle"
@@ -2856,6 +2863,7 @@ function ChatView({
               <h1 className="header-title">{isGpt ? "GPT" : "iooi"}</h1>
               <span className="header-subtitle" style={{ color: "var(--accent-text)" }}>{developmentMode ? <>{assistantName} {developmentBadge}</> : <>{assistantName} {!isGpt && (aiMood.emoji || "")} · {currentModelLabel}</>}</span>
             </div>
+            {developmentMode && <ContextUsageRing kind="work" sessionId={session.id} project={developmentProject} messages={workUsageMessages} />}
             <button className="header-icon-btn" aria-label="聊天设置" aria-expanded={showModelMenu} onClick={() => setShowModelMenu((open) => !open)}>
               <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
                 <path d="m9.5 3-.6 2.4-2 .9-2.3-.7L2 10l1.8 1.7v2.2L2 15.6l2.6 4.4 2.3-.7 2 .9.6 2.4h5l.6-2.4 2-.9 2.3.7 2.6-4.4-1.8-1.7v-2.2L22 10l-2.6-4.4-2.3.7-2-.9L14.5 3Z" transform="translate(0 -1) scale(1 .95)" />

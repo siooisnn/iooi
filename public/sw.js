@@ -1,6 +1,6 @@
 // iooi service worker — push notifications
 
-const IOOI_SW_VERSION = "2026-09-30-push-notify-1";
+const IOOI_SW_VERSION = "2026-10-01-bear-icon";
 
 self.addEventListener("install", () => {
   self.skipWaiting();
@@ -34,8 +34,8 @@ self.addEventListener("push", (event) => {
   event.waitUntil(
     self.registration.showNotification(data.title, {
       body: data.body,
-      icon: "/icon-192.png",
-      badge: "/icon-192.png",
+      icon: "/icon-bear-192.png",
+      badge: "/icon-bear-192.png",
       // 每条用独立 tag：同 tag 会静默替换上一条，锁屏上不响也不亮。
       tag: `iooi-care-${Date.now()}`,
     })

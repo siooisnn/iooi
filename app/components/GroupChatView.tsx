@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useCallback, useEffect, useRef, useState, type CSSProperties } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { readChatResponse } from "../lib/chat-stream";
 import { useChatScrollPosition } from "../lib/use-chat-scroll-position";
 import { useTwilightLayout } from "../lib/use-twilight-layout";
@@ -8,7 +8,11 @@ import { TWILIGHT_BUBBLE_COLORS, type TwilightBubbleColor } from "../lib/twiligh
 import { TwilightGlassSlider } from "./TwilightGlassSlider";
 import { ClaudeUsageCircle, useClaudeUsage } from "./ClaudeUsageBadge";
 import { messageTimestamp } from "../lib/chat-timeline";
-import { stripObjectPlaceholders } from "../lib/message-images";
+import { imageFields, MAX_IMAGES_PER_MESSAGE, messageImages, stripObjectPlaceholders } from "../lib/message-images";
+import { prepareImageForUpload } from "../lib/image-compress";
+import { ContextUsageRing, type UsageMessage } from "./ContextUsageRing";
+
+type PendingAttachment = { id: string; kind: "image" | "file"; url: string; name: string };
 
 export type GroupSpeaker = "claude" | "gpt";
 
@@ -29,6 +33,7 @@ export type GroupChatMessage = {
   time: string;
   date?: string;
   image?: string;
+  images?: string[];
   file?: string;
   thinking?: string;
   source?: string;
@@ -67,6 +72,7 @@ type ModelMessage = {
   role: "user" | "assistant";
   content: string;
   image?: string;
+  images?: string[];
   file?: string;
 };
 type ReplyState = "idle" | "preparing" | "waiting" | "slow" | "very-slow" | "paused";
@@ -175,7 +181,7 @@ function visibleGroupMessages(messages: GroupChatMessage[]) {
 
     const sanitized = stripLeakedThinking(message.content, insideClaudeThinking);
     insideClaudeThinking = sanitized.insideThinking;
-    if (!sanitized.content && !message.image && !message.file) return;
+    if (!sanitized.content && !messageImages(message).length && !message.file) return;
     visible.push({
       message: sanitized.content === message.content ? message : { ...message, content: sanitized.content },
       originalIndex,
@@ -193,8 +199,8 @@ function buildModelMessages(messages: GroupChatMessage[], target: GroupSpeaker, 
     if (message.role === "user") {
       next = {
         role: "user",
-        content: `【${settings.userName || "用户"}在群里说】\n${message.content || (message.image ? "请看这张图片。" : "请看这个文件。")}`,
-        ...(message.image ? { image: message.image } : {}),
+        content: `【${settings.userName || "用户"}在群里说】\n${message.content || (messageImages(message).length ? "请看这些图片。" : "请看这个文件。")}`,
+        ...imageFields(messageImages(message)),
         ...(message.file ? { file: message.file } : {}),
       };
     } else if (message.speaker === target) {
@@ -204,7 +210,7 @@ function buildModelMessages(messages: GroupChatMessage[], target: GroupSpeaker, 
       next = { role: "user", content: `【${other}在群里说】\n${message.content}` };
     }
     const last = prepared[prepared.length - 1];
-    if (last?.role === next.role && !last.image && !last.file && !next.image && !next.file) last.content += `\n\n${next.content}`;
+    if (last?.role === next.role && !messageImages(last).length && !last.file && !messageImages(next).length && !next.file) last.content += `\n\n${next.content}`;
     else prepared.push(next);
   }
 
@@ -233,7 +239,7 @@ function groupSystemPrompt(speaker: GroupSpeaker, settings: GroupSettings) {
 function groupSessionPreview(session: GroupSession) {
   const latest = visibleGroupMessages(session.messages).reverse().find(({ message }) => !message.source?.startsWith("summer_"))?.message;
   if (!latest) return "还没有消息";
-  if (latest.image) return "[图片]";
+  if (messageImages(latest).length) return messageImages(latest).length > 1 ? `[${messageImages(latest).length} 张图片]` : "[图片]";
   if (latest.file) return latest.content || "[文件]";
   return latest.content.replace(/\s+/g, " ").slice(0, 32) || "新消息";
 }
@@ -317,6 +323,8 @@ export function GroupChatView({
   const [loading, setLoading] = useState(false);
   const [streamingReply, setStreamingReply] = useState<{ speaker: GroupSpeaker; text: string } | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [attachments, setAttachments] = useState<PendingAttachment[]>([]);
+  const [uploadError, setUploadError] = useState("");
   const [replyState, setReplyState] = useState<ReplyState>("idle");
   const [activeSpeaker, setActiveSpeaker] = useState<GroupSpeaker | null>(null);
   const [showSessions, setShowSessions] = useState(false);
@@ -327,6 +335,7 @@ export function GroupChatView({
   const [showBubbleColorMenu, setShowBubbleColorMenu] = useState(false);
   const [summarizing, setSummarizing] = useState(false);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const uploadingRef = useRef(false);
   const messagesRef = useRef(session.messages);
   const sendingRef = useRef(false);
   const activeControllerRef = useRef<AbortController | null>(null);
@@ -345,6 +354,16 @@ export function GroupChatView({
   useEffect(() => {
     messagesRef.current = session.messages;
   }, [session.messages]);
+
+  const usageMessages = useMemo<UsageMessage[]>(() => visibleGroupMessages(session.messages)
+    .filter(({ message }) => !message.source?.startsWith("summer_") && message.source !== "group_error")
+    .map(({ message, originalIndex }) => ({
+      index: originalIndex, role: message.role,
+      speaker: message.role === "user" ? settings.userName || "用户" : speakerName(message.speaker || "claude", settings),
+      content: message.content || (messageImages(message).length ? "[发送了图片]" : message.file ? "[发送了一个文件]" : ""),
+      media: Boolean(messageImages(message).length || message.file),
+    })), [session.messages, settings]);
+  const usageSystemPrompt = useMemo(() => [groupSystemPrompt("claude", settings), groupSystemPrompt("gpt", settings)].join("\n"), [settings]);
 
   useEffect(() => () => {
     clearTimers();
@@ -469,8 +488,8 @@ export function GroupChatView({
           .map(({ message, originalIndex }) => ({
             index: originalIndex, role: message.role,
             speaker: message.role === "user" ? settings.userName || "用户" : speakerName(message.speaker || "claude", settings),
-            content: message.content || (message.image ? "[发送了一张图片]" : message.file ? "[发送了一个文件]" : ""),
-            media: Boolean(message.image || message.file),
+            content: message.content || (messageImages(message).length ? "[发送了图片]" : message.file ? "[发送了一个文件]" : ""),
+            media: Boolean(messageImages(message).length || message.file),
           })),
       }),
     });
@@ -488,15 +507,22 @@ export function GroupChatView({
 
   async function sendMessage() {
     const text = stripObjectPlaceholders(input).trim();
-    if (!text || loading || uploading || sendingRef.current) return;
+    if ((!text && !attachments.length) || loading || uploading || sendingRef.current) return;
     sendingRef.current = true;
     followLatest();
     const previousMessages = messagesRef.current;
-    const userMessage: GroupChatMessage = { role: "user", content: text, time: nowTime(), date: today() };
+    const pendingFile = attachments.find((item) => item.kind === "file");
+    const userMessage: GroupChatMessage = { role: "user", content: text || (pendingFile ? `📄 ${pendingFile.name}` : ""),
+      time: nowTime(), date: today(),
+      ...imageFields(attachments.filter((item) => item.kind === "image").map((item) => item.url)),
+      ...(pendingFile ? { file: pendingFile.url } : {}),
+    };
     let working = [...previousMessages, userMessage];
     messagesRef.current = working;
     updateMessages(() => working);
     setInput("");
+    setAttachments([]);
+    setUploadError("");
     setShowWebSearchMenu(false);
     if (inputRef.current) inputRef.current.style.height = "auto";
 
@@ -550,49 +576,64 @@ export function GroupChatView({
   }
 
   async function uploadFile() {
-    if (uploading || loading) return;
+    if (uploadingRef.current || loading) return;
     const picker = document.createElement("input");
     picker.type = "file";
+    picker.multiple = true;
     picker.accept = "image/*,application/pdf,.txt,.md,.csv";
     picker.onchange = async (event) => {
-      const file = (event.target as HTMLInputElement).files?.[0];
-      if (!file) return;
-
-      const formData = new FormData();
-      formData.append("file", file);
+      const picked = Array.from((event.target as HTMLInputElement).files || []);
+      if (!picked.length || uploadingRef.current || loading) return;
+      const notes: string[] = [];
+      let imageSlots = MAX_IMAGES_PER_MESSAGE - attachments.filter((item) => item.kind === "image").length;
+      let fileSlot = !attachments.some((item) => item.kind === "file");
+      const queue: File[] = [];
+      for (const file of picked) {
+        if (file.type.startsWith("image/")) {
+          if (imageSlots > 0) { queue.push(file); imageSlots -= 1; }
+          else if (!notes.includes("image-limit")) notes.push("image-limit");
+        } else if (fileSlot) {
+          queue.push(file);
+          fileSlot = false;
+        } else if (!notes.includes("file")) notes.push("file");
+      }
+      const messages: string[] = notes.map((note) => note === "image-limit"
+        ? `一条消息最多 ${MAX_IMAGES_PER_MESSAGE} 张图片，多出来的没有加上`
+        : "一条消息只能带一个文件");
+      if (!queue.length) { setUploadError(messages.join("；") + "。"); return; }
+      uploadingRef.current = true;
       setUploading(true);
+      setUploadError("");
       try {
-        const response = await groupFetch("/api/upload", { method: "POST", body: formData });
-        const data = await response.json();
-        if (!response.ok || !data.url) throw new Error(data.error || "上传失败");
-        followLatest();
-        const isImage = file.type.startsWith("image/");
-        const message: GroupChatMessage = {
-          role: "user",
-          content: isImage ? "" : `📄 ${file.name}`,
-          time: nowTime(),
-          date: today(),
-          ...(isImage ? { image: data.url } : { file: data.url }),
-        };
-        const messages = [...messagesRef.current, message];
-        messagesRef.current = messages;
-        updateMessages(() => messages);
-      } catch {
-        const message: GroupChatMessage = {
-          role: "assistant",
-          source: "group_error",
-          content: "文件这次没有传上去，请再试一次。",
-          time: nowTime(),
-          date: today(),
-        };
-        const messages = [...messagesRef.current, message];
-        messagesRef.current = messages;
-        updateMessages(() => messages);
+        for (const original of queue) {
+          const isImage = original.type.startsWith("image/");
+          try {
+            const file = isImage ? await prepareImageForUpload(original) : original;
+            const formData = new FormData();
+            formData.append("file", file);
+            const response = await groupFetch("/api/upload", { method: "POST", body: formData });
+            const data = await response.json();
+            if (!response.ok || !data.url) throw new Error(data.error || "上传失败");
+            setAttachments((current) => [...current, {
+              id: Math.random().toString(36).slice(2), kind: isImage ? "image" : "file",
+              url: data.url, name: original.name,
+            }]);
+          } catch (error) {
+            messages.push(`${original.name || "一张图片"}：${error instanceof Error ? error.message : "上传失败"}`);
+          }
+        }
       } finally {
+        uploadingRef.current = false;
         setUploading(false);
+        if (messages.length) setUploadError(messages.join("；") + "。");
       }
     };
     picker.click();
+  }
+
+  function removeAttachment(id: string) {
+    setAttachments((current) => current.filter((item) => item.id !== id));
+    setUploadError("");
   }
 
   async function acceptProposal(message: GroupChatMessage, index: number) {
@@ -719,8 +760,11 @@ export function GroupChatView({
               <svg className="group-session-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9" /></svg>
             </span>}
           </button>
-          {twilight ? <div className="group-user-avatar" aria-label={settings.userName || "我的头像"}><Avatar src={settings.userAvatar} user /></div> :
-            <button className="header-icon-btn group-session-new" type="button" onClick={() => { createSession(); setShowSessions(false); }} aria-label="新群聊">＋</button>}
+          <div className="group-header-actions">
+            <ContextUsageRing kind="group" sessionId={session.id} messages={usageMessages} systemPrompt={usageSystemPrompt} />
+            {twilight ? <div className="group-user-avatar" aria-label={settings.userName || "我的头像"}><Avatar src={settings.userAvatar} user /></div> :
+              <button className="header-icon-btn group-session-new" type="button" onClick={() => { createSession(); setShowSessions(false); }} aria-label="新群聊">＋</button>}
+          </div>
         </div>
       </header>
 
@@ -779,9 +823,17 @@ export function GroupChatView({
                       )}
                       {message.source === "summer_write_ignored" && <div className="group-summer-state">已忽略</div>}
                     </div>
-                  ) : message.image ? (
+                  ) : messageImages(message).length > 0 ? (
                     <div className={`msg-bubble msg-bubble-img ${isUser ? "msg-bubble-user" : "msg-bubble-ai"}`}>
-                      <img src={message.image} className="msg-image" alt="" onClick={() => window.open(message.image, "_blank")} />
+                      {messageImages(message).length === 1 ? (
+                        <img src={messageImages(message)[0]} className="msg-image" alt="" onClick={() => window.open(messageImages(message)[0], "_blank")} />
+                      ) : (
+                        <div className={`msg-image-grid${messageImages(message).length === 2 || messageImages(message).length === 4 ? " msg-image-grid-2" : ""}`}>
+                          {messageImages(message).map((url) => (
+                            <img key={url} src={url} className="msg-image-tile" alt="" onClick={() => window.open(url, "_blank")} />
+                          ))}
+                        </div>
+                      )}
                       {message.content && <p className="msg-image-caption">{message.content}</p>}
                     </div>
                   ) : message.file ? (
@@ -827,6 +879,18 @@ export function GroupChatView({
       </section>
 
       <footer className="chat-footer group-chat-footer">
+        {uploadError && <p className="composer-upload-error" role="alert">{uploadError}</p>}
+        {attachments.length > 0 && (
+          <div className="composer-attachments" aria-label="待发送的附件">
+            {attachments.map((item) => (
+              <div key={item.id} className={`composer-attachment${item.kind === "file" ? " composer-attachment-file" : ""}`}>
+                {item.kind === "image" ? <img src={item.url} alt="" /> : <span className="composer-attachment-name">📄 {item.name}</span>}
+                <button type="button" className="composer-attachment-remove" onClick={() => removeAttachment(item.id)}
+                  aria-label={item.kind === "image" ? "移除这张图片" : "移除这个文件"} title="移除">×</button>
+              </div>
+            ))}
+          </div>
+        )}
         {showMenu && showBubbleColorMenu && (
           <div className="group-bubble-color-panel" aria-label="群聊暮光气泡颜色">
             <p>暮光气泡颜色</p>
@@ -943,7 +1007,7 @@ export function GroupChatView({
             <button
               type="button"
               onClick={loading ? pauseReply : () => void sendMessage()}
-              disabled={!loading && (!input.trim() || uploading)}
+              disabled={!loading && ((!input.trim() && !attachments.length) || uploading)}
               className={`send-btn${loading ? " pause-reply-btn" : ""}`}
               aria-label={loading ? "暂停等待回复" : "发送消息"}
             >

@@ -191,7 +191,7 @@
   pointer-events: none;
 }
 
-.chat-container[data-chat-ui="glass"] :is(.chat-room-back, .chat-ui-toggle, .chat-entry-avatar,
+.chat-container[data-chat-ui="glass"] :is(.chat-room-back, .chat-ui-toggle, .chat-entry-avatar, .context-usage-control,
   .chat-room-identity, .input-wrapper, .attach-btn-separate, .chat-control-pill,
   .claude-usage-pill, .claude-usage-popover, .chat-config-panel, .composer-attachment) {
   pointer-events: auto;
@@ -577,6 +577,16 @@
   max-height: max(80px, calc(var(--twilight-viewport-height, 100dvh) - var(--twilight-header-space, 100px) - 84px));
   color: #fff;
 }
+.app-bg .chat-container[data-chat-ui="glass"] .context-usage-popover {
+  background: var(--chat-glass-surface); border-color: var(--chat-glass-border); color: var(--chat-glass-ink);
+  box-shadow: var(--chat-glass-shadow); backdrop-filter: var(--chat-glass-filter);
+}
+.chat-container[data-chat-ui="glass"] .context-usage-popover small { color: rgba(255, 255, 255, .82); }
+.app-bg .chat-container[data-chat-ui="glass"] .context-usage-ring {
+  border: 1px solid var(--chat-glass-border); border-radius: 50%; background: var(--chat-glass-surface);
+  color: #fff; box-shadow: var(--chat-glass-shadow);
+}
+.chat-container[data-chat-ui="glass"] .context-usage-track { stroke: #fff; opacity: .65; }
 .chat-container[data-chat-ui="glass"] .room-settings-panel .claude-usage-details * { color: #fff; }
 .chat-container[data-chat-ui="glass"] .group-room-header .header-top { align-items: center; justify-content: space-between; gap: 12px; }
 .chat-container[data-chat-ui="glass"] .group-room-header .chat-room-back {

@@ -818,7 +818,7 @@ async function persistGroupUserMessage(
   sessionName: string | undefined,
   userMsg: StoreMsg | undefined,
 ) {
-  if (!sessionId || !userMsg?.content) return;
+  if (!sessionId || !hasUserPayload(userMsg)) return;
   try {
     await withGroupStore((store) => {
       const sessions = (store.sessions || []) as Array<{ id: string; name: string; messages: StoreMsg[]; createdAt?: string }>;
@@ -861,7 +861,7 @@ async function persistGroupRound(
         store.sessions = sessions;
       }
       const messages = session.messages || (session.messages = []);
-      if (userMsg?.content && !messages.slice(-12).some((message) => sameUserMessage(message, userMsg))) {
+      if (hasUserPayload(userMsg) && !messages.slice(-12).some((message) => sameUserMessage(message, userMsg))) {
         messages.push(userMsg);
       }
       if (hasLaterUserMessage(messages, userMsg)) return;

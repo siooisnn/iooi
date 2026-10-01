@@ -3389,7 +3389,7 @@ body {
   min-height: 100dvh; display: flex; flex-direction: column;
   align-items: center; justify-content: center; gap: 12px; padding: 32px;
 }
-.lock-pig { width: 72px; height: 72px; border-radius: 18px; margin-bottom: 6px; }
+.lock-icon { width: 72px; height: 72px; border-radius: 18px; margin-bottom: 6px; }
 .lock-title { font-size: 17px; font-weight: 600; color: var(--text-primary); margin: 0; }
 .lock-sub { font-size: 13px; color: var(--text-light); margin: 0 0 10px; }
 .lock-input { width: 100%; max-width: 260px; text-align: center; }
@@ -3600,6 +3600,34 @@ body {
   letter-spacing: -.3px; box-shadow: 0 4px 16px rgba(var(--theme-shadow-rgb, 110, 82, 69), .12);
 }
 .composer-usage-stale { border-style: dashed; }
+.context-usage-control {
+  position: relative; z-index: 250; flex: 0 0 32px; width: 32px; height: 32px;
+}
+.context-usage-ring {
+  position: relative; display: block; width: 32px; height: 32px; padding: 0;
+  border: 0; background: transparent; color: var(--text-secondary); cursor: pointer;
+}
+.context-usage-ring svg {
+  position: absolute; inset: 0; width: 32px; height: 32px;
+  transform: rotate(-90deg); fill: none; stroke-width: 3;
+}
+.context-usage-track { stroke: var(--text-light); opacity: .42; }
+.context-usage-progress { stroke: var(--accent); stroke-linecap: round; transition: stroke-dasharray .2s; }
+.context-usage-ring span {
+  position: relative; font-size: 9px; line-height: 32px; font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.context-usage-popover {
+  position: absolute; right: 0; top: calc(100% + 9px); width: 238px;
+  max-width: calc(100vw - 28px); padding: 12px 14px;
+  border: 1px solid var(--border-soft); border-radius: 14px;
+  background: var(--bg-chat); color: var(--text-primary);
+  box-shadow: 0 12px 28px rgba(var(--theme-shadow-rgb, 110, 82, 69), .18);
+  text-align: left; font-size: 12px;
+}
+.context-usage-popover p { margin: 8px 0 0; line-height: 1.4; }
+.context-usage-popover small { display: block; margin-top: 10px; color: var(--text-light); line-height: 1.4; }
+.group-header-actions { display: flex; flex: 0 0 auto; align-items: center; gap: 10px; }
 .chat-container .room-settings-panel {
   position: absolute; z-index: 65; left: 14px; right: 14px; top: 86px; bottom: auto;
   margin: 0; max-height: min(560px, calc(100dvh - 160px));
