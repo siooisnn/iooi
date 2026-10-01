@@ -133,7 +133,7 @@
 
 .chat-container[data-chat-ui="glass"] .twilight-glass-slider {
   max-width: none;
-  color: #fff;
+  color: var(--chat-glass-muted);
 }
 
 .app-bg .chat-container[data-chat-ui="glass"] {
@@ -448,7 +448,6 @@
 }
 
 .chat-container[data-chat-ui="glass"] .chat-config-panel {
-  --chat-glass-surface: rgba(0, 0, 0, 0.42);
   position: absolute;
   left: 14px;
   right: 14px;
@@ -507,21 +506,6 @@
   color: var(--chat-glass-ink);
 }
 
-/* Keep every quota label legible, including theme-colored numbers and resets. */
-.app-bg .chat-container[data-chat-ui="glass"] .chat-footer .claude-usage-popover {
-  --chat-glass-surface: rgba(0, 0, 0, 0.52);
-}
-
-.app-bg .chat-container[data-chat-ui="glass"] .chat-footer .claude-usage-popover,
-.app-bg .chat-container[data-chat-ui="glass"] .chat-footer .claude-usage-popover * {
-  color: #fff;
-}
-
-.chat-container[data-chat-ui="glass"] :is(.chat-config-option-active, .chat-config-switch-on) {
-  --chat-glass-surface: rgba(255, 255, 255, 0.18);
-  --chat-glass-border: rgba(255, 255, 255, 0.85);
-}
-
 .chat-container[data-chat-ui="glass"] .empty-chat p {
   color: var(--chat-glass-ink);
 }
@@ -561,6 +545,7 @@
   background: var(--chat-stamp-surface);
   color: var(--chat-stamp-ink);
   text-shadow: none;
+  box-shadow: 0 1px 3px rgba(70, 40, 30, 0.14);
 }
 
 .app-bg .chat-container[data-chat-ui="glass"] .empty-chat p {
@@ -580,7 +565,6 @@
 .app-bg .chat-container[data-chat-ui="glass"] .room-settings-panel {
   pointer-events: auto; top: calc(var(--twilight-header-space, 100px) + 8px); bottom: auto;
   max-height: max(80px, calc(var(--twilight-viewport-height, 100dvh) - var(--twilight-header-space, 100px) - 84px));
-  color: #fff;
 }
 /* Same size as the 32px gear; in group rooms it sits on the avatar's baseline. */
 .chat-container[data-chat-ui="glass"] .single-room-header .context-usage-control { top: 10px; transform: none; }
@@ -592,15 +576,6 @@
   --chat-glass-filter: blur(calc(10px * var(--twilight-glass, 1))) saturate(calc(1 + 0.1 * var(--twilight-glass, 1)));
   backdrop-filter: var(--chat-glass-filter); -webkit-backdrop-filter: var(--chat-glass-filter);
 }
-/* Dark enough to read over any bubble or photo behind it. */
-.app-bg .chat-container[data-chat-ui="glass"] .context-usage-popover {
-  background: rgba(0, 0, 0, .72); border-color: rgba(255, 255, 255, .28); color: #fff;
-  box-shadow: 0 12px 28px rgba(0, 0, 0, .28);
-  backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px);
-}
-.app-bg .chat-container[data-chat-ui="glass"] .context-usage-popover * { color: #fff; }
-.app-bg .chat-container[data-chat-ui="glass"] .context-usage-popover small { color: rgba(255, 255, 255, .78); }
-.chat-container[data-chat-ui="glass"] .room-settings-panel .claude-usage-details * { color: #fff; }
 .chat-container[data-chat-ui="glass"] .group-room-header .header-top { align-items: center; justify-content: space-between; gap: 12px; }
 .chat-container[data-chat-ui="glass"] .group-room-header .chat-room-back {
   width: 48px; height: 48px; flex: 0 0 48px; margin-top: 0;
@@ -614,9 +589,8 @@
 .chat-container[data-chat-ui="glass"] .group-session-switcher {
   position: absolute; z-index: 60; top: calc(var(--twilight-header-space, 78px) + 8px);
   left: 14px; right: 14px; max-height: calc(var(--twilight-viewport-height, 100dvh) - 170px);
-  overflow-y: auto; border-radius: 18px; --chat-glass-surface: rgba(0, 0, 0, .6);
+  overflow-y: auto; border-radius: 18px;
 }
-.chat-container[data-chat-ui="glass"] .group-session-switcher :is(button, b, small, i) { color: #fff; }
 .chat-container[data-chat-ui="glass"][data-chat-view="group"] .msg-row-ai:not(.msg-row-summer-utility) {
   position: relative; padding-left: 40px; min-height: 34px;
 }
@@ -637,9 +611,8 @@
 .chat-container[data-chat-ui="glass"][data-chat-view="group"] .msg-content-ai { max-width: 90%; }
 .chat-container[data-chat-ui="glass"][data-chat-view="group"] .msg-row-ai:not(.msg-row-compact-top) { margin-top: 8px; }
 .chat-container[data-chat-ui="glass"] :is(.group-composer-menu, .group-web-search-panel, .group-bubble-color-panel) {
-  --chat-glass-surface: rgba(0, 0, 0, .6); pointer-events: auto;
+  pointer-events: auto;
 }
-.chat-container[data-chat-ui="glass"] :is(.group-composer-menu button, .group-web-search-option) { color: #fff; }
 .chat-container[data-chat-ui="glass"] .group-summer-card {
   background: rgba(0, 0, 0, .48); color: #fff; border-color: rgba(255, 255, 255, .28);
   max-width: 100%; overflow-wrap: anywhere;
@@ -654,11 +627,7 @@
 
 /* Keep the theme's opaque white buttons from hiding white Twilight labels. */
 .app-bg .chat-container[data-chat-ui="glass"] { --chat-glass-muted: #fff; }
-.app-bg .chat-container[data-chat-ui="glass"] .chat-footer .group-composer-menu button {
-  background: rgba(0, 0, 0, .28); border-color: rgba(255, 255, 255, .45); color: #fff;
-}
-.app-bg .chat-container[data-chat-ui="glass"] :is(.group-composer-menu, .group-web-search-panel,
-  .group-bubble-color-panel, .group-summer-card, .room-settings-panel, .group-session-switcher) * { color: #fff; }
+.app-bg .chat-container[data-chat-ui="glass"] .group-summer-card * { color: #fff; }
 .chat-container[data-chat-ui="glass"][data-chat-view="group"] .chat-messages {
   padding-left: max(6px, env(safe-area-inset-left));
 }
@@ -690,44 +659,25 @@
   min-width: 56px;
   height: 30px;
   padding: 0 12px;
-  border: 1px solid rgba(255, 255, 255, 0.4);
   border-radius: 999px;
-  background: rgba(0, 0, 0, 0.28);
-  color: #fff;
   font-size: 13px;
   cursor: pointer;
 }
 
-.twilight-tone-option-active {
-  background: rgba(255, 255, 255, 0.22);
-  border-color: rgba(255, 255, 255, 0.9);
-}
-
 /* 浅色: white frosted bars with warm dark ink, for pale backgrounds.
-   Pop-up panels stay dark so their white labels keep working. */
+   Only the bars change; bubbles and pop-up panels look the same on both tones. */
 .app-bg .chat-container[data-chat-ui="glass"][data-twilight-tone="light"] {
   --chat-glass-surface: rgba(255, 255, 255, 0.62);
   --chat-glass-border: rgba(255, 255, 255, 0.86);
   --chat-glass-ink: #3d2e25;
   --chat-glass-muted: rgba(61, 46, 37, 0.72);
   --chat-glass-shadow: 0 4px 18px rgba(80, 50, 40, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.9);
-  --chat-stamp-surface: rgba(255, 251, 246, 0.9);
-  --chat-stamp-ink: #6b5446;
 }
 
 .app-bg .chat-container[data-chat-ui="glass"][data-twilight-tone="light"] :is(.chat-room-back, .chat-ui-toggle,
   .chat-room-identity, .input-wrapper, .attach-btn.attach-btn-separate, .chat-control-pill, .claude-usage-pill,
   .context-usage-badge, .group-session-title, .group-user-avatar, .send-btn) {
   --chat-glass-filter: blur(calc(20px * var(--twilight-glass, 1))) saturate(calc(1 + 0.6 * var(--twilight-glass, 1)));
-}
-
-.app-bg .chat-container[data-chat-ui="glass"][data-twilight-tone="light"] :is(.chat-config-panel, .claude-usage-popover,
-  .group-composer-menu, .group-web-search-panel, .group-bubble-color-panel, .group-session-switcher, .room-settings-panel) {
-  --chat-glass-surface: rgba(0, 0, 0, 0.55);
-  --chat-glass-border: rgba(255, 255, 255, 0.4);
-  --chat-glass-ink: #fff;
-  --chat-glass-muted: #fff;
-  --chat-glass-shadow: 0 4px 18px rgba(0, 0, 0, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.3);
 }
 
 .app-bg .chat-container[data-chat-ui="glass"][data-twilight-tone="light"] .chat-footer .send-btn {
@@ -748,6 +698,92 @@
 }
 
 /* A faint lift keeps white bubbles from melting into a white wall. */
-.chat-container[data-chat-ui="glass"][data-twilight-tone="light"] .msg-bubble:not(.msg-bubble-summer-utility):not(.msg-bubble-img) {
+.chat-container[data-chat-ui="glass"] .msg-bubble:not(.msg-bubble-summer-utility):not(.msg-bubble-img) {
   filter: drop-shadow(0 1px 1.5px rgba(70, 40, 30, 0.12));
+}
+
+/* Pop-up panels (chat settings, usage, the group menu and its panels, the
+   session list) are always white frosted glass with dark ink, on both tones. */
+.app-bg .chat-container[data-chat-ui="glass"] :is(.chat-config-panel, .claude-usage-popover, .context-usage-popover,
+  .group-composer-menu, .group-web-search-panel, .group-bubble-color-panel, .group-session-switcher) {
+  --chat-glass-surface: rgba(255, 255, 255, 0.8);
+  --chat-glass-border: rgba(255, 255, 255, 0.95);
+  --chat-glass-ink: #3d2e25;
+  --chat-glass-muted: rgba(61, 46, 37, 0.6);
+  --chat-glass-shadow: 0 12px 32px rgba(60, 40, 30, 0.18), inset 0 1px 0 #fff;
+  --chat-glass-filter: blur(24px) saturate(1.6);
+  background: var(--chat-glass-surface);
+  background-image: none;
+  border: 1px solid var(--chat-glass-border);
+  color: var(--chat-glass-ink);
+  box-shadow: var(--chat-glass-shadow);
+  backdrop-filter: var(--chat-glass-filter);
+  -webkit-backdrop-filter: var(--chat-glass-filter);
+}
+
+.app-bg .chat-container[data-chat-ui="glass"] :is(.chat-config-panel, .claude-usage-popover, .context-usage-popover,
+  .group-composer-menu, .group-web-search-panel, .group-bubble-color-panel, .group-session-switcher) * {
+  color: var(--chat-glass-ink);
+}
+
+.app-bg .chat-container[data-chat-ui="glass"] :is(.chat-config-panel, .claude-usage-popover, .context-usage-popover,
+  .group-composer-menu, .group-web-search-panel, .group-bubble-color-panel, .group-session-switcher)
+  :is(.chat-config-section > p, .chat-config-toggle-section > p, .group-bubble-color-panel > p, .settings-hint, small, .twilight-glass-slider > span, .chat-config-switch > span) {
+  color: var(--chat-glass-muted);
+}
+
+/* Group panel headings match the single-chat panel: small uppercase labels. */
+.chat-container[data-chat-ui="glass"] .group-bubble-color-panel > p {
+  font-size: 9px;
+  font-weight: 650;
+  letter-spacing: 0.13em;
+}
+
+/* Choices inside a white panel: soft white pills; the chosen one is filled. */
+.app-bg .chat-container[data-chat-ui="glass"] :is(.chat-config-panel, .group-composer-menu, .group-bubble-color-panel)
+  :is(.chat-config-option, .twilight-tone-option, .twilight-color-option, .group-composer-menu > button) {
+  background: rgba(255, 255, 255, 0.6);
+  background-image: none;
+  border: 1px solid rgba(61, 46, 37, 0.14);
+  color: var(--chat-glass-ink);
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+.app-bg .chat-container[data-chat-ui="glass"] :is(.chat-config-panel, .group-bubble-color-panel)
+  :is(.chat-config-option-active, .twilight-tone-option-active):not(.twilight-color-option) {
+  background: var(--chat-glass-ink);
+  border-color: var(--chat-glass-ink);
+  color: #fff;
+}
+
+.app-bg .chat-container[data-chat-ui="glass"] :is(.chat-config-panel, .group-bubble-color-panel)
+  .twilight-color-option:is([aria-pressed="true"], .twilight-color-option-active) {
+  background: #fff;
+  border-color: transparent;
+  box-shadow: 0 0 0 2px #fff, 0 0 0 3.5px var(--chat-glass-ink);
+}
+
+/* On/off switches take the colour of my bubble. */
+.app-bg .chat-container[data-chat-ui="glass"] :is(.chat-config-panel, .group-web-search-panel) .chat-config-switch {
+  background: transparent;
+  background-image: none;
+  border: 0;
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+.app-bg .chat-container[data-chat-ui="glass"] :is(.chat-config-panel, .group-web-search-panel) .chat-config-switch i {
+  background: rgba(61, 46, 37, 0.18);
+}
+
+.app-bg .chat-container[data-chat-ui="glass"] :is(.chat-config-panel, .group-web-search-panel) .chat-config-switch-on i {
+  background: var(--twilight-user-bubble, #b44c73);
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.06);
+}
+
+.app-bg .chat-container[data-chat-ui="glass"] .group-mention-row .group-web-search-trigger-active::after {
+  background: var(--twilight-user-bubble, var(--accent));
 }

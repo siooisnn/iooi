@@ -48,3 +48,12 @@ test("glass strength defaults to the original blur and stays in range", async ()
   assert.equal(twilightGlassScale(0), "0");
   assert.equal(twilightGlassScale(100), "2");
 });
+
+test("each AI bubble carries matching time stamp colors", async () => {
+  const { TWILIGHT_AI_BUBBLES } = await import("../app/lib/twilight-bubbles.ts");
+  for (const bubble of TWILIGHT_AI_BUBBLES) {
+    assert.ok(bubble.stamp && bubble.stampInk, bubble.value);
+  }
+  const white = TWILIGHT_AI_BUBBLES.find((bubble) => bubble.value === "white");
+  assert.equal(white.stampInk, white.ink);
+});

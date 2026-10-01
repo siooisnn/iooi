@@ -1266,9 +1266,10 @@ export default function Home() {
           ? {
             "--twilight-user-bubble": twilightBubble.color,
             "--twilight-user-ink": twilightBubble.ink,
-            ...(activeTwilightTone === "light"
-              ? { "--twilight-ai-bubble": twilightAiBubble.color, "--twilight-ai-ink": twilightAiBubble.ink }
-              : {}),
+            "--twilight-ai-bubble": twilightAiBubble.color,
+            "--twilight-ai-ink": twilightAiBubble.ink,
+            "--chat-stamp-surface": twilightAiBubble.stamp,
+            "--chat-stamp-ink": twilightAiBubble.stampInk,
           } as CSSProperties
           : undefined}
         data-twilight-tone={tab === "chat" && chatView !== "list" && settings.chatUiStyle === "glass" ? activeTwilightTone : undefined}
@@ -2995,22 +2996,20 @@ function ChatView({
                   );
                 })}
               </div>
-              {resolveTwilightTone(isGpt ? settings.gptTwilightTone : settings.twilightTone) === "light" && <>
-                <p>AI BUBBLE</p>
-                <div className="chat-config-options twilight-color-options" role="group" aria-label={`${assistantName}气泡`}>
-                  {TWILIGHT_AI_BUBBLES.map((bubble) => {
-                    const selected = resolveTwilightAiBubble(settings.twilightAiBubble) === bubble.value;
-                    return (
-                      <button key={bubble.value} type="button" aria-pressed={selected} aria-label={bubble.label} title={bubble.label}
-                        className={`chat-config-option twilight-color-option${selected ? " chat-config-option-active" : ""}`}
-                        style={{ "--twilight-swatch-color": bubble.ink } as CSSProperties}
-                        onClick={() => updateSettings({ twilightAiBubble: bubble.value })}>
-                        <span className="twilight-color-swatch twilight-ai-swatch" style={{ background: bubble.color, color: bubble.ink }} aria-hidden="true">字</span>
-                      </button>
-                    );
-                  })}
-                </div>
-              </>}
+              <p>AI BUBBLE</p>
+              <div className="chat-config-options twilight-color-options" role="group" aria-label={`${assistantName}气泡`}>
+                {TWILIGHT_AI_BUBBLES.map((bubble) => {
+                  const selected = resolveTwilightAiBubble(settings.twilightAiBubble) === bubble.value;
+                  return (
+                    <button key={bubble.value} type="button" aria-pressed={selected} aria-label={bubble.label} title={bubble.label}
+                      className={`chat-config-option twilight-color-option${selected ? " chat-config-option-active" : ""}`}
+                      style={{ "--twilight-swatch-color": bubble.ink } as CSSProperties}
+                      onClick={() => updateSettings({ twilightAiBubble: bubble.value })}>
+                      <span className="twilight-color-swatch twilight-ai-swatch" style={{ background: bubble.color, color: bubble.ink }} aria-hidden="true">字</span>
+                    </button>
+                  );
+                })}
+              </div>
               <p>MY BUBBLE</p>
               <div className="chat-config-options twilight-color-options" role="group" aria-label={`${assistantName}暮光气泡颜色`}>
                 {TWILIGHT_BUBBLE_COLORS.map((color) => {

@@ -32,6 +32,7 @@ export function resolveTwilightBubbleColor(
 }
 
 // 浅色: white frosted bars with dark ink. 深色: black frosted bars with white ink.
+// The tone only affects the header/footer bars, never the bubbles or panels.
 export const TWILIGHT_TONES = [
   { value: "light", label: "浅色" },
   { value: "dark", label: "深色" },
@@ -43,10 +44,11 @@ export function resolveTwilightTone(value: unknown, fallback: TwilightTone = "da
   return value === "light" || value === "dark" ? value : fallback;
 }
 
-// The AI bubble on 浅色; 深色 always uses a dark solid bubble with white text.
+// The AI bubble, used on both tones (浅色/深色 only change the bars). The
+// time and date stamps follow the same choice so they match the bubbles.
 export const TWILIGHT_AI_BUBBLES = [
-  { value: "cream", label: "奶白", color: "#fbf3e8", ink: "#4a3628" },
-  { value: "white", label: "白底", color: "#ffffff", ink: "#1c1c1e" },
+  { value: "cream", label: "奶白", color: "#fbf3e8", ink: "#4a3628", stamp: "rgba(251, 243, 232, 0.94)", stampInk: "#6b5446" },
+  { value: "white", label: "白底", color: "#ffffff", ink: "#1c1c1e", stamp: "rgba(255, 255, 255, 0.94)", stampInk: "#1c1c1e" },
 ] as const;
 
 export type TwilightAiBubble = typeof TWILIGHT_AI_BUBBLES[number]["value"];

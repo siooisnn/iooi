@@ -893,7 +893,7 @@ export function GroupChatView({
         )}
         {showMenu && showBubbleColorMenu && (
           <div className="group-bubble-color-panel" aria-label="群聊暮光气泡颜色">
-            <p>浅色 / 深色</p>
+            <p>TONE</p>
             <div className="twilight-tone-options" role="group" aria-label="群聊暮光浅色深色">
               {TWILIGHT_TONES.map((tone) => {
                 const selected = resolveTwilightTone(settings.groupTwilightTone) === tone.value;
@@ -906,23 +906,21 @@ export function GroupChatView({
                 );
               })}
             </div>
-            {resolveTwilightTone(settings.groupTwilightTone) === "light" && <>
-              <p className="group-glass-heading">他们的气泡</p>
-              <div className="twilight-color-options" role="group" aria-label="群聊 AI 气泡">
-                {TWILIGHT_AI_BUBBLES.map((bubble) => {
-                  const selected = resolveTwilightAiBubble(settings.twilightAiBubble) === bubble.value;
-                  return (
-                    <button key={bubble.value} type="button" aria-pressed={selected} aria-label={bubble.label} title={bubble.label}
-                      className={`twilight-color-option${selected ? " twilight-color-option-active" : ""}`}
-                      style={{ "--twilight-swatch-color": bubble.ink } as CSSProperties}
-                      onClick={() => updateSettings({ twilightAiBubble: bubble.value })}>
-                      <span className="twilight-color-swatch twilight-ai-swatch" style={{ background: bubble.color, color: bubble.ink }} aria-hidden="true">字</span>
-                    </button>
-                  );
-                })}
-              </div>
-            </>}
-            <p className="group-glass-heading">我的气泡</p>
+            <p className="group-glass-heading">AI BUBBLE</p>
+            <div className="twilight-color-options" role="group" aria-label="群聊 AI 气泡">
+              {TWILIGHT_AI_BUBBLES.map((bubble) => {
+                const selected = resolveTwilightAiBubble(settings.twilightAiBubble) === bubble.value;
+                return (
+                  <button key={bubble.value} type="button" aria-pressed={selected} aria-label={bubble.label} title={bubble.label}
+                    className={`twilight-color-option${selected ? " twilight-color-option-active" : ""}`}
+                    style={{ "--twilight-swatch-color": bubble.ink } as CSSProperties}
+                    onClick={() => updateSettings({ twilightAiBubble: bubble.value })}>
+                    <span className="twilight-color-swatch twilight-ai-swatch" style={{ background: bubble.color, color: bubble.ink }} aria-hidden="true">字</span>
+                  </button>
+                );
+              })}
+            </div>
+            <p className="group-glass-heading">MY BUBBLE</p>
             <div className="twilight-color-options" role="group" aria-label="群聊暮光气泡颜色">
               {TWILIGHT_BUBBLE_COLORS.map((color) => {
                 const selected = settings.groupTwilightBubbleColor === color.value;
@@ -942,7 +940,7 @@ export function GroupChatView({
                 );
               })}
             </div>
-            <p className="group-glass-heading">玻璃质感</p>
+            <p className="group-glass-heading">GLASS</p>
             <TwilightGlassSlider value={settings.twilightGlass} onChange={(twilightGlass) => updateSettings({ twilightGlass })} />
           </div>
         )}
