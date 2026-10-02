@@ -1072,6 +1072,7 @@ export async function POST(request: Request) {
   }
 
   let summerUsed = false;
+  let summerNotice = "";
   let summerSearch = "";
   let summerExactDate = "";
   let summerState: SummerState | null = null;
@@ -1166,9 +1167,8 @@ export async function POST(request: Request) {
         }
       }
     }
-  } catch (error) {
+  } catch {
     summerMs = Date.now() - summerStartedAt;
-    const message = error instanceof Error ? error.message : "unknown error";
     logChatTiming({
       status: "summer_error",
       total_ms: Date.now() - requestStartedAt,
@@ -1176,14 +1176,26 @@ export async function POST(request: Request) {
       summer_ms: summerMs,
       web_search: Boolean(webSearch),
     });
-    return Response.json({ reply: `summer 暂时无法读取：${message}` }, { status: 502 });
+    summerCalls.push({
+      tool: summerUsed ? "search" : "wake",
+      label: summerUsed
+        ? "Summer 检索暂时失败，已保留本轮读取的记忆"
+        : "Summer 暂时未连接，本轮未读取记忆；聊天继续",
+      status: "fallback",
+    });
+    summerNotice = summerUsed
+      ? "【本轮 Summer 状态】部分检索失败。可以使用本轮已提供的记忆和聊天记录；不要把检索失败说成没有相关记录，也不要编造未读取的内容。"
+      : "【本轮 Summer 状态】Summer 暂时无法读取。继续正常回答，只使用本窗口已提供的聊天记录；不要编造长期记忆、声称查到了旧事或已经写入 Summer。写入提议只会保留待确认。";
   }
   summerMs = Date.now() - summerStartedAt;
 
   const combinedDynamicPrompt = [
     dynamicPrompt,
+    summerNotice,
     directSummerWriteRequested
-      ? "【本轮 Summer 操作】她明确要求写入 Summer。请把整理后的可写内容放进 summer_remember 隐藏块；系统会直接写入，不要让她再点确认。"
+      ? summerState
+        ? "【本轮 Summer 操作】她明确要求写入 Summer。请把整理后的可写内容放进 summer_remember 隐藏块；系统会直接写入，不要让她再点确认。"
+        : "【本轮 Summer 操作】她明确要求写入 Summer，但目前无法读取记忆和检查重复。请把整理后的内容放进 summer_remember 隐藏块作为待确认提议，并如实说明尚未写入，等连接恢复后再确认。"
       : "",
     summerExactDate,
     summerSearch,
@@ -1299,7 +1311,7 @@ ${combinedDynamicPrompt}
         : [];
       const collectedProposals = collectSummerWriteProposals(reply);
       let summerWriteProposals: SummerWrite[];
-      if (directSummerWriteRequested && collectedProposals.length) {
+      if (directSummerWriteRequested && summerState && collectedProposals.length) {
         const directResult = await commitDirectSummerWrites(collectedProposals);
         summerWriteProposals = directResult.writes;
         summerCalls.push(...directResult.calls);
