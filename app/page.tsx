@@ -17,7 +17,7 @@ import { buildChatContext } from "./lib/chat-context";
 import { readChatResponse } from "./lib/chat-stream";
 import { useChatScrollPosition } from "./lib/use-chat-scroll-position";
 import { useTwilightLayout } from "./lib/use-twilight-layout";
-import { DEFAULT_TWILIGHT_GLASS, resolveTwilightAiBubble, resolveTwilightBubbleColor, resolveTwilightGlass, resolveTwilightEdge, resolveTwilightTone, TWILIGHT_AI_BUBBLES, TWILIGHT_BUBBLE_COLORS, TWILIGHT_EDGES, TWILIGHT_TONES, type TwilightAiBubble, type TwilightBubbleColor, type TwilightEdge, type TwilightTone } from "./lib/twilight-bubbles";
+import { DEFAULT_TWILIGHT_GLASS, resolveTwilightAiBubble, resolveTwilightBubbleColor, resolveTwilightGlass, resolveTwilightTone, TWILIGHT_AI_BUBBLES, TWILIGHT_BUBBLE_COLORS, TWILIGHT_TONES, type TwilightAiBubble, type TwilightBubbleColor, type TwilightTone } from "./lib/twilight-bubbles";
 import { TwilightGlassSlider } from "./components/TwilightGlassSlider";
 import { normalizeChatBackground } from "./lib/chat-background";
 import { normalizeHomeStyle, normalizeHomeWallPhotos } from "./lib/home-wall";
@@ -194,7 +194,6 @@ type Settings = {
   twilightTone?: TwilightTone;
   gptTwilightTone?: TwilightTone;
   groupTwilightTone?: TwilightTone;
-  twilightEdge?: TwilightEdge;
   twilightAiBubble?: TwilightAiBubble;
   twilightGlass: number;
   chatBackground: string;
@@ -327,7 +326,6 @@ function normalizeClaudeSettings(settings: Settings): Settings {
     twilightTone: resolveTwilightTone(settings.twilightTone),
     gptTwilightTone: resolveTwilightTone(settings.gptTwilightTone),
     groupTwilightTone: resolveTwilightTone(settings.groupTwilightTone),
-    twilightEdge: resolveTwilightEdge(settings.twilightEdge),
     twilightAiBubble: resolveTwilightAiBubble(settings.twilightAiBubble),
     twilightGlass: resolveTwilightGlass(settings.twilightGlass),
     chatBackground: normalizeChatBackground(settings.chatBackground),
@@ -1275,7 +1273,6 @@ export default function Home() {
           } as CSSProperties
           : undefined}
         data-twilight-tone={tab === "chat" && chatView !== "list" && settings.chatUiStyle === "glass" ? activeTwilightTone : undefined}
-        data-twilight-edge={tab === "chat" && chatView !== "list" && settings.chatUiStyle === "glass" ? resolveTwilightEdge(settings.twilightEdge) : undefined}
         data-chat-background={tab === "chat" && chatView !== "list" && settings.chatUiStyle === "glass" && activeChatBackground ? "image" : undefined}
         data-home-style={tab === "home" && settings.homeStyle === "wall" ? "wall" : undefined}
       >
@@ -2195,6 +2192,8 @@ function ChatView({
   const replyStatusTimersRef = useRef<Array<ReturnType<typeof setTimeout>>>([]);
   const [initialMessageCount] = useState(() => session.messages.length);
   const quietSummerWake = listEntryMode && settings.chatUiStyle === "glass";
+  const twilightRoom = listEntryMode && settings.chatUiStyle === "glass";
+  const showQuota = !isGpt && session.kind !== "memo";
   // Keep stored indices for proposal actions while excluding routine wake
   // notices from visible neighbours, timestamps and bubble grouping.
   const displayMessages = alignLegacySummerCalls(session.messages)
@@ -2860,6 +2859,14 @@ function ChatView({
                 </>
               ) : roomIdentity}
             </div>
+            {twilightRoom ? (
+              // 暮光: quota pill + work-context circle on the right, like the
+              // group header. The gear moves down beside the input.
+              <div className={`group-header-usage${developmentMode ? "" : " group-header-usage-quota-only"}`}>
+                {showQuota && <ClaudeUsageCircle {...claudeUsage} className="group-header-quota" title="剩余百分比：五小时 / 本周；详细额度在聊天设置" />}
+                {developmentMode && <ContextUsageBadge kind="work" sessionId={session.id} project={developmentProject} messages={workUsageMessages} />}
+              </div>
+            ) : (<>
             {developmentMode && <ContextUsageBadge kind="work" sessionId={session.id} project={developmentProject} messages={workUsageMessages} />}
             <button
               type="button"
@@ -2874,6 +2881,7 @@ function ChatView({
                 <circle cx="12" cy="12" r="3" />
               </svg>
             </button>
+            </>)}
           </div>
         </header>
       ) : (
@@ -2995,19 +3003,6 @@ function ChatView({
                       className={`chat-config-option${selected ? " chat-config-option-active" : ""}`}
                       onClick={() => updateSettings(isGpt ? { gptTwilightTone: tone.value } : { twilightTone: tone.value })}>
                       {tone.label}
-                    </button>
-                  );
-                })}
-              </div>
-              <p>EDGE · 浅色试用</p>
-              <div className="chat-config-options" role="group" aria-label="浅色玻璃边缘试用">
-                {TWILIGHT_EDGES.map((edge) => {
-                  const selected = resolveTwilightEdge(settings.twilightEdge) === edge.value;
-                  return (
-                    <button key={edge.value} type="button" aria-pressed={selected}
-                      className={`chat-config-option${selected ? " chat-config-option-active" : ""}`}
-                      onClick={() => updateSettings({ twilightEdge: edge.value })}>
-                      {edge.label}
                     </button>
                   );
                 })}
@@ -3319,7 +3314,21 @@ function ChatView({
               )}
             </button>
           </div>
-          {!isGpt && session.kind !== "memo" && <ClaudeUsageCircle {...claudeUsage} />}
+          {twilightRoom ? session.kind !== "memo" && (
+            <button
+              type="button"
+              className="attach-btn attach-btn-separate composer-settings-btn"
+              aria-label="聊天设置"
+              aria-expanded={showModelMenu}
+              title="聊天设置"
+              onClick={() => setShowModelMenu((open) => !open)}
+            >
+              <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                <path d="m9.5 3-.6 2.4-2 .9-2.3-.7L2 10l1.8 1.7v2.2L2 15.6l2.6 4.4 2.3-.7 2 .9.6 2.4h5l.6-2.4 2-.9 2.3.7 2.6-4.4-1.8-1.7v-2.2L22 10l-2.6-4.4-2.3.7-2-.9L14.5 3Z" transform="translate(0 -1) scale(1 .95)" />
+                <circle cx="12" cy="12" r="3" />
+              </svg>
+            </button>
+          ) : showQuota && <ClaudeUsageCircle {...claudeUsage} />}
         </div>
       </footer>
 

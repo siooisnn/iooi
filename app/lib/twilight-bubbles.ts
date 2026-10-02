@@ -44,23 +44,6 @@ export function resolveTwilightTone(value: unknown, fallback: TwilightTone = "da
   return value === "light" || value === "dark" ? value : fallback;
 }
 
-// 试用: three ways to keep 浅色 glass visible over white bubbles. Compare them
-// in chat settings, keep the favourite and delete the others.
-//   outline: hairline warm outline + deeper shadow (the current look)
-//   warm:    the same, with warm-grey glass instead of white
-//   fade:    the same outline, and messages fade out under the top/bottom bars
-export const TWILIGHT_EDGES = [
-  { value: "outline", label: "描边" },
-  { value: "warm", label: "暖灰" },
-  { value: "fade", label: "渐变" },
-] as const;
-
-export type TwilightEdge = typeof TWILIGHT_EDGES[number]["value"];
-
-export function resolveTwilightEdge(value: unknown): TwilightEdge {
-  return value === "warm" || value === "fade" ? value : "outline";
-}
-
 // The AI bubble, used on both tones (浅色/深色 only change the bars). The
 // time and date stamps follow the same choice so they match the bubbles.
 export const TWILIGHT_AI_BUBBLES = [

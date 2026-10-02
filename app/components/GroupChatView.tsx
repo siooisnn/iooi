@@ -4,7 +4,7 @@ import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type Chang
 import { readChatResponse } from "../lib/chat-stream";
 import { useChatScrollPosition } from "../lib/use-chat-scroll-position";
 import { useTwilightLayout } from "../lib/use-twilight-layout";
-import { resolveTwilightAiBubble, resolveTwilightEdge, resolveTwilightTone, TWILIGHT_AI_BUBBLES, TWILIGHT_BUBBLE_COLORS, TWILIGHT_EDGES, TWILIGHT_TONES, type TwilightAiBubble, type TwilightBubbleColor, type TwilightEdge, type TwilightTone } from "../lib/twilight-bubbles";
+import { resolveTwilightAiBubble, resolveTwilightTone, TWILIGHT_AI_BUBBLES, TWILIGHT_BUBBLE_COLORS, TWILIGHT_TONES, type TwilightAiBubble, type TwilightBubbleColor, type TwilightTone } from "../lib/twilight-bubbles";
 import { TwilightGlassSlider } from "./TwilightGlassSlider";
 import { ClaudeUsageCircle, useClaudeUsage } from "./ClaudeUsageBadge";
 import { messageTimestamp } from "../lib/chat-timeline";
@@ -66,7 +66,6 @@ type GroupSettings = {
   claudeReasoningEffort: string;
   groupTwilightBubbleColor?: TwilightBubbleColor;
   groupTwilightTone?: TwilightTone;
-  twilightEdge?: TwilightEdge;
   twilightAiBubble?: TwilightAiBubble;
   twilightGlass: number;
 };
@@ -343,7 +342,7 @@ export function GroupChatView({
   settings: GroupSettings;
   claudeModelId: string;
   gptModelId: string;
-  updateSettings: (partial: Partial<Pick<GroupSettings, "webSearch" | "gptWebSearch" | "groupTwilightBubbleColor" | "groupTwilightTone" | "twilightEdge" | "twilightAiBubble" | "twilightGlass">>) => void;
+  updateSettings: (partial: Partial<Pick<GroupSettings, "webSearch" | "gptWebSearch" | "groupTwilightBubbleColor" | "groupTwilightTone" | "twilightAiBubble" | "twilightGlass">>) => void;
   updateMessages: (updater: (messages: GroupChatMessage[]) => GroupChatMessage[]) => void;
   updateSummary: (summary: string, until: number) => void;
   setActiveSessionId: (id: string) => void;
@@ -965,19 +964,6 @@ export function GroupChatView({
                     className={`twilight-tone-option${selected ? " twilight-tone-option-active" : ""}`}
                     onClick={() => updateSettings({ groupTwilightTone: tone.value })}>
                     {tone.label}
-                  </button>
-                );
-              })}
-            </div>
-            <p className="group-glass-heading">EDGE · 浅色试用</p>
-            <div className="twilight-tone-options" role="group" aria-label="浅色玻璃边缘试用">
-              {TWILIGHT_EDGES.map((edge) => {
-                const selected = resolveTwilightEdge(settings.twilightEdge) === edge.value;
-                return (
-                  <button key={edge.value} type="button" aria-pressed={selected}
-                    className={`twilight-tone-option${selected ? " twilight-tone-option-active" : ""}`}
-                    onClick={() => updateSettings({ twilightEdge: edge.value })}>
-                    {edge.label}
                   </button>
                 );
               })}
