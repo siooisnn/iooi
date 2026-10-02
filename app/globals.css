@@ -3622,9 +3622,9 @@ body {
 }
 .context-usage-popover p { margin: 6px 0 0; }
 .context-usage-popover small { display: block; margin-top: 8px; color: var(--text-light); }
-/* Group rooms: the actions box is only as wide as the avatar (or "+"), so the
+/* Classic group rooms: the actions box is only as wide as the "+", so the
    back button and it stay symmetric and the title stays centred. The pill
-   hangs to its left, bottom-aligned with the larger avatar. */
+   hangs to its left. (暮光 group rooms use .group-header-usage instead.) */
 .group-header-actions { position: relative; display: flex; flex: 0 0 auto; align-items: center; }
 .group-header-actions .context-usage-control { right: calc(100% + 8px); top: auto; bottom: 0; transform: none; }
 .chat-container .room-settings-panel {
@@ -3634,8 +3634,6 @@ body {
 .room-settings-heading { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; font-size: 13px; }
 .room-settings-heading button { width: 30px; height: 30px; border: 0; border-radius: 50%; background: transparent; color: inherit; font-size: 24px; cursor: pointer; }
 .claude-usage-details { margin-bottom: 14px; padding-bottom: 10px; border-bottom: 1px solid var(--border-soft); }
-.group-user-avatar { width: 48px; height: 48px; flex: 0 0 48px; border-radius: 50%; }
-.app-bg .group-user-avatar .avatar { width: 100%; height: 100%; margin: 0; border-radius: inherit; }
 .group-chat-footer .group-composer-menu {
   position: absolute; left: 14px; right: 14px; bottom: calc(100% + 8px); margin: 0;
   flex-wrap: wrap; padding: 12px; border: 1px solid var(--border-soft); border-radius: 18px;

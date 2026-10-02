@@ -99,14 +99,16 @@ export function useClaudeUsage(enabled = true) {
 
 type UsageState = ReturnType<typeof useClaudeUsage>;
 
-export function ClaudeUsageCircle({ usage, loading }: UsageState) {
+// `className` swaps the composer circle for another shape (the 暮光 group
+// header shows it as a pill beside the context circle).
+export function ClaudeUsageCircle({ usage, loading, className = "composer-usage-circle", title = "剩余百分比：五小时 / 本周；详细额度在右上角设置" }: UsageState & { className?: string; title?: string }) {
   const fiveHourRemaining = remaining(usage?.five_hour) ?? "--";
   const weeklyRemaining = remaining(usage?.seven_day) ?? "--";
   const label = `${fiveHourRemaining}/${weeklyRemaining}`;
   return (
-    <div className={`composer-usage-circle${usage?.stale ? " composer-usage-stale" : ""}`}
+    <div className={`${className}${usage?.stale ? " composer-usage-stale" : ""}`}
       aria-label={loading ? "正在读取剩余额度" : `五小时剩余 ${fiveHourRemaining}%，本周剩余 ${weeklyRemaining}%${usage?.stale ? "，上次读取结果" : ""}`}
-      title="剩余百分比：五小时 / 本周；详细额度在右上角设置">
+      title={title}>
       {loading ? "…" : label}
     </div>
   );

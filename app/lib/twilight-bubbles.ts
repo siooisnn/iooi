@@ -44,10 +44,28 @@ export function resolveTwilightTone(value: unknown, fallback: TwilightTone = "da
   return value === "light" || value === "dark" ? value : fallback;
 }
 
+// 试用: three ways to keep 浅色 glass visible over white bubbles. Compare them
+// in chat settings, keep the favourite and delete the others.
+//   outline: hairline warm outline + deeper shadow (the current look)
+//   warm:    the same, with warm-grey glass instead of white
+//   fade:    the same outline, and messages fade out under the top/bottom bars
+export const TWILIGHT_EDGES = [
+  { value: "outline", label: "描边" },
+  { value: "warm", label: "暖灰" },
+  { value: "fade", label: "渐变" },
+] as const;
+
+export type TwilightEdge = typeof TWILIGHT_EDGES[number]["value"];
+
+export function resolveTwilightEdge(value: unknown): TwilightEdge {
+  return value === "warm" || value === "fade" ? value : "outline";
+}
+
 // The AI bubble, used on both tones (浅色/深色 only change the bars). The
 // time and date stamps follow the same choice so they match the bubbles.
 export const TWILIGHT_AI_BUBBLES = [
-  { value: "cream", label: "奶白", color: "#fbf3e8", ink: "#4a3628", stamp: "rgba(251, 243, 232, 0.94)", stampInk: "#6b5446" },
+  // The cream stamp is paler and lighter-inked than the bubble so it stays soft.
+  { value: "cream", label: "奶白", color: "#fbf3e8", ink: "#4a3628", stamp: "rgba(255, 251, 245, 0.78)", stampInk: "#8a7567" },
   { value: "white", label: "白底", color: "#ffffff", ink: "#1c1c1e", stamp: "rgba(255, 255, 255, 0.94)", stampInk: "#1c1c1e" },
 ] as const;
 

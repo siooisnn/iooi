@@ -17,7 +17,7 @@ import { buildChatContext } from "./lib/chat-context";
 import { readChatResponse } from "./lib/chat-stream";
 import { useChatScrollPosition } from "./lib/use-chat-scroll-position";
 import { useTwilightLayout } from "./lib/use-twilight-layout";
-import { DEFAULT_TWILIGHT_GLASS, resolveTwilightAiBubble, resolveTwilightBubbleColor, resolveTwilightGlass, resolveTwilightTone, TWILIGHT_AI_BUBBLES, TWILIGHT_BUBBLE_COLORS, TWILIGHT_TONES, type TwilightAiBubble, type TwilightBubbleColor, type TwilightTone } from "./lib/twilight-bubbles";
+import { DEFAULT_TWILIGHT_GLASS, resolveTwilightAiBubble, resolveTwilightBubbleColor, resolveTwilightGlass, resolveTwilightEdge, resolveTwilightTone, TWILIGHT_AI_BUBBLES, TWILIGHT_BUBBLE_COLORS, TWILIGHT_EDGES, TWILIGHT_TONES, type TwilightAiBubble, type TwilightBubbleColor, type TwilightEdge, type TwilightTone } from "./lib/twilight-bubbles";
 import { TwilightGlassSlider } from "./components/TwilightGlassSlider";
 import { normalizeChatBackground } from "./lib/chat-background";
 import { normalizeHomeStyle, normalizeHomeWallPhotos } from "./lib/home-wall";
@@ -194,6 +194,7 @@ type Settings = {
   twilightTone?: TwilightTone;
   gptTwilightTone?: TwilightTone;
   groupTwilightTone?: TwilightTone;
+  twilightEdge?: TwilightEdge;
   twilightAiBubble?: TwilightAiBubble;
   twilightGlass: number;
   chatBackground: string;
@@ -326,6 +327,7 @@ function normalizeClaudeSettings(settings: Settings): Settings {
     twilightTone: resolveTwilightTone(settings.twilightTone),
     gptTwilightTone: resolveTwilightTone(settings.gptTwilightTone),
     groupTwilightTone: resolveTwilightTone(settings.groupTwilightTone),
+    twilightEdge: resolveTwilightEdge(settings.twilightEdge),
     twilightAiBubble: resolveTwilightAiBubble(settings.twilightAiBubble),
     twilightGlass: resolveTwilightGlass(settings.twilightGlass),
     chatBackground: normalizeChatBackground(settings.chatBackground),
@@ -1273,6 +1275,7 @@ export default function Home() {
           } as CSSProperties
           : undefined}
         data-twilight-tone={tab === "chat" && chatView !== "list" && settings.chatUiStyle === "glass" ? activeTwilightTone : undefined}
+        data-twilight-edge={tab === "chat" && chatView !== "list" && settings.chatUiStyle === "glass" ? resolveTwilightEdge(settings.twilightEdge) : undefined}
         data-chat-background={tab === "chat" && chatView !== "list" && settings.chatUiStyle === "glass" && activeChatBackground ? "image" : undefined}
         data-home-style={tab === "home" && settings.homeStyle === "wall" ? "wall" : undefined}
       >
@@ -2992,6 +2995,19 @@ function ChatView({
                       className={`chat-config-option${selected ? " chat-config-option-active" : ""}`}
                       onClick={() => updateSettings(isGpt ? { gptTwilightTone: tone.value } : { twilightTone: tone.value })}>
                       {tone.label}
+                    </button>
+                  );
+                })}
+              </div>
+              <p>EDGE · 浅色试用</p>
+              <div className="chat-config-options" role="group" aria-label="浅色玻璃边缘试用">
+                {TWILIGHT_EDGES.map((edge) => {
+                  const selected = resolveTwilightEdge(settings.twilightEdge) === edge.value;
+                  return (
+                    <button key={edge.value} type="button" aria-pressed={selected}
+                      className={`chat-config-option${selected ? " chat-config-option-active" : ""}`}
+                      onClick={() => updateSettings({ twilightEdge: edge.value })}>
+                      {edge.label}
                     </button>
                   );
                 })}

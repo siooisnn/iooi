@@ -1,10 +1,10 @@
 "use client";
 
-import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, type CSSProperties } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, type CSSProperties, type ReactNode } from "react";
 import { readChatResponse } from "../lib/chat-stream";
 import { useChatScrollPosition } from "../lib/use-chat-scroll-position";
 import { useTwilightLayout } from "../lib/use-twilight-layout";
-import { resolveTwilightAiBubble, resolveTwilightTone, TWILIGHT_AI_BUBBLES, TWILIGHT_BUBBLE_COLORS, TWILIGHT_TONES, type TwilightAiBubble, type TwilightBubbleColor, type TwilightTone } from "../lib/twilight-bubbles";
+import { resolveTwilightAiBubble, resolveTwilightEdge, resolveTwilightTone, TWILIGHT_AI_BUBBLES, TWILIGHT_BUBBLE_COLORS, TWILIGHT_EDGES, TWILIGHT_TONES, type TwilightAiBubble, type TwilightBubbleColor, type TwilightEdge, type TwilightTone } from "../lib/twilight-bubbles";
 import { TwilightGlassSlider } from "./TwilightGlassSlider";
 import { ClaudeUsageCircle, useClaudeUsage } from "./ClaudeUsageBadge";
 import { messageTimestamp } from "../lib/chat-timeline";
@@ -66,6 +66,7 @@ type GroupSettings = {
   claudeReasoningEffort: string;
   groupTwilightBubbleColor?: TwilightBubbleColor;
   groupTwilightTone?: TwilightTone;
+  twilightEdge?: TwilightEdge;
   twilightAiBubble?: TwilightAiBubble;
   twilightGlass: number;
 };
@@ -273,6 +274,34 @@ function renderGroupContent(text: string) {
   ));
 }
 
+// Summer notes fold to one line, like the private chat: the first line (owner,
+// status, layer) plus the title is the toggle, and the rest opens on tap.
+// Accept/ignore buttons stay visible so a pending proposal never hides them.
+function GroupSummerCard({ message, children }: { message: GroupChatMessage; children?: ReactNode }) {
+  const [open, setOpen] = useState(false);
+  const [head = "", ...rest] = message.content.split("\n");
+  const isWrite = message.source?.startsWith("summer_write_");
+  const ignored = message.source === "summer_write_ignored";
+  const title = [head, isWrite ? rest[0] : "", ignored ? "已忽略" : ""].filter(Boolean).join(" · ");
+  const body = rest.join("\n").trim();
+  return (
+    <div className={`group-summer-card summer-collapse${ignored ? " group-summer-card-muted" : ""}`}>
+      {body ? (
+        <button type="button" className="summer-collapse-toggle" aria-expanded={open} onClick={() => setOpen(!open)}>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ transform: open ? "rotate(90deg)" : "none", transition: "transform 0.2s" }}>
+            <polyline points="9 18 15 12 9 6" />
+          </svg>
+          <span>{title}</span>
+        </button>
+      ) : (
+        <div className="summer-collapse-toggle summer-collapse-static"><span>{title}</span></div>
+      )}
+      {open && body && <div className="summer-collapse-content">{renderGroupContent(body)}</div>}
+      {children}
+    </div>
+  );
+}
+
 function proposalContent(
   proposal: GroupSummerWriteProposal,
   speaker: GroupSpeaker,
@@ -314,7 +343,7 @@ export function GroupChatView({
   settings: GroupSettings;
   claudeModelId: string;
   gptModelId: string;
-  updateSettings: (partial: Partial<Pick<GroupSettings, "webSearch" | "gptWebSearch" | "groupTwilightBubbleColor" | "groupTwilightTone" | "twilightAiBubble" | "twilightGlass">>) => void;
+  updateSettings: (partial: Partial<Pick<GroupSettings, "webSearch" | "gptWebSearch" | "groupTwilightBubbleColor" | "groupTwilightTone" | "twilightEdge" | "twilightAiBubble" | "twilightGlass">>) => void;
   updateMessages: (updater: (messages: GroupChatMessage[]) => GroupChatMessage[]) => void;
   updateSummary: (summary: string, until: number) => void;
   setActiveSessionId: (id: string) => void;
@@ -733,6 +762,44 @@ export function GroupChatView({
 
   return (
     <>
+      {twilight ? (
+        // 暮光: the same layout and sizes as the private room header. The
+        // avatar + name in the middle open the session list; the context
+        // usage takes the gear's place as a small circle, with the Claude
+        // quota as a pill to its left (like the private room's usage pill).
+        <header className="chat-header chat-room-header single-room-header group-room-header">
+          <div className="header-top">
+            <button className="header-icon-btn chat-room-back" onClick={onBack} aria-label="返回">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="14.5 5.5 8 12 14.5 18.5" />
+              </svg>
+            </button>
+            <button
+              className="header-center group-room-identity-toggle"
+              type="button"
+              onClick={() => setShowSessions((open) => !open)}
+              aria-expanded={showSessions}
+              aria-label={`${session.name}，切换群聊对话${session.summary ? "，已记住前情" : ""}${summarizing ? "，整理前情中" : ""}`}
+            >
+              <span className="chat-entry-avatar group-room-avatar" aria-hidden="true">
+                {[settings.aiAvatar, settings.gptAvatar, settings.userAvatar].map((avatar, index) => (
+                  <span key={index} className={`group-room-avatar-chip group-room-avatar-chip-${index + 1}`}>
+                    {avatar ? <img src={avatar} alt="" /> : <i />}
+                  </span>
+                ))}
+              </span>
+              <span className="chat-room-identity">
+                <h1 className="header-title chat-room-title">一个群</h1>
+                <svg className="group-session-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9" /></svg>
+              </span>
+            </button>
+            <div className="group-header-usage">
+              <ClaudeUsageCircle {...claudeUsage} className="group-header-quota" title="剩余百分比：五小时 / 本周" />
+              <ContextUsageBadge kind="group" sessionId={session.id} messages={usageMessages} systemPrompt={usageSystemPrompt} />
+            </div>
+          </div>
+        </header>
+      ) : (
       <header className="chat-header chat-room-header group-room-header">
         <div className="header-top">
           <button className="header-icon-btn chat-room-back" onClick={onBack} aria-label="返回">
@@ -748,8 +815,7 @@ export function GroupChatView({
             aria-label={`${session.name}${session.summary ? "，已记住前情" : ""}${summarizing ? "，整理前情中" : ""}`}
           >
             <h1 className="header-title chat-room-title">一个群</h1>
-            {twilight && <svg className="group-session-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><polyline points="6 9 12 15 18 9" /></svg>}
-            {!twilight && <span className="header-subtitle chat-room-status">
+            <span className="header-subtitle chat-room-status">
               <svg className="group-session-people" width="17" height="17" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
                 <circle cx="8.5" cy="7.5" r="3.25" />
                 <circle cx="16.5" cy="8.5" r="2.5" />
@@ -758,15 +824,15 @@ export function GroupChatView({
               </svg>
               <span>{groupOrdinal}</span>
               <svg className="group-session-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9" /></svg>
-            </span>}
+            </span>
           </button>
           <div className="group-header-actions">
             <ContextUsageBadge kind="group" sessionId={session.id} messages={usageMessages} systemPrompt={usageSystemPrompt} />
-            {twilight ? <div className="group-user-avatar" aria-label={settings.userName || "我的头像"}><Avatar src={settings.userAvatar} user /></div> :
-              <button className="header-icon-btn group-session-new" type="button" onClick={() => { createSession(); setShowSessions(false); }} aria-label="新群聊">＋</button>}
+            <button className="header-icon-btn group-session-new" type="button" onClick={() => { createSession(); setShowSessions(false); }} aria-label="新群聊">＋</button>
           </div>
         </div>
       </header>
+      )}
 
       {showSessions && (
         <div className="group-session-switcher">
@@ -812,17 +878,14 @@ export function GroupChatView({
                 <div className={isUser ? "msg-content-user" : "msg-content-ai"}>
                   {!twilight && <span className={`msg-time ${!isUser ? "group-speaker-meta" : ""}`}>{!isUser && owner ? `${owner} · ` : ""}{message.time}</span>}
                   {isUtility ? (
-                    <div className={`group-summer-card ${message.source === "summer_write_ignored" ? "group-summer-card-muted" : ""}`}>
-                      <div className="group-summer-owner">{owner} · 独立 Summer</div>
-                      <div className="group-summer-content">{message.content}</div>
+                    <GroupSummerCard message={message}>
                       {message.source === "summer_write_proposal" && (
                         <div className="summer-proposal-actions">
                           <button onClick={() => acceptProposal(message, index)}>加入 {speakerName(message.speaker!, settings)} Summer</button>
                           <button onClick={() => discardProposal(message, index)}>忽略</button>
                         </div>
                       )}
-                      {message.source === "summer_write_ignored" && <div className="group-summer-state">已忽略</div>}
-                    </div>
+                    </GroupSummerCard>
                   ) : messageImages(message).length > 0 ? (
                     <div className={`msg-bubble msg-bubble-img ${isUser ? "msg-bubble-user" : "msg-bubble-ai"}`}>
                       {messageImages(message).length === 1 ? (
@@ -902,6 +965,19 @@ export function GroupChatView({
                     className={`twilight-tone-option${selected ? " twilight-tone-option-active" : ""}`}
                     onClick={() => updateSettings({ groupTwilightTone: tone.value })}>
                     {tone.label}
+                  </button>
+                );
+              })}
+            </div>
+            <p className="group-glass-heading">EDGE · 浅色试用</p>
+            <div className="twilight-tone-options" role="group" aria-label="浅色玻璃边缘试用">
+              {TWILIGHT_EDGES.map((edge) => {
+                const selected = resolveTwilightEdge(settings.twilightEdge) === edge.value;
+                return (
+                  <button key={edge.value} type="button" aria-pressed={selected}
+                    className={`twilight-tone-option${selected ? " twilight-tone-option-active" : ""}`}
+                    onClick={() => updateSettings({ twilightEdge: edge.value })}>
+                    {edge.label}
                   </button>
                 );
               })}
@@ -1055,7 +1131,7 @@ export function GroupChatView({
               )}
             </button>
           </div>
-          <ClaudeUsageCircle {...claudeUsage} />
+          {!twilight && <ClaudeUsageCircle {...claudeUsage} />}
         </div>
       </footer>
     </>
