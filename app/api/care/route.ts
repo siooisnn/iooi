@@ -92,7 +92,7 @@ export async function POST() {
         } else {
           if (mainSession?.messages?.length) {
             recentLines = mainSession.messages.filter((m) => !m.source?.startsWith("summer_")).slice(-6).map(
-              (m) => `${m.role === "user" ? settings.userName || "她" : settings.aiName || "我"}：${(m.content || "").slice(0, 80)}`
+              (m) => `${m.role === "user" ? "她" : settings.aiName || "我"}：${(m.content || "").slice(0, 80)}`
             );
           }
 

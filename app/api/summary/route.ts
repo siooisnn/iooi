@@ -11,7 +11,7 @@ type SummaryMessage = {
 
 export async function POST(request: Request) {
   try {
-    const { mode, previousSummary, messages, aiName, gptName, userName, modelId, reasoningEffort } = await request.json();
+    const { mode, previousSummary, messages, aiName, gptName, modelId, reasoningEffort } = await request.json();
     const usableMessages = (Array.isArray(messages) ? messages : [])
       .filter((m: SummaryMessage) => m && (m.role === "user" || m.role === "assistant") && String(m.content || "").trim())
       .slice(0, 80);
@@ -21,7 +21,8 @@ export async function POST(request: Request) {
     }
 
     const me = aiName || "王酥酥";
-    const her = userName || "宝宝";
+    // Her nickname is display-only and never reaches the model.
+    const her = "她";
     const gpt = gptName || "GPT";
     const isGroup = mode === "group";
     const chatText = usableMessages.map((m: SummaryMessage) => {

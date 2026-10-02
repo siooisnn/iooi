@@ -79,6 +79,9 @@ type ModelMessage = {
 };
 type ReplyState = "idle" | "preparing" | "waiting" | "slow" | "very-slow" | "paused";
 
+// Her settings nickname is display-only; models always see this fixed label.
+const GROUP_USER_LABEL = "她";
+
 const GPT_GROUP_PROMPT = `你是 GPT，正在一个名为“一个群”的三人群聊里。群成员是用户、王酥酥（Claude）和你。
 你只能读取这间群聊的消息和属于 GPT 的独立 summer；不要读取、猜测或引用王酥酥（Claude）的私聊与 summer。`;
 
@@ -201,7 +204,7 @@ function buildModelMessages(messages: GroupChatMessage[], target: GroupSpeaker, 
     if (message.role === "user") {
       next = {
         role: "user",
-        content: `【${settings.userName || "用户"}在群里说】\n${message.content || (messageImages(message).length ? "请看这些图片。" : "请看这个文件。")}`,
+        content: `【${GROUP_USER_LABEL}在群里说】\n${message.content || (messageImages(message).length ? "请看这些图片。" : "请看这个文件。")}`,
         ...imageFields(messageImages(message)),
         ...(message.file ? { file: message.file } : {}),
       };
@@ -231,7 +234,7 @@ function groupSystemPrompt(speaker: GroupSpeaker, settings: GroupSettings) {
   const other = speakerName(speaker === "claude" ? "gpt" : "claude", settings);
   const base = speaker === "claude" ? settings.prompt : GPT_GROUP_PROMPT;
   return `${base}\n\n【群聊规则】
-你现在以“${me}”的身份参加“一个群”，群成员是${settings.userName || "用户"}、${settings.aiName || "王酥酥"}和${settings.gptName || "GPT"}。
+你现在以“${me}”的身份参加“一个群”，群成员是${GROUP_USER_LABEL}、${settings.aiName || "王酥酥"}和${settings.gptName || "GPT"}。
 带有“${other}在群里说”的内容是另一位成员刚才的发言，你可以自然接话、赞同或提出不同看法。
 只代表你自己说话，不要替另一位成员发言，不要模拟下一轮对话。每次只回复这一轮，然后停下。
 默认简洁自然，直接面向群里的人说话。你只能使用自己的 summer，绝不能声称看见另一位模型的私聊或 summer。
@@ -390,7 +393,7 @@ export function GroupChatView({
     .filter(({ message }) => !message.source?.startsWith("summer_") && message.source !== "group_error")
     .map(({ message, originalIndex }) => ({
       index: originalIndex, role: message.role,
-      speaker: message.role === "user" ? settings.userName || "用户" : speakerName(message.speaker || "claude", settings),
+      speaker: message.role === "user" ? GROUP_USER_LABEL : speakerName(message.speaker || "claude", settings),
       content: message.content || (messageImages(message).length ? "[发送了图片]" : message.file ? "[发送了一个文件]" : ""),
       media: Boolean(messageImages(message).length || message.file),
     })), [session.messages, settings]);
@@ -518,7 +521,7 @@ export function GroupChatView({
           .filter(({ message }) => !message.source?.startsWith("summer_") && message.source !== "group_error")
           .map(({ message, originalIndex }) => ({
             index: originalIndex, role: message.role,
-            speaker: message.role === "user" ? settings.userName || "用户" : speakerName(message.speaker || "claude", settings),
+            speaker: message.role === "user" ? GROUP_USER_LABEL : speakerName(message.speaker || "claude", settings),
             content: message.content || (messageImages(message).length ? "[发送了图片]" : message.file ? "[发送了一个文件]" : ""),
             media: Boolean(messageImages(message).length || message.file),
           })),

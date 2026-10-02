@@ -2317,9 +2317,9 @@ function ChatView({
 
   function buildStablePrompt(): string {
     if (isGpt) {
-      return `${GPT_DEFAULT_PROMPT}\n\n你在这个窗口显示的名字是${assistantName}，用户称呼是${settings.userName}。`;
+      return `${GPT_DEFAULT_PROMPT}\n\n你在这个窗口显示的名字是${assistantName}。`;
     }
-    return settings.prompt + `\n\n你叫${settings.aiName}。你叫她${settings.userName}。
+    return settings.prompt + `\n\n你叫${settings.aiName}。
 回复时请正常使用中文标点符号（句号、逗号、问号、感叹号等），不要省略标点。
 永远直接对她说话，用"你"而不是"她"。不要写第三人称旁白、独白或场景描写（如"她来了""看着她的消息"），你不是旁白者，你是她的对话对象。
 当前时间只来自后台时间上下文；聊天记录正文不包含时间戳，不要在回复开头补写方括号日期时间。
@@ -4210,7 +4210,6 @@ function SettingsView({
           previousSummary: session.summary || "",
           messages: slice.map((m) => ({ role: m.role, content: m.content })),
           aiName: isGpt ? "GPT" : settings.aiName,
-          userName: settings.userName,
           modelId: isGpt ? resolveGptModel(settings.gptModel).apiId : currentModel.apiId,
           reasoningEffort: isGpt ? settings.gptReasoningEffort : undefined,
         }),
