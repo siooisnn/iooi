@@ -367,9 +367,18 @@
   line-height: 19px;
 }
 :root[data-theme="white-pink"] .chat-container:not([data-chat-ui="glass"]) .single-room-header .chat-room-status {
+  /* globals.css gives it align-self: baseline, which a column flexbox treats
+     as start, pushing the line to the left edge. */
+  align-self: center;
   max-width: 100%;
   margin-left: 0;
   line-height: 12px;
+  text-align: center;
+}
+
+/* The gear sits at the far left of the input row (left of the paperclip). */
+:root[data-theme="white-pink"] .chat-container:not([data-chat-ui="glass"]) .single-chat-footer .composer-settings-btn {
+  order: -1;
 }
 
 /* Composer row one sixth lower: 44px → 37px. Icons keep their size. */
