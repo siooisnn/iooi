@@ -746,7 +746,7 @@ export function GroupChatView({
   }
 
   const displayedMessages = visibleGroupMessages(session.messages).filter(({ message }) =>
-    !(twilight && message.source === "summer_call" && message.content.includes("已读取 Summer 唤醒内容与记忆状态")));
+    !(message.source === "summer_call" && message.content.includes("已读取 Summer 唤醒内容与记忆状态")));
   function messageTime(message: GroupChatMessage) {
     if (message.date && message.date !== today()) {
       const stamp = messageTimestamp(message);

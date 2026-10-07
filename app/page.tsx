@@ -2192,20 +2192,21 @@ function ChatView({
   const activeReplyRequestRef = useRef<{ id: number; controller: AbortController } | null>(null);
   const replyStatusTimersRef = useRef<Array<ReturnType<typeof setTimeout>>>([]);
   const [initialMessageCount] = useState(() => session.messages.length);
-  const quietSummerWake = listEntryMode && settings.chatUiStyle === "glass";
+  // Routine Summer wake notices stay hidden in every chat theme.
+  const quietSummerWake = true;
   const twilightRoom = listEntryMode && settings.chatUiStyle === "glass";
   const showQuota = !isGpt && session.kind !== "memo";
   // Keep stored indices for proposal actions while excluding routine wake
   // notices from visible neighbours, timestamps and bubble grouping.
   const displayMessages = alignLegacySummerCalls(session.messages)
     .map((message, index) => ({ message, index }))
-    .filter(({ message }) => !(quietSummerWake && message.source === "summer_call" &&
+    .filter(({ message }) => !(message.source === "summer_call" &&
       message.content.includes("已读取 Summer 唤醒内容与记忆状态")));
   const { scrollRef, handleScroll, followLatest } = useChatScrollPosition(
     `iooi-scroll-${assistantMode}-${session.id}`,
     session.messages.length + streamingReply.length,
   );
-  useTwilightLayout(quietSummerWake, scrollRef);
+  useTwilightLayout(twilightRoom, scrollRef);
 
   // ── 巧思:随机输入提示 / 扣6彩蛋 ──
   const [heartRain, setHeartRain] = useState(false);
