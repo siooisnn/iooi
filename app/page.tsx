@@ -4125,6 +4125,8 @@ function SummerPageView({ assistantMode, assistantName }: { assistantMode: Assis
 }
 
 // Settings View
+type SettingsSection = "appearance" | "background" | "care" | "advanced";
+
 function SettingsView({
   assistantMode,
   settings,
@@ -4143,6 +4145,7 @@ function SettingsView({
   const isGpt = assistantMode === "gpt";
   const [cacheBusy, setCacheBusy] = useState(false);
   const [cacheMessage, setCacheMessage] = useState("");
+  const [section, setSection] = useState<SettingsSection | null>(null);
   function handleAvatarUpload(field: "aiAvatar" | "gptAvatar" | "userAvatar") {
     const input = document.createElement("input");
     input.type = "file";
@@ -4228,21 +4231,65 @@ function SettingsView({
   }
 
   const manualCache = manualCacheSlice();
+  const assistantLabel = isGpt ? (settings.gptName || "GPT") : (settings.aiName || CLAUDE_DEFAULT_NAME);
+  const backgroundCount = [settings.chatBackground, settings.gptChatBackground, settings.groupChatBackground].filter(Boolean).length;
+  const cacheSummary = lastCache?.status === "hit" ? "上轮命中缓存"
+    : lastCache?.status === "write" ? "上轮写入缓存"
+    : lastCache?.status === "miss" ? "上轮未命中"
+    : "缓存状态与上下文";
+  const sections: { id: SettingsSection; title: string; summary: string }[] = [
+    {
+      id: "appearance",
+      title: "外观",
+      summary: [
+        settings.homeStyle === "wall" ? "照片墙" : "月亮",
+        settings.chatUiStyle === "glass" ? "暮光" : "经典",
+        settings.fontSize === "large" ? "字体大一号" : "默认字体",
+      ].join(" · "),
+    },
+    {
+      id: "background",
+      title: "聊天背景",
+      summary: backgroundCount > 0 ? `已设置 ${backgroundCount} 张` : "还没有设置",
+    },
+    ...(!isGpt ? [{
+      id: "care" as const,
+      title: "陪伴",
+      summary: [
+        settings.proactiveCare ? "主动关心开" : "主动关心关",
+        settings.city?.trim() || "未设城市",
+        settings.startDate ? "纪念日已设" : "纪念日未设",
+      ].join(" · "),
+    }] : []),
+    {
+      id: "advanced",
+      title: "缓存与调试",
+      summary: cacheSummary,
+    },
+  ];
+  const activeSection = sections.find((item) => item.id === section) || null;
 
   return (
     <>
       <header className="chat-header compact-section-header">
         <div className="header-top">
-          <span className="header-dot" />
+          {activeSection ? (
+            <button type="button" className="header-dot settings-back-btn" aria-label="返回设置" onClick={() => setSection(null)}>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6" /></svg>
+            </button>
+          ) : <span className="header-dot" />}
           <div className="header-center">
-            <h1 className="header-title">设置</h1>
-            <span className="header-subtitle" style={{ color: "var(--accent-text)" }}>Settings · {isGpt ? "GPT" : (settings.aiName || CLAUDE_DEFAULT_NAME)}</span>
+            <h1 className="header-title">{activeSection ? activeSection.title : "设置"}</h1>
+            <span className="header-subtitle" style={{ color: "var(--accent-text)" }}>
+              {activeSection ? `设置 · ${assistantLabel}` : `Settings · ${assistantLabel}`}
+            </span>
           </div>
           <span className="header-dot" />
         </div>
       </header>
 
-      <section className="settings-body">
+      <section className="settings-body" key={section || "index"}>
+        {!activeSection && <>
         <div className="settings-group">
           <h2 className="settings-group-title">称呼与头像</h2>
           <div className="avatar-upload-row">
@@ -4300,6 +4347,20 @@ function SettingsView({
           </div>
         </div>
 
+        <nav className="settings-group settings-menu" aria-label="设置分类">
+          {sections.map((item) => (
+            <button type="button" key={item.id} className="settings-menu-row" onClick={() => setSection(item.id)}>
+              <span className="settings-menu-text">
+                <span className="settings-menu-title">{item.title}</span>
+                <span className="settings-menu-summary">{item.summary}</span>
+              </span>
+              <svg className="settings-menu-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M9 18l6-6-6-6" /></svg>
+            </button>
+          ))}
+        </nav>
+        </>}
+
+        {section === "appearance" && <>
         <div className="settings-group">
           <h2 className="settings-group-title">首页</h2>
           <div className="chat-theme-options" role="group" aria-label="首页样式">
@@ -4309,27 +4370,6 @@ function SettingsView({
             ))}
           </div>
           <p className="settings-hint">照片墙上长按画框就能换照片，手机和电脑同步。选择会自动保存。</p>
-        </div>
-
-        <div className="settings-group">
-          <h2 className="settings-group-title" id="font-size-title">聊天字体大小</h2>
-          <div className="font-size-options" role="group" aria-labelledby="font-size-title">
-            {([
-              { value: "default", label: "默认" },
-              { value: "large", label: "大一号" },
-            ] as const).map((option) => (
-              <button
-                key={option.value}
-                type="button"
-                className={`model-option ${settings.fontSize === option.value ? "model-option-active" : ""}`}
-                aria-pressed={settings.fontSize === option.value}
-                onClick={() => updateSettings({ fontSize: option.value })}
-              >
-                {option.label}
-              </button>
-            ))}
-          </div>
-          <p className="settings-hint">只调整聊天页，消息列表始终使用大一号的样式。选择会自动保存。</p>
         </div>
 
         <div className="settings-group">
@@ -4351,6 +4391,32 @@ function SettingsView({
           </div>
         )}
 
+        <div className="settings-group">
+          <h2 className="settings-group-title" id="font-size-title">聊天字体大小</h2>
+          <div className="font-size-options" role="group" aria-labelledby="font-size-title">
+            {([
+              { value: "default", label: "默认" },
+              { value: "large", label: "大一号" },
+            ] as const).map((option) => (
+              <button
+                key={option.value}
+                type="button"
+                className={`model-option ${settings.fontSize === option.value ? "model-option-active" : ""}`}
+                aria-pressed={settings.fontSize === option.value}
+                onClick={() => updateSettings({ fontSize: option.value })}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+          <p className="settings-hint">只调整聊天页，消息列表始终使用大一号的样式。选择会自动保存。</p>
+        </div>
+        </>}
+
+        {section === "background" && <>
+        {settings.chatUiStyle !== "glass" && (
+          <p className="settings-hint settings-notice">聊天背景只在「暮光」主题下显示，可以在「外观」里切换。</p>
+        )}
         <ChatBackgroundSetting
           name={settings.aiName || CLAUDE_DEFAULT_NAME}
           background={settings.chatBackground}
@@ -4367,8 +4433,9 @@ function SettingsView({
           onChange={(groupChatBackground) => updateSettings({ groupChatBackground })}
           group
         />
+        </>}
 
-        {!isGpt && <>
+        {section === "care" && !isGpt && <>
         <div className="settings-group">
           <h2 className="settings-group-title">主动关心</h2>
           <p className="settings-hint">关掉后 heartbeat 只会安静检查，不会主动写消息或推送通知</p>
@@ -4433,6 +4500,7 @@ function SettingsView({
         </div>
         </>}
 
+        {section === "advanced" && <>
         {isGpt && <div className="settings-group">
           <h2 className="settings-group-title">会话缓存</h2>
           <p className="settings-hint">
@@ -4459,6 +4527,7 @@ function SettingsView({
           sessionMessageCount={session?.messages.length ?? 0}
           sessionUserTurns={session?.messages.filter((m) => m.role === "user").length ?? 0}
         />
+        </>}
       </section>
     </>
   );

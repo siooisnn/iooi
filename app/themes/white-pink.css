@@ -148,6 +148,14 @@
   display: none;
 }
 
+/* Every title bar drops 16px below iOS's status-bar blur, like the wall door plate.
+   Only 暮光 chat rooms keep the blur so it blends with chat backgrounds: their
+   `.app-bg .chat-container[data-chat-ui="glass"] .chat-header` padding is more specific.
+   min() limits the extra space to devices with a top safe area, so desktop is unchanged. */
+:root[data-theme="white-pink"] .chat-header {
+  padding-top: calc(7px + env(safe-area-inset-top) + min(16px, env(safe-area-inset-top)));
+}
+
 :root[data-theme="white-pink"] :is(.chat-room-back, .chat-room-more) {
   border-color: var(--border-soft);
   background: #ffffff;
@@ -241,7 +249,7 @@
 
 :root[data-theme="white-pink"] :is(.home-card, .counter-item, .mini-counter, .letter-card,
   .summer-native-toolbar, .summer-layer-card, .summer-memory-card, .summer-memory-group,
-  .summer-doc, .summer-writer, .settings-input, .settings-textarea, .model-option) {
+  .summer-doc, .summer-writer, .settings-input, .settings-textarea, .model-option, .settings-menu) {
   background-color: var(--theme-surface-soft);
 }
 

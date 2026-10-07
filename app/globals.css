@@ -115,7 +115,7 @@ body {
 
 /* ── Header ── */
 .chat-header {
-  padding: calc(5px + env(safe-area-inset-top)) 14px 5px;
+  padding: calc(5px + env(safe-area-inset-top) + min(16px, env(safe-area-inset-top))) 14px 5px;
   border-bottom: 1px solid var(--glass-border);
   background: var(--bg-chat);
   backdrop-filter: blur(20px);
@@ -138,8 +138,9 @@ body {
 
 .header-title { font-size: 17px; line-height: 1.25; font-weight: 700; color: var(--text-primary); letter-spacing: 3px; }
 
+/* Title bars clear iOS's status-bar blur on phones; only 暮光 chat rooms keep it. */
 .home-header {
-  padding-top: calc(11px + env(safe-area-inset-top));
+  padding-top: calc(11px + env(safe-area-inset-top) + min(16px, env(safe-area-inset-top)));
   padding-bottom: 6px;
 }
 
@@ -151,7 +152,7 @@ body {
 .home-header .header-title { line-height: 20px; }
 
 .compact-section-header {
-  padding-top: calc(10px + env(safe-area-inset-top));
+  padding-top: calc(10px + env(safe-area-inset-top) + min(16px, env(safe-area-inset-top)));
 }
 
 .compact-section-header .header-center { gap: 0; }
@@ -167,7 +168,7 @@ body {
 }
 
 .direct-chat-header {
-  padding-top: env(safe-area-inset-top);
+  padding-top: calc(env(safe-area-inset-top) + min(16px, env(safe-area-inset-top)));
 }
 
 .direct-chat-header .header-center {
@@ -221,7 +222,7 @@ body {
 }
 
 .chat-list-page-header {
-  padding-top: calc(2px + env(safe-area-inset-top));
+  padding-top: calc(2px + env(safe-area-inset-top) + min(16px, env(safe-area-inset-top)));
   padding-bottom: 9px;
   border-bottom: none;
 }
@@ -2736,6 +2737,53 @@ body {
 .settings-hint { font-size: 12px; color: var(--text-light); margin-top: -4px; }
 .settings-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .settings-label { font-size: 14px; color: var(--text-primary); flex-shrink: 0; }
+
+.settings-back-btn {
+  border: 0;
+  padding: 0;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+.settings-back-btn::before { display: none; }
+
+.settings-menu {
+  gap: 0;
+  border: 1px solid var(--border-soft);
+  border-radius: 16px;
+  background: white;
+  overflow: hidden;
+}
+
+.settings-menu-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 14px 16px;
+  border: 0;
+  border-top: 1px solid var(--border-soft);
+  background: transparent;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+.settings-menu-row:first-child { border-top: 0; }
+.settings-menu-row:hover,
+.settings-menu-row:focus-visible { background: rgba(var(--theme-accent-rgb, 196, 134, 108), 0.06); outline: none; }
+
+.settings-menu-text { display: flex; flex-direction: column; gap: 3px; flex: 1; min-width: 0; }
+.settings-menu-title { font-size: 14px; color: var(--text-primary); }
+.settings-menu-summary {
+  font-size: 12px;
+  color: var(--text-light);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.settings-menu-chevron { flex-shrink: 0; color: var(--text-light); }
+
+.settings-notice { margin-top: 0; }
 
 .settings-input {
   width: 140px;

@@ -46,7 +46,7 @@ export function ChatBackgroundSetting({ name, background, onChange, group = fals
           </button>
         )}
       </div>
-      <p className="settings-hint">{group ? "只用于群聊" : `只用于和${name}的聊天`}，照片自动保存。在上方选择「暮光」主题后显示。</p>
+      <p className="settings-hint">{group ? "只用于群聊" : `只用于和${name}的聊天`}，照片自动保存。</p>
       {error && <p className="settings-hint" role="alert">{error}</p>}
     </div>
   );
