@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import type { ReactNode } from "react";
 import { twilightGlassScale } from "../lib/twilight-bubbles";
+import { applyStoredStatusBarClearance } from "./StatusBarClearanceSlider";
 
 function syncBrowserChrome() {
   const root = document.documentElement;
@@ -16,6 +17,7 @@ function syncBrowserChrome() {
 export function ThemeProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     try { localStorage.removeItem("iooi-theme"); } catch { /* Appearance is fixed even without storage. */ }
+    applyStoredStatusBarClearance();
     syncBrowserChrome();
   }, []);
   return children;

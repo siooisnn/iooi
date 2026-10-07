@@ -115,7 +115,7 @@ body {
 
 /* ── Header ── */
 .chat-header {
-  padding: calc(5px + env(safe-area-inset-top) + min(16px, env(safe-area-inset-top))) 14px 5px;
+  padding: calc(5px + env(safe-area-inset-top) + min(var(--status-bar-clearance, 16px), env(safe-area-inset-top))) 14px 5px;
   border-bottom: 1px solid var(--glass-border);
   background: var(--bg-chat);
   backdrop-filter: blur(20px);
@@ -140,7 +140,7 @@ body {
 
 /* Title bars clear iOS's status-bar blur on phones; only 暮光 chat rooms keep it. */
 .home-header {
-  padding-top: calc(11px + env(safe-area-inset-top) + min(16px, env(safe-area-inset-top)));
+  padding-top: calc(11px + env(safe-area-inset-top) + min(var(--status-bar-clearance, 16px), env(safe-area-inset-top)));
   padding-bottom: 6px;
 }
 
@@ -152,7 +152,7 @@ body {
 .home-header .header-title { line-height: 20px; }
 
 .compact-section-header {
-  padding-top: calc(10px + env(safe-area-inset-top) + min(16px, env(safe-area-inset-top)));
+  padding-top: calc(10px + env(safe-area-inset-top) + min(var(--status-bar-clearance, 16px), env(safe-area-inset-top)));
 }
 
 .compact-section-header .header-center { gap: 0; }
@@ -168,7 +168,7 @@ body {
 }
 
 .direct-chat-header {
-  padding-top: calc(env(safe-area-inset-top) + min(16px, env(safe-area-inset-top)));
+  padding-top: calc(env(safe-area-inset-top) + min(var(--status-bar-clearance, 16px), env(safe-area-inset-top)));
 }
 
 .direct-chat-header .header-center {
@@ -222,7 +222,7 @@ body {
 }
 
 .chat-list-page-header {
-  padding-top: calc(2px + env(safe-area-inset-top) + min(16px, env(safe-area-inset-top)));
+  padding-top: calc(2px + env(safe-area-inset-top) + min(var(--status-bar-clearance, 16px), env(safe-area-inset-top)));
   padding-bottom: 9px;
   border-bottom: none;
 }

@@ -19,6 +19,7 @@ import { useChatScrollPosition } from "./lib/use-chat-scroll-position";
 import { useTwilightLayout } from "./lib/use-twilight-layout";
 import { DEFAULT_TWILIGHT_GLASS, resolveTwilightAiBubble, resolveTwilightBubbleColor, resolveTwilightGlass, resolveTwilightTone, TWILIGHT_AI_BUBBLES, TWILIGHT_BUBBLE_COLORS, TWILIGHT_TONES, type TwilightAiBubble, type TwilightBubbleColor, type TwilightTone } from "./lib/twilight-bubbles";
 import { TwilightGlassSlider } from "./components/TwilightGlassSlider";
+import { StatusBarClearanceSlider } from "./components/StatusBarClearanceSlider";
 import { normalizeChatBackground } from "./lib/chat-background";
 import { normalizeHomeStyle, normalizeHomeWallPhotos } from "./lib/home-wall";
 import type { HomeStyle } from "./lib/home-wall";
@@ -2866,22 +2867,13 @@ function ChatView({
                 {showQuota && <ClaudeUsageCircle {...claudeUsage} className="group-header-quota" title="剩余百分比：五小时 / 本周；详细额度在聊天设置" />}
                 {developmentMode && <ContextUsageBadge kind="work" sessionId={session.id} project={developmentProject} messages={workUsageMessages} />}
               </div>
-            ) : (<>
-            {developmentMode && <ContextUsageBadge kind="work" sessionId={session.id} project={developmentProject} messages={workUsageMessages} />}
-            <button
-              type="button"
-              className="header-icon-btn chat-room-more chat-ui-toggle"
-              aria-label="聊天设置"
-              aria-expanded={showModelMenu}
-              title="聊天设置"
-              onClick={() => setShowModelMenu((open) => !open)}
-            >
-              <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                <path d="m9.5 3-.6 2.4-2 .9-2.3-.7L2 10l1.8 1.7v2.2L2 15.6l2.6 4.4 2.3-.7 2 .9.6 2.4h5l.6-2.4 2-.9 2.3.7 2.6-4.4-1.8-1.7v-2.2L22 10l-2.6-4.4-2.3.7-2-.9L14.5 3Z" transform="translate(0 -1) scale(1 .95)" />
-                <circle cx="12" cy="12" r="3" />
-              </svg>
-            </button>
-            </>)}
+            ) : (
+              // 经典: the quota sits top right as plain numbers; the gear and the
+              // work-context circle live beside the input.
+              <div className="room-header-usage">
+                {showQuota && <ClaudeUsageCircle {...claudeUsage} className="room-header-quota" title="剩余百分比：五小时 / 本周；详细额度在聊天设置" />}
+              </div>
+            )}
           </div>
         </header>
       ) : (
@@ -3314,7 +3306,10 @@ function ChatView({
               )}
             </button>
           </div>
-          {twilightRoom ? session.kind !== "memo" && (
+          {listEntryMode && !twilightRoom && developmentMode && (
+            <ContextUsageBadge kind="work" sessionId={session.id} project={developmentProject} messages={workUsageMessages} />
+          )}
+          {listEntryMode ? session.kind !== "memo" && (
             <button
               type="button"
               className="attach-btn attach-btn-separate composer-settings-btn"
@@ -4501,6 +4496,13 @@ function SettingsView({
         </>}
 
         {section === "advanced" && <>
+        <div className="settings-group">
+          <h2 className="settings-group-title">标题下移（临时）</h2>
+          <p className="settings-hint">
+            拖动时页面标题会跟着上下移动。往上推到标题刚要被状态栏虚化盖住之前停下，记下这个数字。只在有刘海或灵动岛的手机上生效，只存在这台设备上。
+          </p>
+          <StatusBarClearanceSlider />
+        </div>
         {isGpt && <div className="settings-group">
           <h2 className="settings-group-title">会话缓存</h2>
           <p className="settings-hint">

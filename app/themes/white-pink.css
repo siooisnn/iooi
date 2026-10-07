@@ -153,7 +153,7 @@
    `.app-bg .chat-container[data-chat-ui="glass"] .chat-header` padding is more specific.
    min() limits the extra space to devices with a top safe area, so desktop is unchanged. */
 :root[data-theme="white-pink"] .chat-header {
-  padding-top: calc(7px + env(safe-area-inset-top) + min(16px, env(safe-area-inset-top)));
+  padding-top: calc(7px + env(safe-area-inset-top) + min(var(--status-bar-clearance, 16px), env(safe-area-inset-top)));
 }
 
 :root[data-theme="white-pink"] :is(.chat-room-back, .chat-room-more) {
@@ -170,7 +170,9 @@
 }
 
 :root[data-theme="white-pink"] .bottom-nav {
-  padding-bottom: max(4px, calc(env(safe-area-inset-bottom) - 20px));
+  /* 6px higher than before (the gap between a tab label and its pink bar),
+     so the iPhone home indicator doesn't crowd the tabs. */
+  padding-bottom: max(4px, calc(env(safe-area-inset-bottom) - 14px));
 }
 
 /* Touch browsers can retain :hover after a tap; it must not dim the active tab. */
@@ -272,8 +274,9 @@
 }
 
 :root[data-theme="white-pink"] .chat-config-option-active {
-  border-color: #dcdce2;
-  background-color: #f0f0f2;
+  border-color: rgba(228, 72, 131, 0.45);
+  background-color: rgba(228, 72, 131, 0.08);
+  color: var(--accent-text);
 }
 
 /* Match the outer canvas used by browser/system bars to the page's title bar. */
@@ -320,4 +323,122 @@
 }
 :root[data-theme="white-pink"] .chat-container[data-home-style="wall"] .nav-btn:not([aria-current="page"]) {
   color: #8d7479;
+}
+
+/* ── 经典 chat rooms (single, work mode, group). 暮光 rooms carry
+   data-chat-ui="glass" and keep their own layout in chat-glass.css. ── */
+:root[data-theme="white-pink"] .chat-container:not([data-chat-ui="glass"]) :is(.chat-room-back, .chat-room-back:hover) {
+  border-color: transparent;
+  background: transparent;
+}
+
+/* Claude quota as plain numbers in the top-right slot. The slot is as wide as
+   the back button so the title stays centred; wider numbers spill left. */
+.room-header-usage {
+  position: relative;
+  flex: 0 0 32px;
+  width: 32px;
+  height: 32px;
+}
+.room-header-quota {
+  position: absolute;
+  top: 0;
+  right: 0;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -.2px;
+  white-space: nowrap;
+}
+.room-header-quota.composer-usage-stale { opacity: .55; }
+
+/* Status / work line sits centred under the name. */
+:root[data-theme="white-pink"] .chat-container:not([data-chat-ui="glass"]) .single-room-header .header-center {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+}
+:root[data-theme="white-pink"] .chat-container:not([data-chat-ui="glass"]) .single-room-header .chat-room-title {
+  line-height: 19px;
+}
+:root[data-theme="white-pink"] .chat-container:not([data-chat-ui="glass"]) .single-room-header .chat-room-status {
+  max-width: 100%;
+  margin-left: 0;
+  line-height: 12px;
+}
+
+/* Composer row one sixth lower: 44px → 37px. Icons keep their size. */
+:root[data-theme="white-pink"] .chat-container:not([data-chat-ui="glass"]) .chat-footer :is(.attach-btn.attach-btn-separate, .composer-usage-circle) {
+  width: 37px;
+  height: 37px;
+  flex: 0 0 37px;
+}
+:root[data-theme="white-pink"] .chat-container:not([data-chat-ui="glass"]) .chat-footer .input-wrapper {
+  padding: 2px 3px 2px 13px;
+}
+:root[data-theme="white-pink"] .chat-container:not([data-chat-ui="glass"]) .chat-footer .chat-input {
+  min-height: 31px;
+  padding: 5px 0;
+}
+:root[data-theme="white-pink"] .chat-container:not([data-chat-ui="glass"]) .chat-footer .send-btn {
+  width: 31px;
+  height: 31px;
+}
+:root[data-theme="white-pink"] .chat-container:not([data-chat-ui="glass"]) .chat-footer .composer-upload-error {
+  margin-left: 47px;
+}
+
+/* Context usage as a circle beside the input; its note opens upward. */
+.chat-footer .context-usage-control {
+  position: relative;
+  top: auto;
+  right: auto;
+  transform: none;
+  flex: 0 0 auto;
+}
+.chat-footer .context-usage-badge {
+  width: 37px;
+  min-width: 37px;
+  height: 37px;
+  padding: 0;
+  border-radius: 50%;
+  background: #ffffff;
+  font-weight: 500;
+}
+.chat-footer .context-usage-popover {
+  top: auto;
+  bottom: calc(100% + 8px);
+}
+
+/* Settings open from the gear beside the input, just above the input row,
+   and never reach under the title bar. */
+:root[data-theme="white-pink"] .chat-container:not([data-chat-ui="glass"]) .room-settings-panel {
+  top: auto;
+  bottom: calc(56px + env(safe-area-inset-bottom) / 2);
+  max-height: calc(100dvh - 48px - env(safe-area-inset-top) - min(var(--status-bar-clearance, 16px), env(safe-area-inset-top))
+    - 56px - env(safe-area-inset-bottom) / 2 - 8px);
+}
+
+/* Remaining quota in pink instead of green. */
+:root[data-theme="white-pink"] .chat-container:not([data-chat-ui="glass"]) .claude-usage-row b {
+  color: var(--accent-text);
+}
+
+/* The footer is otherwise grey; switches that are on use the send button's pink. */
+:root[data-theme="white-pink"] .chat-container:not([data-chat-ui="glass"]) .chat-footer .chat-config-switch-on {
+  color: #b82d63;
+}
+:root[data-theme="white-pink"] .chat-container:not([data-chat-ui="glass"]) .chat-footer .chat-config-switch-on i,
+:root[data-theme="white-pink"] .chat-container:not([data-chat-ui="glass"]) .group-mention-row .group-web-search-trigger-active::after {
+  background: #e44883;
+}
+
+/* The group list under the title shows more rows (its last row opens a new group). */
+:root[data-theme="white-pink"] .chat-container:not([data-chat-ui="glass"]) .group-session-switcher {
+  max-height: min(480px, 60dvh);
 }

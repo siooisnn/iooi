@@ -828,9 +828,10 @@ export function GroupChatView({
               <svg className="group-session-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9" /></svg>
             </span>
           </button>
-          <div className="group-header-actions">
-            <ContextUsageBadge kind="group" sessionId={session.id} messages={usageMessages} systemPrompt={usageSystemPrompt} />
-            <button className="header-icon-btn group-session-new" type="button" onClick={() => { createSession(); setShowSessions(false); }} aria-label="新群聊">＋</button>
+          {/* 经典: the quota is plain numbers top right; new groups open from the
+              list under the title, and the context circle sits beside the input. */}
+          <div className="room-header-usage">
+            <ClaudeUsageCircle {...claudeUsage} className="room-header-quota" title="剩余百分比：五小时 / 本周" />
           </div>
         </div>
       </header>
@@ -1120,7 +1121,7 @@ export function GroupChatView({
               )}
             </button>
           </div>
-          {!twilight && <ClaudeUsageCircle {...claudeUsage} />}
+          {!twilight && <ContextUsageBadge kind="group" sessionId={session.id} messages={usageMessages} systemPrompt={usageSystemPrompt} />}
         </div>
       </footer>
     </>
