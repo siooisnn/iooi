@@ -175,6 +175,15 @@
 :root[data-theme="white-pink"] .chat-container:not([data-chat-ui="glass"]) .chat-footer {
   background: #fafafa;
   border-top: 1px solid var(--glass-border);
+  /* Same space under the row as the bottom nav leaves under its tab labels
+     (.nav-btn 8px + .bottom-nav padding-bottom). */
+  padding-bottom: calc(8px + max(4px, calc(env(safe-area-inset-bottom) - 14px)));
+}
+
+/* Classic single rooms are as tall as the bottom nav: 1px line + 10px + 37px row
+   matches the nav's 1px line + 4px + 6px above its 37px icon-and-label stack. */
+:root[data-theme="white-pink"] .chat-container:not([data-chat-ui="glass"]) .single-chat-footer {
+  padding-top: 10px;
 }
 
 :root[data-theme="white-pink"] .bottom-nav {
@@ -436,9 +445,10 @@
    and never reach under the title bar. */
 :root[data-theme="white-pink"] .chat-container:not([data-chat-ui="glass"]) .room-settings-panel {
   top: auto;
-  bottom: calc(56px + env(safe-area-inset-bottom) / 2);
+  /* Footer (1 + 10 + 37 + 8 + bottom inset share) plus a 7px gap. */
+  bottom: calc(63px + max(4px, calc(env(safe-area-inset-bottom) - 14px)));
   max-height: calc(100dvh - 48px - env(safe-area-inset-top) - min(18px, env(safe-area-inset-top))
-    - 56px - env(safe-area-inset-bottom) / 2 - 8px);
+    - 63px - max(4px, calc(env(safe-area-inset-bottom) - 14px)) - 8px);
 }
 
 /* Remaining quota in pink instead of green. */
