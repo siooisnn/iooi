@@ -741,12 +741,14 @@
    Only the bars change; bubbles and pop-up panels look the same on both tones. */
 .app-bg .chat-container[data-chat-ui="glass"][data-twilight-tone="light"] {
   --chat-glass-surface: rgba(255, 255, 255, 0.62);
-  --chat-glass-border: rgba(255, 255, 255, 0.86);
+  /* The surface already paints under the border, so a bright white border
+     stacks into a visible white ring. Keep it barely above the surface. */
+  --chat-glass-border: rgba(255, 255, 255, 0.18);
   --chat-glass-ink: #3d2e25;
   --chat-glass-muted: rgba(61, 46, 37, 0.72);
   /* A hairline warm outline and a deeper drop shadow keep the white glass
      visible when it floats over white bubbles or a pale wall. */
-  --chat-glass-shadow: 0 0 0 0.5px rgba(61, 46, 37, 0.16), 0 6px 20px rgba(80, 50, 40, 0.16), inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  --chat-glass-shadow: 0 0 0 0.5px rgba(61, 46, 37, 0.16), 0 6px 20px rgba(80, 50, 40, 0.16), inset 0 1px 0 rgba(255, 255, 255, 0.55);
 }
 
 .app-bg .chat-container[data-chat-ui="glass"][data-twilight-tone="light"] :is(.chat-room-back, .chat-ui-toggle,
@@ -769,7 +771,7 @@
 
 .app-bg .chat-container[data-chat-ui="glass"][data-twilight-tone="light"] :is(.chat-ui-toggle, .chat-room-back,
   .chat-control-pill, .claude-usage-pill, .attach-btn.attach-btn-separate):hover {
-  border-color: #fff;
+  border-color: rgba(255, 255, 255, 0.45);
 }
 
 /* A faint lift keeps white bubbles from melting into a white wall. */
