@@ -3,7 +3,7 @@ import { isClaudeCodeEnabled, normalizeClaudeCodeModel, runClaudeCodeChat } from
 import { isCodeProject, isCodeTaskRunning, runClaudeCodeTask } from "@/app/lib/claude-code-task";
 import { startCodeTask, updateCodeTask } from "@/app/lib/code-task-state";
 import { workContextHistory } from "@/app/lib/work-context";
-import { imageKey, messageImages, MAX_IMAGES_PER_MESSAGE, sanitizeIncomingMessage } from "@/app/lib/message-images";
+import { currentRoundStart, imageKey, messageImages, MAX_IMAGES_PER_MESSAGE, sanitizeIncomingMessage } from "@/app/lib/message-images";
 import { startCodeRelease } from "@/app/lib/code-release";
 import { parseCodeReleaseCommand } from "@/app/lib/code-release-command";
 import { extractSummerSearchTarget } from "@/app/lib/summer-search-query";
@@ -1061,7 +1061,10 @@ export async function POST(request: Request) {
     logChatTiming({ status: "disabled", total_ms: Date.now() - requestStartedAt, user_persist_ms: userPersistMs });
     return Response.json({ reply: "Claude 订阅通道暂时不可用；这条消息没有转用 API。" }, { status: 503 });
   }
-  const { images: imageBlocks, skipped: skippedImages } = collectClaudeImages(requestMessages);
+  // Earlier images were already seen in their own round; re-attaching them in
+  // the flattened transcript makes Claude think she just sent them again.
+  const roundStart = currentRoundStart(requestMessages);
+  const { images: imageBlocks, skipped: skippedImages } = collectClaudeImages(requestMessages.slice(roundStart));
 
   // --- System 数组里只放稳定部分,带 cache_control ---
   // dynamicPrompt(summary/mood/时间/unresolved cares)每轮都变,
@@ -1202,8 +1205,14 @@ export async function POST(request: Request) {
   ].filter(Boolean).join("\n\n");
 
   // 图片只从 iooi 自己的 uploads 目录读取并交给 Claude 订阅；文件仍明确拒绝，不会切换到 API。
-  const anthropicMessages: Array<{ role: string; content: string | Array<TextBlock | ImageBlock> }> = requestMessages.map((msg) => {
+  const anthropicMessages: Array<{ role: string; content: string | Array<TextBlock | ImageBlock> }> = requestMessages.map((msg, index) => {
     const urls = messageImages(msg);
+    if (index < roundStart) {
+      const note = urls.length
+        ? `【系统提示：这条较早消息当时附了${urls.length > 1 ? ` ${urls.length} 张` : "一张"}图片，之前那一轮已经看过，本轮不再重复附带；她这次没有新发图片。】`
+        : "";
+      return { role: msg.role, content: [String(msg.content || ""), note].filter(Boolean).join("\n") };
+    }
     const attached = urls.flatMap((url) => {
       const image = imageBlocks.get(url);
       return image ? [image] : [];

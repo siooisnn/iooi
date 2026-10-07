@@ -54,6 +54,17 @@ export function sanitizeIncomingMessage<T extends { content?: unknown; image?: u
     : next;
 }
 
+// The Claude subscription channel flattens the whole transcript into one user
+// turn, so any image re-sent from history looks freshly attached. Only messages
+// after the model's last reply belong to the current round; in group chat that
+// still covers her image followed by the other member's comment.
+export function currentRoundStart(messages: Array<{ role?: unknown }>) {
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    if (messages[index]?.role === "assistant") return index + 1;
+  }
+  return 0;
+}
+
 export function imageKey(message: { image?: unknown; images?: unknown }) {
   return messageImages(message).join("|");
 }
