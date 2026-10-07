@@ -19,7 +19,6 @@ import { useChatScrollPosition } from "./lib/use-chat-scroll-position";
 import { useTwilightLayout } from "./lib/use-twilight-layout";
 import { DEFAULT_TWILIGHT_GLASS, resolveTwilightAiBubble, resolveTwilightBubbleColor, resolveTwilightGlass, resolveTwilightTone, TWILIGHT_AI_BUBBLES, TWILIGHT_BUBBLE_COLORS, TWILIGHT_TONES, type TwilightAiBubble, type TwilightBubbleColor, type TwilightTone } from "./lib/twilight-bubbles";
 import { TwilightGlassSlider } from "./components/TwilightGlassSlider";
-import { StatusBarClearanceSlider } from "./components/StatusBarClearanceSlider";
 import { normalizeChatBackground } from "./lib/chat-background";
 import { normalizeHomeStyle, normalizeHomeWallPhotos } from "./lib/home-wall";
 import type { HomeStyle } from "./lib/home-wall";
@@ -4275,7 +4274,7 @@ function SettingsView({
             </button>
           ) : <span className="header-dot" />}
           <div className="header-center">
-            <h1 className="header-title">{activeSection ? activeSection.title : "设置"}</h1>
+            <h1 className="header-title">{activeSection ? activeSection.title : "settings"}</h1>
             <span className="header-subtitle" style={{ color: "var(--accent-text)" }}>
               {activeSection ? `设置 · ${assistantLabel}` : `Settings · ${assistantLabel}`}
             </span>
@@ -4497,13 +4496,6 @@ function SettingsView({
         </>}
 
         {section === "advanced" && <>
-        <div className="settings-group">
-          <h2 className="settings-group-title">标题下移（临时）</h2>
-          <p className="settings-hint">
-            拖动时页面标题会跟着上下移动。往上推到标题刚要被状态栏虚化盖住之前停下，记下这个数字。只在有刘海或灵动岛的手机上生效，只存在这台设备上。
-          </p>
-          <StatusBarClearanceSlider />
-        </div>
         {isGpt && <div className="settings-group">
           <h2 className="settings-group-title">会话缓存</h2>
           <p className="settings-hint">

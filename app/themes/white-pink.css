@@ -148,12 +148,12 @@
   display: none;
 }
 
-/* Every title bar drops 16px below iOS's status-bar blur, like the wall door plate.
+/* Every title bar drops 18px below iOS's status-bar blur, like the wall door plate.
    Only 暮光 chat rooms keep the blur so it blends with chat backgrounds: their
    `.app-bg .chat-container[data-chat-ui="glass"] .chat-header` padding is more specific.
    min() limits the extra space to devices with a top safe area, so desktop is unchanged. */
 :root[data-theme="white-pink"] .chat-header {
-  padding-top: calc(7px + env(safe-area-inset-top) + min(var(--status-bar-clearance, 16px), env(safe-area-inset-top)));
+  padding-top: calc(7px + env(safe-area-inset-top) + min(18px, env(safe-area-inset-top)));
 }
 
 :root[data-theme="white-pink"] :is(.chat-room-back, .chat-room-more) {
@@ -167,6 +167,14 @@
 
 :root[data-theme="white-pink"] .chat-footer {
   padding-bottom: calc(4px + env(safe-area-inset-bottom) / 2);
+}
+
+/* Classic rooms: lift the composer bar off the #f5f5f5 message list with a
+   slightly lighter gray (still not white, so the white input stays distinct)
+   plus the same hairline the title bar has underneath. */
+:root[data-theme="white-pink"] .chat-container:not([data-chat-ui="glass"]) .chat-footer {
+  background: #fafafa;
+  border-top: 1px solid var(--glass-border);
 }
 
 :root[data-theme="white-pink"] .bottom-nav {
@@ -429,7 +437,7 @@
 :root[data-theme="white-pink"] .chat-container:not([data-chat-ui="glass"]) .room-settings-panel {
   top: auto;
   bottom: calc(56px + env(safe-area-inset-bottom) / 2);
-  max-height: calc(100dvh - 48px - env(safe-area-inset-top) - min(var(--status-bar-clearance, 16px), env(safe-area-inset-top))
+  max-height: calc(100dvh - 48px - env(safe-area-inset-top) - min(18px, env(safe-area-inset-top))
     - 56px - env(safe-area-inset-bottom) / 2 - 8px);
 }
 
