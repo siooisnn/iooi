@@ -1,0 +1,118 @@
+/* Home, chat list, summer and settings go full screen like 暮光 rooms: each
+   page runs edge to edge, the title floats over it as a frosted pill with
+   round frosted buttons beside it, and the tab bar floats over the bottom.
+   useFullscreenShell measures --shell-header-space and --shell-nav-space; the
+   fallbacks match the classic 48px title bar and the bottom nav.
+   The photo-wall home already has its own see-through door plate. */
+.app-bg[data-fullscreen-shell="true"] > .chat-container:not([data-home-style="wall"]) {
+  position: relative;
+  --shell-header-fallback: calc(47px + env(safe-area-inset-top) + min(18px, env(safe-area-inset-top)));
+  --shell-nav-fallback: calc(56px + max(4px, calc(env(safe-area-inset-bottom) - 14px)));
+  --shell-glass-surface: rgba(255, 255, 255, 0.72);
+  --shell-glass-border: rgba(255, 255, 255, 0.86);
+  --shell-glass-shadow: 0 2px 12px rgba(35, 35, 45, 0.08);
+  --shell-glass-filter: blur(18px) saturate(1.4);
+}
+
+/* ── Floating title ── */
+.app-bg[data-fullscreen-shell="true"] > .chat-container:not([data-home-style="wall"]) > .chat-header {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 30;
+  overflow: visible;
+  border-bottom: 0;
+  background: transparent;
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  pointer-events: none;
+  animation: none;
+}
+
+.app-bg[data-fullscreen-shell="true"] > .chat-container:not([data-home-style="wall"]) > .chat-header :is(button, a, input) {
+  pointer-events: auto;
+}
+
+.app-bg[data-fullscreen-shell="true"] > .chat-container:not([data-home-style="wall"]) > .chat-header .header-title {
+  padding: 0 18px;
+  border: 1px solid var(--shell-glass-border);
+  border-radius: 999px;
+  background: var(--shell-glass-surface);
+  box-shadow: var(--shell-glass-shadow);
+  backdrop-filter: var(--shell-glass-filter);
+  -webkit-backdrop-filter: var(--shell-glass-filter);
+  line-height: 30px;
+}
+
+.app-bg[data-fullscreen-shell="true"] > .chat-container:not([data-home-style="wall"]) > .chat-header :is(.header-icon-btn, .settings-back-btn) {
+  border: 1px solid var(--shell-glass-border);
+  border-radius: 50%;
+  background: var(--shell-glass-surface);
+  box-shadow: var(--shell-glass-shadow);
+  backdrop-filter: var(--shell-glass-filter);
+  -webkit-backdrop-filter: var(--shell-glass-filter);
+  color: var(--accent);
+}
+
+.app-bg[data-fullscreen-shell="true"] > .chat-container:not([data-home-style="wall"]) > .chat-header .settings-back-btn {
+  padding: 0;
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
+/* ── Floating tab bar ── */
+.app-bg[data-fullscreen-shell="true"] > .chat-container:not([data-home-style="wall"]) > .bottom-nav {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 30;
+  border-top: 1px solid rgba(255, 255, 255, 0.7);
+  background: rgba(247, 247, 248, 0.72);
+  backdrop-filter: var(--shell-glass-filter);
+  -webkit-backdrop-filter: var(--shell-glass-filter);
+}
+
+/* ── Pages run under both ── */
+.app-bg[data-fullscreen-shell="true"] > .chat-container:not([data-home-style="wall"]) > :is(.home-body, .chat-entry-body, .diary-body, .settings-body) {
+  flex: 1 1 auto;
+  min-height: 0;
+  height: 100%;
+  overflow-y: auto;
+  scroll-padding-top: calc(var(--shell-header-space, var(--shell-header-fallback)) + 8px);
+  scroll-padding-bottom: calc(var(--shell-nav-space, var(--shell-nav-fallback)) + 8px);
+}
+
+.app-bg[data-fullscreen-shell="true"] > .chat-container:not([data-home-style="wall"]) > .chat-entry-body {
+  padding-top: calc(var(--shell-header-space, var(--shell-header-fallback)) + 12px);
+  padding-bottom: 0;
+}
+
+.app-bg[data-fullscreen-shell="true"] > .chat-container:not([data-home-style="wall"]) > .home-body.moon-home {
+  padding-top: calc(var(--shell-header-space, var(--shell-header-fallback)) + 4px);
+  padding-bottom: 0;
+}
+
+.app-bg[data-fullscreen-shell="true"] > .chat-container:not([data-home-style="wall"]) > .diary-body {
+  padding-top: calc(var(--shell-header-space, var(--shell-header-fallback)) + 16px);
+  padding-bottom: 0;
+}
+
+.app-bg[data-fullscreen-shell="true"] > .chat-container:not([data-home-style="wall"]) > .settings-body {
+  padding-top: calc(var(--shell-header-space, var(--shell-header-fallback)) + 20px);
+  padding-bottom: 0;
+}
+
+/* A real spacer, not padding, keeps the end reachable in Safari's flex
+   scrollers; it carries each page's old bottom padding plus the tab bar. */
+.app-bg[data-fullscreen-shell="true"] > .chat-container:not([data-home-style="wall"]) > :is(.home-body, .chat-entry-body, .diary-body, .settings-body)::after {
+  content: "";
+  display: block;
+  flex: 0 0 calc(var(--shell-nav-space, var(--shell-nav-fallback)) + var(--shell-page-end, 16px));
+  margin-top: calc(-1 * var(--shell-page-gap, 0px));
+}
+
+.app-bg[data-fullscreen-shell="true"] > .chat-container:not([data-home-style="wall"]) > .home-body { --shell-page-end: 24px; --shell-page-gap: 4px; }
+.app-bg[data-fullscreen-shell="true"] > .chat-container:not([data-home-style="wall"]) > .settings-body { --shell-page-end: 20px; --shell-page-gap: 12px; }

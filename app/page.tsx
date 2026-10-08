@@ -18,6 +18,7 @@ import { buildChatContext } from "./lib/chat-context";
 import { readChatResponse } from "./lib/chat-stream";
 import { useChatScrollPosition } from "./lib/use-chat-scroll-position";
 import { useTwilightLayout } from "./lib/use-twilight-layout";
+import { useFullscreenShell } from "./lib/use-fullscreen-shell";
 import { DEFAULT_TWILIGHT_GLASS, resolveTwilightAiBubble, resolveTwilightBubbleColor, resolveTwilightGlass, resolveTwilightTone, TWILIGHT_AI_BUBBLES, TWILIGHT_BUBBLE_COLORS, TWILIGHT_TONES, type TwilightAiBubble, type TwilightBubbleColor, type TwilightTone } from "./lib/twilight-bubbles";
 import { TwilightGlassSlider } from "./components/TwilightGlassSlider";
 import { normalizeChatBackground } from "./lib/chat-background";
@@ -764,6 +765,7 @@ export default function Home() {
   const [chatView, setChatView] = useState<"list" | "room" | "group">("list");
   const [settings, setSettings] = useState<Settings>(defaultSettings);
   const chatRoomOpen = tab === "chat" && chatView !== "list";
+  const shellRef = useRef<HTMLDivElement>(null);
   useAccentColor(settings.accentColor, !(chatRoomOpen && settings.chatUiStyle === "glass"));
   const activeChatBackground = !chatRoomOpen ? ""
     : settings.chatUiStyle === "glass" ? settings.twilightChatBackground || "" : settings.classicChatBackground || "";
@@ -801,6 +803,8 @@ export default function Home() {
   const [needKey, setNeedKey] = useState(false);
   const [keyInput, setKeyInput] = useState("");
   const [mounted, setMounted] = useState(false);
+  // The shell div only exists once the app is unlocked and mounted.
+  useFullscreenShell(mounted && !needKey && !chatRoomOpen, shellRef);
   const deletedSessionIds = useRef<Set<string>>(new Set(loadLocalRaw<string[]>("iooi-deleted-session-ids", [])));
   const gptDeletedSessionIds = useRef<Set<string>>(new Set(loadLocalRaw<string[]>("iooi-gpt-deleted-session-ids", [])));
 
@@ -1274,6 +1278,7 @@ export default function Home() {
       data-fullscreen-shell={tab === "chat" && chatView !== "list" ? undefined : "true"}
       data-twilight-room={tab === "chat" && chatView !== "list" && settings.chatUiStyle === "glass" ? "true" : undefined}>
       <div
+        ref={shellRef}
         className="chat-container"
         data-chat-view={tab === "chat" ? chatView : undefined}
         data-chat-ui={tab === "chat" && (chatView === "room" || (chatView === "group" && settings.chatUiStyle === "glass")) ? settings.chatUiStyle : undefined}
