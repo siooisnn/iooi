@@ -383,7 +383,7 @@
 }
 
 /* ── 经典 private rooms: times on white pills (the 暮光 stamps, in white),
-   round avatars at the same size ── */
+   round avatars at the same size (group rooms too, without the time pills) ── */
 :root[data-theme] .app-bg .chat-container[data-chat-ui="default"] :is(.date-separator-text, .msg-time) {
   display: inline-block;
   width: max-content;
@@ -394,7 +394,7 @@
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
 }
 
-:root[data-theme] .app-bg .chat-container[data-chat-ui="default"] .msg-row > :is(.avatar, .avatar-img) {
+:root[data-theme] .app-bg .chat-container:is([data-chat-ui="default"], [data-chat-view="group"]:not([data-chat-ui])) .msg-row > :is(.avatar, .avatar-img) {
   border-radius: 50%;
 }
 
@@ -441,6 +441,125 @@
   backdrop-filter: var(--liquid-glass-filter);
 }
 
+/* ━━ heartbeat log and 碎片 list ━━
+   Their titles float as glass like the chat list's: a 36px back button and
+   title pill level with the 暮光 back button, the page running underneath.
+   碎片's motto gets its own small, long pill under the title. */
+:root[data-theme] :is(.hb-log-overlay > .chat-header, .fragment-overlay:not(.fragment-editor-overlay) > .fragment-header) {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 30;
+  min-height: 0;
+  padding: var(--float-top) var(--float-right) 0 var(--float-left);
+  border-bottom: 0;
+  background: transparent;
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  pointer-events: none;
+  animation: none;
+}
+
+:root[data-theme] .hb-log-overlay > .chat-header :is(button, a),
+:root[data-theme] .fragment-overlay:not(.fragment-editor-overlay) > .fragment-header > button {
+  pointer-events: auto;
+}
+
+/* heartbeat */
+:root[data-theme] .hb-log-overlay > .chat-header .header-top {
+  height: var(--float-size);
+  align-items: center;
+}
+
+:root[data-theme] .hb-log-overlay > .chat-header :is(.header-icon-btn, .header-icon-spacer) {
+  width: var(--float-size);
+  height: var(--float-size);
+  flex: 0 0 var(--float-size);
+}
+
+:root[data-theme] .hb-log-overlay > .chat-header .header-center {
+  gap: 0;
+}
+
+:root[data-theme] .hb-log-overlay > .chat-header .header-title {
+  box-sizing: border-box;
+  height: var(--float-size);
+  padding: 0 17px 0 20px;
+  border-radius: 999px;
+  letter-spacing: 3px;
+  line-height: calc(var(--float-size) - 1px);
+}
+
+:root[data-theme] .hb-log-overlay > .hb-log-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  padding-top: calc(var(--float-top) + var(--float-size) + 16px);
+  padding-bottom: calc(16px + env(safe-area-inset-bottom));
+}
+
+/* 碎片: back and ＋ at either side, title and motto stacked between. */
+:root[data-theme] .fragment-overlay:not(.fragment-editor-overlay) > .fragment-header {
+  grid-template-columns: var(--float-size) minmax(0, 1fr) var(--float-size);
+  align-items: start;
+}
+
+:root[data-theme] .fragment-overlay:not(.fragment-editor-overlay) > .fragment-header .fragment-round-button {
+  width: var(--float-size);
+  height: var(--float-size);
+  padding: 0;
+  color: var(--text-primary);
+}
+
+:root[data-theme] .fragment-overlay:not(.fragment-editor-overlay) > .fragment-header .fragment-page-heading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+:root[data-theme] .fragment-overlay:not(.fragment-editor-overlay) > .fragment-header .fragment-page-heading h2 {
+  box-sizing: border-box;
+  height: var(--float-size);
+  margin: 0;
+  /* The trailing letter spacing is taken off the right padding. */
+  padding: 0 calc(20px - 0.16em) 0 20px;
+  border-radius: 999px;
+  line-height: calc(var(--float-size) - 1px);
+}
+
+:root[data-theme] .fragment-overlay:not(.fragment-editor-overlay) > .fragment-header .fragment-page-heading p {
+  box-sizing: border-box;
+  max-width: 100%;
+  height: 24px;
+  margin: 0;
+  padding: 0 12px;
+  border-radius: 999px;
+  font-size: 11px;
+  line-height: 23px;
+}
+
+:root[data-theme] .fragment-overlay:not(.fragment-editor-overlay) > .fragment-list-body {
+  padding-top: calc(var(--float-top) + var(--float-size) + 6px + 24px + 18px);
+}
+
+:root[data-theme] .hb-log-overlay > .chat-header :is(.header-title, .header-icon-btn),
+:root[data-theme] .fragment-overlay:not(.fragment-editor-overlay) > .fragment-header :is(.fragment-round-button, .fragment-page-heading h2, .fragment-page-heading p) {
+  border: 0.5px solid var(--liquid-glass-edge);
+  background: var(--liquid-glass-bg);
+  box-shadow: var(--liquid-glass-shadow);
+  backdrop-filter: var(--liquid-glass-filter);
+}
+
+:root[data-theme] .hb-log-overlay > .chat-header .header-icon-btn {
+  padding: 0;
+  border-radius: 50%;
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
 /* Separate declarations keep the CSS optimizer from dropping the standard
    property when it merges the Safari prefix (as in chat-glass.css). */
 @supports (-webkit-backdrop-filter: blur(1px)) {
@@ -449,7 +568,9 @@
   :root[data-theme] .app-bg .chat-container:is([data-chat-ui="default"][data-chat-view="room"], [data-chat-view="group"]:not([data-chat-ui])) > .chat-header :is(.chat-room-back, .header-center, .room-header-quota),
   :root[data-theme] .app-bg .chat-container:is([data-chat-ui="default"][data-chat-view="room"], [data-chat-view="group"]:not([data-chat-ui])) > .chat-footer :is(.attach-btn.attach-btn-separate, .input-wrapper),
   :root[data-theme] .app-bg .chat-container[data-chat-view="group"]:not([data-chat-ui]) > .group-session-switcher,
-  :root[data-theme] .app-bg .chat-container[data-chat-view="group"]:not([data-chat-ui]) > .chat-footer .context-usage-badge {
+  :root[data-theme] .app-bg .chat-container[data-chat-view="group"]:not([data-chat-ui]) > .chat-footer .context-usage-badge,
+  :root[data-theme] .hb-log-overlay > .chat-header :is(.header-title, .header-icon-btn),
+  :root[data-theme] .fragment-overlay:not(.fragment-editor-overlay) > .fragment-header :is(.fragment-round-button, .fragment-page-heading h2, .fragment-page-heading p) {
     -webkit-backdrop-filter: var(--liquid-glass-filter);
   }
 }
