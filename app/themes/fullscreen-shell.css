@@ -1,27 +1,46 @@
-/* Home, chat list, summer and settings go full screen like 暮光 rooms: each
-   page runs edge to edge, the title floats over it as a frosted pill with
-   round frosted buttons beside it, and the tab bar floats over the bottom.
-   useFullscreenShell measures --shell-header-space and --shell-nav-space; the
-   fallbacks match the classic 48px title bar and the bottom nav.
-   The photo-wall home already has its own see-through door plate. */
-.app-bg[data-fullscreen-shell="true"] > .chat-container:not([data-home-style="wall"]) {
+/* Liquid glass, one look for every floating control outside 暮光 rooms:
+   a white gradient body, a hairline grey edge (a white edge vanishes on a
+   white page), a bright top highlight and a wide, faint lift shadow.
+   Measurements follow the 暮光 room:
+   - top controls start where its back button does (20px under the status bar)
+     and are 36px tall;
+   - bottom controls sit as far above the bottom edge as its input row;
+   - the tab bar is as wide as its input box (row minus a 38px button and an
+     8px gap on each side) and twice its 38px row height. */
+:root {
+  --liquid-glass-bg: linear-gradient(180deg, rgba(255, 255, 255, 0.88), rgba(255, 255, 255, 0.62));
+  --liquid-glass-edge: rgba(0, 0, 0, 0.08);
+  --liquid-glass-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.95),
+    inset 0 -1px 1px rgba(0, 0, 0, 0.04),
+    0 10px 30px rgba(0, 0, 0, 0.08),
+    0 1px 3px rgba(0, 0, 0, 0.06);
+  --liquid-glass-filter: blur(20px) saturate(1.8);
+  --float-top: calc(20px + env(safe-area-inset-top));
+  --float-size: 36px;
+  --float-bottom: max(4px, calc(2 * (env(safe-area-inset-bottom) - 20px)));
+  --float-left: max(14px, env(safe-area-inset-left));
+  --float-right: max(14px, env(safe-area-inset-right));
+}
+
+/* ━━ Home, chat list, summer and settings ━━
+   useFullscreenShell measures --shell-header-space (page top to title bottom)
+   and --shell-nav-space (tab bar top to page bottom). */
+:root[data-theme] .app-bg[data-fullscreen-shell="true"] > .chat-container {
   position: relative;
-  --shell-header-fallback: calc(47px + env(safe-area-inset-top) + min(18px, env(safe-area-inset-top)));
-  --shell-nav-fallback: calc(56px + max(4px, calc(env(safe-area-inset-bottom) - 14px)));
-  --shell-glass-surface: rgba(255, 255, 255, 0.72);
-  --shell-glass-border: rgba(255, 255, 255, 0.86);
-  --shell-glass-shadow: 0 2px 12px rgba(35, 35, 45, 0.08);
-  --shell-glass-filter: blur(18px) saturate(1.4);
+  --shell-header-fallback: calc(var(--float-top) + var(--float-size));
+  --shell-nav-fallback: calc(76px + var(--float-bottom));
 }
 
 /* ── Floating title ── */
-.app-bg[data-fullscreen-shell="true"] > .chat-container:not([data-home-style="wall"]) > .chat-header {
+:root[data-theme] .app-bg[data-fullscreen-shell="true"] > .chat-container:not([data-home-style="wall"]) > .chat-header {
   position: absolute;
   top: 0;
   left: 0;
   right: 0;
   z-index: 30;
   overflow: visible;
+  padding: var(--float-top) var(--float-right) 0 var(--float-left);
   border-bottom: 0;
   background: transparent;
   box-shadow: none;
@@ -31,88 +50,350 @@
   animation: none;
 }
 
-.app-bg[data-fullscreen-shell="true"] > .chat-container:not([data-home-style="wall"]) > .chat-header :is(button, a, input) {
+:root[data-theme] .app-bg[data-fullscreen-shell="true"] > .chat-container:not([data-home-style="wall"]) > .chat-header :is(button, a, input) {
   pointer-events: auto;
 }
 
-.app-bg[data-fullscreen-shell="true"] > .chat-container:not([data-home-style="wall"]) > .chat-header .header-title {
-  padding: 0 18px;
-  border: 1px solid var(--shell-glass-border);
+:root[data-theme] .app-bg[data-fullscreen-shell="true"] > .chat-container:not([data-home-style="wall"]) > .chat-header .header-top {
+  height: var(--float-size);
+  align-items: center;
+}
+
+:root[data-theme] .app-bg[data-fullscreen-shell="true"] > .chat-container:not([data-home-style="wall"]) > .chat-header :is(.header-icon-btn, .header-icon-spacer, .header-dot) {
+  width: var(--float-size);
+  height: var(--float-size);
+  flex: 0 0 var(--float-size);
+}
+
+:root[data-theme] .app-bg[data-fullscreen-shell="true"] > .chat-container:not([data-home-style="wall"]) > .chat-header .header-center {
+  gap: 0;
+}
+
+:root[data-theme] .app-bg[data-fullscreen-shell="true"] > .chat-container:not([data-home-style="wall"]) > .chat-header .header-title {
+  box-sizing: border-box;
+  height: var(--float-size);
+  /* The trailing 3px letter spacing is taken off the right padding. */
+  padding: 0 17px 0 20px;
+  line-height: calc(var(--float-size) - 1px);
+}
+
+:root[data-theme] .app-bg[data-fullscreen-shell="true"] > .chat-container:not([data-home-style="wall"]) > .chat-header :is(.header-title, .header-icon-btn, .settings-back-btn),
+:root[data-theme] .app-bg[data-fullscreen-shell="true"] > .chat-container > .bottom-nav {
+  border: 0.5px solid var(--liquid-glass-edge);
+  background: var(--liquid-glass-bg);
+  box-shadow: var(--liquid-glass-shadow);
+  backdrop-filter: var(--liquid-glass-filter);
+}
+
+:root[data-theme] .app-bg[data-fullscreen-shell="true"] > .chat-container:not([data-home-style="wall"]) > .chat-header .header-title {
   border-radius: 999px;
-  background: var(--shell-glass-surface);
-  box-shadow: var(--shell-glass-shadow);
-  backdrop-filter: var(--shell-glass-filter);
-  -webkit-backdrop-filter: var(--shell-glass-filter);
-  line-height: 30px;
 }
 
-.app-bg[data-fullscreen-shell="true"] > .chat-container:not([data-home-style="wall"]) > .chat-header :is(.header-icon-btn, .settings-back-btn) {
-  border: 1px solid var(--shell-glass-border);
-  border-radius: 50%;
-  background: var(--shell-glass-surface);
-  box-shadow: var(--shell-glass-shadow);
-  backdrop-filter: var(--shell-glass-filter);
-  -webkit-backdrop-filter: var(--shell-glass-filter);
-  color: var(--accent);
-}
-
-.app-bg[data-fullscreen-shell="true"] > .chat-container:not([data-home-style="wall"]) > .chat-header .settings-back-btn {
+:root[data-theme] .app-bg[data-fullscreen-shell="true"] > .chat-container:not([data-home-style="wall"]) > .chat-header :is(.header-icon-btn, .settings-back-btn) {
   padding: 0;
+  border-radius: 50%;
   color: var(--text-primary);
   cursor: pointer;
 }
 
-/* ── Floating tab bar ── */
-.app-bg[data-fullscreen-shell="true"] > .chat-container:not([data-home-style="wall"]) > .bottom-nav {
+/* ── Floating glass tab bar ── */
+:root[data-theme] .app-bg[data-fullscreen-shell="true"] > .chat-container > .bottom-nav {
   position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
+  left: calc(var(--float-left) + 46px);
+  right: calc(var(--float-right) + 46px);
+  bottom: var(--float-bottom);
   z-index: 30;
-  border-top: 1px solid rgba(255, 255, 255, 0.7);
-  background: rgba(247, 247, 248, 0.72);
-  backdrop-filter: var(--shell-glass-filter);
-  -webkit-backdrop-filter: var(--shell-glass-filter);
+  box-sizing: border-box;
+  height: 76px;
+  align-items: stretch;
+  padding: 0 4px;
+  border-radius: 999px;
+}
+
+:root[data-theme] .app-bg[data-fullscreen-shell="true"] > .chat-container > .bottom-nav .nav-btn {
+  justify-content: center;
+  padding: 0;
+  border-radius: 999px;
+}
+
+/* The current tab is marked by its colour alone, no bar under it. */
+:root[data-theme] .app-bg[data-fullscreen-shell="true"] > .chat-container > .bottom-nav .nav-btn-active::after {
+  content: none;
+}
+
+/* The photo wall keeps its own door plate; its room just stops above the
+   floating tab bar. */
+:root[data-theme] .app-bg[data-fullscreen-shell="true"] > .chat-container[data-home-style="wall"] > .chat-header + section {
+  padding-bottom: calc(var(--shell-nav-space, var(--shell-nav-fallback)) + 14px);
 }
 
 /* ── Pages run under both ── */
-.app-bg[data-fullscreen-shell="true"] > .chat-container:not([data-home-style="wall"]) > :is(.home-body, .chat-entry-body, .diary-body, .settings-body) {
+:root[data-theme] .app-bg[data-fullscreen-shell="true"] > .chat-container:not([data-home-style="wall"]) > :is(.home-body, .chat-entry-body, .diary-body, .settings-body) {
+  --shell-page-top: calc(var(--shell-header-space, var(--shell-header-fallback)) + var(--shell-page-gap-top, 12px));
   flex: 1 1 auto;
   min-height: 0;
   height: 100%;
   overflow-y: auto;
+  /* Pages without a title (home, the settings index) still start below the
+     status bar, level with where the floating titles begin. */
+  padding-top: max(var(--shell-page-top), var(--float-top));
+  padding-bottom: 0;
   scroll-padding-top: calc(var(--shell-header-space, var(--shell-header-fallback)) + 8px);
   scroll-padding-bottom: calc(var(--shell-nav-space, var(--shell-nav-fallback)) + 8px);
 }
 
-.app-bg[data-fullscreen-shell="true"] > .chat-container:not([data-home-style="wall"]) > .chat-entry-body {
-  padding-top: calc(var(--shell-header-space, var(--shell-header-fallback)) + 12px);
-  padding-bottom: 0;
-}
-
-.app-bg[data-fullscreen-shell="true"] > .chat-container:not([data-home-style="wall"]) > .home-body.moon-home {
-  padding-top: calc(var(--shell-header-space, var(--shell-header-fallback)) + 4px);
-  padding-bottom: 0;
-}
-
-.app-bg[data-fullscreen-shell="true"] > .chat-container:not([data-home-style="wall"]) > .diary-body {
-  padding-top: calc(var(--shell-header-space, var(--shell-header-fallback)) + 16px);
-  padding-bottom: 0;
-}
-
-.app-bg[data-fullscreen-shell="true"] > .chat-container:not([data-home-style="wall"]) > .settings-body {
-  padding-top: calc(var(--shell-header-space, var(--shell-header-fallback)) + 20px);
-  padding-bottom: 0;
-}
+:root[data-theme] .app-bg[data-fullscreen-shell="true"] > .chat-container > .home-body.moon-home { --shell-page-gap-top: 4px; }
+:root[data-theme] .app-bg[data-fullscreen-shell="true"] > .chat-container > .diary-body { --shell-page-gap-top: 16px; }
+:root[data-theme] .app-bg[data-fullscreen-shell="true"] > .chat-container > .settings-body { --shell-page-gap-top: 20px; }
 
 /* A real spacer, not padding, keeps the end reachable in Safari's flex
    scrollers; it carries each page's old bottom padding plus the tab bar. */
-.app-bg[data-fullscreen-shell="true"] > .chat-container:not([data-home-style="wall"]) > :is(.home-body, .chat-entry-body, .diary-body, .settings-body)::after {
+:root[data-theme] .app-bg[data-fullscreen-shell="true"] > .chat-container:not([data-home-style="wall"]) > :is(.home-body, .chat-entry-body, .diary-body, .settings-body)::after {
   content: "";
   display: block;
   flex: 0 0 calc(var(--shell-nav-space, var(--shell-nav-fallback)) + var(--shell-page-end, 16px));
   margin-top: calc(-1 * var(--shell-page-gap, 0px));
 }
 
-.app-bg[data-fullscreen-shell="true"] > .chat-container:not([data-home-style="wall"]) > .home-body { --shell-page-end: 24px; --shell-page-gap: 4px; }
-.app-bg[data-fullscreen-shell="true"] > .chat-container:not([data-home-style="wall"]) > .settings-body { --shell-page-end: 20px; --shell-page-gap: 12px; }
+:root[data-theme] .app-bg[data-fullscreen-shell="true"] > .chat-container > .home-body { --shell-page-end: 24px; --shell-page-gap: 4px; }
+:root[data-theme] .app-bg[data-fullscreen-shell="true"] > .chat-container > .settings-body { --shell-page-end: 20px; --shell-page-gap: 12px; }
+
+/* ── Chat list: a black ＋ ── */
+:root[data-theme] .app-bg[data-fullscreen-shell="true"] > .chat-container > .chat-list-page-header .chat-list-new {
+  color: var(--text-primary);
+}
+
+/* ── Settings index: each category is its own card, like the cards above ── */
+:root[data-theme] .app-bg .settings-body .settings-group.settings-menu {
+  gap: 12px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  overflow: visible;
+}
+
+:root[data-theme] .app-bg .settings-body .settings-menu .settings-menu-row {
+  padding: 16px;
+  border: 1px solid var(--border-soft);
+  border-radius: 16px;
+  background: #ffffff;
+}
+
+/* ━━ 经典 private and group rooms ━━
+   The title and composer float over the messages as glass, in their old
+   places. useTwilightLayout measures --twilight-header-space and
+   --twilight-footer-space for these rooms too. Classic group rooms carry no
+   data-chat-ui (that would pull in the private bubble shapes), so they are
+   matched as a group view without one. */
+:root[data-theme] .app-bg .chat-container:is([data-chat-ui="default"][data-chat-view="room"], [data-chat-view="group"]:not([data-chat-ui])) {
+  position: relative;
+  --room-top-fallback: calc(var(--float-top) + var(--float-size));
+  --room-bottom-fallback: calc(46px + var(--float-bottom));
+}
+
+:root[data-theme] .app-bg .chat-container:is([data-chat-ui="default"][data-chat-view="room"], [data-chat-view="group"]:not([data-chat-ui])) > .chat-header {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  padding: var(--float-top) var(--float-right) 0 var(--float-left);
+  border-bottom: 0;
+  background: transparent;
+  pointer-events: none;
+}
+
+:root[data-theme] .app-bg .chat-container:is([data-chat-ui="default"][data-chat-view="room"], [data-chat-view="group"]:not([data-chat-ui])) > .chat-header .header-top {
+  height: var(--float-size);
+  align-items: center;
+  justify-content: space-between;
+}
+
+:root[data-theme] .app-bg .chat-container:is([data-chat-ui="default"][data-chat-view="room"], [data-chat-view="group"]:not([data-chat-ui])) > .chat-header :is(.chat-room-back, .header-center, .room-header-quota) {
+  pointer-events: auto;
+}
+
+/* Name and status share one pill, centred between two equal 36px slots. */
+:root[data-theme] .app-bg .chat-container:is([data-chat-ui="default"][data-chat-view="room"], [data-chat-view="group"]:not([data-chat-ui])) > .chat-header .header-center {
+  box-sizing: border-box;
+  flex: 0 1 auto;
+  height: var(--float-size);
+  min-width: 0;
+  max-width: calc(100% - 2 * (var(--float-size) + 56px));
+  padding: 0 16px;
+  border-radius: 999px;
+}
+
+:root[data-theme] .app-bg .chat-container:is([data-chat-ui="default"][data-chat-view="room"], [data-chat-view="group"]:not([data-chat-ui])) > .chat-header .header-center > * {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+:root[data-theme] .app-bg .chat-container:is([data-chat-ui="default"][data-chat-view="room"], [data-chat-view="group"]:not([data-chat-ui])) > .chat-header .chat-room-back {
+  width: var(--float-size);
+  height: var(--float-size);
+  flex: 0 0 var(--float-size);
+  padding: 0;
+  border-radius: 50%;
+  color: var(--text-primary);
+}
+
+:root[data-theme] .app-bg .chat-container:is([data-chat-ui="default"][data-chat-view="room"], [data-chat-view="group"]:not([data-chat-ui])) > .chat-header .room-header-usage {
+  width: var(--float-size);
+  height: var(--float-size);
+  flex: 0 0 var(--float-size);
+}
+
+/* The quota pill grows leftward from the right edge. */
+:root[data-theme] .app-bg .chat-container:is([data-chat-ui="default"][data-chat-view="room"], [data-chat-view="group"]:not([data-chat-ui])) > .chat-header .room-header-quota {
+  box-sizing: border-box;
+  height: var(--float-size);
+  padding: 0 12px;
+  border-radius: 999px;
+}
+
+/* ── Composer: same height and bottom gap as the 暮光 input row ── */
+:root[data-theme] .app-bg .chat-container:is([data-chat-ui="default"][data-chat-view="room"], [data-chat-view="group"]:not([data-chat-ui])) > .chat-footer {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 8px var(--float-right) var(--float-bottom) var(--float-left);
+  border-top: 0;
+  background: transparent;
+  pointer-events: none;
+}
+
+:root[data-theme] .app-bg .chat-container:is([data-chat-ui="default"][data-chat-view="room"], [data-chat-view="group"]:not([data-chat-ui])) > .chat-footer > * {
+  pointer-events: auto;
+}
+
+:root[data-theme] .app-bg .chat-container:is([data-chat-ui="default"][data-chat-view="room"], [data-chat-view="group"]:not([data-chat-ui])) > .chat-footer .attach-btn.attach-btn-separate {
+  width: 38px;
+  height: 38px;
+  flex: 0 0 38px;
+  color: var(--text-primary);
+}
+
+:root[data-theme] .app-bg .chat-container:is([data-chat-ui="default"][data-chat-view="room"], [data-chat-view="group"]:not([data-chat-ui])) > .chat-footer .input-wrapper {
+  box-sizing: border-box;
+  min-height: 38px;
+  padding: 2.5px 3px 2.5px 13px;
+  border-radius: 999px;
+}
+
+:root[data-theme] .app-bg .chat-container:is([data-chat-ui="default"][data-chat-view="room"], [data-chat-view="group"]:not([data-chat-ui])) > .chat-footer .chat-input {
+  min-height: 32px;
+  padding: 5px 0;
+}
+
+:root[data-theme] .app-bg .chat-container:is([data-chat-ui="default"][data-chat-view="room"], [data-chat-view="group"]:not([data-chat-ui])) > .chat-footer .send-btn {
+  width: 32px;
+  height: 32px;
+}
+
+:root[data-theme] .app-bg .chat-container:is([data-chat-ui="default"][data-chat-view="room"], [data-chat-view="group"]:not([data-chat-ui])) > .chat-footer .composer-upload-error {
+  margin-left: 46px;
+}
+
+/* Group rooms have two buttons left of the input (menu and file). */
+:root[data-theme] .app-bg .chat-container[data-chat-view="group"]:not([data-chat-ui]) > .chat-footer .composer-upload-error {
+  margin-left: 92px;
+}
+
+/* One glass for back, name, quota, buttons and input. */
+:root[data-theme] .app-bg .chat-container:is([data-chat-ui="default"][data-chat-view="room"], [data-chat-view="group"]:not([data-chat-ui])) > .chat-header :is(.chat-room-back, .header-center, .room-header-quota),
+:root[data-theme] .app-bg .chat-container:is([data-chat-ui="default"][data-chat-view="room"], [data-chat-view="group"]:not([data-chat-ui])) > .chat-footer :is(.attach-btn.attach-btn-separate, .input-wrapper),
+:root[data-theme] .app-bg .chat-container:is([data-chat-ui="default"][data-chat-view="room"], [data-chat-view="group"]:not([data-chat-ui])) > .chat-footer .input-wrapper:focus-within {
+  border: 0.5px solid var(--liquid-glass-edge);
+  background: var(--liquid-glass-bg);
+  box-shadow: var(--liquid-glass-shadow);
+  backdrop-filter: var(--liquid-glass-filter);
+}
+
+/* ── Messages run under both ── */
+:root[data-theme] .app-bg .chat-container:is([data-chat-ui="default"][data-chat-view="room"], [data-chat-view="group"]:not([data-chat-ui])) > .chat-messages {
+  flex: 1 1 auto;
+  min-height: 0;
+  height: 100%;
+  padding-top: calc(var(--twilight-header-space, var(--room-top-fallback)) + 14px);
+  padding-bottom: 0;
+  scroll-padding-top: calc(var(--twilight-header-space, var(--room-top-fallback)) + 14px);
+  scroll-padding-bottom: calc(var(--twilight-footer-space, var(--room-bottom-fallback)) + 14px);
+}
+
+:root[data-theme] .app-bg .chat-container:is([data-chat-ui="default"][data-chat-view="room"], [data-chat-view="group"]:not([data-chat-ui])) > .chat-messages > * {
+  flex-shrink: 0;
+}
+
+/* A real spacer keeps the last message clear of the composer; with the 15px
+   row gap it leaves 14px between them. */
+:root[data-theme] .app-bg .chat-container:is([data-chat-ui="default"][data-chat-view="room"], [data-chat-view="group"]:not([data-chat-ui])) > .chat-messages::after {
+  content: "";
+  flex: 0 0 calc(var(--twilight-footer-space, var(--room-bottom-fallback)) - 1px);
+}
+
+/* Settings open just above the composer and stop below the title. */
+:root[data-theme] .app-bg .chat-container:is([data-chat-ui="default"][data-chat-view="room"], [data-chat-view="group"]:not([data-chat-ui])) > .room-settings-panel {
+  top: auto;
+  bottom: calc(var(--twilight-footer-space, var(--room-bottom-fallback)) + 8px);
+  max-height: calc(100% - var(--twilight-header-space, var(--room-top-fallback))
+    - var(--twilight-footer-space, var(--room-bottom-fallback)) - 16px);
+}
+
+/* ── 经典 group rooms ── */
+/* Title, people count and chevron sit side by side in one pill. */
+:root[data-theme] .app-bg .chat-container[data-chat-view="group"]:not([data-chat-ui]) > .chat-header .group-session-title {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  color: var(--text-primary);
+}
+
+:root[data-theme] .app-bg .chat-container[data-chat-view="group"]:not([data-chat-ui]) > .chat-header .group-session-title .chat-room-status {
+  max-width: none;
+  margin-left: 0;
+}
+
+/* The group list drops below the floating title as a glass card. */
+:root[data-theme] .app-bg .chat-container[data-chat-view="group"]:not([data-chat-ui]) > .group-session-switcher {
+  position: absolute;
+  z-index: 60;
+  top: calc(var(--twilight-header-space, var(--room-top-fallback)) + 8px);
+  left: var(--float-left);
+  right: var(--float-right);
+  max-height: min(480px, calc(100% - var(--twilight-header-space, var(--room-top-fallback))
+    - var(--twilight-footer-space, var(--room-bottom-fallback)) - 16px));
+  border: 0.5px solid var(--liquid-glass-edge);
+  border-radius: 18px;
+  background: var(--liquid-glass-bg);
+  box-shadow: var(--liquid-glass-shadow);
+  backdrop-filter: var(--liquid-glass-filter);
+}
+
+/* Themes that show the context circle beside the input get it in glass too. */
+:root[data-theme] .app-bg .chat-container[data-chat-view="group"]:not([data-chat-ui]) > .chat-footer .context-usage-badge {
+  width: 38px;
+  min-width: 38px;
+  height: 38px;
+  border: 0.5px solid var(--liquid-glass-edge);
+  background: var(--liquid-glass-bg);
+  box-shadow: var(--liquid-glass-shadow);
+  backdrop-filter: var(--liquid-glass-filter);
+}
+
+/* Separate declarations keep the CSS optimizer from dropping the standard
+   property when it merges the Safari prefix (as in chat-glass.css). */
+@supports (-webkit-backdrop-filter: blur(1px)) {
+  :root[data-theme] .app-bg[data-fullscreen-shell="true"] > .chat-container:not([data-home-style="wall"]) > .chat-header :is(.header-title, .header-icon-btn, .settings-back-btn),
+  :root[data-theme] .app-bg[data-fullscreen-shell="true"] > .chat-container > .bottom-nav,
+  :root[data-theme] .app-bg .chat-container:is([data-chat-ui="default"][data-chat-view="room"], [data-chat-view="group"]:not([data-chat-ui])) > .chat-header :is(.chat-room-back, .header-center, .room-header-quota),
+  :root[data-theme] .app-bg .chat-container:is([data-chat-ui="default"][data-chat-view="room"], [data-chat-view="group"]:not([data-chat-ui])) > .chat-footer :is(.attach-btn.attach-btn-separate, .input-wrapper),
+  :root[data-theme] .app-bg .chat-container[data-chat-view="group"]:not([data-chat-ui]) > .group-session-switcher,
+  :root[data-theme] .app-bg .chat-container[data-chat-view="group"]:not([data-chat-ui]) > .chat-footer .context-usage-badge {
+    -webkit-backdrop-filter: var(--liquid-glass-filter);
+  }
+}

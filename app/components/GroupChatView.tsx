@@ -378,7 +378,9 @@ export function GroupChatView({
     `iooi-scroll-group-${session.id}`,
     session.messages.length + (streamingReply?.text.length || 0),
   );
-  useTwilightLayout(twilight, scrollRef);
+  // 暮光 and 经典 group rooms both float their title and composer over the
+  // messages; only 暮光 reshapes the bubbles.
+  useTwilightLayout(true, scrollRef, twilight);
 
   const clearTimers = useCallback(() => {
     for (const timer of timersRef.current) clearTimeout(timer);

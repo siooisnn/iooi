@@ -215,14 +215,9 @@ body {
 
 .chat-list-page-header .chat-entry-search { margin-top: 0; }
 
-.chat-list-heart,
 .chat-list-new {
   color: var(--accent);
   line-height: 1;
-}
-
-.chat-list-heart {
-  border-radius: 50%;
 }
 
 .chat-list-new {

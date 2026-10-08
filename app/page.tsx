@@ -1751,11 +1751,8 @@ function ChatListView({
     <>
       <header className="chat-header chat-list-page-header">
         <div className="header-top">
-          <button className="header-icon-btn chat-list-heart" aria-label="装饰">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M12 20.2C7.2 16.9 3.6 13.6 3.6 9.8c0-2.7 2.1-4.8 4.7-4.8 1.5 0 2.9.7 3.7 1.9.8-1.2 2.2-1.9 3.7-1.9 2.6 0 4.7 2.1 4.7 4.8 0 3.8-3.6 7.1-8.4 10.4z" />
-            </svg>
-          </button>
+          {/* Keeps the title centred now that the heart is gone. */}
+          <span className="header-icon-spacer" aria-hidden="true" />
           <div className="header-center">
             <h1 className="header-title">iooi</h1>
           </div>
@@ -1946,18 +1943,9 @@ function HomeView({ settings, updateSettings }: { settings: Settings; updateSett
     );
   }
 
+  // The moon home has no title: the page runs straight to the top.
   return (
     <>
-      <header className="chat-header home-header">
-        <div className="header-top">
-          <span className="header-dot" />
-          <div className="header-center">
-            <h1 className="header-title">iooi</h1>
-          </div>
-          <span className="header-dot" />
-        </div>
-      </header>
-
       <section className="home-body moon-home">
         {petals}
 
@@ -2225,7 +2213,9 @@ function ChatView({
     `iooi-scroll-${assistantMode}-${session.id}`,
     session.messages.length + streamingReply.length,
   );
-  useTwilightLayout(twilightRoom, scrollRef);
+  // 暮光 and 经典 rooms both float their title and composer over the messages;
+  // only 暮光 reshapes the bubbles.
+  useTwilightLayout(listEntryMode, scrollRef, twilightRoom);
 
   // ── 巧思:随机输入提示 / 扣6彩蛋 ──
   const [heartRain, setHeartRain] = useState(false);
@@ -4287,22 +4277,24 @@ function SettingsView({
 
   return (
     <>
-      <header className="chat-header compact-section-header">
-        <div className="header-top">
-          {activeSection ? (
+      {/* The settings index has no title; only a section page shows its back
+          button and name. */}
+      {activeSection && (
+        <header className="chat-header compact-section-header">
+          <div className="header-top">
             <button type="button" className="header-dot settings-back-btn" aria-label="返回设置" onClick={() => setSection(null)}>
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6" /></svg>
             </button>
-          ) : <span className="header-dot" />}
-          <div className="header-center">
-            <h1 className="header-title">{activeSection ? activeSection.title : "settings"}</h1>
-            <span className="header-subtitle" style={{ color: "var(--accent-text)" }}>
-              {activeSection ? `设置 · ${assistantLabel}` : `Settings · ${assistantLabel}`}
-            </span>
+            <div className="header-center">
+              <h1 className="header-title">{activeSection.title}</h1>
+              <span className="header-subtitle" style={{ color: "var(--accent-text)" }}>
+                {`设置 · ${assistantLabel}`}
+              </span>
+            </div>
+            <span className="header-dot" />
           </div>
-          <span className="header-dot" />
-        </div>
-      </header>
+        </header>
+      )}
 
       <section className="settings-body" key={section || "index"}>
         {!activeSection && <>

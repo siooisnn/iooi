@@ -69,7 +69,9 @@ function watchTwilightBubbles(messages: HTMLElement) {
 
 // The message scroller fills the room behind the floating controls. Its final
 // spacer follows safe areas and textarea growth; top padding clears the header.
-export function useTwilightLayout(enabled: boolean, scrollRef: RefObject<HTMLElement | null>) {
+// 经典 rooms float their controls too but keep their own bubble shapes, so
+// `shapeBubbles` is only on for 暮光.
+export function useTwilightLayout(enabled: boolean, scrollRef: RefObject<HTMLElement | null>, shapeBubbles = true) {
   const followingBottom = useRef(true);
   useEffect(() => {
     const messages = scrollRef.current;
@@ -134,7 +136,7 @@ export function useTwilightLayout(enabled: boolean, scrollRef: RefObject<HTMLEle
       frame = requestAnimationFrame(() => { frame = 0; update(); });
     };
     update();
-    const stopBubbles = watchTwilightBubbles(messages);
+    const stopBubbles = shapeBubbles ? watchTwilightBubbles(messages) : () => {};
     const observer = new ResizeObserver(schedule);
     observer.observe(header, { box: "border-box" });
     observer.observe(footer, { box: "border-box" });
@@ -160,5 +162,5 @@ export function useTwilightLayout(enabled: boolean, scrollRef: RefObject<HTMLEle
       app.style.removeProperty("--twilight-viewport-height");
       app.style.removeProperty("--twilight-viewport-top");
     };
-  }, [enabled, scrollRef]);
+  }, [enabled, scrollRef, shapeBubbles]);
 }

@@ -4,7 +4,7 @@ import { useEffect } from "react";
 import type { RefObject } from "react";
 
 // Home, chat list, summer and settings fill the whole screen like 暮光 rooms:
-// the title floats over the page and the tab bar floats at the bottom. Each
+// the title floats over the page and the tab bar floats as a glass pill. Each
 // page swaps in its own header, so the shell keeps measuring whichever header
 // and tab bar are currently mounted and exposes their heights to the CSS.
 export function useFullscreenShell(enabled: boolean, containerRef: RefObject<HTMLElement | null>) {
@@ -32,8 +32,11 @@ export function useFullscreenShell(enabled: boolean, containerRef: RefObject<HTM
         if (header) resize.observe(header, { box: "border-box" });
         if (nav) resize.observe(nav, { box: "border-box" });
       }
-      const headerSpace = header ? Math.ceil(header.getBoundingClientRect().height) : 0;
-      const navSpace = nav ? Math.ceil(nav.getBoundingClientRect().height) : 0;
+      // Measured from the page edges: the tab bar floats above the bottom
+      // edge, so its own height is not the space it covers.
+      const box = container.getBoundingClientRect();
+      const headerSpace = header ? Math.max(0, Math.ceil(header.getBoundingClientRect().bottom - box.top)) : 0;
+      const navSpace = nav ? Math.max(0, Math.ceil(box.bottom - nav.getBoundingClientRect().top)) : 0;
       container.style.setProperty("--shell-header-space", `${headerSpace}px`);
       container.style.setProperty("--shell-nav-space", `${navSpace}px`);
     };
