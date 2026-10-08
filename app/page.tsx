@@ -186,6 +186,7 @@ type Settings = {
   model: string;
   gptModel: string;
   chatEntryStyle: "list" | "direct";
+  fontSize: "16" | "17";
   chatUiStyle: "default" | "glass";
   twilightBubbleColor: TwilightBubbleColor;
   gptTwilightBubbleColor?: TwilightBubbleColor;
@@ -317,6 +318,7 @@ function normalizeClaudeSettings(settings: Settings): Settings {
     ...settings,
     model: selectedModel,
     gptModel: resolveGptModel(settings.gptModel).id,
+    fontSize: settings.fontSize === "17" ? "17" : "16",
     chatUiStyle: settings.chatUiStyle === "glass" ? "glass" : "default",
     twilightBubbleColor: legacyTwilightBubbleColor,
     gptTwilightBubbleColor: resolveTwilightBubbleColor(settings.gptTwilightBubbleColor, legacyTwilightBubbleColor),
@@ -719,6 +721,7 @@ export default function Home() {
     model: "sonnet5",
     gptModel: DEFAULT_GPT_MODEL.id,
     chatEntryStyle: "list",
+    fontSize: "16",
     chatUiStyle: "default",
     twilightBubbleColor: "berry",
     twilightGlass: DEFAULT_TWILIGHT_GLASS,
@@ -1252,7 +1255,7 @@ export default function Home() {
   }
 
   return (
-    <main className="app-bg"
+    <main className="app-bg" data-font-size={settings.fontSize}
       data-fullscreen-shell={tab === "chat" && chatView !== "list" ? undefined : "true"}
       data-twilight-room={tab === "chat" && chatView !== "list" && settings.chatUiStyle === "glass" ? "true" : undefined}>
       <div
@@ -4236,6 +4239,7 @@ function SettingsView({
       summary: [
         settings.homeStyle === "wall" ? "照片墙" : "月亮",
         settings.chatUiStyle === "glass" ? "暮光" : "经典",
+        `字号 ${settings.fontSize}`,
       ].join(" · "),
     },
     {
@@ -4381,6 +4385,17 @@ function SettingsView({
             <p className="settings-hint">调节暮光里按钮、输入框和气泡的模糊程度，私聊和群聊共用。拉到最左就是完全透明不模糊。</p>
           </div>
         )}
+
+        <div className="settings-group">
+          <h2 className="settings-group-title">聊天字号</h2>
+          <div className="chat-theme-options" role="group" aria-label="聊天字号">
+            {(["16", "17"] as const).map((value) => (
+              <button type="button" key={value} className={`model-option ${settings.fontSize === value ? "model-option-active" : ""}`}
+                aria-pressed={settings.fontSize === value} onClick={() => updateSettings({ fontSize: value })}>{value}</button>
+            ))}
+          </div>
+          <p className="settings-hint">只调整聊天室里的气泡和输入框，经典和暮光共用。选择会自动保存。</p>
+        </div>
         </>}
 
         {section === "background" && <>

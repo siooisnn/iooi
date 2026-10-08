@@ -429,16 +429,17 @@
   order: -1;
 }
 
-/* Settings, paperclip and group menu: black ring, larger black icon with a
-   heavier line. */
+/* Settings, paperclip and group menu: black ring the size of the send button.
+   The 18px icon's stroke-width 2.2 draws 18 / 24 × 2.2 = 1.65px, so the ring
+   uses the same 1.65px line. */
 :root[data-theme="white-pink"] .chat-container:not([data-chat-ui="glass"]) .chat-footer .attach-btn.attach-btn-separate {
-  border-color: var(--text-primary);
+  border: 1.65px solid var(--text-primary);
   color: var(--text-primary);
 }
 :root[data-theme="white-pink"] .chat-container:not([data-chat-ui="glass"]) .chat-footer .attach-btn.attach-btn-separate svg {
-  width: 22px;
-  height: 22px;
-  stroke-width: 2;
+  width: 18px;
+  height: 18px;
+  stroke-width: 2.2;
 }
 
 /* No outline around the input, even while typing. */
@@ -457,6 +458,12 @@
   width: 37px;
   height: 37px;
   flex: 0 0 37px;
+}
+/* Ringed buttons match the 31px send button. */
+:root[data-theme="white-pink"] .chat-container:not([data-chat-ui="glass"]) .chat-footer .attach-btn.attach-btn-separate {
+  width: 31px;
+  height: 31px;
+  flex: 0 0 31px;
 }
 :root[data-theme="white-pink"] .chat-container:not([data-chat-ui="glass"]) .chat-footer .input-wrapper {
   padding: 2px 3px 2px 13px;

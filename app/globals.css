@@ -75,6 +75,10 @@ body {
   font-size: 16px;
 }
 
+.app-bg[data-font-size="17"] :is(.msg-bubble, .chat-input) {
+  font-size: 17px;
+}
+
 .app-bg .chat-entry-name {
   font-size: 16px;
 }
@@ -2702,6 +2706,10 @@ body {
   flex-direction: column;
   gap: 24px;
 }
+
+/* Cards keep their full height and the page scrolls; otherwise the menu card
+   (overflow: hidden) shrinks and clips its last row. */
+.settings-body > * { flex-shrink: 0; }
 
 .settings-body::-webkit-scrollbar { width: 3px; }
 .settings-body::-webkit-scrollbar-thumb { background: var(--border-soft); border-radius: 10px; }
