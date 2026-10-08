@@ -15,12 +15,22 @@
   --text-secondary: #68686f;
   --text-light: #797980;
   --bubble-ai: #ffffff;
-  --bubble-user: #fce0e9;
-  --avatar-user: #f4cfdd;
-  --accent: #e44883;
-  --accent-text: #b82d63;
-  --accent-light: #ed91b3;
-  --accent-glow: rgba(228, 72, 131, 0.12);
+  /* Theme colour (设置 → 外观 → 主题色). The palette lives in --brand-*; the
+     quiet composer re-points --accent to gray, while --brand stays the theme
+     colour everywhere, so the send button and switches can still use it. */
+  --brand: #e44883;
+  --brand-text: #b82d63;
+  --brand-light: #ed91b3;
+  --brand-rgb: 228, 72, 131;
+  --brand-bubble: #fce0e9;
+  --brand-bubble-ink: var(--text-primary);
+  --brand-avatar: #f4cfdd;
+  --bubble-user: var(--brand-bubble);
+  --avatar-user: var(--brand-avatar);
+  --accent: var(--brand);
+  --accent-text: var(--brand-text);
+  --accent-light: var(--brand-light);
+  --accent-glow: rgba(var(--brand-rgb), 0.12);
   --glass: var(--chrome-bg);
   --glass-border: #eeeeef;
   --shadow-soft: none;
@@ -41,7 +51,7 @@
   --theme-avatar: #dedee4;
   --theme-bubble-user: var(--bubble-user);
   --theme-action-muted: #8a8a95;
-  --theme-accent-rgb: 228, 72, 131;
+  --theme-accent-rgb: var(--brand-rgb);
   --theme-surface-rgb: 255, 255, 255;
   --theme-soft-rgb: 235, 235, 239;
   --theme-ambient-rgb: 225, 225, 230;
@@ -49,8 +59,54 @@
   --theme-shadow-rgb: 35, 35, 45;
 }
 
+/* Solid theme colours: the same clear colours as 暮光's bubbles; her bubble is
+   the full colour with white text. 淡粉 (no data-accent) keeps the pale bubble.
+   ThemeProvider drops data-accent inside 暮光 rooms, which keep their own look. */
+:root[data-theme="white-pink"][data-accent="bright-blue"] {
+  --brand: #007aff;
+  --brand-text: #0066d6;
+  --brand-light: #7fbcff;
+  --brand-rgb: 0, 122, 255;
+  --brand-avatar: #cfe4ff;
+}
+:root[data-theme="white-pink"][data-accent="berry"] {
+  --brand: #e8457c;
+  --brand-text: #c62d64;
+  --brand-light: #f3a0bd;
+  --brand-rgb: 232, 69, 124;
+  --brand-avatar: #fad3e1;
+}
+:root[data-theme="white-pink"][data-accent="grape"] {
+  --brand: #7a5af8;
+  --brand-text: #6040e0;
+  --brand-light: #bcabfc;
+  --brand-rgb: 122, 90, 248;
+  --brand-avatar: #e3dcfe;
+}
+:root[data-theme="white-pink"][data-accent="leaf"] {
+  --brand: #1e9a5a;
+  --brand-text: #16804a;
+  --brand-light: #8fd1ae;
+  --brand-rgb: 30, 154, 90;
+  --brand-avatar: #cdebd9;
+}
+:root[data-theme="white-pink"]:is([data-accent="bright-blue"], [data-accent="berry"], [data-accent="grape"], [data-accent="leaf"]) {
+  --brand-bubble: var(--brand);
+  --brand-bubble-ink: #ffffff;
+}
+
+/* Her bubble's text colour, in classic rooms. */
+:root[data-theme="white-pink"] .chat-container:not([data-chat-ui="glass"]) .msg-bubble-user:not(.msg-bubble-summer-utility) {
+  color: var(--brand-bubble-ink);
+}
+:root[data-theme="white-pink"][data-accent] .chat-container:not([data-chat-ui="glass"]) .msg-bubble-user .chat-message-link {
+  color: inherit;
+  text-decoration-color: currentColor;
+}
+
 :root[data-theme="white-pink"] .settings-body {
-  --theme-success: var(--accent-text);
+  /* Status values (通道, 截断 否, summer…) read like the other values. */
+  --theme-success: var(--theme-muted);
   background: #f5f5f5;
   gap: 12px;
 }
@@ -91,7 +147,7 @@
   background: var(--border-soft);
 }
 
-/* Keep the composer quiet; only its send action keeps the pink accent. */
+/* Keep the composer quiet; only its send action keeps the theme colour. */
 :root[data-theme="white-pink"] .chat-footer {
   --accent: #68686f;
   --accent-text: #505057;
@@ -112,9 +168,9 @@
 }
 
 :root[data-theme="white-pink"] .chat-footer .send-btn {
-  --theme-accent: #e44883;
-  --theme-accent-rgb: 228, 72, 131;
-  --accent-glow: rgba(228, 72, 131, 0.12);
+  --theme-accent: var(--brand);
+  --theme-accent-rgb: var(--brand-rgb);
+  --accent-glow: rgba(var(--brand-rgb), 0.12);
   background: var(--theme-accent);
   opacity: 1;
 }
@@ -336,8 +392,8 @@
 }
 
 :root[data-theme="white-pink"] .counter-numbers .counter-item {
-  border-color: rgba(255, 76, 151, 0.3);
-  box-shadow: 0 0 0 1px rgba(255, 76, 151, 0.12), 0 0 14px rgba(255, 76, 151, 0.22);
+  border-color: rgba(var(--brand-rgb), 0.3);
+  box-shadow: 0 0 0 1px rgba(var(--brand-rgb), 0.12), 0 0 14px rgba(var(--brand-rgb), 0.22);
 }
 
 /* Opaque input and popover surfaces keep the footer crisp when content scrolls. */
@@ -354,9 +410,9 @@
 }
 
 :root[data-theme="white-pink"] .chat-config-option-active {
-  border-color: rgba(228, 72, 131, 0.45);
-  background-color: rgba(228, 72, 131, 0.08);
-  color: var(--accent-text);
+  border-color: rgba(var(--brand-rgb), 0.45);
+  background-color: rgba(var(--brand-rgb), 0.08);
+  color: var(--brand-text);
 }
 
 /* Match the outer canvas used by browser/system bars to the page's title bar. */
@@ -542,21 +598,46 @@
     - 63px - max(4px, calc(env(safe-area-inset-bottom) - 14px)) - 8px);
 }
 
-/* Remaining quota in pink instead of green. */
-:root[data-theme="white-pink"] .chat-container:not([data-chat-ui="glass"]) .claude-usage-row b {
-  color: var(--accent-text);
+/* Remaining quota and 刷新 in the theme colour instead of green. */
+:root[data-theme="white-pink"] .chat-container:not([data-chat-ui="glass"]) .claude-usage-row b,
+:root[data-theme="white-pink"] .chat-container:not([data-chat-ui="glass"]) .claude-usage-refresh {
+  color: var(--brand-text);
 }
 
-/* The footer is otherwise grey; switches that are on use the send button's pink. */
+/* The footer is otherwise grey; switches that are on use the send button's colour. */
 :root[data-theme="white-pink"] .chat-container:not([data-chat-ui="glass"]) .chat-footer .chat-config-switch-on {
-  color: #b82d63;
+  color: var(--brand-text);
 }
 :root[data-theme="white-pink"] .chat-container:not([data-chat-ui="glass"]) .chat-footer .chat-config-switch-on i,
 :root[data-theme="white-pink"] .chat-container:not([data-chat-ui="glass"]) .group-mention-row .group-web-search-trigger-active::after {
-  background: #e44883;
+  background: var(--brand);
 }
 
 /* The group list under the title shows more rows (its last row opens a new group). */
 :root[data-theme="white-pink"] .chat-container:not([data-chat-ui="glass"]) .group-session-switcher {
   max-height: min(480px, 60dvh);
+}
+
+/* Settings rows: no tint on press (iOS keeps :hover after a light tap). */
+:root[data-theme="white-pink"] .settings-menu-row:is(:hover, :focus-visible, :active) {
+  background: transparent;
+}
+:root[data-theme="white-pink"] .settings-menu-row {
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* 经典 group list under the title: the current group and 新群聊 are gray,
+   not the theme colour. */
+:root[data-theme="white-pink"] .chat-container:not([data-chat-ui="glass"]) .group-session-row-active {
+  background: rgba(var(--theme-shadow-rgb), 0.05);
+}
+:root[data-theme="white-pink"] .chat-container:not([data-chat-ui="glass"]) .group-session-row i {
+  color: var(--text-secondary);
+}
+:root[data-theme="white-pink"] .chat-container:not([data-chat-ui="glass"]) .group-session-create-row {
+  border-color: rgba(var(--theme-line-rgb), 0.9);
+  color: var(--text-secondary);
+}
+:root[data-theme="white-pink"] .chat-container:not([data-chat-ui="glass"]) .group-session-new {
+  color: var(--text-secondary);
 }

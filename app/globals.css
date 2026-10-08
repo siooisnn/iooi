@@ -3682,3 +3682,45 @@ body {
   .group-chat-footer .composer-row { gap: 6px; }
   .group-chat-footer .input-wrapper { padding-left: 9px; gap: 4px; }
 }
+
+/* 设置 → 外观 → 主题色: a row of solid colour dots with their names. */
+.accent-color-options {
+  display: flex;
+  justify-content: space-between;
+  gap: 4px;
+}
+.accent-color-option {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 0;
+  border: 0;
+  background: transparent;
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.accent-color-swatch {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--accent-swatch);
+}
+.accent-color-option[aria-pressed="true"] {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+.accent-color-option[aria-pressed="true"] .accent-color-swatch {
+  box-shadow: 0 0 0 2px #ffffff, 0 0 0 4px var(--accent-swatch);
+}
+.accent-color-option:focus-visible {
+  outline: none;
+}
+.accent-color-option:focus-visible .accent-color-swatch {
+  outline: 2px solid var(--accent-swatch);
+  outline-offset: 4px;
+}

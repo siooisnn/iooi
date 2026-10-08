@@ -12,7 +12,8 @@ import { NotificationButton } from "./components/NotificationButton";
 import { ChatBackgroundSetting } from "./components/ChatBackgroundSetting";
 import { MoonLetter } from "./components/MoonLetter";
 import { PhotoWall } from "./components/PhotoWall";
-import { useChatBrowserChrome, useHomeWallChrome, useThemePage } from "./components/ThemeProvider";
+import { useAccentColor, useChatBrowserChrome, useHomeWallChrome, useThemePage } from "./components/ThemeProvider";
+import { ACCENT_COLORS, accentColorLabel, resolveAccentColor, type AccentColor } from "./lib/accent-colors";
 import { buildChatContext } from "./lib/chat-context";
 import { readChatResponse } from "./lib/chat-stream";
 import { useChatScrollPosition } from "./lib/use-chat-scroll-position";
@@ -187,6 +188,7 @@ type Settings = {
   gptModel: string;
   chatEntryStyle: "list" | "direct";
   fontSize: "16" | "17";
+  accentColor: AccentColor;
   chatUiStyle: "default" | "glass";
   twilightBubbleColor: TwilightBubbleColor;
   gptTwilightBubbleColor?: TwilightBubbleColor;
@@ -323,6 +325,7 @@ function normalizeClaudeSettings(settings: Settings): Settings {
     model: selectedModel,
     gptModel: resolveGptModel(settings.gptModel).id,
     fontSize: settings.fontSize === "17" ? "17" : "16",
+    accentColor: resolveAccentColor(settings.accentColor),
     chatUiStyle: settings.chatUiStyle === "glass" ? "glass" : "default",
     twilightBubbleColor: legacyTwilightBubbleColor,
     gptTwilightBubbleColor: resolveTwilightBubbleColor(settings.gptTwilightBubbleColor, legacyTwilightBubbleColor),
@@ -730,6 +733,7 @@ export default function Home() {
     gptModel: DEFAULT_GPT_MODEL.id,
     chatEntryStyle: "list",
     fontSize: "16",
+    accentColor: "pink",
     chatUiStyle: "default",
     twilightBubbleColor: "berry",
     twilightGlass: DEFAULT_TWILIGHT_GLASS,
@@ -760,6 +764,7 @@ export default function Home() {
   const [chatView, setChatView] = useState<"list" | "room" | "group">("list");
   const [settings, setSettings] = useState<Settings>(defaultSettings);
   const chatRoomOpen = tab === "chat" && chatView !== "list";
+  useAccentColor(settings.accentColor, !(chatRoomOpen && settings.chatUiStyle === "glass"));
   const activeChatBackground = !chatRoomOpen ? ""
     : settings.chatUiStyle === "glass" ? settings.twilightChatBackground || "" : settings.classicChatBackground || "";
   const activeTwilightBubbleColor = chatView === "group"
@@ -4249,6 +4254,7 @@ function SettingsView({
       summary: [
         settings.homeStyle === "wall" ? "照片墙" : "月亮",
         settings.chatUiStyle === "glass" ? "暮光" : "经典",
+        accentColorLabel(settings.accentColor),
         `字号 ${settings.fontSize}`,
       ].join(" · "),
     },
@@ -4395,6 +4401,22 @@ function SettingsView({
             <p className="settings-hint">调节暮光里按钮、输入框和气泡的模糊程度，私聊和群聊共用。拉到最左就是完全透明不模糊。</p>
           </div>
         )}
+
+        <div className="settings-group">
+          <h2 className="settings-group-title">主题色</h2>
+          <div className="accent-color-options" role="group" aria-label="主题色">
+            {ACCENT_COLORS.map((option) => (
+              <button type="button" key={option.value} className="accent-color-option"
+                style={{ "--accent-swatch": option.color } as CSSProperties}
+                aria-pressed={settings.accentColor === option.value}
+                onClick={() => updateSettings({ accentColor: option.value })}>
+                <span className="accent-color-swatch" aria-hidden="true" />
+                {option.label}
+              </button>
+            ))}
+          </div>
+          <p className="settings-hint">经典主题的按钮、开关、选中项和你的气泡一起换色。淡粉是原来的浅粉气泡，其他颜色的气泡是实色配白字。暮光不受影响。</p>
+        </div>
 
         <div className="settings-group">
           <h2 className="settings-group-title">聊天字号</h2>

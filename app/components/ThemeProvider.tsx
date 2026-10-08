@@ -35,6 +35,20 @@ export function useThemePage(page: "home" | "chat" | "diary" | "settings") {
   }, [page]);
 }
 
+// 经典 theme colour on <html data-accent>; 淡粉 (the default) and 暮光 rooms
+// carry none, so they keep the original palette.
+export function useAccentColor(accent: string, active: boolean) {
+  useEffect(() => {
+    const root = document.documentElement;
+    if (!active || accent === "pink") {
+      delete root.dataset.accent;
+      return;
+    }
+    root.dataset.accent = accent;
+    return () => { delete root.dataset.accent; };
+  }, [accent, active]);
+}
+
 // The photo-wall home tints browser chrome to its striped wallpaper.
 export function useHomeWallChrome(active: boolean) {
   useEffect(() => {
