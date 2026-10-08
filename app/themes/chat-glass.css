@@ -473,7 +473,7 @@
   text-decoration-color: color-mix(in srgb, currentColor 60%, transparent);
 }
 
-.app-bg[data-font-size="large"] .chat-container[data-chat-ui="glass"] .msg-bubble:not(.msg-bubble-summer-utility) {
+.app-bg .chat-container[data-chat-ui="glass"] .msg-bubble:not(.msg-bubble-summer-utility) {
   line-height: 1.3;
 }
 

@@ -8,7 +8,7 @@ function syncBrowserChrome() {
   const root = document.documentElement;
   const color = root.dataset.chatChrome === "glass"
     ? root.style.getPropertyValue("--chat-chrome-color") || "#eee8f2"
-    : root.dataset.page === "diary" ? "#ffffff"
+    : root.dataset.page === "diary" || root.dataset.page === "settings" ? "#ffffff"
       : root.dataset.page === "home" && root.dataset.homeStyle === "wall" ? "#fae6eb" : "#f5f5f5";
   document.querySelector('meta[name="theme-color"]')?.setAttribute("content", color);
 }

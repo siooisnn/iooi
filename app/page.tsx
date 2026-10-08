@@ -186,7 +186,6 @@ type Settings = {
   model: string;
   gptModel: string;
   chatEntryStyle: "list" | "direct";
-  fontSize: "default" | "large";
   chatUiStyle: "default" | "glass";
   twilightBubbleColor: TwilightBubbleColor;
   gptTwilightBubbleColor?: TwilightBubbleColor;
@@ -318,7 +317,6 @@ function normalizeClaudeSettings(settings: Settings): Settings {
     ...settings,
     model: selectedModel,
     gptModel: resolveGptModel(settings.gptModel).id,
-    fontSize: ["large", "larger"].includes(settings.fontSize) ? "large" : "default",
     chatUiStyle: settings.chatUiStyle === "glass" ? "glass" : "default",
     twilightBubbleColor: legacyTwilightBubbleColor,
     gptTwilightBubbleColor: resolveTwilightBubbleColor(settings.gptTwilightBubbleColor, legacyTwilightBubbleColor),
@@ -721,7 +719,6 @@ export default function Home() {
     model: "sonnet5",
     gptModel: DEFAULT_GPT_MODEL.id,
     chatEntryStyle: "list",
-    fontSize: "default",
     chatUiStyle: "default",
     twilightBubbleColor: "berry",
     twilightGlass: DEFAULT_TWILIGHT_GLASS,
@@ -1255,7 +1252,7 @@ export default function Home() {
   }
 
   return (
-    <main className="app-bg" data-font-size={settings.fontSize}
+    <main className="app-bg"
       data-fullscreen-shell={tab === "chat" && chatView !== "list" ? undefined : "true"}
       data-twilight-room={tab === "chat" && chatView !== "list" && settings.chatUiStyle === "glass" ? "true" : undefined}>
       <div
@@ -4239,7 +4236,6 @@ function SettingsView({
       summary: [
         settings.homeStyle === "wall" ? "照片墙" : "月亮",
         settings.chatUiStyle === "glass" ? "暮光" : "经典",
-        settings.fontSize === "large" ? "字体大一号" : "默认字体",
       ].join(" · "),
     },
     {
@@ -4385,27 +4381,6 @@ function SettingsView({
             <p className="settings-hint">调节暮光里按钮、输入框和气泡的模糊程度，私聊和群聊共用。拉到最左就是完全透明不模糊。</p>
           </div>
         )}
-
-        <div className="settings-group">
-          <h2 className="settings-group-title" id="font-size-title">聊天字体大小</h2>
-          <div className="font-size-options" role="group" aria-labelledby="font-size-title">
-            {([
-              { value: "default", label: "默认" },
-              { value: "large", label: "大一号" },
-            ] as const).map((option) => (
-              <button
-                key={option.value}
-                type="button"
-                className={`model-option ${settings.fontSize === option.value ? "model-option-active" : ""}`}
-                aria-pressed={settings.fontSize === option.value}
-                onClick={() => updateSettings({ fontSize: option.value })}
-              >
-                {option.label}
-              </button>
-            ))}
-          </div>
-          <p className="settings-hint">只调整聊天页，消息列表始终使用大一号的样式。选择会自动保存。</p>
-        </div>
         </>}
 
         {section === "background" && <>

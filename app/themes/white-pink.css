@@ -11,7 +11,7 @@
   --chrome-bg: #f5f5f5;
   --conversation-bg: #f5f5f5;
   --border-soft: #ededf0;
-  --text-primary: #303036;
+  --text-primary: #1a1a1a;
   --text-secondary: #68686f;
   --text-light: #797980;
   --bubble-ai: #ffffff;
@@ -51,7 +51,21 @@
 
 :root[data-theme="white-pink"] .settings-body {
   --theme-success: var(--accent-text);
+  background: #f5f5f5;
+  gap: 12px;
+}
+
+/* Settings, like Summer: every block sits in a white card, so gray only shows
+   in the gaps between cards. */
+:root[data-theme="white-pink"] .settings-body .settings-group {
+  padding: 16px;
+  border: 1px solid var(--border-soft);
+  border-radius: 16px;
   background: #ffffff;
+}
+
+:root[data-theme="white-pink"] .settings-body .settings-menu {
+  padding: 0;
 }
 
 :root[data-theme="white-pink"] .chat-entry-search,
@@ -170,10 +184,10 @@
 }
 
 /* Classic rooms: lift the composer bar off the #ededed message list with a
-   slightly lighter gray (still not white, so the white input stays distinct)
-   plus the same hairline the title bar has underneath. */
+   slightly lighter gray, still dark enough for the borderless white input to
+   read clearly, plus the same hairline the title bar has underneath. */
 :root[data-theme="white-pink"] .chat-container:not([data-chat-ui="glass"]) .chat-footer {
-  background: #fafafa;
+  background: #f2f2f2;
   border-top: 1px solid var(--glass-border);
   /* Same space under the row as the bottom nav leaves under its tab labels
      (.nav-btn 8px + .bottom-nav padding-bottom). */
@@ -192,6 +206,13 @@
   padding-bottom: max(4px, calc(env(safe-area-inset-bottom) - 14px));
 }
 
+/* Tab labels and icons are black; the current tab stays pink. */
+:root[data-theme="white-pink"] .nav-btn,
+:root[data-theme="white-pink"] .nav-btn:hover,
+:root[data-theme="white-pink"] .chat-container[data-home-style="wall"] .nav-btn:not([aria-current="page"]) {
+  color: var(--text-primary);
+}
+
 /* Touch browsers can retain :hover after a tap; it must not dim the active tab. */
 :root[data-theme="white-pink"] .nav-btn[aria-current="page"] {
   color: var(--accent-text);
@@ -202,8 +223,8 @@
 }
 
 /* Classic rooms: a WeChat-like #ededed message list so the pure-white AI
-   bubbles stand out; the title bar keeps #f5f5f5. */
-:root[data-theme="white-pink"] .chat-container:not([data-chat-ui="glass"]) .chat-messages {
+   bubbles stand out; the title bar matches it, keeping only its hairline. */
+:root[data-theme="white-pink"] .chat-container:not([data-chat-ui="glass"]) :is(.chat-messages, .chat-room-header) {
   background: #ededed;
 }
 
@@ -272,6 +293,12 @@
   font-weight: 400;
 }
 
+/* 经典 rooms: the line under the room name and group speaker names use the
+   send button's pink. */
+:root[data-theme="white-pink"] .chat-container:not([data-chat-ui="glass"]) :is(.chat-room-header .chat-room-status, .group-speaker-meta) {
+  color: #e44883;
+}
+
 :root[data-theme="white-pink"] :is(.home-card, .counter-item, .mini-counter, .letter-card,
   .summer-native-toolbar, .summer-layer-card, .summer-memory-card, .summer-memory-group,
   .summer-doc, .summer-writer, .settings-input, .settings-textarea, .model-option, .settings-menu) {
@@ -308,8 +335,9 @@
   background-color: var(--chrome-bg);
 }
 
-/* Summer alone uses white chrome and cards on a gray page. */
-:root[data-theme="white-pink"][data-page="diary"] {
+/* Summer and Settings use white chrome and cards on a gray page;
+   Home and Chat keep the gray chrome. */
+:root[data-theme="white-pink"]:is([data-page="diary"], [data-page="settings"]) {
   --chrome-bg: #ffffff;
   --bg-chat: #f5f5f5;
   --theme-surface-soft: #ffffff;
@@ -343,9 +371,6 @@
   border-top: 1px solid rgba(255, 255, 255, .65);
   backdrop-filter: blur(16px) saturate(1.3);
   -webkit-backdrop-filter: blur(16px) saturate(1.3);
-}
-:root[data-theme="white-pink"] .chat-container[data-home-style="wall"] .nav-btn:not([aria-current="page"]) {
-  color: #8d7479;
 }
 
 /* ── 经典 chat rooms (single, work mode, group). 暮光 rooms carry
@@ -402,6 +427,29 @@
 /* The gear sits at the far left of the input row (left of the paperclip). */
 :root[data-theme="white-pink"] .chat-container:not([data-chat-ui="glass"]) .single-chat-footer .composer-settings-btn {
   order: -1;
+}
+
+/* Settings, paperclip and group menu: black ring, larger black icon with a
+   heavier line. */
+:root[data-theme="white-pink"] .chat-container:not([data-chat-ui="glass"]) .chat-footer .attach-btn.attach-btn-separate {
+  border-color: var(--text-primary);
+  color: var(--text-primary);
+}
+:root[data-theme="white-pink"] .chat-container:not([data-chat-ui="glass"]) .chat-footer .attach-btn.attach-btn-separate svg {
+  width: 22px;
+  height: 22px;
+  stroke-width: 2;
+}
+
+/* No outline around the input, even while typing. */
+:root[data-theme="white-pink"] .chat-container:not([data-chat-ui="glass"]) .chat-footer .input-wrapper,
+:root[data-theme="white-pink"] .chat-container:not([data-chat-ui="glass"]) .chat-footer .input-wrapper:focus-within {
+  border-color: transparent;
+}
+
+/* The context-window circle is hidden in classic rooms; it still counts. */
+:root[data-theme="white-pink"] .chat-container:not([data-chat-ui="glass"]) .chat-footer .context-usage-control {
+  display: none;
 }
 
 /* Composer row one sixth lower: 44px → 37px. Icons keep their size. */
