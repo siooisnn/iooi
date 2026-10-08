@@ -119,7 +119,6 @@ body {
 }
 
 .header-dot { width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; background: transparent; }
-.header-dot::before { content: ""; width: 4px; height: 4px; border-radius: 50%; background: var(--text-light); }
 
 .header-center { display: flex; flex-direction: column; align-items: center; gap: 2px; flex: 1; }
 
@@ -2765,7 +2764,6 @@ body {
 }
 .settings-menu-chevron { flex-shrink: 0; color: var(--text-light); }
 
-.settings-notice { margin-top: 0; }
 
 .settings-input {
   width: 140px;

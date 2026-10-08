@@ -293,10 +293,40 @@
   font-weight: 400;
 }
 
-/* 经典 rooms: the line under the room name and group speaker names use the
-   send button's pink. */
+/* 经典 rooms: the line under the room name and group speaker names are the
+   same quiet gray as the message times. */
 :root[data-theme="white-pink"] .chat-container:not([data-chat-ui="glass"]) :is(.chat-room-header .chat-room-status, .group-speaker-meta) {
-  color: #e44883;
+  color: var(--text-light);
+}
+
+/* 经典 group: every name · time line uses the single room's time line type
+   (globals.css .date-separator-text): regular weight, 1px letter spacing. */
+:root[data-theme="white-pink"] .chat-container:not([data-chat-ui="glass"])[data-chat-view="group"] .msg-time {
+  color: var(--text-light);
+  font-weight: 400;
+  letter-spacing: 1px;
+}
+
+/* 经典 chat background photo: it shows behind the messages only; the title
+   bar and composer stay solid. Without a photo the list stays #ededed.
+   z-index -1 inside the isolated room keeps it under every in-flow piece
+   (like the group list under the title), not just the positioned ones. */
+:root[data-theme="white-pink"] .chat-container:not([data-chat-ui="glass"])[data-chat-background="image"] {
+  position: relative;
+  isolation: isolate;
+}
+:root[data-theme="white-pink"] .chat-container:not([data-chat-ui="glass"]) .chat-room-background {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+  pointer-events: none;
+}
+:root[data-theme="white-pink"] .chat-container:not([data-chat-ui="glass"])[data-chat-background="image"] .chat-messages {
+  background: transparent;
 }
 
 :root[data-theme="white-pink"] :is(.home-card, .counter-item, .mini-counter, .letter-card,

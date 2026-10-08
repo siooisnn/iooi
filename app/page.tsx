@@ -196,7 +196,11 @@ type Settings = {
   groupTwilightTone?: TwilightTone;
   twilightAiBubble?: TwilightAiBubble;
   twilightGlass: number;
-  chatBackground: string;
+  // One photo per theme, shared by both private chats and the group.
+  classicChatBackground: string;
+  twilightChatBackground?: string;
+  // Old per-room 暮光 photos; merged into twilightChatBackground on load.
+  chatBackground?: string;
   gptChatBackground?: string;
   groupChatBackground?: string;
   homeStyle: HomeStyle;
@@ -328,14 +332,18 @@ function normalizeClaudeSettings(settings: Settings): Settings {
     groupTwilightTone: resolveTwilightTone(settings.groupTwilightTone),
     twilightAiBubble: resolveTwilightAiBubble(settings.twilightAiBubble),
     twilightGlass: resolveTwilightGlass(settings.twilightGlass),
-    chatBackground: normalizeChatBackground(settings.chatBackground),
-    groupChatBackground: normalizeChatBackground(settings.groupChatBackground),
+    classicChatBackground: normalizeChatBackground(settings.classicChatBackground),
+    // First load after the merge keeps an existing 暮光 photo (Claude's, then
+    // GPT's, then the group's); afterwards an empty value means it was removed.
+    twilightChatBackground: settings.twilightChatBackground === undefined
+      ? [settings.chatBackground, settings.gptChatBackground, settings.groupChatBackground]
+        .map(normalizeChatBackground).find(Boolean) || ""
+      : normalizeChatBackground(settings.twilightChatBackground),
+    chatBackground: undefined,
+    gptChatBackground: undefined,
+    groupChatBackground: undefined,
     homeStyle: normalizeHomeStyle(settings.homeStyle),
     homeWallPhotos: normalizeHomeWallPhotos(settings.homeWallPhotos),
-    // Preserve the old shared photo on first upgrade; an explicit empty value
-    // means GPT's background was removed and must not fall back to Claude's.
-    gptChatBackground: normalizeChatBackground(settings.gptChatBackground === undefined
-      ? settings.chatBackground : settings.gptChatBackground),
     webSearch: Boolean(settings.webSearch),
     aiName: !settings.aiName?.trim() || oldDefaultName.test(settings.aiName.trim())
       ? CLAUDE_DEFAULT_NAME
@@ -725,7 +733,7 @@ export default function Home() {
     chatUiStyle: "default",
     twilightBubbleColor: "berry",
     twilightGlass: DEFAULT_TWILIGHT_GLASS,
-    chatBackground: "",
+    classicChatBackground: "",
     homeStyle: "moon",
     homeWallPhotos: [],
     chatPinnedLine: "此后我们的每一秒都是恩赐。",
@@ -751,7 +759,9 @@ export default function Home() {
   useThemePage(tab);
   const [chatView, setChatView] = useState<"list" | "room" | "group">("list");
   const [settings, setSettings] = useState<Settings>(defaultSettings);
-  const activeChatBackground = chatView === "group" ? settings.groupChatBackground || "" : settings.chatEntryStyle === "direct" ? settings.gptChatBackground || "" : settings.chatBackground;
+  const chatRoomOpen = tab === "chat" && chatView !== "list";
+  const activeChatBackground = !chatRoomOpen ? ""
+    : settings.chatUiStyle === "glass" ? settings.twilightChatBackground || "" : settings.classicChatBackground || "";
   const activeTwilightBubbleColor = chatView === "group"
     ? settings.groupTwilightBubbleColor
     : settings.chatEntryStyle === "direct"
@@ -764,7 +774,7 @@ export default function Home() {
       ? settings.gptTwilightTone
       : settings.twilightTone);
   const twilightAiBubble = TWILIGHT_AI_BUBBLES.find((bubble) => bubble.value === settings.twilightAiBubble) || TWILIGHT_AI_BUBBLES[0];
-  useChatBrowserChrome(tab === "chat" && chatView !== "list" && settings.chatUiStyle === "glass", activeChatBackground, settings.twilightGlass);
+  useChatBrowserChrome(chatRoomOpen && settings.chatUiStyle === "glass", activeChatBackground, settings.twilightGlass);
   const [sessions, setSessions] = useState<ChatSession[]>([]);
   const [activeSessionId, setActiveSessionId] = useState<string>("");
   const [gptSessions, setGptSessions] = useState<ChatSession[]>([]);
@@ -1273,10 +1283,10 @@ export default function Home() {
           } as CSSProperties
           : undefined}
         data-twilight-tone={tab === "chat" && chatView !== "list" && settings.chatUiStyle === "glass" ? activeTwilightTone : undefined}
-        data-chat-background={tab === "chat" && chatView !== "list" && settings.chatUiStyle === "glass" && activeChatBackground ? "image" : undefined}
+        data-chat-background={activeChatBackground ? "image" : undefined}
         data-home-style={tab === "home" && settings.homeStyle === "wall" ? "wall" : undefined}
       >
-        {tab === "chat" && chatView !== "list" && settings.chatUiStyle === "glass" && activeChatBackground && (
+        {activeChatBackground && (
           <NextImage className="chat-room-background" src={activeChatBackground} alt="" fill unoptimized aria-hidden="true" />
         )}
         {tab === "home" && <HomeView settings={settings} updateSettings={updateSettings} />}
@@ -4227,7 +4237,7 @@ function SettingsView({
 
   const manualCache = manualCacheSlice();
   const assistantLabel = isGpt ? (settings.gptName || "GPT") : (settings.aiName || CLAUDE_DEFAULT_NAME);
-  const backgroundCount = [settings.chatBackground, settings.gptChatBackground, settings.groupChatBackground].filter(Boolean).length;
+  const backgroundCount = [settings.classicChatBackground, settings.twilightChatBackground].filter(Boolean).length;
   const cacheSummary = lastCache?.status === "hit" ? "上轮命中缓存"
     : lastCache?.status === "write" ? "上轮写入缓存"
     : lastCache?.status === "miss" ? "上轮未命中"
@@ -4399,24 +4409,19 @@ function SettingsView({
         </>}
 
         {section === "background" && <>
-        {settings.chatUiStyle !== "glass" && (
-          <p className="settings-hint settings-notice">聊天背景只在「暮光」主题下显示，可以在「外观」里切换。</p>
-        )}
         <ChatBackgroundSetting
-          name={settings.aiName || CLAUDE_DEFAULT_NAME}
-          background={settings.chatBackground}
-          onChange={(chatBackground) => updateSettings({ chatBackground })}
+          title="经典背景"
+          current={settings.chatUiStyle !== "glass"}
+          hint={`经典主题下，和${settings.aiName || CLAUDE_DEFAULT_NAME}、${settings.gptName || "GPT"}的聊天和群聊都用这张。移除后恢复灰色底，照片自动保存。`}
+          background={settings.classicChatBackground}
+          onChange={(classicChatBackground) => updateSettings({ classicChatBackground })}
         />
         <ChatBackgroundSetting
-          name={settings.gptName || "GPT"}
-          background={settings.gptChatBackground || ""}
-          onChange={(gptChatBackground) => updateSettings({ gptChatBackground })}
-        />
-        <ChatBackgroundSetting
-          name="群聊"
-          background={settings.groupChatBackground || ""}
-          onChange={(groupChatBackground) => updateSettings({ groupChatBackground })}
-          group
+          title="暮光背景"
+          current={settings.chatUiStyle === "glass"}
+          hint={`暮光主题下，和${settings.aiName || CLAUDE_DEFAULT_NAME}、${settings.gptName || "GPT"}的聊天和群聊都用这张。移除后恢复暮光渐变，照片自动保存。`}
+          background={settings.twilightChatBackground || ""}
+          onChange={(twilightChatBackground) => updateSettings({ twilightChatBackground })}
         />
         </>}
 
