@@ -104,7 +104,7 @@ export function NotificationButton({ onSubscribe, loadPublicKey, onTest }: Notif
     try {
       setTestResult(await onTest());
     } catch {
-      setTestResult("测试请求失败");
+      setTestResult("Test request failed");
     } finally {
       setTesting(false);
     }
@@ -113,30 +113,30 @@ export function NotificationButton({ onSubscribe, loadPublicKey, onTest }: Notif
   if (status === "done") {
     return (
       <>
-        <div className="settings-hint" style={{ color: "var(--theme-success, #7c9a92)" }}>已开启通知</div>
+        <div className="settings-hint" style={{ color: "var(--theme-success, #7c9a92)" }}>Notifications are on</div>
         <button className="settings-danger-btn" style={{ borderColor: "var(--theme-success, #7c9a92)", color: "var(--theme-success, #7c9a92)" }} onClick={sendTest} disabled={testing}>
-          {testing ? "发送中..." : "发一条测试通知"}
+          {testing ? "Sending…" : "Send a test notification"}
         </button>
         {testResult && <div className="settings-hint">{testResult}</div>}
       </>
     );
   }
   if (status === "denied") {
-    return <div className="settings-hint" style={{ color: "var(--theme-accent, #c4866c)" }}>通知权限被拒绝，请在系统设置中允许通知</div>;
+    return <div className="settings-hint" style={{ color: "var(--theme-accent, #c4866c)" }}>Notifications are blocked. Allow them in system settings.</div>;
   }
   if (status === "unsupported") {
-    return <div className="settings-hint" style={{ color: "var(--theme-accent, #c4866c)" }}>当前环境不支持推送（iPhone 需要从主屏幕图标打开）</div>;
+    return <div className="settings-hint" style={{ color: "var(--theme-accent, #c4866c)" }}>Push isn&apos;t supported here (on iPhone, open iooi from the Home Screen icon).</div>;
   }
   if (status === "syncing") {
-    return <div className="settings-hint">正在检查通知订阅...</div>;
+    return <div className="settings-hint">Checking notification subscription…</div>;
   }
   return (
     <>
       {status === "failed" && (
-        <div className="settings-hint" style={{ color: "var(--theme-accent, #c4866c)" }}>通知订阅同步失败，点下面重新开启</div>
+        <div className="settings-hint" style={{ color: "var(--theme-accent, #c4866c)" }}>Subscription sync failed. Tap below to turn it on again.</div>
       )}
       <button className="settings-danger-btn" style={{ borderColor: "var(--theme-success, #7c9a92)", color: "var(--theme-success, #7c9a92)" }} onClick={enableNotifications}>
-        {status === "failed" ? "重新开启通知" : "开启通知"}
+        {status === "failed" ? "Turn on again" : "Turn on notifications"}
       </button>
     </>
   );

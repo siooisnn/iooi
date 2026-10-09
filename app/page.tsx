@@ -11,19 +11,13 @@ import { ContextUsageBadge, type UsageMessage } from "./components/ContextUsageB
 import { NotificationButton } from "./components/NotificationButton";
 import { ChatBackgroundSetting } from "./components/ChatBackgroundSetting";
 import { MoonLetter } from "./components/MoonLetter";
-import { PhotoWall } from "./components/PhotoWall";
-import { useAccentColor, useChatBrowserChrome, useHomeWallChrome, useThemePage } from "./components/ThemeProvider";
-import { ACCENT_COLORS, accentColorLabel, resolveAccentColor, type AccentColor } from "./lib/accent-colors";
+import { useThemePage } from "./components/ThemeProvider";
 import { buildChatContext } from "./lib/chat-context";
 import { readChatResponse } from "./lib/chat-stream";
 import { useChatScrollPosition } from "./lib/use-chat-scroll-position";
 import { useTwilightLayout } from "./lib/use-twilight-layout";
 import { useFullscreenShell } from "./lib/use-fullscreen-shell";
-import { DEFAULT_TWILIGHT_GLASS, resolveTwilightAiBubble, resolveTwilightBubbleColor, resolveTwilightGlass, resolveTwilightTone, TWILIGHT_AI_BUBBLES, TWILIGHT_BUBBLE_COLORS, TWILIGHT_TONES, type TwilightAiBubble, type TwilightBubbleColor, type TwilightTone } from "./lib/twilight-bubbles";
-import { TwilightGlassSlider } from "./components/TwilightGlassSlider";
 import { normalizeChatBackground } from "./lib/chat-background";
-import { normalizeHomeStyle, normalizeHomeWallPhotos } from "./lib/home-wall";
-import type { HomeStyle } from "./lib/home-wall";
 import { alignLegacySummerCalls, messageTimestamp } from "./lib/chat-timeline";
 import { DEFAULT_GPT_MODEL, GPT_MODELS, resolveGptModel } from "./lib/gpt-models";
 import type { CodeTaskState } from "./lib/code-task-state";
@@ -184,30 +178,28 @@ function arrayBufferToBase64(buffer: ArrayBuffer): string {
   return btoa(binary);
 }
 
+const BUBBLE_COLORS = [
+  { value: "gray", label: "Dark Gray", color: "#2c2c2e" },
+  { value: "blue", label: "Bright Blue", color: "#007aff" },
+  { value: "black", label: "Black", color: "#000000" },
+] as const;
+
+type BubbleColor = typeof BUBBLE_COLORS[number]["value"];
+
+function resolveBubbleColor(value: unknown): BubbleColor {
+  return BUBBLE_COLORS.some((option) => option.value === value) ? value as BubbleColor : "gray";
+}
+
 type Settings = {
   model: string;
   gptModel: string;
   chatEntryStyle: "list" | "direct";
-  fontSize: "16" | "17";
-  accentColor: AccentColor;
-  chatUiStyle: "default" | "glass";
-  twilightBubbleColor: TwilightBubbleColor;
-  gptTwilightBubbleColor?: TwilightBubbleColor;
-  groupTwilightBubbleColor?: TwilightBubbleColor;
-  twilightTone?: TwilightTone;
-  gptTwilightTone?: TwilightTone;
-  groupTwilightTone?: TwilightTone;
-  twilightAiBubble?: TwilightAiBubble;
-  twilightGlass: number;
-  // One photo per theme, shared by both private chats and the group.
+  // One photo shared by both private chats and the group.
   classicChatBackground: string;
-  twilightChatBackground?: string;
-  // Old per-room 暮光 photos; merged into twilightChatBackground on load.
-  chatBackground?: string;
-  gptChatBackground?: string;
-  groupChatBackground?: string;
-  homeStyle: HomeStyle;
-  homeWallPhotos: string[];
+  // Shown under her name on the chat list; picked in settings.
+  todayState: string;
+  // Her bubble colour; the text on it stays white.
+  bubbleColor: BubbleColor;
   chatPinnedLine: string;
   gptChatPinnedLine: string;
   aiName: string;
@@ -320,34 +312,13 @@ function normalizeClaudeSettings(settings: Settings): Settings {
     "claude-opus-4-6": "opus46",
   };
   const selectedModel = modelAliases[modelValue] || "sonnet5";
-  const legacyTwilightBubbleColor = resolveTwilightBubbleColor(settings.twilightBubbleColor);
   return {
     ...settings,
     model: selectedModel,
     gptModel: resolveGptModel(settings.gptModel).id,
-    fontSize: settings.fontSize === "17" ? "17" : "16",
-    accentColor: resolveAccentColor(settings.accentColor),
-    chatUiStyle: settings.chatUiStyle === "glass" ? "glass" : "default",
-    twilightBubbleColor: legacyTwilightBubbleColor,
-    gptTwilightBubbleColor: resolveTwilightBubbleColor(settings.gptTwilightBubbleColor, legacyTwilightBubbleColor),
-    groupTwilightBubbleColor: resolveTwilightBubbleColor(settings.groupTwilightBubbleColor, legacyTwilightBubbleColor),
-    twilightTone: resolveTwilightTone(settings.twilightTone),
-    gptTwilightTone: resolveTwilightTone(settings.gptTwilightTone),
-    groupTwilightTone: resolveTwilightTone(settings.groupTwilightTone),
-    twilightAiBubble: resolveTwilightAiBubble(settings.twilightAiBubble),
-    twilightGlass: resolveTwilightGlass(settings.twilightGlass),
     classicChatBackground: normalizeChatBackground(settings.classicChatBackground),
-    // First load after the merge keeps an existing 暮光 photo (Claude's, then
-    // GPT's, then the group's); afterwards an empty value means it was removed.
-    twilightChatBackground: settings.twilightChatBackground === undefined
-      ? [settings.chatBackground, settings.gptChatBackground, settings.groupChatBackground]
-        .map(normalizeChatBackground).find(Boolean) || ""
-      : normalizeChatBackground(settings.twilightChatBackground),
-    chatBackground: undefined,
-    gptChatBackground: undefined,
-    groupChatBackground: undefined,
-    homeStyle: normalizeHomeStyle(settings.homeStyle),
-    homeWallPhotos: normalizeHomeWallPhotos(settings.homeWallPhotos),
+    todayState: typeof settings.todayState === "string" ? settings.todayState.trim().slice(0, 40) : "",
+    bubbleColor: resolveBubbleColor(settings.bubbleColor),
     webSearch: Boolean(settings.webSearch),
     aiName: !settings.aiName?.trim() || oldDefaultName.test(settings.aiName.trim())
       ? CLAUDE_DEFAULT_NAME
@@ -733,14 +704,9 @@ export default function Home() {
     model: "sonnet5",
     gptModel: DEFAULT_GPT_MODEL.id,
     chatEntryStyle: "list",
-    fontSize: "16",
-    accentColor: "pink",
-    chatUiStyle: "default",
-    twilightBubbleColor: "berry",
-    twilightGlass: DEFAULT_TWILIGHT_GLASS,
     classicChatBackground: "",
-    homeStyle: "moon",
-    homeWallPhotos: [],
+    todayState: "",
+    bubbleColor: "gray",
     chatPinnedLine: "此后我们的每一秒都是恩赐。",
     gptChatPinnedLine: "此后我们的每一秒都是恩赐。",
     aiName: CLAUDE_DEFAULT_NAME,
@@ -766,22 +732,11 @@ export default function Home() {
   const [settings, setSettings] = useState<Settings>(defaultSettings);
   const chatRoomOpen = tab === "chat" && chatView !== "list";
   const shellRef = useRef<HTMLDivElement>(null);
-  useAccentColor(settings.accentColor, !(chatRoomOpen && settings.chatUiStyle === "glass"));
-  const activeChatBackground = !chatRoomOpen ? ""
-    : settings.chatUiStyle === "glass" ? settings.twilightChatBackground || "" : settings.classicChatBackground || "";
-  const activeTwilightBubbleColor = chatView === "group"
-    ? settings.groupTwilightBubbleColor
-    : settings.chatEntryStyle === "direct"
-      ? settings.gptTwilightBubbleColor
-      : settings.twilightBubbleColor;
-  const twilightBubble = TWILIGHT_BUBBLE_COLORS.find((color) => color.value === activeTwilightBubbleColor) || TWILIGHT_BUBBLE_COLORS[0];
-  const activeTwilightTone = resolveTwilightTone(chatView === "group"
-    ? settings.groupTwilightTone
-    : settings.chatEntryStyle === "direct"
-      ? settings.gptTwilightTone
-      : settings.twilightTone);
-  const twilightAiBubble = TWILIGHT_AI_BUBBLES.find((bubble) => bubble.value === settings.twilightAiBubble) || TWILIGHT_AI_BUBBLES[0];
-  useChatBrowserChrome(chatRoomOpen && settings.chatUiStyle === "glass", activeChatBackground, settings.twilightGlass);
+  const activeChatBackground = chatRoomOpen ? settings.classicChatBackground || "" : "";
+  // Which private room is open. Either person's room can be opened from
+  // the list, whichever person the A/B switch currently shows.
+  const [roomMode, setRoomMode] = useState<AssistantMode>("claude");
+  const [listTab, setListTab] = useState<ChatListTab>("chats");
   const [sessions, setSessions] = useState<ChatSession[]>([]);
   const [activeSessionId, setActiveSessionId] = useState<string>("");
   const [gptSessions, setGptSessions] = useState<ChatSession[]>([]);
@@ -937,6 +892,11 @@ export default function Home() {
         .catch(() => {});
     }
   }, [mounted]);
+
+  // Her bubble colour lives on <html> so every chat view picks it up.
+  useEffect(() => {
+    document.documentElement.dataset.bubble = settings.bubbleColor;
+  }, [settings.bubbleColor]);
 
   // Force sync when user switches away (prevents message loss on iOS)
   const latestData = useRef({ sessions, gptSessions, groupSessions, settings, moods, fragments });
@@ -1227,10 +1187,10 @@ export default function Home() {
   if (!mounted && !needKey) return <main className="app-bg"><div className="chat-container" /></main>;
 
   const tabs = [
-    { id: "home" as const, label: "Home", icon: <IconHome /> },
-    { id: "chat" as const, label: "Chat", icon: <IconChat /> },
-    { id: "diary" as const, label: "Summer", icon: <IconDiary /> },
-    { id: "settings" as const, label: "Settings", icon: <IconSettings /> },
+    { id: "home" as const, label: "Home", Icon: IconHome },
+    { id: "chat" as const, label: "Chat", Icon: IconChat },
+    { id: "diary" as const, label: "Summer", Icon: IconDiary },
+    { id: "settings" as const, label: "Settings", Icon: IconSettings },
   ];
 
   function switchTab(nextTab: "home" | "chat" | "diary" | "settings") {
@@ -1273,52 +1233,72 @@ export default function Home() {
     );
   }
 
+  const listMode: AssistantMode = settings.chatEntryStyle === "direct" ? "gpt" : "claude";
+  const chatListOpen = tab === "chat" && chatView === "list";
+
+  function openPrivateRoom(mode: AssistantMode, id: string) {
+    if (mode === "gpt") setGptActiveSessionId(id);
+    else setActiveSessionId(id);
+    setRoomMode(mode);
+    setChatView("room");
+  }
+
+  function openGroupRoom(id: string) {
+    setGroupActiveSessionId(id);
+    setChatView("group");
+  }
+
+  function openNewGroupRoom() {
+    createGroupSessionWindow();
+    setChatView("group");
+  }
+
+  // The round + beside the tab bar only acts on the chat list; on the other
+  // pages it is just part of the bar's shape.
+  function openNewPrivateRoom() {
+    if (!chatListOpen) return;
+    if (listMode === "gpt") createGptSession();
+    else createSession();
+    setRoomMode(listMode);
+    setChatView("room");
+  }
+
   return (
-    <main className="app-bg" data-font-size={settings.fontSize}
-      data-fullscreen-shell={tab === "chat" && chatView !== "list" ? undefined : "true"}
-      data-twilight-room={tab === "chat" && chatView !== "list" && settings.chatUiStyle === "glass" ? "true" : undefined}>
+    <main className="app-bg"
+      data-fullscreen-shell={tab === "chat" && chatView !== "list" ? undefined : "true"}>
       <div
         ref={shellRef}
         className="chat-container"
         data-chat-view={tab === "chat" ? chatView : undefined}
-        data-chat-ui={tab === "chat" && (chatView === "room" || (chatView === "group" && settings.chatUiStyle === "glass")) ? settings.chatUiStyle : undefined}
-        style={tab === "chat" && chatView !== "list" && settings.chatUiStyle === "glass"
-          ? {
-            "--twilight-user-bubble": twilightBubble.color,
-            "--twilight-user-ink": twilightBubble.ink,
-            "--twilight-ai-bubble": twilightAiBubble.color,
-            "--twilight-ai-ink": twilightAiBubble.ink,
-            "--chat-stamp-surface": twilightAiBubble.stamp,
-            "--chat-stamp-ink": twilightAiBubble.stampInk,
-          } as CSSProperties
-          : undefined}
-        data-twilight-tone={tab === "chat" && chatView !== "list" && settings.chatUiStyle === "glass" ? activeTwilightTone : undefined}
+        data-chat-ui={tab === "chat" && chatView === "room" ? "default" : undefined}
         data-chat-background={activeChatBackground ? "image" : undefined}
-        data-home-style={tab === "home" && settings.homeStyle === "wall" ? "wall" : undefined}
       >
         {activeChatBackground && (
           <NextImage className="chat-room-background" src={activeChatBackground} alt="" fill unoptimized aria-hidden="true" />
         )}
-        {tab === "home" && <HomeView settings={settings} updateSettings={updateSettings} />}
-        {tab === "chat" && settings.chatEntryStyle === "list" && chatView === "list" && (
+        {tab === "home" && <HomeView settings={settings} />}
+        {chatListOpen && (
           <ChatListView
-            assistantMode="claude"
+            key={listMode}
+            assistantMode={listMode}
             settings={settings}
             updateSettings={updateSettings}
-            sessions={sessions}
-            heartbeatLog={heartbeatLog}
+            sessions={listMode === "gpt" ? gptSessions : sessions}
+            otherSessions={listMode === "gpt" ? sessions : gptSessions}
+            groupSessions={groupSessions}
+            heartbeatLog={listMode === "gpt" ? [] : heartbeatLog}
             fragments={fragments}
             setFragments={setFragments}
-            setActiveSessionId={setActiveSessionId}
-            createSession={createSession}
-            renameSession={renameSession}
-            deleteSession={deleteSession}
-            openRoom={() => setChatView("room")}
-            groupSession={groupSession}
-            openGroup={() => setChatView("group")}
+            renameSession={listMode === "gpt" ? renameGptSession : renameSession}
+            deleteSession={listMode === "gpt" ? deleteGptSession : deleteSession}
+            openSession={openPrivateRoom}
+            openGroup={openGroupRoom}
+            createGroup={openNewGroupRoom}
+            listTab={listTab}
+            setListTab={setListTab}
           />
         )}
-        {tab === "chat" && settings.chatEntryStyle === "list" && activeSession && chatView === "room" && (
+        {tab === "chat" && roomMode === "claude" && activeSession && chatView === "room" && (
           <ChatView
             key={`claude-${activeSession.id}`}
             assistantMode="claude"
@@ -1335,29 +1315,11 @@ export default function Home() {
             createSession={createSession}
             deleteSession={deleteSession}
             renameSession={renameSession}
-            listEntryMode={settings.chatEntryStyle === "list"}
+            listEntryMode
             onBackToList={() => setChatView("list")}
           />
         )}
-        {tab === "chat" && settings.chatEntryStyle === "direct" && chatView === "list" && (
-          <ChatListView
-            assistantMode="gpt"
-            settings={settings}
-            updateSettings={updateSettings}
-            sessions={gptSessions}
-            heartbeatLog={[]}
-            fragments={fragments}
-            setFragments={setFragments}
-            setActiveSessionId={setGptActiveSessionId}
-            createSession={createGptSession}
-            renameSession={renameGptSession}
-            deleteSession={deleteGptSession}
-            openRoom={() => setChatView("room")}
-            groupSession={groupSession}
-            openGroup={() => setChatView("group")}
-          />
-        )}
-        {tab === "chat" && settings.chatEntryStyle === "direct" && gptActiveSession && chatView === "room" && (
+        {tab === "chat" && roomMode === "gpt" && gptActiveSession && chatView === "room" && (
           <ChatView
             key={`gpt-${gptActiveSession.id}`}
             assistantMode="gpt"
@@ -1397,18 +1359,18 @@ export default function Home() {
         {tab === "diary" && (
           <SummerPageView
             key={settings.chatEntryStyle}
-            assistantMode={settings.chatEntryStyle === "direct" ? "gpt" : "claude"}
-            assistantName={settings.chatEntryStyle === "direct" ? "GPT" : (settings.aiName || CLAUDE_DEFAULT_NAME)}
+            assistantMode={listMode}
+            assistantName={listMode === "gpt" ? "GPT" : (settings.aiName || CLAUDE_DEFAULT_NAME)}
           />
         )}
         {tab === "settings" && (
           <SettingsView
             settings={settings}
             updateSettings={updateSettings}
-            updateSummary={settings.chatEntryStyle === "direct" ? updateGptSummary : updateActiveSummary}
-            lastCache={settings.chatEntryStyle === "direct" ? gptLastCache : lastCache}
-            session={settings.chatEntryStyle === "direct" ? gptActiveSession : activeSession}
-            assistantMode={settings.chatEntryStyle === "direct" ? "gpt" : "claude"}
+            updateSummary={listMode === "gpt" ? updateGptSummary : updateActiveSummary}
+            lastCache={listMode === "gpt" ? gptLastCache : lastCache}
+            session={listMode === "gpt" ? gptActiveSession : activeSession}
+            assistantMode={listMode}
           />
         )}
 
@@ -1420,50 +1382,77 @@ export default function Home() {
               aria-current={tab === t.id ? "page" : undefined}
               onClick={() => switchTab(t.id)}
             >
-              {t.icon}
+              <t.Icon active={tab === t.id} />
               <span>{t.label}</span>
             </button>
           ))}
         </nav>}
+        {!(tab === "chat" && chatView !== "list") && (
+          <button
+            type="button"
+            className="bottom-nav-plus"
+            aria-label={chatListOpen ? `新开${listMode === "gpt" ? settings.gptName || "GPT" : settings.aiName || CLAUDE_DEFAULT_NAME}窗口` : undefined}
+            aria-hidden={chatListOpen ? undefined : true}
+            tabIndex={chatListOpen ? undefined : -1}
+            onClick={openNewPrivateRoom}
+          >
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+              <path d="M12 5v14M5 12h14" />
+            </svg>
+          </button>
+        )}
       </div>
     </main>
   );
 }
 
-// Icons
-function IconHome() {
+// Icons: outline at rest; the current tab fills black and keeps its
+// details as white cut-outs.
+type NavIconProps = { active: boolean };
+const NAV_CUT = "#fff";
+
+function IconHome({ active }: NavIconProps) {
   return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
-      <polyline points="9 22 9 12 15 12 15 22" />
+    <svg width="22" height="22" viewBox="0 0 24 24" fill={active ? "currentColor" : "none"} stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M3 9.5l9-7 9 7V20a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+      {active
+        ? <path d="M9.6 22v-6.2a1 1 0 0 1 1-1h2.8a1 1 0 0 1 1 1V22" fill={NAV_CUT} stroke="none" />
+        : <polyline points="9 22 9 13 15 13 15 22" />}
     </svg>
   );
 }
 
-function IconChat() {
+function IconChat({ active }: NavIconProps) {
   return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill={active ? "currentColor" : "none"} stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+      {active && (
+        <g fill={NAV_CUT} stroke="none">
+          <circle cx="8" cy="10" r="1.25" />
+          <circle cx="12" cy="10" r="1.25" />
+          <circle cx="16" cy="10" r="1.25" />
+        </g>
+      )}
     </svg>
   );
 }
 
-function IconDiary() {
+function IconDiary({ active }: NavIconProps) {
   return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
-      <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
-      <line x1="8" y1="7" x2="16" y2="7" />
-      <line x1="8" y1="11" x2="13" y2="11" />
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" fill={active ? "currentColor" : "none"} />
+      <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" stroke={active ? NAV_CUT : "currentColor"} />
+      <line x1="8" y1="7" x2="16" y2="7" stroke={active ? NAV_CUT : "currentColor"} />
+      <line x1="8" y1="11" x2="13" y2="11" stroke={active ? NAV_CUT : "currentColor"} />
     </svg>
   );
 }
 
-function IconSettings() {
+function IconSettings({ active }: NavIconProps) {
   return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="12" cy="12" r="3" />
+    <svg width="22" height="22" viewBox="0 0 24 24" fill={active ? "currentColor" : "none"} stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+      <circle cx="12" cy="12" r="3" fill={active ? NAV_CUT : "none"} stroke={active ? "none" : "currentColor"} />
     </svg>
   );
 }
@@ -1495,18 +1484,6 @@ function getLatestSessionMessage(session: ChatSession) {
 
 function getSessionStamp(session: ChatSession) {
   return parseMessageDateTime(getLatestSessionMessage(session)) || new Date(session.createdAt);
-}
-
-function parseChatListTimestamp(value: string) {
-  const match = value.match(/(20\d{2})[\/.\-](\d{1,2})[\/.\-](\d{1,2})\s+(\d{1,2}):(\d{2})/);
-  if (!match) return 0;
-  return new Date(
-    Number(match[1]),
-    Number(match[2]) - 1,
-    Number(match[3]),
-    Number(match[4]),
-    Number(match[5]),
-  ).getTime();
 }
 
 function formatChatListTime(date: Date) {
@@ -1556,100 +1533,90 @@ function isSummerUtilityMessage(message: Message) {
     message.source === "summer_write_committed";
 }
 
+type ChatListTab = "chats" | "groups" | "moments";
+
+const CHAT_LIST_TABS: Array<{ id: ChatListTab; label: string }> = [
+  { id: "chats", label: "Chats" },
+  { id: "groups", label: "Groups" },
+  { id: "moments", label: "Moments" },
+];
+
+function sortByStamp(sessions: ChatSession[]) {
+  return [...sessions].sort((a, b) => getSessionStamp(b).getTime() - getSessionStamp(a).getTime());
+}
+
+// Private windows worth listing: no memo, and for Claude only windows that
+// have been written in (an untouched draft is reused by ＋ instead).
+function listedPrivateSessions(sessions: ChatSession[], mode: AssistantMode) {
+  return sortByStamp(sessions.filter((s) => s.kind !== "memo" && (mode === "gpt" || s.messages.length > 0)));
+}
+
+function latestPrivateSession(sessions: ChatSession[], mode: AssistantMode) {
+  return listedPrivateSessions(sessions, mode)[0] || sortByStamp(sessions.filter((s) => s.kind !== "memo"))[0];
+}
+
 function ChatListView({
   assistantMode,
   settings,
   updateSettings,
   sessions,
+  otherSessions,
+  groupSessions,
   heartbeatLog,
   fragments,
   setFragments,
-  setActiveSessionId,
-  createSession,
   renameSession,
   deleteSession,
-  openRoom,
-  groupSession,
+  openSession: openPrivateSession,
   openGroup,
+  createGroup,
+  listTab,
+  setListTab,
 }: {
   assistantMode: AssistantMode;
   settings: Settings;
   updateSettings: (patch: Partial<Settings>) => void;
+  // Windows of the person the A/B switch shows, and of the other one.
   sessions: ChatSession[];
+  otherSessions: ChatSession[];
+  groupSessions: ChatSession[];
   heartbeatLog: Array<{ time: string; action: string; reason: string }>;
   fragments: FragmentEntry[];
   setFragments: React.Dispatch<React.SetStateAction<FragmentEntry[]>>;
-  setActiveSessionId: (id: string) => void;
-  createSession: () => void;
   renameSession: (id: string, name: string) => void;
   deleteSession: (id: string) => void;
-  openRoom: () => void;
-  groupSession: ChatSession;
-  openGroup: () => void;
+  openSession: (mode: AssistantMode, id: string) => void;
+  openGroup: (id: string) => void;
+  createGroup: () => void;
+  listTab: ChatListTab;
+  setListTab: (tab: ChatListTab) => void;
 }) {
   const isGpt = assistantMode === "gpt";
-  const assistantAvatar = isGpt ? settings.gptAvatar : settings.aiAvatar;
-  const [query, setQuery] = useState("");
+  const otherMode: AssistantMode = isGpt ? "claude" : "gpt";
+  const claudeName = settings.aiName || CLAUDE_DEFAULT_NAME;
+  const gptName = settings.gptName || "GPT";
+  const personName = (mode: AssistantMode) => mode === "gpt" ? gptName : claudeName;
+  const personAvatar = (mode: AssistantMode) => mode === "gpt" ? settings.gptAvatar : settings.aiAvatar;
+  const assistantAvatar = personAvatar(assistantMode);
   const [openActionsFor, setOpenActionsFor] = useState<string | null>(null);
   const [showHbLog, setShowHbLog] = useState(false);
   const [showFragments, setShowFragments] = useState(false);
-  const fragmentEntry = (
-    <button className="chat-entry-item chat-entry-fragments" onClick={() => setShowFragments(true)}>
-      <span className="chat-entry-avatar chat-entry-avatar-small" aria-hidden="true"><span>🧩</span></span>
-      <div className="chat-entry-main">
-        <div className="chat-entry-row"><span className="chat-entry-name">碎片</span></div>
-        <p className="chat-entry-preview">碎片化时代，我选择碎片化写作。</p>
-      </div>
-      <span className="chat-entry-side"><span className="chat-entry-time">{fragments.length ? `${fragments.length} 片` : ""}</span></span>
-    </button>
-  );
   const swipeRef = useRef<{ id: string; startX: number; startY: number; dx: number; dy: number; dragging: boolean } | null>(null);
   const blockClickRef = useRef(false);
 
   const memoSession = isGpt ? undefined : sessions.find((s) => s.kind === "memo");
-  const normalSessions = sessions
-    .filter((s) => s.kind !== "memo" && (isGpt || s.messages.length > 0))
-    .sort((a, b) => getSessionStamp(b).getTime() - getSessionStamp(a).getTime());
-  const normalQuery = query.trim().toLowerCase();
-  const latestGroupMessage = getLatestSessionMessage(groupSession);
-  const groupSpeakerName = latestGroupMessage?.speaker === "gpt"
-    ? (settings.gptName || "GPT")
-    : latestGroupMessage?.speaker === "claude"
-      ? (settings.aiName || CLAUDE_DEFAULT_NAME)
-      : "";
-  const groupPreview = latestGroupMessage
-    ? `${groupSpeakerName ? `${groupSpeakerName}: ` : ""}${getSessionPreview(latestGroupMessage)}`
-    : `你、${settings.aiName || CLAUDE_DEFAULT_NAME}和${settings.gptName || "GPT"}`;
-  const showGroupEntry = !normalQuery || `一个群 ${groupPreview}`.toLowerCase().includes(normalQuery);
-  const historySessions = normalSessions.filter((session) => {
-    if (!normalQuery) return true;
-    const latest = getLatestSessionMessage(session);
-    return `${session.name} ${latest?.content || ""}`.toLowerCase().includes(normalQuery);
-  });
+  const latestOwn = latestPrivateSession(sessions, assistantMode);
+  const latestOther = latestPrivateSession(otherSessions, otherMode);
+  const pastOwn = listedPrivateSessions(sessions, assistantMode).filter((s) => s.id !== latestOwn?.id);
+  const groupsByStamp = sortByStamp(groupSessions);
+  const latestGroup = groupsByStamp[0];
+  const pastGroups = groupsByStamp.slice(1);
   const latestHeartbeat = isGpt ? undefined : heartbeatLog[0];
-  const timelineEntries = [
-    ...historySessions.map((session) => ({
-      kind: "session" as const,
-      session,
-      stamp: getSessionStamp(session).getTime(),
-    })),
-    ...(latestHeartbeat ? [{
-      kind: "heartbeat" as const,
-      heartbeat: latestHeartbeat,
-      stamp: parseChatListTimestamp(latestHeartbeat.time),
-    }] : []),
-  ].sort((a, b) => b.stamp - a.stamp);
   const pinnedLine = (isGpt ? settings.gptChatPinnedLine : settings.chatPinnedLine) ?? "此后我们的每一秒都是恩赐。";
 
   function openSession(id: string) {
     setOpenActionsFor(null);
-    setActiveSessionId(id);
-    openRoom();
-  }
-
-  function startNewChat() {
-    createSession();
-    openRoom();
+    openPrivateSession(assistantMode, id);
   }
 
   function editPinnedLine() {
@@ -1740,91 +1707,180 @@ function ChatListView({
     );
   }
 
-  const searchField = (
-    <label className="chat-entry-search">
-      <span className="chat-entry-search-icon">⌕</span>
-      <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="search" aria-label="搜索聊天" />
-    </label>
-  );
+  function groupPreview(group: ChatSession) {
+    const latest = getLatestSessionMessage(group);
+    if (!latest) return `你、${claudeName}和${gptName}`;
+    const speaker = latest.speaker === "gpt" ? gptName : latest.speaker === "claude" ? claudeName : "";
+    return `${speaker ? `${speaker}: ` : ""}${getSessionPreview(latest)}`;
+  }
+
+  function groupRow(group: ChatSession, latest = false) {
+    const hasMessages = group.messages.length > 0;
+    return (
+      <button key={group.id} type="button" className="chat-entry-item chat-entry-group" onClick={() => openGroup(group.id)}>
+        <GroupAvatarStack
+          claudeAvatar={settings.aiAvatar}
+          gptAvatar={settings.gptAvatar}
+          userAvatar={settings.userAvatar}
+        />
+        <div className="chat-entry-main">
+          <div className="chat-entry-row">
+            <span className="chat-entry-name">{latest ? "一个群" : group.name}</span>
+          </div>
+          <p className="chat-entry-preview">{groupPreview(group)}</p>
+        </div>
+        <span className="chat-entry-side">
+          <span className="chat-entry-time">{hasMessages ? formatChatListTime(getSessionStamp(group)) : ""}</span>
+          {latest && <span className="chat-entry-tag">3 人</span>}
+        </span>
+      </button>
+    );
+  }
+
+  function personRow(mode: AssistantMode, session: ChatSession) {
+    const latest = getLatestSessionMessage(session);
+    return (
+      <button key={`${mode}-${session.id}`} type="button" className="chat-entry-item chat-entry-person" onClick={() => {
+        setOpenActionsFor(null);
+        openPrivateSession(mode, session.id);
+      }}>
+        <AvatarBlock avatar={personAvatar(mode)} small />
+        <div className="chat-entry-main">
+          <div className="chat-entry-row">
+            <span className="chat-entry-name">{personName(mode)}</span>
+          </div>
+          <p className="chat-entry-preview">{getSessionPreview(latest)}</p>
+        </div>
+        <span className="chat-entry-side">
+          <span className="chat-entry-time">{latest ? formatChatListTime(getSessionStamp(session)) : ""}</span>
+        </span>
+      </button>
+    );
+  }
+
+  const tabIndex = CHAT_LIST_TABS.findIndex((item) => item.id === listTab);
 
   return (
     <>
-      <header className="chat-header chat-list-page-header">
-        <div className="header-top">
-          {/* Keeps the title centred now that the heart is gone. */}
-          <span className="header-icon-spacer" aria-hidden="true" />
-          <div className="header-center">
-            <h1 className="header-title">iooi</h1>
+      <section className="chat-entry-body chat-list-home" onClick={() => setOpenActionsFor(null)}>
+        <div className="chat-list-profile">
+          <span className="chat-list-profile-avatar" aria-hidden="true">
+            {settings.userAvatar ? <img src={settings.userAvatar} alt="" /> : <span />}
+          </span>
+          <div className="chat-list-profile-text">
+            <h1 className="chat-list-profile-name">{settings.userName || "宝宝"}</h1>
+            <p className="chat-list-profile-state">
+              Today&apos;s State: <span>{settings.todayState || "—"}</span>
+            </p>
           </div>
-          <button className="header-icon-btn chat-list-new" aria-label="新聊天" onClick={startNewChat}>＋</button>
         </div>
-      </header>
 
-      <section className="chat-entry-body" onClick={() => setOpenActionsFor(null)}>
-        {searchField}
-        <p className="chat-entry-pinned-line" onClick={editPinnedLine} title="点击修改">{pinnedLine}</p>
+        <button type="button" className="chat-list-quote" onClick={editPinnedLine} title="点击修改">
+          “{pinnedLine || "…"}”
+        </button>
 
-        {showGroupEntry && (
-          <button className="chat-entry-item chat-entry-group" onClick={openGroup}>
-            <GroupAvatarStack
-              claudeAvatar={settings.aiAvatar}
-              gptAvatar={settings.gptAvatar}
-              userAvatar={settings.userAvatar}
-            />
-            <div className="chat-entry-main">
-              <div className="chat-entry-row">
-                <span className="chat-entry-name">一个群</span>
-              </div>
-              <p className="chat-entry-preview">{groupPreview}</p>
+        <div className="chat-list-tabs" role="tablist" aria-label="聊天列表"
+          style={{ "--chat-list-tab-index": Math.max(0, tabIndex) } as CSSProperties}>
+          <span className="chat-list-tabs-thumb" aria-hidden="true" />
+          {CHAT_LIST_TABS.map((item) => (
+            <button
+              key={item.id}
+              type="button"
+              role="tab"
+              aria-selected={listTab === item.id}
+              className={`chat-list-tab${listTab === item.id ? " chat-list-tab-active" : ""}`}
+              onClick={() => { setOpenActionsFor(null); setListTab(item.id); }}
+            >{item.label}</button>
+          ))}
+        </div>
+
+        {listTab === "chats" && (
+          <>
+            <div className="chat-list-card">
+              {latestGroup && groupRow(latestGroup, true)}
+              {latestOwn && personRow(assistantMode, latestOwn)}
+              {latestOther && personRow(otherMode, latestOther)}
             </div>
-            <span className="chat-entry-side">
-              <span className="chat-entry-time">{latestGroupMessage ? formatChatListTime(getSessionStamp(groupSession)) : ""}</span>
-              <span className="chat-entry-tag">3 人</span>
-            </span>
-          </button>
+            <div className="chat-list-card">
+              {pastOwn.length === 0
+                ? <p className="chat-entry-empty">没有更多历史窗口</p>
+                : pastOwn.map((session) => <SwipeSessionRow key={session.id} session={session} />)}
+            </div>
+          </>
         )}
 
-        {memoSession && (
-          <button className="chat-entry-item chat-entry-memo" onClick={() => openSession(memoSession.id)}>
-            <AvatarBlock avatar={settings.userAvatar} small />
-            <div className="chat-entry-main">
-              <div className="chat-entry-row">
-                <span className="chat-entry-name">{settings.userName || "备忘"}</span>
+        {listTab === "groups" && (
+          <>
+            {latestGroup && (
+              <div className="chat-list-card">
+                {groupRow(latestGroup, true)}
               </div>
-              <p className="chat-entry-preview">{memoSession.messages.length > 0 ? getSessionPreview(getLatestSessionMessage(memoSession)) : "只写给自己的地方"}</p>
-            </div>
-            <span className="chat-entry-side">
-              <span className="chat-entry-time">{memoSession.messages.length > 0 ? formatChatListTime(getSessionStamp(memoSession)) : ""}</span>
-            </span>
-          </button>
-        )}
-
-        <div className="chat-entry-history">
-          {timelineEntries.length === 0 ? (
-            <p className="chat-entry-empty">{normalQuery ? "没搜到这个窗口" : "没有更多历史窗口"}</p>
-          ) : (
-            timelineEntries.map((entry) => entry.kind === "session" ? (
-              <SwipeSessionRow key={entry.session.id} session={entry.session} />
-            ) : (
-              <Fragment key={`heartbeat-${entry.heartbeat.time}`}>
-              <button className="chat-entry-item chat-entry-subscribe" onClick={() => setShowHbLog(true)}>
-                <span className="chat-entry-avatar chat-entry-avatar-small chat-entry-avatar-hb"><span>💗</span></span>
-                <div className="chat-entry-main">
-                  <div className="chat-entry-row">
-                    <span className="chat-entry-name">heartbeat</span>
-                  </div>
-                  <p className="chat-entry-preview">{entry.heartbeat.reason}</p>
-                </div>
-                <span className="chat-entry-side">
-                  <span className="chat-entry-time">{entry.heartbeat.time}</span>
+            )}
+            <div className="chat-list-card">
+              <button type="button" className="chat-entry-item chat-list-new-group" onClick={createGroup}>
+                <span className="chat-entry-avatar chat-entry-avatar-small chat-list-plus-avatar" aria-hidden="true">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                    <path d="M12 5v14M5 12h14" />
+                  </svg>
                 </span>
+                <div className="chat-entry-main">
+                  <div className="chat-entry-row"><span className="chat-entry-name">New group</span></div>
+                  <p className="chat-entry-preview">开一个新的群聊窗口</p>
+                </div>
               </button>
-              {fragmentEntry}
-              </Fragment>
-            ))
-          )}
-          {!latestHeartbeat && fragmentEntry}
-        </div>
+            </div>
+            <div className="chat-list-card">
+              {pastGroups.length === 0
+                ? <p className="chat-entry-empty">没有更多群聊窗口</p>
+                : pastGroups.map((group) => groupRow(group))}
+            </div>
+          </>
+        )}
+
+        {listTab === "moments" && (
+          <>
+            {!isGpt && (
+              <div className="chat-list-card">
+                <button type="button" className="chat-entry-item chat-entry-subscribe" onClick={() => setShowHbLog(true)}>
+                  <span className="chat-entry-avatar chat-entry-avatar-small chat-entry-avatar-hb"><span>💗</span></span>
+                  <div className="chat-entry-main">
+                    <div className="chat-entry-row"><span className="chat-entry-name">heartbeat</span></div>
+                    <p className="chat-entry-preview">{latestHeartbeat?.reason || "还没有记录"}</p>
+                  </div>
+                  <span className="chat-entry-side">
+                    <span className="chat-entry-time">{latestHeartbeat?.time || ""}</span>
+                  </span>
+                </button>
+              </div>
+            )}
+            <div className="chat-list-card">
+              <button type="button" className="chat-entry-item chat-entry-fragments" onClick={() => setShowFragments(true)}>
+                <span className="chat-entry-avatar chat-entry-avatar-small" aria-hidden="true"><span>🧩</span></span>
+                <div className="chat-entry-main">
+                  <div className="chat-entry-row"><span className="chat-entry-name">碎片</span></div>
+                  <p className="chat-entry-preview">碎片化时代，我选择碎片化写作。</p>
+                </div>
+                <span className="chat-entry-side"><span className="chat-entry-time">{fragments.length ? `${fragments.length} 片` : ""}</span></span>
+              </button>
+            </div>
+            {memoSession && (
+              <div className="chat-list-card">
+                <button type="button" className="chat-entry-item chat-entry-memo" onClick={() => openSession(memoSession.id)}>
+                  <AvatarBlock avatar={settings.userAvatar} small />
+                  <div className="chat-entry-main">
+                    <div className="chat-entry-row">
+                      <span className="chat-entry-name">{settings.userName || "备忘"}</span>
+                    </div>
+                    <p className="chat-entry-preview">{memoSession.messages.length > 0 ? getSessionPreview(getLatestSessionMessage(memoSession)) : "只写给自己的地方"}</p>
+                  </div>
+                  <span className="chat-entry-side">
+                    <span className="chat-entry-time">{memoSession.messages.length > 0 ? formatChatListTime(getSessionStamp(memoSession)) : ""}</span>
+                  </span>
+                </button>
+              </div>
+            )}
+          </>
+        )}
       </section>
 
       {showFragments && <FragmentsView fragments={fragments} setFragments={setFragments} onClose={() => setShowFragments(false)} />}
@@ -1891,10 +1947,8 @@ function GroupAvatarStack({
   );
 }
 
-function HomeView({ settings, updateSettings }: { settings: Settings; updateSettings: (partial: Partial<Settings>) => void }) {
+function HomeView({ settings }: { settings: Settings }) {
   const [now, setNow] = useState<number | null>(null);
-  const wall = settings.homeStyle === "wall";
-  useHomeWallChrome(wall);
 
   useEffect(() => {
     const updateNow = () => setNow(Date.now());
@@ -1926,22 +1980,6 @@ function HomeView({ settings, updateSettings }: { settings: Settings; updateSett
     </div>
   );
   const ready = now !== null && Number.isFinite(start);
-
-  if (wall) {
-    return (
-      <PhotoWall
-        photos={settings.homeWallPhotos}
-        onChangePhoto={(index, photo) => {
-          const homeWallPhotos = normalizeHomeWallPhotos(settings.homeWallPhotos);
-          homeWallPhotos[index] = photo;
-          updateSettings({ homeWallPhotos });
-        }}
-        days={days} hours={hours} minutes={minutes} seconds={seconds} ready={ready}
-      >
-        {petals}
-      </PhotoWall>
-    );
-  }
 
   // The moon home has no title: the page runs straight to the top.
   return (
@@ -2201,7 +2239,6 @@ function ChatView({
   const [initialMessageCount] = useState(() => session.messages.length);
   // Routine Summer wake notices stay hidden in every chat theme.
   const quietSummerWake = true;
-  const twilightRoom = listEntryMode && settings.chatUiStyle === "glass";
   const showQuota = !isGpt && session.kind !== "memo";
   // Keep stored indices for proposal actions while excluding routine wake
   // notices from visible neighbours, timestamps and bubble grouping.
@@ -2213,9 +2250,8 @@ function ChatView({
     `iooi-scroll-${assistantMode}-${session.id}`,
     session.messages.length + streamingReply.length,
   );
-  // 暮光 and 经典 rooms both float their title and composer over the messages;
-  // only 暮光 reshapes the bubbles.
-  useTwilightLayout(listEntryMode, scrollRef, twilightRoom);
+  // Rooms float their title and composer over the messages.
+  useTwilightLayout(listEntryMode, scrollRef);
 
   // ── 巧思:随机输入提示 / 扣6彩蛋 ──
   const [heartRain, setHeartRain] = useState(false);
@@ -2846,7 +2882,7 @@ function ChatView({
       <h1 className="header-title chat-room-title">{session.kind === "memo" ? settings.userName : assistantName}</h1>
       {session.kind !== "memo" && (
         <span className="header-subtitle chat-room-status">
-          {developmentBadge || (isGpt ? "在线" : getChatStatusLabel(aiMood, settings.chatUiStyle === "glass"))}
+          {developmentBadge || (isGpt ? "在线" : getChatStatusLabel(aiMood))}
         </span>
       )}
     </>
@@ -2863,27 +2899,13 @@ function ChatView({
               </svg>
             </button>
             <div className="header-center">
-              {settings.chatUiStyle === "glass" ? (
-                <>
-                  <AvatarBlock avatar={session.kind === "memo" ? settings.userAvatar : assistantAvatar} small={false} />
-                  <div className="chat-room-identity">{roomIdentity}</div>
-                </>
-              ) : roomIdentity}
+              {roomIdentity}
             </div>
-            {twilightRoom ? (
-              // 暮光: quota pill + work-context circle on the right, like the
-              // group header. The gear moves down beside the input.
-              <div className={`group-header-usage${developmentMode ? "" : " group-header-usage-quota-only"}`}>
-                {showQuota && <ClaudeUsageCircle {...claudeUsage} className="group-header-quota" title="剩余百分比：五小时 / 本周；详细额度在聊天设置" />}
-                {developmentMode && <ContextUsageBadge kind="work" sessionId={session.id} project={developmentProject} messages={workUsageMessages} />}
-              </div>
-            ) : (
-              // 经典: the quota sits top right as plain numbers; the gear and the
-              // work-context circle live beside the input.
-              <div className="room-header-usage">
-                {showQuota && <ClaudeUsageCircle {...claudeUsage} className="room-header-quota" title="剩余百分比：五小时 / 本周；详细额度在聊天设置" />}
-              </div>
-            )}
+            {/* The quota sits top right as plain numbers; the gear and the
+                work-context circle live beside the input. */}
+            <div className="room-header-usage">
+              {showQuota && <ClaudeUsageCircle {...claudeUsage} className="room-header-quota" title="剩余百分比：五小时 / 本周；详细额度在聊天设置" />}
+            </div>
           </div>
         </header>
       ) : (
@@ -2994,62 +3016,6 @@ function ChatView({
               <span>{(isGpt ? settings.gptWebSearch : settings.webSearch) ? "On" : "Off"}</span><i />
             </button>
           </section>
-          {settings.chatUiStyle === "glass" && (
-            <section className="chat-config-section">
-              <p>TONE</p>
-              <div className="chat-config-options" role="group" aria-label={`${assistantName}暮光浅色深色`}>
-                {TWILIGHT_TONES.map((tone) => {
-                  const selected = resolveTwilightTone(isGpt ? settings.gptTwilightTone : settings.twilightTone) === tone.value;
-                  return (
-                    <button key={tone.value} type="button" aria-pressed={selected}
-                      className={`chat-config-option${selected ? " chat-config-option-active" : ""}`}
-                      onClick={() => updateSettings(isGpt ? { gptTwilightTone: tone.value } : { twilightTone: tone.value })}>
-                      {tone.label}
-                    </button>
-                  );
-                })}
-              </div>
-              <p>AI BUBBLE</p>
-              <div className="chat-config-options twilight-color-options" role="group" aria-label={`${assistantName}气泡`}>
-                {TWILIGHT_AI_BUBBLES.map((bubble) => {
-                  const selected = resolveTwilightAiBubble(settings.twilightAiBubble) === bubble.value;
-                  return (
-                    <button key={bubble.value} type="button" aria-pressed={selected} aria-label={bubble.label} title={bubble.label}
-                      className={`chat-config-option twilight-color-option${selected ? " chat-config-option-active" : ""}`}
-                      style={{ "--twilight-swatch-color": bubble.ink } as CSSProperties}
-                      onClick={() => updateSettings({ twilightAiBubble: bubble.value })}>
-                      <span className="twilight-color-swatch twilight-ai-swatch" style={{ background: bubble.color, color: bubble.ink }} aria-hidden="true">字</span>
-                    </button>
-                  );
-                })}
-              </div>
-              <p>MY BUBBLE</p>
-              <div className="chat-config-options twilight-color-options" role="group" aria-label={`${assistantName}暮光气泡颜色`}>
-                {TWILIGHT_BUBBLE_COLORS.map((color) => {
-                  const selected = (isGpt ? settings.gptTwilightBubbleColor : settings.twilightBubbleColor) === color.value;
-                  return (
-                    <button
-                      key={color.value}
-                      type="button"
-                      className={`chat-config-option twilight-color-option${selected ? " chat-config-option-active" : ""}`}
-                      style={{ "--twilight-swatch-color": color.color } as CSSProperties}
-                      aria-label={color.label}
-                      aria-pressed={selected}
-                      title={color.label}
-                      onClick={() => updateSettings(isGpt
-                        ? { gptTwilightBubbleColor: color.value }
-                        : { twilightBubbleColor: color.value })}
-                    >
-                      <span className="twilight-color-swatch" style={{ background: color.color }} aria-hidden="true" />
-                    </button>
-                  );
-                })}
-              </div>
-              <p>GLASS</p>
-              <TwilightGlassSlider value={settings.twilightGlass} onChange={(twilightGlass) => updateSettings({ twilightGlass })} />
-            </section>
-          )}
-
           {!isGpt && (
             <section className="chat-config-section">
               <div className="chat-config-toggle-section development-mode-heading">
@@ -3316,7 +3282,7 @@ function ChatView({
               )}
             </button>
           </div>
-          {listEntryMode && !twilightRoom && developmentMode && (
+          {listEntryMode && developmentMode && (
             <ContextUsageBadge kind="work" sessionId={session.id} project={developmentProject} messages={workUsageMessages} />
           )}
           {listEntryMode ? session.kind !== "memo" && (
@@ -4130,7 +4096,10 @@ function SummerPageView({ assistantMode, assistantName }: { assistantMode: Assis
 }
 
 // Settings View
-type SettingsSection = "appearance" | "background" | "care" | "advanced";
+const TODAY_STATES = [
+  "happy", "lucky", "chill", "busy", "studying", "thinking",
+  "sleepy", "exhausted", "low mood", "broken", "missing you",
+];
 
 function SettingsView({
   assistantMode,
@@ -4150,7 +4119,7 @@ function SettingsView({
   const isGpt = assistantMode === "gpt";
   const [cacheBusy, setCacheBusy] = useState(false);
   const [cacheMessage, setCacheMessage] = useState("");
-  const [section, setSection] = useState<SettingsSection | null>(null);
+  const [stateOpen, setStateOpen] = useState(false);
   function handleAvatarUpload(field: "aiAvatar" | "gptAvatar" | "userAvatar") {
     const input = document.createElement("input");
     input.type = "file";
@@ -4236,70 +4205,25 @@ function SettingsView({
   }
 
   const manualCache = manualCacheSlice();
-  const assistantLabel = isGpt ? (settings.gptName || "GPT") : (settings.aiName || CLAUDE_DEFAULT_NAME);
-  const backgroundCount = [settings.classicChatBackground, settings.twilightChatBackground].filter(Boolean).length;
-  const cacheSummary = lastCache?.status === "hit" ? "上轮命中缓存"
-    : lastCache?.status === "write" ? "上轮写入缓存"
-    : lastCache?.status === "miss" ? "上轮未命中"
-    : "缓存状态与上下文";
-  const sections: { id: SettingsSection; title: string; summary: string }[] = [
-    {
-      id: "appearance",
-      title: "外观",
-      summary: [
-        settings.homeStyle === "wall" ? "照片墙" : "月亮",
-        settings.chatUiStyle === "glass" ? "暮光" : "经典",
-        accentColorLabel(settings.accentColor),
-        `字号 ${settings.fontSize}`,
-      ].join(" · "),
-    },
-    {
-      id: "background",
-      title: "聊天背景",
-      summary: backgroundCount > 0 ? `已设置 ${backgroundCount} 张` : "还没有设置",
-    },
-    ...(!isGpt ? [{
-      id: "care" as const,
-      title: "陪伴",
-      summary: [
-        settings.proactiveCare ? "主动关心开" : "主动关心关",
-        settings.city?.trim() || "未设城市",
-        settings.startDate ? "纪念日已设" : "纪念日未设",
-      ].join(" · "),
-    }] : []),
-    {
-      id: "advanced",
-      title: "缓存与调试",
-      summary: cacheSummary,
-    },
-  ];
-  const activeSection = sections.find((item) => item.id === section) || null;
+  const aiName = settings.aiName || CLAUDE_DEFAULT_NAME;
+  const gptName = settings.gptName || "GPT";
 
+  function pickTodayState(value: string) {
+    updateSettings({ todayState: value });
+    setStateOpen(false);
+  }
+
+  function customTodayState() {
+    const next = window.prompt("Today's State:", settings.todayState);
+    if (next !== null) pickTodayState(next.trim().slice(0, 40));
+  }
+
+  // Every card is open on one page; no sub-pages.
   return (
     <>
-      {/* The settings index has no title; only a section page shows its back
-          button and name. */}
-      {activeSection && (
-        <header className="chat-header compact-section-header">
-          <div className="header-top">
-            <button type="button" className="header-dot settings-back-btn" aria-label="返回设置" onClick={() => setSection(null)}>
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6" /></svg>
-            </button>
-            <div className="header-center">
-              <h1 className="header-title">{activeSection.title}</h1>
-              <span className="header-subtitle" style={{ color: "var(--accent-text)" }}>
-                {`设置 · ${assistantLabel}`}
-              </span>
-            </div>
-            <span className="header-dot" />
-          </div>
-        </header>
-      )}
-
-      <section className="settings-body" key={section || "index"}>
-        {!activeSection && <>
+      <section className="settings-body">
         <div className="settings-group">
-          <h2 className="settings-group-title">称呼与头像</h2>
+          <h2 className="settings-group-title">Name &amp; Avatar</h2>
           <div className="avatar-upload-row">
             <div className="avatar-upload-item">
               <button className="avatar-upload-btn" onClick={() => handleAvatarUpload(isGpt ? "gptAvatar" : "aiAvatar")}>
@@ -4311,7 +4235,7 @@ function SettingsView({
                     ? <img src={settings.aiAvatar} className="avatar-upload-preview" alt="" />
                     : <div className="avatar-upload-placeholder avatar-ai" />
                 }
-                <span className="avatar-upload-label">点击更换</span>
+                <span className="avatar-upload-label">Tap to change</span>
               </button>
               <input
                 className="settings-input settings-input-short"
@@ -4325,7 +4249,7 @@ function SettingsView({
                   ? <img src={settings.userAvatar} className="avatar-upload-preview" alt="" />
                   : <div className="avatar-upload-placeholder avatar-user" />
                 }
-                <span className="avatar-upload-label">点击更换</span>
+                <span className="avatar-upload-label">Tap to change</span>
               </button>
               <input className="settings-input settings-input-short" value={settings.userName} onChange={(e) => updateSettings({ userName: e.target.value })} />
             </div>
@@ -4333,147 +4257,104 @@ function SettingsView({
         </div>
 
         <div className="settings-group">
-          <h2 className="settings-group-title">A or B？</h2>
+          <h2 className="settings-group-title">A or B?</h2>
           <p className="settings-hint">My answer is “or”.</p>
           <div className="model-options">
             <button
               className={`model-option ${settings.chatEntryStyle !== "direct" ? "model-option-active" : ""}`}
-              style={settings.chatEntryStyle !== "direct" ? { borderColor: "var(--theme-accent, #c4866c)", color: "var(--theme-accent, #c4866c)" } : undefined}
               onClick={() => updateSettings({ chatEntryStyle: "list" })}
             >
-              <span className="model-option-dot" style={{ background: settings.chatEntryStyle !== "direct" ? "var(--theme-accent, #c4866c)" : "var(--theme-disabled, #d5ccc8)" }} />
+              <span className="model-option-dot" />
               RainLikeButter
             </button>
             <button
               className={`model-option ${settings.chatEntryStyle === "direct" ? "model-option-active" : ""}`}
-              style={settings.chatEntryStyle === "direct" ? { borderColor: "var(--theme-accent, #c4866c)", color: "var(--theme-accent, #c4866c)" } : undefined}
               onClick={() => updateSettings({ chatEntryStyle: "direct" })}
             >
-              <span className="model-option-dot" style={{ background: settings.chatEntryStyle === "direct" ? "var(--theme-accent, #c4866c)" : "var(--theme-disabled, #d5ccc8)" }} />
+              <span className="model-option-dot" />
               GrassFromAfar
             </button>
           </div>
         </div>
 
-        <nav className="settings-group settings-menu" aria-label="设置分类">
-          {sections.map((item) => (
-            <button type="button" key={item.id} className="settings-menu-row" onClick={() => setSection(item.id)}>
-              <span className="settings-menu-text">
-                <span className="settings-menu-title">{item.title}</span>
-                <span className="settings-menu-summary">{item.summary}</span>
-              </span>
-              <svg className="settings-menu-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M9 18l6-6-6-6" /></svg>
-            </button>
-          ))}
-        </nav>
-        </>}
-
-        {section === "appearance" && <>
-        <div className="settings-group">
-          <h2 className="settings-group-title">首页</h2>
-          <div className="chat-theme-options" role="group" aria-label="首页样式">
-            {([["moon", "月亮"], ["wall", "照片墙"]] as const).map(([value, label]) => (
-              <button type="button" key={value} className={`model-option ${settings.homeStyle === value ? "model-option-active" : ""}`}
-                aria-pressed={settings.homeStyle === value} onClick={() => updateSettings({ homeStyle: value })}>{label}</button>
-            ))}
-          </div>
-          <p className="settings-hint">照片墙上长按画框就能换照片，手机和电脑同步。选择会自动保存。</p>
-        </div>
+        <ChatBackgroundSetting
+          title="Chat Background"
+          hint={`One photo for every chat: ${aiName}, ${gptName} and the group. Remove it to go back to gray. Saved automatically.`}
+          background={settings.classicChatBackground}
+          onChange={(classicChatBackground) => updateSettings({ classicChatBackground })}
+        />
 
         <div className="settings-group">
-          <h2 className="settings-group-title">聊天主题</h2>
-          <div className="chat-theme-options" role="group" aria-label="聊天主题">
-            {([['default', '经典'], ['glass', '暮光']] as const).map(([value, label]) => (
-              <button type="button" key={value} className={`model-option ${settings.chatUiStyle === value ? "model-option-active" : ""}`}
-                aria-pressed={settings.chatUiStyle === value} onClick={() => updateSettings({ chatUiStyle: value })}>{label}</button>
-            ))}
-          </div>
-          <p className="settings-hint">私聊和群聊共用主题，选择会自动保存。</p>
-        </div>
-
-        {settings.chatUiStyle === "glass" && (
-          <div className="settings-group">
-            <h2 className="settings-group-title">玻璃质感</h2>
-            <TwilightGlassSlider value={settings.twilightGlass} onChange={(twilightGlass) => updateSettings({ twilightGlass })} />
-            <p className="settings-hint">调节暮光里按钮、输入框和气泡的模糊程度，私聊和群聊共用。拉到最左就是完全透明不模糊。</p>
-          </div>
-        )}
-
-        <div className="settings-group">
-          <h2 className="settings-group-title">主题色</h2>
-          <div className="accent-color-options" role="group" aria-label="主题色">
-            {ACCENT_COLORS.map((option) => (
-              <button type="button" key={option.value} className="accent-color-option"
-                style={{ "--accent-swatch": option.color } as CSSProperties}
-                aria-pressed={settings.accentColor === option.value}
-                onClick={() => updateSettings({ accentColor: option.value })}>
-                <span className="accent-color-swatch" aria-hidden="true" />
+          <h2 className="settings-group-title">Bubble Color</h2>
+          <p className="settings-hint">Your bubbles, with white text.</p>
+          <div className="model-options">
+            {BUBBLE_COLORS.map((option) => (
+              <button
+                key={option.value}
+                className={`model-option ${settings.bubbleColor === option.value ? "model-option-active" : ""}`}
+                aria-pressed={settings.bubbleColor === option.value}
+                onClick={() => updateSettings({ bubbleColor: option.value })}
+              >
+                <span className="settings-bubble-swatch" style={{ background: option.color }} />
                 {option.label}
               </button>
             ))}
           </div>
-          <p className="settings-hint">经典主题的按钮、开关、选中项和你的气泡一起换色。淡粉是原来的浅粉气泡，其他颜色的气泡是实色配白字。暮光不受影响。</p>
         </div>
 
-        <div className="settings-group">
-          <h2 className="settings-group-title">聊天字号</h2>
-          <div className="chat-theme-options" role="group" aria-label="聊天字号">
-            {(["16", "17"] as const).map((value) => (
-              <button type="button" key={value} className={`model-option ${settings.fontSize === value ? "model-option-active" : ""}`}
-                aria-pressed={settings.fontSize === value} onClick={() => updateSettings({ fontSize: value })}>{value}</button>
-            ))}
-          </div>
-          <p className="settings-hint">只调整聊天室里的气泡和输入框，经典和暮光共用。选择会自动保存。</p>
+        <div className="settings-group settings-state-card">
+          <button type="button" className="settings-state-head" aria-expanded={stateOpen} onClick={() => setStateOpen((open) => !open)}>
+            <span className="settings-group-title">Today&apos;s State</span>
+            <span className="settings-state-value">{settings.todayState || "Not set"}</span>
+            <svg className="settings-state-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6" /></svg>
+          </button>
+          {stateOpen && (
+            <div className="settings-state-options" role="group" aria-label="Today's State">
+              {TODAY_STATES.map((value) => (
+                <button type="button" key={value}
+                  className={`settings-state-chip${settings.todayState === value ? " settings-state-chip-active" : ""}`}
+                  aria-pressed={settings.todayState === value}
+                  onClick={() => pickTodayState(value)}>{value}</button>
+              ))}
+              <button type="button" className="settings-state-chip settings-state-chip-quiet" onClick={customTodayState}>custom…</button>
+              {settings.todayState && (
+                <button type="button" className="settings-state-chip settings-state-chip-quiet" onClick={() => pickTodayState("")}>clear</button>
+              )}
+            </div>
+          )}
         </div>
-        </>}
 
-        {section === "background" && <>
-        <ChatBackgroundSetting
-          title="经典背景"
-          current={settings.chatUiStyle !== "glass"}
-          hint={`经典主题下，和${settings.aiName || CLAUDE_DEFAULT_NAME}、${settings.gptName || "GPT"}的聊天和群聊都用这张。移除后恢复灰色底，照片自动保存。`}
-          background={settings.classicChatBackground}
-          onChange={(classicChatBackground) => updateSettings({ classicChatBackground })}
-        />
-        <ChatBackgroundSetting
-          title="暮光背景"
-          current={settings.chatUiStyle === "glass"}
-          hint={`暮光主题下，和${settings.aiName || CLAUDE_DEFAULT_NAME}、${settings.gptName || "GPT"}的聊天和群聊都用这张。移除后恢复暮光渐变，照片自动保存。`}
-          background={settings.twilightChatBackground || ""}
-          onChange={(twilightChatBackground) => updateSettings({ twilightChatBackground })}
-        />
-        </>}
-
-        {section === "care" && !isGpt && <>
+        {!isGpt && <>
         <div className="settings-group">
-          <h2 className="settings-group-title">主动关心</h2>
-          <p className="settings-hint">关掉后 heartbeat 只会安静检查，不会主动写消息或推送通知</p>
+          <h2 className="settings-group-title">Proactive Care</h2>
+          <p className="settings-hint">When off, heartbeat only checks in quietly: no messages, no push notifications.</p>
           <button
             className={`model-option ${settings.proactiveCare ? "model-option-active" : ""}`}
-            style={settings.proactiveCare ? { borderColor: "var(--theme-accent, #c4866c)", color: "var(--theme-accent, #c4866c)" } : undefined}
             onClick={() => updateSettings({ proactiveCare: !settings.proactiveCare })}
           >
-            <span className="model-option-dot" style={{ background: settings.proactiveCare ? "var(--theme-accent, #c4866c)" : "var(--theme-disabled, #d5ccc8)" }} />
-            {settings.proactiveCare ? "已开启" : "已关闭"}
+            <span className="model-option-dot" />
+            {settings.proactiveCare ? "On" : "Off"}
           </button>
         </div>
 
         <div className="settings-group">
-          <h2 className="settings-group-title">天气</h2>
-          <p className="settings-hint">{settings.aiName} 会知道当前天气，可以自然地聊起</p>
+          <h2 className="settings-group-title">Weather</h2>
+          <p className="settings-hint">{aiName} knows the current weather and can bring it up naturally.</p>
           <input
             className="settings-input settings-input-full"
-            placeholder="输入城市名，如：北京、Shanghai"
+            placeholder="City, e.g. Beijing, Shanghai"
             value={settings.city}
             onChange={(e) => updateSettings({ city: e.target.value })}
           />
         </div>
+        </>}
 
         <div className="settings-group">
-          <h2 className="settings-group-title">纪念日</h2>
+          <h2 className="settings-group-title">Anniversary</h2>
           <div className="settings-row">
-            <label className="settings-label">在一起的日期</label>
+            <label className="settings-label" htmlFor="settings-start-date">Together since</label>
             <input
+              id="settings-start-date"
               className="settings-input"
               type="date"
               value={settings.startDate}
@@ -4482,34 +4363,34 @@ function SettingsView({
           </div>
         </div>
 
-        <div className="settings-group">
-          <h2 className="settings-group-title">通知</h2>
-          <p className="settings-hint">{settings.aiName} 主动发消息时推送到手机</p>
-          <NotificationButton
-            onSubscribe={(subscription) =>
-              apiFetch("/api/push", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(subscription),
-              }).then((res) => {
-                if (!res.ok) throw new Error("subscribe failed");
-              })
-            }
-            loadPublicKey={() =>
-              apiFetch("/api/push")
-                .then((res) => (res.ok ? res.json() : null))
-                .then((data: { publicKey?: string | null } | null) => data?.publicKey || null)
-            }
-            onTest={() =>
-              apiFetch("/api/push/test", { method: "POST" })
-                .then((res) => res.json())
-                .then((data: { summary?: string }) => data.summary || "已发送")
-            }
-          />
-        </div>
-        </>}
+        {!isGpt && (
+          <div className="settings-group">
+            <h2 className="settings-group-title">Notifications</h2>
+            <p className="settings-hint">Push to your phone when {aiName} writes first.</p>
+            <NotificationButton
+              onSubscribe={(subscription) =>
+                apiFetch("/api/push", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify(subscription),
+                }).then((res) => {
+                  if (!res.ok) throw new Error("subscribe failed");
+                })
+              }
+              loadPublicKey={() =>
+                apiFetch("/api/push")
+                  .then((res) => (res.ok ? res.json() : null))
+                  .then((data: { publicKey?: string | null } | null) => data?.publicKey || null)
+              }
+              onTest={() =>
+                apiFetch("/api/push/test", { method: "POST" })
+                  .then((res) => res.json())
+                  .then((data: { summary?: string }) => data.summary || "Sent")
+              }
+            />
+          </div>
+        )}
 
-        {section === "advanced" && <>
         {isGpt && <div className="settings-group">
           <h2 className="settings-group-title">会话缓存</h2>
           <p className="settings-hint">
@@ -4517,11 +4398,10 @@ function SettingsView({
           </p>
           <button
             className={`model-option ${session?.summary ? "model-option-active" : ""}`}
-            style={session?.summary ? { borderColor: "var(--theme-accent, #c4866c)", color: "var(--theme-accent, #c4866c)" } : undefined}
             onClick={generateSessionCache}
             disabled={cacheBusy || !session || manualCache.until <= 0}
           >
-            <span className="model-option-dot" style={{ background: session?.summary ? "var(--theme-accent, #c4866c)" : "var(--theme-disabled, #d5ccc8)" }} />
+            <span className="model-option-dot" />
             {cacheBusy ? "生成中" : "生成本窗口缓存"}
           </button>
           <p className="settings-hint">
@@ -4536,7 +4416,6 @@ function SettingsView({
           sessionMessageCount={session?.messages.length ?? 0}
           sessionUserTurns={session?.messages.filter((m) => m.role === "user").length ?? 0}
         />
-        </>}
       </section>
     </>
   );

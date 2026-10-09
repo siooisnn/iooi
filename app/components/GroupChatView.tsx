@@ -1,13 +1,10 @@
 "use client";
 
-import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, type CSSProperties, type ReactNode } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, type ReactNode } from "react";
 import { readChatResponse } from "../lib/chat-stream";
 import { useChatScrollPosition } from "../lib/use-chat-scroll-position";
 import { useTwilightLayout } from "../lib/use-twilight-layout";
-import { resolveTwilightAiBubble, resolveTwilightTone, TWILIGHT_AI_BUBBLES, TWILIGHT_BUBBLE_COLORS, TWILIGHT_TONES, type TwilightAiBubble, type TwilightBubbleColor, type TwilightTone } from "../lib/twilight-bubbles";
-import { TwilightGlassSlider } from "./TwilightGlassSlider";
 import { ClaudeUsageCircle, useClaudeUsage } from "./ClaudeUsageBadge";
-import { messageTimestamp } from "../lib/chat-timeline";
 import { imageFields, MAX_IMAGES_PER_MESSAGE, messageImages, stripObjectPlaceholders } from "../lib/message-images";
 import { prepareImageForUpload } from "../lib/image-compress";
 import { ContextUsageBadge, type UsageMessage } from "./ContextUsageBadge";
@@ -51,7 +48,6 @@ type GroupSession = {
 };
 
 type GroupSettings = {
-  chatUiStyle: "default" | "glass";
   aiName: string;
   gptName: string;
   userName: string;
@@ -64,10 +60,6 @@ type GroupSettings = {
   gptWebSearch: boolean;
   gptReasoningEffort: string;
   claudeReasoningEffort: string;
-  groupTwilightBubbleColor?: TwilightBubbleColor;
-  groupTwilightTone?: TwilightTone;
-  twilightAiBubble?: TwilightAiBubble;
-  twilightGlass: number;
 };
 
 type ModelMessage = {
@@ -345,7 +337,7 @@ export function GroupChatView({
   settings: GroupSettings;
   claudeModelId: string;
   gptModelId: string;
-  updateSettings: (partial: Partial<Pick<GroupSettings, "webSearch" | "gptWebSearch" | "groupTwilightBubbleColor" | "groupTwilightTone" | "twilightAiBubble" | "twilightGlass">>) => void;
+  updateSettings: (partial: Partial<Pick<GroupSettings, "webSearch" | "gptWebSearch">>) => void;
   updateMessages: (updater: (messages: GroupChatMessage[]) => GroupChatMessage[]) => void;
   updateSummary: (summary: string, until: number) => void;
   setActiveSessionId: (id: string) => void;
@@ -363,9 +355,7 @@ export function GroupChatView({
   const [showSessions, setShowSessions] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
   const claudeUsage = useClaudeUsage();
-  const twilight = settings.chatUiStyle === "glass";
   const [showWebSearchMenu, setShowWebSearchMenu] = useState(false);
-  const [showBubbleColorMenu, setShowBubbleColorMenu] = useState(false);
   const [summarizing, setSummarizing] = useState(false);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const uploadingRef = useRef(false);
@@ -378,9 +368,8 @@ export function GroupChatView({
     `iooi-scroll-group-${session.id}`,
     session.messages.length + (streamingReply?.text.length || 0),
   );
-  // 暮光 and 经典 group rooms both float their title and composer over the
-  // messages; only 暮光 reshapes the bubbles.
-  useTwilightLayout(true, scrollRef, twilight);
+  // The group room floats its title and composer over the messages.
+  useTwilightLayout(true, scrollRef);
 
   const clearTimers = useCallback(() => {
     for (const timer of timersRef.current) clearTimeout(timer);
@@ -749,61 +738,11 @@ export function GroupChatView({
 
   const displayedMessages = visibleGroupMessages(session.messages).filter(({ message }) =>
     !(message.source === "summer_call" && message.content.includes("已读取 Summer 唤醒内容与记忆状态")));
-  function messageTime(message: GroupChatMessage) {
-    if (message.date && message.date !== today()) {
-      const stamp = messageTimestamp(message);
-      const day = stamp ? new Intl.DateTimeFormat("zh-CN", { timeZone: "Asia/Shanghai", month: "numeric", day: "numeric" }).format(stamp) : message.date;
-      return `${day} ${message.time}`;
-    }
-    return message.time;
-  }
-  function sameRun(left: GroupChatMessage | undefined, right: GroupChatMessage | undefined) {
-    return !!left && !!right && !left.source?.startsWith("summer_") && !right.source?.startsWith("summer_")
-      && left.role === right.role && left.speaker === right.speaker && left.date === right.date;
-  }
   const groupOrdinal = session.name.match(/(\d+)\s*$/)?.[1]
     || String(Math.max(1, sessions.findIndex((group) => group.id === session.id) + 1));
 
   return (
     <>
-      {twilight ? (
-        // 暮光: the same layout and sizes as the private room header. The
-        // avatar + name in the middle open the session list; the context
-        // usage takes the gear's place as a small circle, with the Claude
-        // quota as a pill to its left (like the private room's usage pill).
-        <header className="chat-header chat-room-header single-room-header group-room-header">
-          <div className="header-top">
-            <button className="header-icon-btn chat-room-back" onClick={onBack} aria-label="返回">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <polyline points="14.5 5.5 8 12 14.5 18.5" />
-              </svg>
-            </button>
-            <button
-              className="header-center group-room-identity-toggle"
-              type="button"
-              onClick={() => setShowSessions((open) => !open)}
-              aria-expanded={showSessions}
-              aria-label={`${session.name}，切换群聊对话${session.summary ? "，已记住前情" : ""}${summarizing ? "，整理前情中" : ""}`}
-            >
-              <span className="chat-entry-avatar group-room-avatar" aria-hidden="true">
-                {[settings.aiAvatar, settings.gptAvatar, settings.userAvatar].map((avatar, index) => (
-                  <span key={index} className={`group-room-avatar-chip group-room-avatar-chip-${index + 1}`}>
-                    {avatar ? <img src={avatar} alt="" /> : <i />}
-                  </span>
-                ))}
-              </span>
-              <span className="chat-room-identity">
-                <h1 className="header-title chat-room-title">一个群</h1>
-                <svg className="group-session-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9" /></svg>
-              </span>
-            </button>
-            <div className="group-header-usage">
-              <ClaudeUsageCircle {...claudeUsage} className="group-header-quota" title="剩余百分比：五小时 / 本周" />
-              <ContextUsageBadge kind="group" sessionId={session.id} messages={usageMessages} systemPrompt={usageSystemPrompt} />
-            </div>
-          </div>
-        </header>
-      ) : (
       <header className="chat-header chat-room-header group-room-header">
         <div className="header-top">
           <button className="header-icon-btn chat-room-back" onClick={onBack} aria-label="返回">
@@ -830,14 +769,13 @@ export function GroupChatView({
               <svg className="group-session-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9" /></svg>
             </span>
           </button>
-          {/* 经典: the quota is plain numbers top right; new groups open from the
-              list under the title, and the context circle sits beside the input. */}
+          {/* The quota is plain numbers top right; new groups open from the list
+              under the title, and the context circle sits beside the input. */}
           <div className="room-header-usage">
             <ClaudeUsageCircle {...claudeUsage} className="room-header-quota" title="剩余百分比：五小时 / 本周" />
           </div>
         </div>
       </header>
-      )}
 
       {showSessions && (
         <div className="group-session-switcher">
@@ -869,19 +807,13 @@ export function GroupChatView({
           const owner = message.speaker ? speakerName(message.speaker, settings) : "";
           const avatar = message.speaker === "gpt" ? settings.gptAvatar : settings.aiAvatar;
           const showDate = displayedIndex === 0 || message.date !== displayedMessages[displayedIndex - 1]?.message.date;
-          const previous = displayedMessages[displayedIndex - 1]?.message;
-          const next = displayedMessages[displayedIndex + 1]?.message;
-          const compactTop = twilight && sameRun(previous, message);
-          const compactBottom = twilight && (sameRun(message, next) || (!next && !isUser && !isUtility && !!streamingReply && streamingReply.speaker === message.speaker && !!streamingReply.text && message.date === today()));
           return (
             <div key={`${message.time}-${index}`}>
-              {!twilight && showDate && message.date && <div className="date-separator"><span className="date-separator-text">{message.date}</span></div>}
-              <div className={`msg-row ${isUser ? "msg-row-user" : "msg-row-ai"} ${isUtility ? "msg-row-summer-utility" : ""} ${compactTop ? "msg-row-compact-top" : ""} ${compactBottom ? "msg-row-compact-bottom" : ""}`}>
-                {!isUser && !isUtility && (!twilight ? <Avatar src={avatar} /> : !compactBottom && (
-                  <div className="group-message-identity"><Avatar src={avatar} /><span className="group-avatar-time">{messageTime(message)}</span></div>
-                ))}
+              {showDate && message.date && <div className="date-separator"><span className="date-separator-text">{message.date}</span></div>}
+              <div className={`msg-row ${isUser ? "msg-row-user" : "msg-row-ai"} ${isUtility ? "msg-row-summer-utility" : ""}`}>
+                {!isUser && !isUtility && <Avatar src={avatar} />}
                 <div className={isUser ? "msg-content-user" : "msg-content-ai"}>
-                  {!twilight && <span className={`msg-time ${!isUser ? "group-speaker-meta" : ""}`}>{!isUser && owner ? `${owner} · ` : ""}{message.time}</span>}
+                  <span className={`msg-time ${!isUser ? "group-speaker-meta" : ""}`}>{!isUser && owner ? `${owner} · ` : ""}{message.time}</span>
                   {isUtility ? (
                     <GroupSummerCard message={message}>
                       {message.source === "summer_write_proposal" && (
@@ -917,16 +849,16 @@ export function GroupChatView({
                     </div>
                   )}
                 </div>
-                {isUser && !twilight && <Avatar src={settings.userAvatar} user />}
+                {isUser && <Avatar src={settings.userAvatar} user />}
               </div>
             </div>
           );
         })}
         {streamingReply?.text && (
           <div className="msg-row msg-row-ai msg-row-streaming">
-            {twilight ? <div className="group-message-identity"><Avatar src={streamingReply.speaker === "gpt" ? settings.gptAvatar : settings.aiAvatar} /><span className="group-avatar-time">{nowTime()}</span></div> : <Avatar src={streamingReply.speaker === "gpt" ? settings.gptAvatar : settings.aiAvatar} />}
+            <Avatar src={streamingReply.speaker === "gpt" ? settings.gptAvatar : settings.aiAvatar} />
             <div className="msg-content-ai">
-              {!twilight && <span className="msg-time group-speaker-meta">{speakerName(streamingReply.speaker, settings)}</span>}
+              <span className="msg-time group-speaker-meta">{speakerName(streamingReply.speaker, settings)}</span>
               <div className="msg-bubble msg-bubble-ai msg-bubble-streaming" aria-live="polite">
                 {renderGroupContent(streamingReply.text)}
               </div>
@@ -957,59 +889,6 @@ export function GroupChatView({
                   aria-label={item.kind === "image" ? "移除这张图片" : "移除这个文件"} title="移除">×</button>
               </div>
             ))}
-          </div>
-        )}
-        {showMenu && showBubbleColorMenu && (
-          <div className="group-bubble-color-panel" aria-label="群聊暮光气泡颜色">
-            <p>TONE</p>
-            <div className="twilight-tone-options" role="group" aria-label="群聊暮光浅色深色">
-              {TWILIGHT_TONES.map((tone) => {
-                const selected = resolveTwilightTone(settings.groupTwilightTone) === tone.value;
-                return (
-                  <button key={tone.value} type="button" aria-pressed={selected}
-                    className={`twilight-tone-option${selected ? " twilight-tone-option-active" : ""}`}
-                    onClick={() => updateSettings({ groupTwilightTone: tone.value })}>
-                    {tone.label}
-                  </button>
-                );
-              })}
-            </div>
-            <p className="group-glass-heading">AI BUBBLE</p>
-            <div className="twilight-color-options" role="group" aria-label="群聊 AI 气泡">
-              {TWILIGHT_AI_BUBBLES.map((bubble) => {
-                const selected = resolveTwilightAiBubble(settings.twilightAiBubble) === bubble.value;
-                return (
-                  <button key={bubble.value} type="button" aria-pressed={selected} aria-label={bubble.label} title={bubble.label}
-                    className={`twilight-color-option${selected ? " twilight-color-option-active" : ""}`}
-                    style={{ "--twilight-swatch-color": bubble.ink } as CSSProperties}
-                    onClick={() => updateSettings({ twilightAiBubble: bubble.value })}>
-                    <span className="twilight-color-swatch twilight-ai-swatch" style={{ background: bubble.color, color: bubble.ink }} aria-hidden="true">字</span>
-                  </button>
-                );
-              })}
-            </div>
-            <p className="group-glass-heading">MY BUBBLE</p>
-            <div className="twilight-color-options" role="group" aria-label="群聊暮光气泡颜色">
-              {TWILIGHT_BUBBLE_COLORS.map((color) => {
-                const selected = settings.groupTwilightBubbleColor === color.value;
-                return (
-                  <button
-                    key={color.value}
-                    type="button"
-                    className={`twilight-color-option${selected ? " twilight-color-option-active" : ""}`}
-                    style={{ "--twilight-swatch-color": color.color } as CSSProperties}
-                    aria-label={color.label}
-                    aria-pressed={selected}
-                    title={color.label}
-                    onClick={() => updateSettings({ groupTwilightBubbleColor: color.value })}
-                  >
-                    <span className="twilight-color-swatch" style={{ background: color.color }} aria-hidden="true" />
-                  </button>
-                );
-              })}
-            </div>
-            <p className="group-glass-heading">GLASS</p>
-            <TwilightGlassSlider value={settings.twilightGlass} onChange={(twilightGlass) => updateSettings({ twilightGlass })} />
           </div>
         )}
         {showMenu && showWebSearchMenu && (
@@ -1049,25 +928,15 @@ export function GroupChatView({
             type="button"
             className={`group-web-search-trigger${showWebSearchMenu || settings.webSearch || settings.gptWebSearch ? " group-web-search-trigger-active" : ""}`}
             aria-expanded={showWebSearchMenu}
-            onClick={() => { setShowWebSearchMenu((open) => !open); setShowBubbleColorMenu(false); }}
+            onClick={() => setShowWebSearchMenu((open) => !open)}
             disabled={loading}
           >
             Web Search
           </button>
-          {twilight && (
-            <button
-              type="button"
-              className={`group-bubble-color-trigger${showBubbleColorMenu ? " group-bubble-color-trigger-active" : ""}`}
-              aria-expanded={showBubbleColorMenu}
-              onClick={() => { setShowBubbleColorMenu((open) => !open); setShowWebSearchMenu(false); }}
-            >
-              气泡和玻璃
-            </button>
-          )}
         </div>}
         <div className="composer-row">
           <button type="button" className="attach-btn attach-btn-separate group-menu-trigger" aria-label="群聊菜单" aria-expanded={showMenu}
-            onClick={() => { setShowMenu((open) => !open); setShowWebSearchMenu(false); setShowBubbleColorMenu(false); }}>
+            onClick={() => { setShowMenu((open) => !open); setShowWebSearchMenu(false); }}>
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16" /></svg>
           </button>
           <input
@@ -1123,7 +992,7 @@ export function GroupChatView({
               )}
             </button>
           </div>
-          {!twilight && <ContextUsageBadge kind="group" sessionId={session.id} messages={usageMessages} systemPrompt={usageSystemPrompt} />}
+          <ContextUsageBadge kind="group" sessionId={session.id} messages={usageMessages} systemPrompt={usageSystemPrompt} />
         </div>
       </footer>
     </>

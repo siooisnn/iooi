@@ -15,16 +15,16 @@
   --text-secondary: #68686f;
   --text-light: #797980;
   --bubble-ai: #ffffff;
-  /* Theme colour (设置 → 外观 → 主题色). The palette lives in --brand-*; the
-     quiet composer re-points --accent to gray, while --brand stays the theme
-     colour everywhere, so the send button and switches can still use it. */
-  --brand: #e44883;
-  --brand-text: #b82d63;
-  --brand-light: #ed91b3;
-  --brand-rgb: 228, 72, 131;
-  --brand-bubble: #fce0e9;
-  --brand-bubble-ink: var(--text-primary);
-  --brand-avatar: #f4cfdd;
+  /* The one theme colour: near-black ink with dark-gray fills. The quiet
+     composer re-points --accent to gray, while --brand stays black everywhere,
+     so the send button and switches can still use it. */
+  --brand: #1a1a1a;
+  --brand-text: #1a1a1a;
+  --brand-light: #a1a1a8;
+  --brand-rgb: 26, 26, 26;
+  --brand-bubble: #2c2c2e;
+  --brand-bubble-ink: #ffffff;
+  --brand-avatar: #e5e5ea;
   --bubble-user: var(--brand-bubble);
   --avatar-user: var(--brand-avatar);
   --accent: var(--brand);
@@ -59,47 +59,15 @@
   --theme-shadow-rgb: 35, 35, 45;
 }
 
-/* Solid theme colours: the same clear colours as 暮光's bubbles; her bubble is
-   the full colour with white text. 淡粉 (no data-accent) keeps the pale bubble.
-   ThemeProvider drops data-accent inside 暮光 rooms, which keep their own look. */
-:root[data-theme="white-pink"][data-accent="bright-blue"] {
-  --brand: #007aff;
-  --brand-text: #0066d6;
-  --brand-light: #7fbcff;
-  --brand-rgb: 0, 122, 255;
-  --brand-avatar: #cfe4ff;
-}
-:root[data-theme="white-pink"][data-accent="berry"] {
-  --brand: #e8457c;
-  --brand-text: #c62d64;
-  --brand-light: #f3a0bd;
-  --brand-rgb: 232, 69, 124;
-  --brand-avatar: #fad3e1;
-}
-:root[data-theme="white-pink"][data-accent="grape"] {
-  --brand: #7a5af8;
-  --brand-text: #6040e0;
-  --brand-light: #bcabfc;
-  --brand-rgb: 122, 90, 248;
-  --brand-avatar: #e3dcfe;
-}
-:root[data-theme="white-pink"][data-accent="leaf"] {
-  --brand: #1e9a5a;
-  --brand-text: #16804a;
-  --brand-light: #8fd1ae;
-  --brand-rgb: 30, 154, 90;
-  --brand-avatar: #cdebd9;
-}
-:root[data-theme="white-pink"]:is([data-accent="bright-blue"], [data-accent="berry"], [data-accent="grape"], [data-accent="leaf"]) {
-  --brand-bubble: var(--brand);
-  --brand-bubble-ink: #ffffff;
-}
+/* Her bubble colour (Settings → Bubble Color); dark gray is the default. */
+:root[data-theme="white-pink"][data-bubble="blue"] { --brand-bubble: #007aff; }
+:root[data-theme="white-pink"][data-bubble="black"] { --brand-bubble: #000000; }
 
 /* Her bubble's text colour, in classic rooms. */
 :root[data-theme="white-pink"] .chat-container:not([data-chat-ui="glass"]) .msg-bubble-user:not(.msg-bubble-summer-utility) {
   color: var(--brand-bubble-ink);
 }
-:root[data-theme="white-pink"][data-accent] .chat-container:not([data-chat-ui="glass"]) .msg-bubble-user .chat-message-link {
+:root[data-theme="white-pink"] .chat-container .msg-bubble-user .chat-message-link {
   color: inherit;
   text-decoration-color: currentColor;
 }
@@ -124,7 +92,6 @@
   padding: 0;
 }
 
-:root[data-theme="white-pink"] .chat-entry-search,
 :root[data-theme="white-pink"] .chat-entry-avatar,
 :root[data-theme="white-pink"] .msg-bubble-ai {
   border-color: var(--border-soft);
@@ -218,9 +185,7 @@
   display: none;
 }
 
-/* Every title bar drops 18px below iOS's status-bar blur, like the wall door plate.
-   Only 暮光 chat rooms keep the blur so it blends with chat backgrounds: their
-   `.app-bg .chat-container[data-chat-ui="glass"] .chat-header` padding is more specific.
+/* Every title bar drops 18px below iOS's status-bar blur.
    min() limits the extra space to devices with a top safe area, so desktop is unchanged. */
 :root[data-theme="white-pink"] .chat-header {
   padding-top: calc(7px + env(safe-area-inset-top) + min(18px, env(safe-area-inset-top)));
@@ -262,16 +227,15 @@
   padding-bottom: max(4px, calc(env(safe-area-inset-bottom) - 14px));
 }
 
-/* Tab labels and icons are black; the current tab stays pink. */
+/* Tabs rest in gray; the current tab's icon fills in and its label turns black. */
 :root[data-theme="white-pink"] .nav-btn,
-:root[data-theme="white-pink"] .nav-btn:hover,
-:root[data-theme="white-pink"] .chat-container[data-home-style="wall"] .nav-btn:not([aria-current="page"]) {
-  color: var(--text-primary);
+:root[data-theme="white-pink"] .nav-btn:hover {
+  color: #a1a1a8;
 }
 
 /* Touch browsers can retain :hover after a tap; it must not dim the active tab. */
 :root[data-theme="white-pink"] .nav-btn[aria-current="page"] {
-  color: var(--accent-text);
+  color: var(--text-primary);
 }
 
 :root[data-theme="white-pink"] .chat-messages {
@@ -285,14 +249,6 @@
 }
 
 :root[data-theme="white-pink"] .msg-bubble-ai {
-  border-color: transparent;
-}
-
-/* Search belongs to the scrolling list, independent of the title bar. */
-:root[data-theme="white-pink"] .chat-entry-body > .chat-entry-search {
-  flex-shrink: 0;
-  margin: 0 14px 12px;
-  background: #f5f5f5;
   border-color: transparent;
 }
 
@@ -438,29 +394,7 @@
   animation: none;
 }
 
-/* ── Home photo wall: striped wallpaper runs under the status bar and nav ── */
-:root[data-theme="white-pink"] .chat-container[data-home-style="wall"] {
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, .22), rgba(255, 255, 255, 0) 35%, rgba(190, 120, 130, .06) 100%),
-    repeating-linear-gradient(90deg, #f8dde3 0 22px, #fdf1f3 22px 44px);
-}
-/* The door plate sits 16px lower than other titles so iOS's status-bar blur doesn't reach it. */
-:root[data-theme="white-pink"] .chat-container[data-home-style="wall"] .chat-header {
-  padding-top: calc(23px + env(safe-area-inset-top));
-  background: transparent;
-  border-bottom: none;
-  backdrop-filter: none;
-  -webkit-backdrop-filter: none;
-}
-:root[data-theme="white-pink"] .chat-container[data-home-style="wall"] .bottom-nav {
-  background: rgba(255, 248, 250, .6);
-  border-top: 1px solid rgba(255, 255, 255, .65);
-  backdrop-filter: blur(16px) saturate(1.3);
-  -webkit-backdrop-filter: blur(16px) saturate(1.3);
-}
-
-/* ── 经典 chat rooms (single, work mode, group). 暮光 rooms carry
-   data-chat-ui="glass" and keep their own layout in chat-glass.css. ── */
+/* ── Chat rooms (single, work mode, group). ── */
 :root[data-theme="white-pink"] .chat-container:not([data-chat-ui="glass"]) :is(.chat-room-back, .chat-room-back:hover) {
   border-color: transparent;
   background: transparent;
@@ -640,4 +574,162 @@
 }
 :root[data-theme="white-pink"] .chat-container:not([data-chat-ui="glass"]) .group-session-new {
   color: var(--text-secondary);
+}
+
+/* ━━ Chat list ━━
+   Her avatar and name, today's state, the quote, a Chats / Groups / Moments
+   switch with a sliding black pill, then white cards on the gray page. */
+.chat-list-profile {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 4px 2px 0;
+}
+.chat-list-profile-avatar {
+  width: 60px;
+  height: 60px;
+  flex: 0 0 60px;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: #e5e5ea;
+}
+.chat-list-profile-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.chat-list-profile-avatar > span {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #c7c7cc;
+}
+.chat-list-profile-text {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.chat-list-profile-name {
+  margin: 0;
+  overflow: hidden;
+  color: #1a1a1a;
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: 0.2px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.chat-list-profile-state {
+  margin: 0;
+  color: var(--text-light);
+  font-size: 13px;
+  line-height: 1.3;
+}
+.chat-list-profile-state span {
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+.chat-list-quote {
+  display: block;
+  width: 100%;
+  padding: 2px 2px 0;
+  border: 0;
+  background: transparent;
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: 14px;
+  line-height: 1.55;
+  text-align: left;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.chat-list-tabs {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  flex-shrink: 0;
+  height: 42px;
+  padding: 4px;
+  box-sizing: border-box;
+  border: 1px solid var(--border-soft);
+  border-radius: 999px;
+  background: #ffffff;
+}
+.chat-list-tabs-thumb {
+  position: absolute;
+  top: 4px;
+  bottom: 4px;
+  left: 4px;
+  width: calc((100% - 8px) / 3);
+  border-radius: 999px;
+  background: #1a1a1a;
+  transform: translateX(calc(100% * var(--chat-list-tab-index, 0)));
+  transition: transform 0.25s cubic-bezier(0.3, 0.7, 0.2, 1);
+}
+.chat-list-tab {
+  position: relative;
+  z-index: 1;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: color 0.2s;
+  -webkit-tap-highlight-color: transparent;
+}
+.chat-list-tab-active {
+  color: #ffffff;
+}
+
+.chat-list-card {
+  position: relative;
+  flex-shrink: 0;
+  overflow: hidden;
+  border: 1px solid var(--border-soft);
+  border-radius: 16px;
+  background: #ffffff;
+  --bg-chat: #ffffff;
+}
+.chat-list-card .chat-entry-empty {
+  margin: 0;
+  padding: 22px 0;
+}
+.chat-list-card :is(.chat-entry-item, .chat-entry-subscribe) {
+  padding-left: 14px;
+  padding-right: 14px;
+}
+.chat-list-card .chat-entry-side {
+  right: 14px;
+}
+/* Rows inside a card: hairlines start under the text and the last one goes. */
+:root[data-theme="white-pink"] .app-bg .chat-list-card :is(.chat-entry-item, .chat-swipe-shell)::after {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  left: 69px;
+  right: 14px;
+  height: 1px;
+  background: var(--border-soft);
+  z-index: 3;
+  pointer-events: none;
+}
+:root[data-theme="white-pink"] .app-bg .chat-list-card .chat-swipe-shell .chat-entry-item::after,
+:root[data-theme="white-pink"] .app-bg .chat-list-card > :last-child::after {
+  content: none;
+}
+.chat-list-plus-avatar {
+  border: 0;
+  background: #f2f2f4;
+  color: #1a1a1a;
 }

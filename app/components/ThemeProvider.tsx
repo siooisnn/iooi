@@ -2,14 +2,10 @@
 
 import { useEffect } from "react";
 import type { ReactNode } from "react";
-import { twilightGlassScale } from "../lib/twilight-bubbles";
 
 function syncBrowserChrome() {
   const root = document.documentElement;
-  const color = root.dataset.chatChrome === "glass"
-    ? root.style.getPropertyValue("--chat-chrome-color") || "#eee8f2"
-    : root.dataset.page === "diary" || root.dataset.page === "settings" ? "#ffffff"
-      : root.dataset.page === "home" && root.dataset.homeStyle === "wall" ? "#fae6eb" : "#f5f5f5";
+  const color = root.dataset.page === "diary" || root.dataset.page === "settings" ? "#ffffff" : "#f5f5f5";
   document.querySelector('meta[name="theme-color"]')?.setAttribute("content", color);
 }
 
@@ -33,84 +29,4 @@ export function useThemePage(page: "home" | "chat" | "diary" | "settings") {
       syncBrowserChrome();
     };
   }, [page]);
-}
-
-// 经典 theme colour on <html data-accent>; 淡粉 (the default) and 暮光 rooms
-// carry none, so they keep the original palette.
-export function useAccentColor(accent: string, active: boolean) {
-  useEffect(() => {
-    const root = document.documentElement;
-    if (!active || accent === "pink") {
-      delete root.dataset.accent;
-      return;
-    }
-    root.dataset.accent = accent;
-    return () => { delete root.dataset.accent; };
-  }, [accent, active]);
-}
-
-// The photo-wall home tints browser chrome to its striped wallpaper.
-export function useHomeWallChrome(active: boolean) {
-  useEffect(() => {
-    if (!active) return;
-    const root = document.documentElement;
-    root.dataset.homeStyle = "wall";
-    syncBrowserChrome();
-    return () => {
-      delete root.dataset.homeStyle;
-      syncBrowserChrome();
-    };
-  }, [active]);
-}
-
-// Extend the room backdrop to the document canvas and match browser chrome.
-// iOS can still reserve a status-bar region outside the web viewport.
-export function useChatBrowserChrome(active: boolean, background: string, glass: number) {
-  useEffect(() => {
-    if (!active) return;
-    const root = document.documentElement;
-    root.style.setProperty("--twilight-glass", twilightGlassScale(glass));
-    return () => { root.style.removeProperty("--twilight-glass"); };
-  }, [active, glass]);
-
-  useEffect(() => {
-    if (!active) return;
-    const root = document.documentElement;
-    root.dataset.chatChrome = "glass";
-    root.style.setProperty("--chat-chrome-color", background ? "#606c7b" : "#eee8f2");
-    root.style.setProperty("--chat-document-background", background
-      ? `url("${background}")`
-      : "linear-gradient(155deg, #eee8f2 0%, #f5e8ed 45%, #e3e9ee 100%)");
-    syncBrowserChrome();
-
-    let image: HTMLImageElement | undefined;
-    if (background) {
-      image = new Image();
-      image.onload = () => {
-        const canvas = document.createElement("canvas");
-        canvas.width = 16;
-        canvas.height = 4;
-        const context = canvas.getContext("2d");
-        if (!context || !image) return;
-        context.drawImage(image, 0, 0, image.naturalWidth, Math.max(1, image.naturalHeight / 8), 0, 0, 16, 4);
-        const pixels = context.getImageData(0, 0, 16, 4).data;
-        const totals = [0, 0, 0];
-        for (let i = 0; i < pixels.length; i += 4) {
-          for (let channel = 0; channel < 3; channel++) totals[channel] += pixels[i + channel];
-        }
-        const color = "#" + totals.map(total => Math.round(total / 64).toString(16).padStart(2, "0")).join("");
-        root.style.setProperty("--chat-chrome-color", color);
-        syncBrowserChrome();
-      };
-      image.src = background;
-    }
-
-    return () => {
-      if (image) image.onload = null;
-      delete root.dataset.chatChrome;
-      root.style.removeProperty("--chat-chrome-color");
-      root.style.removeProperty("--chat-document-background");
-      syncBrowserChrome();
-    };
-  }, [active, background]);
 }

@@ -75,10 +75,6 @@ body {
   font-size: 16px;
 }
 
-.app-bg[data-font-size="17"] :is(.msg-bubble, .chat-input) {
-  font-size: 17px;
-}
-
 .app-bg .chat-entry-name {
   font-size: 16px;
 }
@@ -2819,7 +2815,48 @@ body {
 
 .model-option-active { font-weight: 700; box-shadow: 0 1px 6px rgba(0, 0, 0, 0.05); }
 
-.model-option-dot { width: 7px; height: 7px; border-radius: 50%; }
+.model-option-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--theme-disabled, #d5ccc8); }
+.model-option-active { border-color: var(--theme-accent); color: var(--theme-accent); }
+.model-option-active .model-option-dot { background: var(--theme-accent); }
+
+/* Today's State: the card shows the current state; tapping opens the chips. */
+.settings-bubble-swatch {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.08);
+}
+.settings-state-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.settings-state-head .settings-group-title { flex: 1; }
+.settings-state-value { font-size: 14px; color: var(--text-primary); }
+.settings-state-chevron { flex-shrink: 0; color: var(--text-light); transition: transform 0.2s; }
+.settings-state-head[aria-expanded="true"] .settings-state-chevron { transform: rotate(180deg); }
+.settings-state-options { display: flex; flex-wrap: wrap; gap: 8px; padding-top: 4px; }
+.settings-state-chip {
+  padding: 7px 14px;
+  border: 1px solid var(--border-soft);
+  border-radius: 999px;
+  background: #ffffff;
+  color: var(--text-primary);
+  font-family: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+.settings-state-chip-active { border-color: #1a1a1a; background: #1a1a1a; color: #ffffff; }
+.settings-state-chip-quiet { color: var(--text-light); }
 
 /* ── Thinking Block ── */
 .thinking-row {
@@ -3609,12 +3646,6 @@ body {
   color: var(--accent);
 }
 
-/* Shared chat controls in Classic and Twilight. */
-.chat-theme-options { display: flex; flex-wrap: wrap; gap: 8px; }
-.chat-theme-options .model-option { flex: 1; justify-content: center; white-space: nowrap; }
-.chat-theme-options .model-option[aria-pressed="true"] {
-  border-color: var(--theme-accent, #c4866c); color: var(--theme-accent, #c4866c);
-}
 .composer-usage-circle {
   width: 44px; height: 44px; flex: 0 0 44px; border-radius: 50%;
   display: flex; align-items: center; justify-content: center;
@@ -3664,58 +3695,21 @@ body {
   box-shadow: 0 10px 30px rgba(var(--theme-shadow-rgb, 110, 82, 69), .15);
 }
 .group-chat-footer .group-web-search-panel { position: absolute; left: 14px; right: 14px; bottom: calc(100% + 76px); margin: 0; }
-.group-chat-footer .group-bubble-color-panel {
-  position: absolute; left: 14px; right: 14px; bottom: calc(100% + 76px); margin: 0;
-  padding: 12px; border: 1px solid var(--border-soft); border-radius: 18px;
-  background: rgba(var(--theme-surface-rgb, 255, 252, 249), .96);
-  box-shadow: 0 10px 30px rgba(var(--theme-shadow-rgb, 110, 82, 69), .15);
-}
-.group-bubble-color-panel > p { margin: 0 0 9px; color: var(--text-light); font-size: 10px; letter-spacing: .08em; }
-.group-bubble-color-trigger-active { border-color: var(--accent) !important; }
 .group-menu-trigger { cursor: pointer; }
 @media (max-width: 360px) {
   .group-chat-footer .composer-row { gap: 6px; }
   .group-chat-footer .input-wrapper { padding-left: 9px; gap: 4px; }
 }
 
-/* 设置 → 外观 → 主题色: a row of solid colour dots with their names. */
-.accent-color-options {
-  display: flex;
-  justify-content: space-between;
-  gap: 4px;
+/* Settings → Chat Background */
+.chat-background-preview {
+  display: block;
+  width: 100px;
+  height: 145px;
+  margin-bottom: 12px;
+  border-radius: 16px;
+  border: 1px solid var(--border-soft);
+  object-fit: cover;
 }
-.accent-color-option {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 6px;
-  padding: 2px 0;
-  border: 0;
-  background: transparent;
-  color: var(--text-secondary);
-  font: inherit;
-  font-size: 12px;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-}
-.accent-color-swatch {
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  background: var(--accent-swatch);
-}
-.accent-color-option[aria-pressed="true"] {
-  color: var(--text-primary);
-  font-weight: 600;
-}
-.accent-color-option[aria-pressed="true"] .accent-color-swatch {
-  box-shadow: 0 0 0 2px #ffffff, 0 0 0 4px var(--accent-swatch);
-}
-.accent-color-option:focus-visible {
-  outline: none;
-}
-.accent-color-option:focus-visible .accent-color-swatch {
-  outline: 2px solid var(--accent-swatch);
-  outline-offset: 4px;
-}
+.chat-background-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.chat-background-actions .model-option { width: auto; }

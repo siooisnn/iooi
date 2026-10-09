@@ -1,7 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import "./themes/white-pink.css";
-import "./themes/chat-glass.css";
 import "./themes/fullscreen-shell.css";
 import { ThemeProvider } from "./components/ThemeProvider";
 

@@ -105,11 +105,20 @@
   cursor: pointer;
 }
 
-/* ── Floating glass tab bar ── */
+/* ── Floating glass tab bar ──
+   The bar and the round ＋ beside it together span exactly the width of the
+   chat list's Chats / Groups / Moments switch (the page gutter on each side). */
+:root[data-theme] .app-bg[data-fullscreen-shell="true"] > .chat-container {
+  --page-gutter-left: max(16px, env(safe-area-inset-left));
+  --page-gutter-right: max(16px, env(safe-area-inset-right));
+  --nav-plus-size: 56px;
+  --nav-plus-gap: 10px;
+}
+
 :root[data-theme] .app-bg[data-fullscreen-shell="true"] > .chat-container > .bottom-nav {
   position: absolute;
-  left: calc(var(--float-left) + 36px);
-  right: calc(var(--float-right) + 36px);
+  left: var(--page-gutter-left);
+  right: calc(var(--page-gutter-right) + var(--nav-plus-size) + var(--nav-plus-gap));
   bottom: var(--float-bottom);
   z-index: 30;
   box-sizing: border-box;
@@ -167,9 +176,46 @@
 :root[data-theme] .app-bg[data-fullscreen-shell="true"] > .chat-container > .home-body { --shell-page-end: 24px; --shell-page-gap: 4px; }
 :root[data-theme] .app-bg[data-fullscreen-shell="true"] > .chat-container > .settings-body { --shell-page-end: 20px; --shell-page-gap: 12px; }
 
-/* ── Chat list: a black ＋ ── */
-:root[data-theme] .app-bg[data-fullscreen-shell="true"] > .chat-container > .chat-list-page-header .chat-list-new {
+/* The round ＋ at the right end of the tab bar, in the same glass. It opens a
+   new private window on the chat list; on the other pages it just completes
+   the bar's shape. */
+:root[data-theme] .app-bg[data-fullscreen-shell="true"] > .chat-container > .bottom-nav-plus {
+  position: absolute;
+  right: var(--page-gutter-right);
+  bottom: var(--float-bottom);
+  z-index: 30;
+  box-sizing: border-box;
+  width: var(--nav-plus-size);
+  height: var(--nav-plus-size);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0.5px solid var(--liquid-glass-edge);
+  border-radius: 50%;
+  background: var(--liquid-glass-bg-clear);
+  box-shadow: var(--liquid-glass-shadow);
+  backdrop-filter: var(--liquid-glass-filter);
   color: var(--text-primary);
+  cursor: default;
+  -webkit-tap-highlight-color: transparent;
+}
+
+:root[data-theme] .app-bg[data-fullscreen-shell="true"] > .chat-container[data-chat-view="list"] > .bottom-nav-plus {
+  cursor: pointer;
+}
+
+:root[data-theme] .app-bg[data-fullscreen-shell="true"] > .chat-container[data-chat-view="list"] > .bottom-nav-plus:active {
+  transform: scale(0.94);
+}
+
+/* ── Chat list: profile, quote, switch and white cards on the gray page ── */
+:root[data-theme] .app-bg[data-fullscreen-shell="true"] > .chat-container > .chat-list-home {
+  --shell-page-gap-top: 16px;
+  --shell-page-gap: 12px;
+  gap: 12px;
+  padding-left: var(--page-gutter-left);
+  padding-right: var(--page-gutter-right);
 }
 
 /* ── Settings index: each category is its own card, like the cards above ── */
@@ -565,6 +611,7 @@
 @supports (-webkit-backdrop-filter: blur(1px)) {
   :root[data-theme] .app-bg[data-fullscreen-shell="true"] > .chat-container:not([data-home-style="wall"]) > .chat-header :is(.header-title, .header-icon-btn, .settings-back-btn),
   :root[data-theme] .app-bg[data-fullscreen-shell="true"] > .chat-container > .bottom-nav,
+  :root[data-theme] .app-bg[data-fullscreen-shell="true"] > .chat-container > .bottom-nav-plus,
   :root[data-theme] .app-bg .chat-container:is([data-chat-ui="default"][data-chat-view="room"], [data-chat-view="group"]:not([data-chat-ui])) > .chat-header :is(.chat-room-back, .header-center, .room-header-quota),
   :root[data-theme] .app-bg .chat-container:is([data-chat-ui="default"][data-chat-view="room"], [data-chat-view="group"]:not([data-chat-ui])) > .chat-footer :is(.attach-btn.attach-btn-separate, .input-wrapper),
   :root[data-theme] .app-bg .chat-container[data-chat-view="group"]:not([data-chat-ui]) > .group-session-switcher,

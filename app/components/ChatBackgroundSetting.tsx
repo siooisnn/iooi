@@ -5,11 +5,9 @@ import type { ChangeEvent } from "react";
 import Image from "next/image";
 import { prepareChatBackground } from "../lib/chat-background";
 
-export function ChatBackgroundSetting({ title, hint, current = false, background, onChange }: {
+export function ChatBackgroundSetting({ title, hint, background, onChange }: {
   title: string;
   hint: string;
-  /** The chat theme in use right now, so the owner knows which photo shows. */
-  current?: boolean;
   background: string;
   onChange: (background: string) => void;
 }) {
@@ -26,7 +24,7 @@ export function ChatBackgroundSetting({ title, hint, current = false, background
     try {
       onChange(await prepareChatBackground(file));
     } catch (error) {
-      setError(error instanceof Error ? error.message : "图片读取失败，请重新选择。");
+      setError(error instanceof Error ? error.message : "Couldn't read that image. Please pick another.");
     } finally {
       setBusy(false);
     }
@@ -34,17 +32,17 @@ export function ChatBackgroundSetting({ title, hint, current = false, background
 
   return (
     <div className="settings-group">
-      <h2 className="settings-group-title">{title}{current ? " · 当前主题" : ""}</h2>
+      <h2 className="settings-group-title">{title}</h2>
       <input ref={inputRef} type="file" className="attach-file-input" accept="image/*"
-        disabled={busy} aria-label={`选择${title}图片`} onChange={(event) => void upload(event)} />
-      {background && <Image className="chat-background-preview" src={background} alt={`当前的${title}`} width={100} height={145} unoptimized />}
+        disabled={busy} aria-label={`Choose a ${title} photo`} onChange={(event) => void upload(event)} />
+      {background && <Image className="chat-background-preview" src={background} alt={`Current ${title}`} width={100} height={145} unoptimized />}
       <div className="chat-background-actions">
         <button type="button" className="model-option" disabled={busy} onClick={() => inputRef.current?.click()}>
-          {busy ? "处理图片中…" : background ? "更换照片" : "选择照片"}
+          {busy ? "Processing…" : background ? "Change photo" : "Choose photo"}
         </button>
         {background && (
           <button type="button" className="model-option" disabled={busy} onClick={() => { onChange(""); setError(""); }}>
-            移除背景
+            Remove
           </button>
         )}
       </div>
