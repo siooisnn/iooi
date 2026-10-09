@@ -62,10 +62,6 @@
   --theme-shadow-rgb: 36, 36, 36;
 }
 
-/* Her bubble colour (Settings → Bubble Color): dark gray (default) or black.
-   The old blue choice is gone; a saved "blue" falls back to dark gray. */
-:root[data-theme="white-pink"][data-bubble="black"] { --brand-bubble: #000000; }
-
 /* Her bubble's text colour, in classic rooms. */
 :root[data-theme="white-pink"] .chat-container:not([data-chat-ui="glass"]) .msg-bubble-user:not(.msg-bubble-summer-utility) {
   color: var(--brand-bubble-ink);

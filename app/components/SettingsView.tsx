@@ -6,10 +6,9 @@ import { ContextDebugPanel } from "./ContextDebugPanel";
 import { NotificationButton } from "./NotificationButton";
 import { ChatBackgroundSetting } from "./ChatBackgroundSetting";
 import { PageBack } from "./PageBack";
-import { resolveGptModel } from "../lib/gpt-models";
 import { HOME_BACKGROUND_SIZE } from "../lib/chat-background";
 import type { CacheStats, ChatSession } from "../lib/app-types";
-import { BUBBLE_COLORS, CLAUDE_DEFAULT_NAME, CONTEXT_WINDOW_ROUNDS } from "../lib/app-settings";
+import { CLAUDE_DEFAULT_NAME } from "../lib/app-settings";
 import type { Settings } from "../lib/app-settings";
 import { apiFetch } from "../lib/client-api";
 
@@ -29,7 +28,6 @@ export function SettingsView({
   claudeSession,
   gptCache,
   gptSession,
-  updateGptSummary,
 }: {
   settings: Settings;
   updateSettings: (p: Partial<Settings>) => void;
@@ -38,12 +36,7 @@ export function SettingsView({
   claudeSession?: ChatSession;
   gptCache: CacheStats | null;
   gptSession?: ChatSession;
-  updateGptSummary: (summary: string, until: number) => void;
 }) {
-  // The manual 会话缓存 is 郁郁's; 酥酥's windows compress on their own.
-  const session = gptSession;
-  const [cacheBusy, setCacheBusy] = useState(false);
-  const [cacheMessage, setCacheMessage] = useState("");
   const [stateOpen, setStateOpen] = useState(false);
   function handleAvatarUpload(field: "aiAvatar" | "gptAvatar" | "userAvatar") {
     const input = document.createElement("input");
@@ -74,61 +67,6 @@ export function SettingsView({
     input.click();
   }
 
-  function manualCacheSlice() {
-    const messages = session?.messages || [];
-    let userTurns = 0;
-    let startIdx = 0;
-    for (let i = messages.length - 1; i >= 0; i--) {
-      if (messages[i].role === "user") {
-        userTurns++;
-        if (userTurns >= CONTEXT_WINDOW_ROUNDS) {
-          startIdx = i;
-          break;
-        }
-      }
-    }
-    const already = session?.summarizedUntil || 0;
-    const until = Math.max(0, startIdx);
-    const from = Math.min(already, until);
-    const slice = messages.slice(from, until).filter((m) => m.role === "user" || m.role === "assistant");
-    return { slice, until, omitted: until };
-  }
-
-  async function generateSessionCache() {
-    if (!session) return;
-    const { slice, until, omitted } = manualCacheSlice();
-    if (until <= 0 || slice.length === 0) {
-      setCacheMessage("现在还没有需要压进缓存的旧消息。");
-      return;
-    }
-    setCacheBusy(true);
-    setCacheMessage("");
-    try {
-      const res = await apiFetch("/api/summary", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          previousSummary: session.summary || "",
-          messages: slice.map((m) => ({ role: m.role, content: m.content })),
-          aiName: "GPT",
-          modelId: resolveGptModel(settings.gptModel).apiId,
-          reasoningEffort: settings.gptReasoningEffort,
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok || !data.ok || !data.summary) {
-        throw new Error(data.reason || "生成失败");
-      }
-      updateGptSummary(String(data.summary).trim(), until);
-      setCacheMessage(`已生成本窗口缓存，覆盖 ${omitted} 条更早消息。下轮聊天会带上。`);
-    } catch (err) {
-      setCacheMessage(err instanceof Error ? `生成失败：${err.message}` : "生成失败");
-    } finally {
-      setCacheBusy(false);
-    }
-  }
-
-  const manualCache = manualCacheSlice();
   const aiName = settings.aiName || CLAUDE_DEFAULT_NAME;
   const gptName = settings.gptName || "GPT";
 
@@ -190,24 +128,6 @@ export function SettingsView({
           background={settings.classicChatBackground}
           onChange={(classicChatBackground) => updateSettings({ classicChatBackground })}
         />
-
-        <div className="settings-group">
-          <h2 className="settings-group-title">Bubble Color</h2>
-          <p className="settings-hint">Your bubbles, with white text.</p>
-          <div className="model-options">
-            {BUBBLE_COLORS.map((option) => (
-              <button
-                key={option.value}
-                className={`model-option ${settings.bubbleColor === option.value ? "model-option-active" : ""}`}
-                aria-pressed={settings.bubbleColor === option.value}
-                onClick={() => updateSettings({ bubbleColor: option.value })}
-              >
-                <span className="settings-bubble-swatch" style={{ background: option.color }} />
-                {option.label}
-              </button>
-            ))}
-          </div>
-        </div>
 
         <div className="settings-group settings-state-card">
           <button type="button" className="settings-state-head" aria-expanded={stateOpen} onClick={() => setStateOpen((open) => !open)}>
@@ -302,31 +222,12 @@ export function SettingsView({
           sessionUserTurns={claudeSession?.messages.filter((m) => m.role === "user").length ?? 0}
         />
 
-        <div className="settings-group">
-          <h2 className="settings-group-title">会话缓存 · {gptName}</h2>
-          <p className="settings-hint">
-            把当前窗口已经滑出 30 轮外的旧聊天压成一段前情，后续聊天会带上。
-          </p>
-          <button
-            className={`model-option ${session?.summary ? "model-option-active" : ""}`}
-            onClick={generateSessionCache}
-            disabled={cacheBusy || !session || manualCache.until <= 0}
-          >
-            <span className="model-option-dot" />
-            {cacheBusy ? "生成中" : "生成本窗口缓存"}
-          </button>
-          <p className="settings-hint">
-            当前可压缩：{manualCache.slice.length} 条；已缓存长度：{session?.summary?.length || 0} 字
-          </p>
-          {cacheMessage && <p className="settings-hint" style={cacheMessage.startsWith("生成失败") ? { color: "var(--text-primary)", fontWeight: 600 } : undefined}>{cacheMessage}</p>}
-        </div>
-
         <CacheStatusPanel cache={gptCache} title={`缓存命中 · ${gptName}`} />
         <ContextDebugPanel
           title={`上下文调试 · ${gptName}`}
           cache={gptCache}
-          sessionMessageCount={session?.messages.length ?? 0}
-          sessionUserTurns={session?.messages.filter((m) => m.role === "user").length ?? 0}
+          sessionMessageCount={gptSession?.messages.length ?? 0}
+          sessionUserTurns={gptSession?.messages.filter((m) => m.role === "user").length ?? 0}
         />
       </section>
       <PageBack onBack={onBack} />

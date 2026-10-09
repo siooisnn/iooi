@@ -1,0 +1,206 @@
+/* The grayscale glass finish, loaded after the existing page layouts.
+   Blur belongs to floating controls and the desktop, not every list row. */
+:root[data-theme="white-pink"] {
+  --brand-bubble: #565656;
+  --border-soft: #e4e4e4;
+  --glass-border: #e4e4e4;
+  --brand-avatar: #e5e5e5;
+  --theme-avatar: #dedede;
+  --theme-surface-soft: #f7f7f7;
+  --theme-soft-rgb: 235, 235, 235;
+  --theme-ambient-rgb: 225, 225, 225;
+  --liquid-glass-bg: linear-gradient(145deg, rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0.64));
+  --liquid-glass-bg-clear: linear-gradient(145deg, rgba(255, 255, 255, 0.74), rgba(255, 255, 255, 0.46));
+  --liquid-glass-edge: rgba(255, 255, 255, 0.88);
+  --liquid-glass-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.96),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.035),
+    0 1px 3px rgba(0, 0, 0, 0.04),
+    0 8px 24px rgba(0, 0, 0, 0.055);
+  --liquid-glass-filter: blur(24px) saturate(1.05);
+  --ios-card-bg: linear-gradient(145deg, rgba(255, 255, 255, 0.86), rgba(255, 255, 255, 0.66));
+  --ios-card-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.96), 0 3px 12px rgba(0, 0, 0, 0.025);
+  --ios-page-bg:
+    radial-gradient(ellipse at 12% 0%, rgba(255, 255, 255, 0.5), transparent 60%),
+    radial-gradient(ellipse at 100% 90%, rgba(0, 0, 0, 0.035), transparent 65%),
+    var(--page-gray);
+}
+
+/* Soft light gives the clear glass something to catch on a plain wallpaper. */
+:root[data-theme="white-pink"] .app-bg[data-fullscreen-shell="true"] > .chat-container > .home-body.phone-home:not(.phone-home-wallpaper) {
+  background:
+    radial-gradient(ellipse at 5% 5%, rgba(255, 255, 255, 0.82), transparent 58%),
+    radial-gradient(ellipse at 100% 65%, rgba(0, 0, 0, 0.075), transparent 65%),
+    linear-gradient(160deg, #e8e8e8, #e0e0e0);
+}
+
+:root[data-theme="white-pink"] .phone-home .phone-glass {
+  border: 0.5px solid var(--liquid-glass-edge);
+  background: var(--liquid-glass-bg-clear);
+  box-shadow: var(--liquid-glass-shadow);
+  -webkit-backdrop-filter: var(--liquid-glass-filter);
+  backdrop-filter: var(--liquid-glass-filter);
+}
+
+:root[data-theme="white-pink"] .phone-home .phone-app-icon {
+  border-radius: 4.4cqw;
+  color: #303030;
+  background: var(--liquid-glass-bg);
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
+}
+
+:root[data-theme="white-pink"] .phone-home .phone-app-icon svg {
+  width: 55%;
+  height: 55%;
+}
+
+/* Soft, continuous corners shared by both private rooms and the group. */
+:root[data-theme="white-pink"] .app-bg .chat-container .msg-bubble:not(.msg-bubble-summer-utility) {
+  border-radius: 22px;
+  padding: 10px 15px;
+  line-height: 1.55;
+}
+
+:root[data-theme="white-pink"] .app-bg .chat-container .msg-bubble-ai:not(.msg-bubble-summer-utility) {
+  background: rgba(255, 255, 255, 0.94);
+  border: 0;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.035);
+}
+
+:root[data-theme="white-pink"] .app-bg .chat-container .msg-bubble-user:not(.msg-bubble-summer-utility) {
+  background: var(--brand-bubble);
+  color: var(--brand-bubble-ink);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+:root[data-theme="white-pink"] .app-bg .chat-container .msg-bubble-ai:not(.msg-bubble-summer-utility)::before,
+:root[data-theme="white-pink"] .app-bg .chat-container .msg-bubble-user:not(.msg-bubble-summer-utility)::after {
+  content: none;
+}
+
+:root[data-theme="white-pink"] .phone-home .phone-dock {
+  height: 26cqw;
+  margin-top: 0;
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.58), rgba(255, 255, 255, 0.3));
+}
+
+:root[data-theme="white-pink"] .phone-home .phone-home-bottom {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  margin-top: auto;
+  padding-top: 16px;
+}
+
+/* An iOS-style ornament above the dock, with no search action attached. */
+:root[data-theme="white-pink"] .phone-home .phone-search {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  min-width: 98px;
+  height: 30px;
+  padding: 0 14px;
+  border-radius: 999px;
+  color: #686868;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1;
+  user-select: none;
+}
+
+:root[data-theme="white-pink"] .phone-home .phone-search svg {
+  flex: 0 0 14px;
+}
+
+:root[data-theme="white-pink"] .phone-home .phone-dock .phone-dock-app {
+  background: var(--liquid-glass-bg);
+}
+
+:root[data-theme="white-pink"] .phone-home .phone-couple-card,
+:root[data-theme="white-pink"] .phone-home .phone-moon-tile {
+  border-radius: 6.6cqw;
+}
+
+:root[data-theme="white-pink"] .phone-home .phone-couple-avatar {
+  box-shadow: 0 0 0 0.5px rgba(0, 0, 0, 0.05), 0 3px 10px rgba(0, 0, 0, 0.07);
+}
+
+:root[data-theme="white-pink"] .phone-home .phone-promise {
+  color: #606060;
+  font-family: inherit;
+  letter-spacing: 1px;
+}
+
+:root[data-theme="white-pink"] .phone-home .phone-clock-number {
+  color: #383838;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Rounded", "Segoe UI", sans-serif;
+  font-size: 19px;
+  font-weight: 500;
+  letter-spacing: -0.5px;
+}
+
+/* Card depth stays quiet on long pages; no blur per conversation or message. */
+:root[data-theme="white-pink"] .app-bg .chat-container > :is(.chat-list-home, .diary-body, .settings-body),
+:root[data-theme="white-pink"] .fragment-list-overlay {
+  background: var(--ios-page-bg);
+}
+
+:root[data-theme="white-pink"] .app-bg :is(.chat-list-home, .diary-body, .settings-body, .fragment-list-overlay) :is(
+  .chat-list-profile, .chat-list-card, .hb-log-item,
+  .fragment-page-card, .fragment-new-card, .settings-group,
+  .summer-native-toolbar, .summer-writer, .summer-doc,
+  .summer-memory-group, .summer-memory-card, .summer-layer-card) {
+  border: 0.5px solid rgba(255, 255, 255, 0.8);
+  background: var(--ios-card-bg);
+  box-shadow: var(--ios-card-shadow);
+}
+
+:root[data-theme="white-pink"] .app-bg .summer-memory-group .summer-memory-card {
+  border-color: rgba(0, 0, 0, 0.025);
+  background: rgba(0, 0, 0, 0.025);
+  box-shadow: none;
+}
+
+:root[data-theme="white-pink"] .app-bg .chat-list-tabs {
+  border: 0.5px solid var(--liquid-glass-edge);
+  background: var(--liquid-glass-bg-clear);
+  box-shadow: var(--liquid-glass-shadow);
+  -webkit-backdrop-filter: var(--liquid-glass-filter);
+  backdrop-filter: var(--liquid-glass-filter);
+}
+
+:root[data-theme="white-pink"] .app-bg .chat-list-tabs-thumb {
+  background: linear-gradient(145deg, #363636, #1a1a1a);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+}
+
+:root[data-theme="white-pink"] .app-bg :is(.chat-list-plus-avatar, .fragment-new-plus, .chat-entry-avatar) {
+  background: #eeeeee;
+}
+
+/* Visible keyboard focus for the desktop's icon-only controls. */
+:root[data-theme="white-pink"] .phone-home :is(.phone-app, .phone-dock-app, .phone-moon-tile):focus-visible {
+  outline: 2px solid #686868;
+  outline-offset: 5px;
+  border-radius: 18px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root[data-theme="white-pink"] .phone-home .phone-app-icon {
+    transition: none;
+  }
+}
+
+/* Keep the milky surface when the browser cannot blur the backdrop. */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  :root[data-theme="white-pink"] .phone-home .phone-glass,
+  :root[data-theme="white-pink"] .app-bg .chat-list-tabs {
+    background: rgba(255, 255, 255, 0.9);
+  }
+}

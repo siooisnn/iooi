@@ -14,7 +14,8 @@ import { apiFetch, fetchFromServer, fetchGptFromServer, fetchGroupFromServer, ge
 import { ChatListView } from "./components/ChatListView";
 import { HomeView, MoonPage } from "./components/HomeView";
 import type { HomeApp } from "./components/HomeView";
-import { HeartbeatView, ReadingView } from "./components/AppPages";
+import { HeartbeatView } from "./components/AppPages";
+import { ReadingView } from "./components/ReadingView";
 import { FragmentsView } from "./components/FragmentsView";
 import { PageBack } from "./components/PageBack";
 import { ChatView } from "./components/ChatView";
@@ -30,7 +31,6 @@ export default function Home() {
     classicChatBackground: "",
     homeBackground: "",
     todayState: "",
-    bubbleColor: "gray",
     chatPinnedLine: "此后我们的每一秒都是恩赐。",
     gptChatPinnedLine: "此后我们的每一秒都是恩赐。",
     aiName: CLAUDE_DEFAULT_NAME,
@@ -221,11 +221,6 @@ export default function Home() {
         .catch(() => {});
     }
   }, [mounted]);
-
-  // Her bubble colour lives on <html> so every chat view picks it up.
-  useEffect(() => {
-    document.documentElement.dataset.bubble = settings.bubbleColor;
-  }, [settings.bubbleColor]);
 
   // Force sync when user switches away (prevents message loss on iOS)
   const latestData = useRef({ sessions, gptSessions, groupSessions, settings, moods, fragments });
@@ -678,7 +673,7 @@ export default function Home() {
         )}
         {tab === "heartbeat" && <HeartbeatView log={heartbeatLog} onBack={goHome} />}
         {tab === "winter" && <FragmentsView fragments={fragments} setFragments={setFragments} onClose={goHome} />}
-        {tab === "reading" && <ReadingView onBack={goHome} />}
+        {tab === "reading" && <ReadingView settings={settings} onBack={goHome} />}
         {(tab === "summer-claude" || tab === "summer-gpt") && (
           <SummerPageView
             key={tab}
@@ -696,7 +691,6 @@ export default function Home() {
             claudeSession={activeSession}
             gptCache={gptLastCache}
             gptSession={gptActiveSession}
-            updateGptSummary={updateGptSummary}
           />
         )}
       </div>

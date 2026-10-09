@@ -126,17 +126,26 @@ export function HomeView({ settings, onOpen }: { settings: Settings; onOpen: (ap
         </div>
       </div>
 
-      <nav className="phone-glass phone-dock" aria-label="Dock">
-        <button type="button" className="phone-glass phone-app-icon phone-dock-app" onClick={() => onOpen("settings")} aria-label="settings">
-          <IconLineGear />
-        </button>
-        <button type="button" className="phone-glass phone-app-icon phone-dock-app" onClick={() => onOpen("summer-claude")} aria-label={`${claudeName}的 summer`}>
-          <IconLineDiary />
-        </button>
-        <button type="button" className="phone-glass phone-app-icon phone-dock-app" onClick={() => onOpen("summer-gpt")} aria-label={`${gptName}的 summer`}>
-          <IconLinePaper />
-        </button>
-      </nav>
+      <div className="phone-home-bottom">
+        <div className="phone-glass phone-search" aria-hidden="true">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="10.5" cy="10.5" r="6.5" />
+            <path d="m16 16 4.5 4.5" />
+          </svg>
+          <span>Search</span>
+        </div>
+        <nav className="phone-glass phone-dock" aria-label="Dock">
+          <button type="button" className="phone-glass phone-app-icon phone-dock-app" onClick={() => onOpen("settings")} aria-label="settings">
+            <IconLineGear />
+          </button>
+          <button type="button" className="phone-glass phone-app-icon phone-dock-app" onClick={() => onOpen("summer-claude")} aria-label={`${claudeName}的 summer`}>
+            <IconLineDiary />
+          </button>
+          <button type="button" className="phone-glass phone-app-icon phone-dock-app" onClick={() => onOpen("summer-gpt")} aria-label={`${gptName}的 summer`}>
+            <IconLinePaper />
+          </button>
+        </nav>
+      </div>
     </section>
   );
 }

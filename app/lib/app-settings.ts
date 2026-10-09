@@ -3,17 +3,6 @@ import { resolveGptModel } from "./gpt-models";
 import type { ClaudeReasoningEffort, DevelopmentModePref, GptReasoningEffort } from "./app-types";
 import { loadLocalRaw } from "./client-api";
 
-export const BUBBLE_COLORS = [
-  { value: "gray", label: "Dark Gray", color: "#545458" },
-  { value: "black", label: "Black", color: "#000000" },
-] as const;
-
-export type BubbleColor = typeof BUBBLE_COLORS[number]["value"];
-
-export function resolveBubbleColor(value: unknown): BubbleColor {
-  return BUBBLE_COLORS.some((option) => option.value === value) ? value as BubbleColor : "gray";
-}
-
 export type Settings = {
   model: string;
   gptModel: string;
@@ -24,8 +13,6 @@ export type Settings = {
   homeBackground: string;
   // Shown under her name on the chat list; picked in settings.
   todayState: string;
-  // Her bubble colour; the text on it stays white.
-  bubbleColor: BubbleColor;
   chatPinnedLine: string;
   gptChatPinnedLine: string;
   aiName: string;
@@ -133,7 +120,6 @@ export function normalizeClaudeSettings(settings: Settings): Settings {
     classicChatBackground: normalizeChatBackground(settings.classicChatBackground),
     homeBackground: normalizeChatBackground(settings.homeBackground),
     todayState: typeof settings.todayState === "string" ? settings.todayState.trim().slice(0, 40) : "",
-    bubbleColor: resolveBubbleColor(settings.bubbleColor),
     webSearch: Boolean(settings.webSearch),
     aiName: !settings.aiName?.trim() || oldDefaultName.test(settings.aiName.trim())
       ? CLAUDE_DEFAULT_NAME
