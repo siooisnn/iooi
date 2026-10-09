@@ -1344,15 +1344,12 @@ export default function Home() {
           <GroupChatView
             key={`group-${groupSession.id}`}
             session={groupSession}
-            sessions={groupSessions}
             settings={settings}
             claudeModelId={(MODELS.find((model) => model.id === settings.model) || MODELS[0]).apiId}
             gptModelId={resolveGptModel(settings.gptModel).apiId}
             updateSettings={updateSettings}
             updateMessages={updateGroupMessages}
             updateSummary={updateGroupSummary}
-            setActiveSessionId={setGroupActiveSessionId}
-            createSession={createGroupSessionWindow}
             onBack={() => setChatView("list")}
           />
         )}
@@ -1763,21 +1760,23 @@ function ChatListView({
   return (
     <>
       <section className="chat-entry-body chat-list-home" onClick={() => setOpenActionsFor(null)}>
-        <div className="chat-list-profile">
-          <span className="chat-list-profile-avatar" aria-hidden="true">
-            {settings.userAvatar ? <img src={settings.userAvatar} alt="" /> : <span />}
-          </span>
-          <div className="chat-list-profile-text">
-            <h1 className="chat-list-profile-name">{settings.userName || "宝宝"}</h1>
-            <p className="chat-list-profile-state">
-              Today&apos;s State: <span>{settings.todayState || "—"}</span>
-            </p>
+        <div className="chat-list-profile-card">
+          <div className="chat-list-profile">
+            <span className="chat-list-profile-avatar" aria-hidden="true">
+              {settings.userAvatar ? <img src={settings.userAvatar} alt="" /> : <span />}
+            </span>
+            <div className="chat-list-profile-text">
+              <h1 className="chat-list-profile-name">{settings.userName || "宝宝"}</h1>
+              <p className="chat-list-profile-state">
+                Today&apos;s State: <span>{settings.todayState || "—"}</span>
+              </p>
+            </div>
           </div>
-        </div>
 
-        <button type="button" className="chat-list-quote" onClick={editPinnedLine} title="点击修改">
-          “{pinnedLine || "…"}”
-        </button>
+          <button type="button" className="chat-list-quote" onClick={editPinnedLine} title="点击修改">
+            “{pinnedLine || "…"}”
+          </button>
+        </div>
 
         <div className="chat-list-tabs" role="tablist" aria-label="聊天列表"
           style={{ "--chat-list-tab-index": Math.max(0, tabIndex) } as CSSProperties}>

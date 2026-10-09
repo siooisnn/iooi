@@ -233,14 +233,6 @@ function groupSystemPrompt(speaker: GroupSpeaker, settings: GroupSettings) {
 如需长期记忆，只能提出写入你自己 summer 的待确认建议。`;
 }
 
-function groupSessionPreview(session: GroupSession) {
-  const latest = visibleGroupMessages(session.messages).reverse().find(({ message }) => !message.source?.startsWith("summer_"))?.message;
-  if (!latest) return "还没有消息";
-  if (messageImages(latest).length) return messageImages(latest).length > 1 ? `[${messageImages(latest).length} 张图片]` : "[图片]";
-  if (latest.file) return latest.content || "[文件]";
-  return latest.content.replace(/\s+/g, " ").slice(0, 32) || "新消息";
-}
-
 function renderGroupInline(text: string) {
   const parts = text.split(/(\*\*[^*\n]+?\*\*|\*[^*\n]+?\*|\[[^\]\n]+\]\(https?:\/\/[^)\s]+\))/g);
   return parts.filter(Boolean).map((part, index) => {
@@ -321,27 +313,21 @@ function Avatar({ src, user = false }: { src: string; user?: boolean }) {
 
 export function GroupChatView({
   session,
-  sessions,
   settings,
   claudeModelId,
   gptModelId,
   updateSettings,
   updateMessages,
   updateSummary,
-  setActiveSessionId,
-  createSession,
   onBack,
 }: {
   session: GroupSession;
-  sessions: GroupSession[];
   settings: GroupSettings;
   claudeModelId: string;
   gptModelId: string;
   updateSettings: (partial: Partial<Pick<GroupSettings, "webSearch" | "gptWebSearch">>) => void;
   updateMessages: (updater: (messages: GroupChatMessage[]) => GroupChatMessage[]) => void;
   updateSummary: (summary: string, until: number) => void;
-  setActiveSessionId: (id: string) => void;
-  createSession: () => void;
   onBack: () => void;
 }) {
   const [input, setInput] = useState("");
@@ -352,7 +338,6 @@ export function GroupChatView({
   const [uploadError, setUploadError] = useState("");
   const [replyState, setReplyState] = useState<ReplyState>("idle");
   const [activeSpeaker, setActiveSpeaker] = useState<GroupSpeaker | null>(null);
-  const [showSessions, setShowSessions] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
   const claudeUsage = useClaudeUsage();
   const [showWebSearchMenu, setShowWebSearchMenu] = useState(false);
@@ -738,8 +723,6 @@ export function GroupChatView({
 
   const displayedMessages = visibleGroupMessages(session.messages).filter(({ message }) =>
     !(message.source === "summer_call" && message.content.includes("已读取 Summer 唤醒内容与记忆状态")));
-  const groupOrdinal = session.name.match(/(\d+)\s*$/)?.[1]
-    || String(Math.max(1, sessions.findIndex((group) => group.id === session.id) + 1));
 
   return (
     <>
@@ -750,52 +733,19 @@ export function GroupChatView({
               <polyline points="14.5 5.5 8 12 14.5 18.5" />
             </svg>
           </button>
-          <button
+          <div
             className="header-center group-session-title"
-            type="button"
-            onClick={() => setShowSessions((open) => !open)}
-            aria-expanded={showSessions}
-            aria-label={`${session.name}${session.summary ? "，已记住前情" : ""}${summarizing ? "，整理前情中" : ""}`}
+            aria-label={`一个群${session.summary ? "，已记住前情" : ""}${summarizing ? "，整理前情中" : ""}`}
           >
             <h1 className="header-title chat-room-title">一个群</h1>
-            <span className="header-subtitle chat-room-status">
-              <svg className="group-session-people" width="17" height="17" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                <circle cx="8.5" cy="7.5" r="3.25" />
-                <circle cx="16.5" cy="8.5" r="2.5" />
-                <path d="M2.5 19c0-3.55 2.7-6.1 6-6.1s6 2.55 6 6.1v.5h-12V19Z" />
-                <path d="M14 19c0-2.12-.78-3.94-2.12-5.25a6.2 6.2 0 0 1 4.3-1.68c3 0 5.32 2.25 5.32 5.43v2H14V19Z" />
-              </svg>
-              <span>{groupOrdinal}</span>
-              <svg className="group-session-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9" /></svg>
-            </span>
-          </button>
-          {/* The quota is plain numbers top right; new groups open from the list
-              under the title, and the context circle sits beside the input. */}
+          </div>
+          {/* The quota is plain numbers top right; the context circle sits
+              beside the input. New group windows open from the chat list. */}
           <div className="room-header-usage">
             <ClaudeUsageCircle {...claudeUsage} className="room-header-quota" title="剩余百分比：五小时 / 本周" />
           </div>
         </div>
       </header>
-
-      {showSessions && (
-        <div className="group-session-switcher">
-          {sessions.map((group) => (
-            <button
-              type="button"
-              key={group.id}
-              className={group.id === session.id ? "group-session-row group-session-row-active" : "group-session-row"}
-              onClick={() => {
-                setActiveSessionId(group.id);
-                setShowSessions(false);
-              }}
-            >
-              <span><b>{group.name}</b><small>{groupSessionPreview(group)}</small></span>
-              {group.id === session.id && <i>✓</i>}
-            </button>
-          ))}
-          <button type="button" className="group-session-create-row" onClick={() => { createSession(); setShowSessions(false); }}>＋ 新群聊</button>
-        </div>
-      )}
 
       <section className="chat-messages" ref={scrollRef} onScroll={handleScroll}>
         {displayedMessages.length === 0 && (
