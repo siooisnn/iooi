@@ -7,6 +7,7 @@ import { NotificationButton } from "./NotificationButton";
 import { ChatBackgroundSetting } from "./ChatBackgroundSetting";
 import { PageBack } from "./PageBack";
 import { resolveGptModel } from "../lib/gpt-models";
+import { HOME_BACKGROUND_SIZE } from "../lib/chat-background";
 import type { CacheStats, ChatSession } from "../lib/app-types";
 import { BUBBLE_COLORS, CLAUDE_DEFAULT_NAME, CONTEXT_WINDOW_ROUNDS } from "../lib/app-settings";
 import type { Settings } from "../lib/app-settings";
@@ -18,7 +19,7 @@ export const TODAY_STATES = [
   "sleepy", "exhausted", "low mood", "broken", "missing you",
 ];
 
-// 酥酥 and 郁郁 share one settings page: names and avatars side by side,
+// 酥酥 and 郁郁 share one settings page: names and avatars in a list,
 // then each one's cache and context panels.
 export function SettingsView({
   settings,
@@ -147,28 +148,41 @@ export function SettingsView({
       <section className="settings-body">
         <div className="settings-group">
           <h2 className="settings-group-title">Name &amp; Avatar</h2>
-          <div className="avatar-upload-row avatar-upload-row-three">
+          <div className="avatar-list">
             {([
-              { field: "aiAvatar", nameField: "aiName", placeholder: "avatar-ai" },
-              { field: "gptAvatar", nameField: "gptName", placeholder: "avatar-ai" },
-              { field: "userAvatar", nameField: "userName", placeholder: "avatar-user" },
-            ] as const).map(({ field, nameField, placeholder }) => (
-              <div className="avatar-upload-item" key={field}>
-                <button className="avatar-upload-btn" onClick={() => handleAvatarUpload(field)}>
+              { field: "aiAvatar", nameField: "aiName", placeholder: "avatar-ai", who: "酥酥" },
+              { field: "gptAvatar", nameField: "gptName", placeholder: "avatar-ai", who: "郁郁" },
+              { field: "userAvatar", nameField: "userName", placeholder: "avatar-user", who: "me" },
+            ] as const).map(({ field, nameField, placeholder, who }) => (
+              <div className="avatar-list-row" key={field}>
+                <button type="button" className="avatar-list-photo" aria-label={`Change ${who}'s avatar`} onClick={() => handleAvatarUpload(field)}>
                   {settings[field]
                     ? <img src={settings[field]} className="avatar-upload-preview" alt="" />
                     : <div className={`avatar-upload-placeholder ${placeholder}`} />}
-                  <span className="avatar-upload-label">Tap to change</span>
                 </button>
-                <input
-                  className="settings-input settings-input-short"
-                  value={settings[nameField]}
-                  onChange={(e) => updateSettings({ [nameField]: e.target.value })}
-                />
+                <label className="avatar-list-name">
+                  <input
+                    className="avatar-list-input"
+                    value={settings[nameField]}
+                    aria-label={`${who}'s name`}
+                    enterKeyHint="done"
+                    onChange={(e) => updateSettings({ [nameField]: e.target.value })}
+                    onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur(); }}
+                  />
+                  <svg className="avatar-list-pencil" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16v4z" /><path d="M13.5 6.5l4 4" /></svg>
+                </label>
               </div>
             ))}
           </div>
         </div>
+
+        <ChatBackgroundSetting
+          title="Home Background"
+          hint="A photo behind the desktop's glass. Remove it to go back to gray. Saved automatically."
+          background={settings.homeBackground}
+          onChange={(homeBackground) => updateSettings({ homeBackground })}
+          size={HOME_BACKGROUND_SIZE}
+        />
 
         <ChatBackgroundSetting
           title="Chat Background"

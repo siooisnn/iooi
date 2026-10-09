@@ -28,6 +28,7 @@ export default function Home() {
     gptModel: DEFAULT_GPT_MODEL.id,
     chatEntryStyle: "list",
     classicChatBackground: "",
+    homeBackground: "",
     todayState: "",
     bubbleColor: "gray",
     chatPinnedLine: "此后我们的每一秒都是恩赐。",

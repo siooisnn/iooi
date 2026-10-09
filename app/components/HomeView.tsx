@@ -82,7 +82,10 @@ export function HomeView({ settings, onOpen }: { settings: Settings; onOpen: (ap
   const clock = [{ value: days, unit: "天" }, { value: hours, unit: "时" }, { value: minutes, unit: "分" }, { value: seconds, unit: "秒" }];
 
   return (
-    <section className="home-body phone-home">
+    <section
+      className={`home-body phone-home${settings.homeBackground ? " phone-home-wallpaper" : ""}`}
+      style={settings.homeBackground ? { backgroundImage: `url("${settings.homeBackground}")` } : undefined}
+    >
       {isAnniversary && <Petals />}
 
       <div className="phone-grid">

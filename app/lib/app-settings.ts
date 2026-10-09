@@ -20,6 +20,8 @@ export type Settings = {
   chatEntryStyle: "list" | "direct";
   // One photo shared by both private chats and the group.
   classicChatBackground: string;
+  // The desktop's wallpaper; empty keeps the plain gray.
+  homeBackground: string;
   // Shown under her name on the chat list; picked in settings.
   todayState: string;
   // Her bubble colour; the text on it stays white.
@@ -129,6 +131,7 @@ export function normalizeClaudeSettings(settings: Settings): Settings {
     model: selectedModel,
     gptModel: resolveGptModel(settings.gptModel).id,
     classicChatBackground: normalizeChatBackground(settings.classicChatBackground),
+    homeBackground: normalizeChatBackground(settings.homeBackground),
     todayState: typeof settings.todayState === "string" ? settings.todayState.trim().slice(0, 40) : "",
     bubbleColor: resolveBubbleColor(settings.bubbleColor),
     webSearch: Boolean(settings.webSearch),

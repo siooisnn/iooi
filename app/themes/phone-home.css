@@ -30,6 +30,23 @@
     var(--page-gray, #e8e8e8);
 }
 
+/* Her own photo as wallpaper (Settings → Home Background): it fills the
+   screen behind the glass, under the status bar too. The inline style sets
+   the image; this only places it. */
+:root[data-theme] .app-bg[data-fullscreen-shell="true"] > .chat-container > .home-body.phone-home.phone-home-wallpaper {
+  background-color: var(--page-gray, #e8e8e8);
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: cover;
+}
+
+/* Names under the widgets and apps keep a soft white halo so they still
+   read on a busy or dark photo. */
+:root[data-theme] .phone-home.phone-home-wallpaper :is(.phone-widget-label, .phone-app-label) {
+  color: #1a1a1a;
+  text-shadow: 0 0 3px rgba(255, 255, 255, 0.95), 0 0 8px rgba(255, 255, 255, 0.8);
+}
+
 /* The dock sits ~12pt above the bottom edge, under the home indicator. */
 :root[data-theme] .app-bg[data-fullscreen-shell="true"] > .chat-container:not([data-home-style="wall"]) > .home-body.phone-home::after {
   flex-basis: max(12px, calc(env(safe-area-inset-bottom) - 20px));
@@ -350,8 +367,68 @@
   color: var(--text-primary);
 }
 
-/* Settings: 酥酥, 郁郁 and her side by side. */
-.avatar-upload-row.avatar-upload-row-three { gap: 14px; }
+/* Settings: 酥酥, 郁郁 and her one under another — avatar, then the name
+   on the right. Tap the avatar for a new photo, the name to edit it. */
+.avatar-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.avatar-list-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+  padding: 8px 0;
+}
+
+.avatar-list-row + .avatar-list-row { border-top: 0.5px solid rgba(0, 0, 0, 0.08); }
+
+.avatar-list-photo {
+  flex: 0 0 auto;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.avatar-list-photo .avatar-upload-preview,
+.avatar-list-photo .avatar-upload-placeholder {
+  display: block;
+  width: 52px;
+  height: 52px;
+}
+
+.avatar-list-photo:active { transform: scale(0.95); }
+
+.avatar-list-name {
+  display: flex;
+  align-items: center;
+  flex: 1 1 auto;
+  gap: 8px;
+  min-width: 0;
+  color: var(--text-light);
+  cursor: text;
+}
+
+/* Reads as plain text until tapped; 16px so iOS does not zoom in. */
+.avatar-list-input {
+  flex: 1 1 auto;
+  width: 0;
+  min-width: 0;
+  padding: 6px 0;
+  border: 0;
+  border-radius: 0;
+  outline: none;
+  background: transparent;
+  color: var(--text-primary);
+  font: inherit;
+  font-size: 16px;
+  font-weight: 500;
+}
+
+.avatar-list-input:focus + .avatar-list-pencil { color: var(--text-primary); }
 
 /* winter: line snowflakes where the puzzle pieces were. */
 .fragment-page-number svg,

@@ -5,11 +5,12 @@ import type { ChangeEvent } from "react";
 import Image from "next/image";
 import { prepareChatBackground } from "../lib/chat-background";
 
-export function ChatBackgroundSetting({ title, hint, background, onChange }: {
+export function ChatBackgroundSetting({ title, hint, background, onChange, size }: {
   title: string;
   hint: string;
   background: string;
   onChange: (background: string) => void;
+  size?: { maxSide: number; maxLength: number };
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
@@ -22,7 +23,7 @@ export function ChatBackgroundSetting({ title, hint, background, onChange }: {
     setBusy(true);
     setError("");
     try {
-      onChange(await prepareChatBackground(file));
+      onChange(await prepareChatBackground(file, size));
     } catch (error) {
       setError(error instanceof Error ? error.message : "Couldn't read that image. Please pick another.");
     } finally {
