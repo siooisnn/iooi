@@ -1,9 +1,9 @@
 /* clawd: one terracotta crab-ish friend on the grayscale page. */
 
-/* Desktop: a second row of apps under the 2×2, on the same four columns. */
-:root[data-theme] .phone-home .phone-app-grid.phone-app-row {
-  grid-column: 1 / -1;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+/* Desktop: clawd sits right under reading (last column), leaving the
+   wallpaper's left side clear. */
+:root[data-theme] .phone-home .phone-app-grid.phone-app-row > .phone-app {
+  grid-column: 2;
 }
 
 :root[data-theme] .clawd-room {
