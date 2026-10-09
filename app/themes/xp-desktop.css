@@ -1,0 +1,643 @@
+/* ━━ Retro desktop: the home screen as Windows XP, circa 2007 ━━
+   A Bliss-like green hill under a blue sky, glossy outlined icons with
+   white shadowed labels, the "As time goes by.exe" window, the moon as a
+   sidebar gadget and the blue Luna taskbar.
+   Every rule starts with :root[data-theme] .xp-desktop so it outranks
+   white-pink's reset of gradients and shadows on every element. The window
+   chrome reuses the .xp-* classes from blog-room.css and repaints them here. */
+
+:root[data-theme] .xp-desktop {
+  --xp-blue: #0a5fe8;
+  --xp-blue-dark: #0831d9;
+  --xp-face: #ece9d8;
+  --taskbar-height: 42px;
+  position: fixed;
+  inset: 0;
+  z-index: 340;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  color: #000;
+  font-family: Tahoma, Verdana, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+  font-size: 13px;
+  background-color: #3d86e8;
+  background-image:
+    radial-gradient(ellipse 100% 40% at 24% 102%, #8fd35c 0%, #67b63a 45%, #4f9f2a 70%, transparent 70.5%),
+    radial-gradient(ellipse 130% 34% at 88% 106%, #7fc64b 0%, #57a82f 55%, #3f8d22 70%, transparent 70.5%),
+    radial-gradient(ellipse 34% 7% at 72% 30%, rgba(255, 255, 255, 0.8), transparent 70%),
+    radial-gradient(ellipse 26% 5% at 20% 40%, rgba(255, 255, 255, 0.65), transparent 70%),
+    radial-gradient(ellipse 44% 8% at 50% 58%, rgba(255, 255, 255, 0.55), transparent 70%),
+    linear-gradient(180deg, #1b56c4 0%, #3478df 28%, #6aa8ee 52%, #a9d0f6 68%, #d8ecfc 78%);
+  -webkit-tap-highlight-color: transparent;
+  -webkit-user-select: none;
+  user-select: none;
+  animation: xpDeskIn 0.25s ease-out;
+}
+
+/* Her own photo (Settings → Home Background) still works as wallpaper. */
+:root[data-theme] .xp-desktop.xp-desktop-photo {
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: cover;
+}
+
+@keyframes xpDeskIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+:root[data-theme] .xp-desktop button {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+:root[data-theme] .xp-desktop button:focus-visible {
+  outline: 1px dotted #fff;
+  outline-offset: 2px;
+}
+
+:root[data-theme] .xp-desktop svg { display: block; overflow: visible; }
+
+:root[data-theme] .xp-desk-area {
+  position: relative;
+  z-index: 2;
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  padding:
+    calc(env(safe-area-inset-top) + 12px)
+    max(12px, env(safe-area-inset-right))
+    16px
+    max(12px, env(safe-area-inset-left));
+  overflow-y: auto;
+}
+
+/* ━━ Window chrome, repainted with its gloss ━━ */
+:root[data-theme] .xp-desktop .xp-window {
+  flex: none;
+  box-shadow: 4px 6px 14px rgba(0, 20, 80, 0.35);
+}
+
+:root[data-theme] .xp-desktop .xp-titlebar {
+  background-image: linear-gradient(180deg, #3c95ff 0%, #0a5fe8 9%, #0055e5 18%, #0a63f6 45%, #0b5ff0 82%, #0350d8 92%, #0234b8 100%);
+}
+
+:root[data-theme] .xp-desktop .xp-title-icon {
+  background-image: linear-gradient(180deg, #fff 0%, #ffd9ec 100%);
+  color: #ff4f9a;
+}
+
+:root[data-theme] .xp-desktop .xp-btn {
+  background-image: linear-gradient(180deg, #5d9bff 0%, #2765ec 55%, #1a4fd0 100%);
+  box-shadow: inset -1px -1px 0 rgba(0, 0, 0, 0.18);
+}
+
+:root[data-theme] .xp-desktop .xp-close {
+  background-image: linear-gradient(180deg, #f39a7f 0%, #e45a2f 50%, #c8381a 100%);
+}
+
+:root[data-theme] .xp-desktop .xp-body {
+  padding: 12px 12px 14px;
+  background: var(--xp-face);
+}
+
+/* ━━ As time goes by.exe ━━ */
+:root[data-theme] .xp-desk-couple {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* An MSN-style display picture: square, framed, a soft bevel. */
+:root[data-theme] .xp-desktop .xp-desk-portrait {
+  flex: none;
+  display: block;
+  width: 54px;
+  height: 54px;
+  padding: 2px;
+  border: 1px solid #7f9db9;
+  border-radius: 4px;
+  background-color: #fff;
+  box-shadow: 1px 1px 0 #fff inset, 1px 2px 3px rgba(0, 0, 0, 0.2);
+}
+
+:root[data-theme] .xp-desktop .xp-desk-portrait > * {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: 2px;
+  background-color: #c9d6e8;
+  object-fit: cover;
+}
+
+/* The heartbeat runs green on a little black monitor between them. */
+:root[data-theme] .xp-desktop .xp-desk-monitor {
+  position: relative;
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 46px;
+  padding: 3px 6px;
+  overflow: hidden;
+  border: 2px solid;
+  border-color: #808080 #fff #fff #808080;
+  background-color: #031a07;
+  background-image:
+    linear-gradient(rgba(57, 255, 106, 0.1) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(57, 255, 106, 0.1) 1px, transparent 1px);
+  background-size: 8px 8px;
+}
+
+:root[data-theme] .xp-desktop .xp-desk-monitor svg {
+  width: 100%;
+  height: 100%;
+  clip-path: inset(-4px 100% -4px 0);
+  animation: xpDeskTrace 2.4s linear infinite;
+}
+
+:root[data-theme] .xp-desktop .xp-desk-monitor path {
+  fill: none;
+  stroke: #39ff6a;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  filter: drop-shadow(0 0 2px #39ff6a);
+}
+
+@keyframes xpDeskTrace {
+  0% { clip-path: inset(-4px 100% -4px 0); opacity: 1; }
+  70% { clip-path: inset(-4px 0 -4px 0); opacity: 1; }
+  100% { clip-path: inset(-4px 0 -4px 0); opacity: 0.15; }
+}
+
+:root[data-theme] .xp-desk-promise {
+  margin: 10px 0 8px;
+  color: #3a3a3a;
+  font-family: "Songti SC", "SimSun", serif;
+  font-size: 13px;
+  letter-spacing: 2px;
+  text-align: center;
+}
+
+:root[data-theme] .xp-desk-counter {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+}
+
+:root[data-theme] .xp-desk-counter > span {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 3px;
+  padding: 3px 0 2px;
+  border: 2px solid;
+  border-color: #808080 #fff #fff #808080;
+  background: #fff;
+}
+
+:root[data-theme] .xp-desk-counter b {
+  color: #0831d9;
+  font-family: Tahoma, Verdana, sans-serif;
+  font-size: 18px;
+  font-variant-numeric: tabular-nums;
+}
+
+:root[data-theme] .xp-desk-counter small { color: #555; font-size: 11px; }
+
+/* ━━ Icons + the moon gadget ━━ */
+:root[data-theme] .xp-desk-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 34%;
+  align-items: start;
+  gap: 8px;
+}
+
+:root[data-theme] .xp-desk-icons {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  row-gap: 14px;
+}
+
+:root[data-theme] .xp-desktop .xp-desk-icon {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+
+:root[data-theme] .xp-desktop .xp-desk-icon-art {
+  display: block;
+  width: 46px;
+  height: 46px;
+  filter: drop-shadow(1px 2px 1px rgba(0, 0, 0, 0.35));
+}
+
+:root[data-theme] .xp-desktop .xp-desk-icon-art svg { width: 100%; height: 100%; }
+
+:root[data-theme] .xp-desktop .xp-desk-icon-label {
+  max-width: 100%;
+  padding: 1px 3px;
+  overflow: hidden;
+  color: #fff;
+  font-size: 12px;
+  line-height: 15px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-shadow: 1px 1px 1px #000, 0 0 3px rgba(0, 0, 0, 0.6);
+}
+
+/* Tapped: the classic blue selection over the label, a blue wash on the art. */
+:root[data-theme] .xp-desktop :is(.xp-desk-icon, .xp-desk-gadget):active .xp-desk-icon-label {
+  background: #316ac5;
+  outline: 1px dotted #fff;
+  text-shadow: none;
+}
+
+:root[data-theme] .xp-desktop .xp-desk-icon:active .xp-desk-icon-art {
+  filter: drop-shadow(1px 2px 1px rgba(0, 0, 0, 0.35)) sepia(1) hue-rotate(180deg) saturate(3) brightness(0.8);
+}
+
+:root[data-theme] .xp-desktop .xp-desk-gadget {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+/* A dark glassy sidebar gadget: space for the moon and earth. */
+:root[data-theme] .xp-desktop .xp-desk-gadget-glass {
+  display: block;
+  width: 100%;
+  aspect-ratio: 1;
+  padding: 8%;
+  border: 1px solid rgba(255, 255, 255, 0.55);
+  border-radius: 10px;
+  background-color: #0e1d3d;
+  background-image:
+    radial-gradient(circle at 30% 20%, rgba(255, 255, 255, 0.22), transparent 55%),
+    linear-gradient(180deg, #24407a 0%, #0e1d3d 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.45), 2px 4px 10px rgba(0, 20, 70, 0.4);
+}
+
+:root[data-theme] .xp-desktop .xp-desk-gadget:active .xp-desk-gadget-glass { filter: brightness(1.15); }
+
+/* ━━ Taskbar ━━ */
+:root[data-theme] .xp-desktop .xp-desk-taskbar {
+  position: relative;
+  z-index: 30;
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: calc(var(--taskbar-height) + env(safe-area-inset-bottom));
+  padding: 0 0 env(safe-area-inset-bottom);
+  border-top: 1px solid #0c2f99;
+  background-color: #245edb;
+  background-image: linear-gradient(180deg, #3f8cf3 0%, #245edb 9%, #245edb 85%, #1941a5 100%);
+  box-shadow: inset 0 1px 0 #5ea0ff;
+}
+
+:root[data-theme] .xp-desktop .xp-desk-start {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  height: var(--taskbar-height);
+  padding: 0 18px 0 10px;
+  border-radius: 0 14px 14px 0;
+  background-color: #2f8a2f;
+  background-image: linear-gradient(180deg, #5eb95e 0%, #3c9b3c 12%, #2f8a2f 85%, #1f6b1f 100%);
+  box-shadow: inset -2px 0 3px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.5), 2px 0 3px rgba(0, 0, 0, 0.25);
+  color: #fff;
+  font-size: 18px;
+  font-style: italic;
+  font-weight: 800;
+  text-shadow: 1px 1px 1px rgba(0, 0, 0, 0.5);
+}
+
+:root[data-theme] .xp-desktop .xp-desk-start.is-open { filter: brightness(0.88); }
+:root[data-theme] .xp-desktop .xp-desk-flag { width: 22px; filter: drop-shadow(1px 1px 0 rgba(0, 0, 0, 0.35)); }
+
+:root[data-theme] .xp-desktop .xp-desk-task {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 30px;
+  padding: 0 10px;
+  overflow: hidden;
+  border: 1px solid #0c2f99;
+  border-radius: 3px;
+  background-color: #1e52c8;
+  box-shadow: inset 1px 1px 2px rgba(0, 0, 0, 0.35);
+  color: #fff;
+  font-size: 12px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+:root[data-theme] .xp-desktop .xp-desk-task span { color: #ffb3d6; }
+
+:root[data-theme] .xp-desktop .xp-desk-tray {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: var(--taskbar-height);
+  padding: 0 12px 0 10px;
+  border-left: 1px solid #0b3fb0;
+  background-color: #0b78d3;
+  background-image: linear-gradient(180deg, #13a0f3 0%, #0d8fe3 12%, #0b78d3 100%);
+  box-shadow: inset 1px 0 1px #2bb3ff;
+  color: #fff;
+  font-size: 12px;
+}
+
+:root[data-theme] .xp-desktop .xp-desk-tray-heart {
+  color: #ff8fc4;
+  font-size: 15px;
+  line-height: 1;
+  animation: xpDeskBeat 1.4s ease-in-out infinite;
+}
+
+@keyframes xpDeskBeat {
+  0%, 60%, 100% { transform: scale(1); }
+  15% { transform: scale(1.25); }
+  30% { transform: scale(1.05); }
+  45% { transform: scale(1.2); }
+}
+
+/* ━━ Start menu ━━ */
+:root[data-theme] .xp-desktop .xp-desk-scrim { position: absolute; inset: 0; z-index: 24; }
+
+:root[data-theme] .xp-desktop .xp-desk-menu {
+  position: absolute;
+  left: 0;
+  bottom: calc(var(--taskbar-height) + env(safe-area-inset-bottom));
+  z-index: 25;
+  width: min(340px, calc(100vw - 12px));
+  overflow: hidden;
+  border: 2px solid #1a4fd0;
+  border-bottom: 0;
+  border-radius: 8px 8px 0 0;
+  background: #fff;
+  box-shadow: 4px -2px 12px rgba(0, 0, 0, 0.35);
+  animation: xpDeskMenu 0.16s ease-out;
+}
+
+@keyframes xpDeskMenu {
+  from { transform: translateY(16px); opacity: 0; }
+  to { transform: none; opacity: 1; }
+}
+
+:root[data-theme] .xp-desktop .xp-desk-menu-user {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  background-color: #1e6ff2;
+  background-image: linear-gradient(180deg, #1e6ff2 0%, #2c79f6 30%, #1556dc 100%);
+  color: #fff;
+  font-size: 15px;
+  text-shadow: 1px 1px 1px rgba(0, 0, 0, 0.4);
+}
+
+:root[data-theme] .xp-desktop .xp-desk-menu-user .xp-desk-portrait {
+  width: 44px;
+  height: 44px;
+  border-color: #fff;
+}
+
+:root[data-theme] .xp-desktop .xp-desk-menu-columns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  border-top: 2px solid #f39a3c;
+}
+
+:root[data-theme] .xp-desktop :is(.xp-desk-menu-left, .xp-desk-menu-right) {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  padding: 6px 0;
+}
+
+:root[data-theme] .xp-desktop .xp-desk-menu-right {
+  border-left: 1px solid #95bdee;
+  background: #d3e5fa;
+}
+
+:root[data-theme] .xp-desktop .xp-desk-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  padding: 7px 8px;
+  text-align: left;
+}
+
+:root[data-theme] .xp-desktop .xp-desk-menu-item:active { background: #316ac5; color: #fff; }
+:root[data-theme] .xp-desktop .xp-desk-menu-art { flex: none; width: 28px; height: 28px; }
+:root[data-theme] .xp-desktop .xp-desk-menu-art svg { width: 100%; height: 100%; }
+
+:root[data-theme] .xp-desktop .xp-desk-menu-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+:root[data-theme] .xp-desktop .xp-desk-menu-text b {
+  overflow: hidden;
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+:root[data-theme] .xp-desktop .xp-desk-menu-text small { color: #6d6d6d; font-size: 11px; }
+:root[data-theme] .xp-desktop .xp-desk-menu-item:active small { color: #dbe6ff; }
+
+:root[data-theme] .xp-desktop .xp-desk-menu-foot {
+  display: flex;
+  justify-content: flex-end;
+  padding: 6px 10px;
+  background-color: #2a64dc;
+  background-image: linear-gradient(180deg, #4282ee, #1d55d6);
+}
+
+:root[data-theme] .xp-desktop .xp-desk-menu-foot button {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #fff;
+  font-size: 13px;
+}
+
+:root[data-theme] .xp-desktop .xp-desk-power {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border: 1px solid #fff;
+  border-radius: 4px;
+  background-color: #d24b25;
+  background-image: linear-gradient(180deg, #f39a7f, #d24b25);
+  font-size: 14px;
+}
+
+/* ━━ Tray balloon ━━ */
+:root[data-theme] .xp-desktop .xp-desk-balloon {
+  position: absolute;
+  right: 10px;
+  bottom: calc(var(--taskbar-height) + env(safe-area-inset-bottom) + 14px);
+  z-index: 28;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-width: min(260px, calc(100vw - 20px));
+  padding: 9px 12px;
+  border: 1px solid #000;
+  border-radius: 8px;
+  background: #ffffe1;
+  box-shadow: 2px 3px 6px rgba(0, 0, 0, 0.3);
+  color: #000;
+  font-size: 12px;
+  text-align: left;
+  animation: xpDeskMenu 0.2s ease-out;
+}
+
+:root[data-theme] .xp-desktop .xp-desk-balloon b { font-size: 12px; }
+:root[data-theme] .xp-desktop .xp-desk-balloon b span { color: #e23d7a; }
+
+/* The little tail pointing down at the tray heart. */
+:root[data-theme] .xp-desktop .xp-desk-balloon::after {
+  content: "";
+  position: absolute;
+  right: 54px;
+  bottom: -10px;
+  border: 5px solid transparent;
+  border-top: 6px solid #ffffe1;
+  filter: drop-shadow(0 1px 0 #000);
+}
+
+/* ━━ Boot and shutdown screens ━━ */
+:root[data-theme] .xp-desktop .xp-desk-boot {
+  position: absolute;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 34px;
+  background: #000;
+  color: #fff;
+  animation: xpDeskBootOut 0.3s ease-in 2.1s forwards;
+}
+
+@keyframes xpDeskBootOut {
+  to { opacity: 0; }
+}
+
+:root[data-theme] .xp-desktop .xp-desk-boot-logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  font-family: "Franklin Gothic Medium", "Trebuchet MS", Tahoma, sans-serif;
+  font-size: 40px;
+  font-style: italic;
+  font-weight: 700;
+  letter-spacing: -1px;
+}
+
+:root[data-theme] .xp-desktop .xp-desk-boot-logo .xp-desk-flag { width: 46px; }
+
+:root[data-theme] .xp-desktop .xp-desk-boot-logo sup {
+  margin-left: 3px;
+  color: #ff7a1a;
+  font-size: 20px;
+  font-style: normal;
+}
+
+/* The three blue blocks sliding through the rounded bar. */
+:root[data-theme] .xp-desktop .xp-desk-boot-bar {
+  position: relative;
+  display: block;
+  width: 150px;
+  height: 18px;
+  padding: 2px;
+  overflow: hidden;
+  border: 2px solid #b2b2b2;
+  border-radius: 5px;
+}
+
+:root[data-theme] .xp-desktop .xp-desk-boot-bar i {
+  position: absolute;
+  top: 3px;
+  left: -36px;
+  width: 8px;
+  height: 10px;
+  border-radius: 1px;
+  background-color: #2b62e6;
+  background-image: linear-gradient(180deg, #8fb4ff, #2b62e6 45%, #1d47b8);
+  animation: xpDeskBlocks 1.4s linear infinite;
+}
+
+:root[data-theme] .xp-desktop .xp-desk-boot-bar i:nth-child(2) { margin-left: 10px; }
+:root[data-theme] .xp-desktop .xp-desk-boot-bar i:nth-child(3) { margin-left: 20px; }
+
+@keyframes xpDeskBlocks {
+  to { transform: translateX(190px); }
+}
+
+:root[data-theme] .xp-desktop .xp-desk-boot small {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: calc(env(safe-area-inset-bottom) + 28px);
+  color: #9a9a9a;
+  font-size: 11px;
+  text-align: center;
+}
+
+:root[data-theme] .xp-desktop .xp-desk-bye {
+  position: absolute;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  background-color: #5a7edc;
+  background-image: linear-gradient(180deg, #00309c 0 10%, #f39a3c 10% 10.4%, #5a7edc 10.4% 89.6%, #f39a3c 89.6% 90%, #00309c 90%);
+  color: #fff;
+  animation: xpDeskIn 0.3s ease-out;
+}
+
+:root[data-theme] .xp-desktop .xp-desk-bye p {
+  margin: 0;
+  font-size: 18px;
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.4);
+}
+
+:root[data-theme] .xp-desktop .xp-desk-bye small { color: #dbe6ff; font-size: 12px; }
+
+@media (prefers-reduced-motion: reduce) {
+  :root[data-theme] .xp-desktop,
+  :root[data-theme] .xp-desktop * {
+    animation-duration: 0.001s !important;
+    animation-iteration-count: 1 !important;
+    animation-delay: 0s !important;
+  }
+
+  :root[data-theme] .xp-desktop .xp-desk-monitor svg { clip-path: none; }
+}

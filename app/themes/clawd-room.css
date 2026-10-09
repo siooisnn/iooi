@@ -1,8 +1,8 @@
 /* clawd: one terracotta crab-ish friend on the grayscale page. */
 
-/* Desktop: clawd sits right under reading (last column), leaving the
-   wallpaper's left side clear. */
-:root[data-theme] .phone-home .phone-app-grid.phone-app-row > .phone-app {
+/* Desktop: retro sits under blog and clawd right under reading (last
+   column), leaving the wallpaper's left side clear. */
+:root[data-theme] .phone-home .phone-app-grid.phone-app-row > .phone-app:last-child {
   grid-column: 2;
 }
 

@@ -6,14 +6,14 @@ import { MoonEarthMini, MoonLetter } from "./MoonLetter";
 import { CLAUDE_DEFAULT_NAME } from "../lib/app-settings";
 import type { Settings } from "../lib/app-settings";
 import {
-  IconLineBlog, IconLineBook, IconLineChat, IconLineClawd, IconLineDiary, IconLineGear, IconLineHeart, IconLinePaper,
+  IconLineBlog, IconLineBook, IconLineChat, IconLineClawd, IconLineDiary, IconLineGear, IconLineHeart, IconLinePaper, IconLineRetro,
 } from "./NavIcons";
 
 /** Every page the desktop can open. */
 export type HomeApp = "moon" | "chat" | "heartbeat" | "blog" | "reading" | "clawd" | "settings" | "summer-claude" | "summer-gpt";
 
 /** Time together since settings.startDate, ticking every second once mounted. */
-function useTogether(startDate: string) {
+export function useTogether(startDate: string) {
   const [now, setNow] = useState<number | null>(null);
 
   useEffect(() => {
@@ -39,10 +39,10 @@ function useTogether(startDate: string) {
   const mmdd = currentDate ? `${currentDate.getMonth() + 1}.${currentDate.getDate()}` : "";
   const isAnniversary = mmdd === "4.19" || mmdd === "6.5";
 
-  return { days, hours, minutes, seconds, ready, isAnniversary };
+  return { days, hours, minutes, seconds, ready, isAnniversary, now };
 }
 
-function Petals() {
+export function Petals() {
   return (
     <div className="petals" aria-hidden>
       {Array.from({ length: 12 }).map((_, i) => (
@@ -56,7 +56,7 @@ function Petals() {
 // P wave, the spike, a T wave, flat again. The box stretches to whatever
 // width the row leaves (about 190 wide on a 393pt iPhone, so it is close to
 // 1:1 there); the stroke does not scale with it.
-const HEARTBEAT_LINE = "M0 20 H70 Q73.5 20 75 16.5 Q76.5 13 78 20 H84 L88 6 L93 34 L97 13 L100 20 H107 Q111 11 115 20 H190";
+export const HEARTBEAT_LINE = "M0 20 H70 Q73.5 20 75 16.5 Q76.5 13 78 20 H84 L88 6 L93 34 L97 13 L100 20 H107 Q111 11 115 20 H190";
 
 function Avatar({ src, className }: { src: string; className: string }) {
   return (
@@ -75,7 +75,7 @@ function AppTile({ label, onClick, children }: { label: string; onClick: () => v
   );
 }
 
-export function HomeView({ settings, onOpen }: { settings: Settings; onOpen: (app: HomeApp) => void }) {
+export function HomeView({ settings, onOpen, onRetro }: { settings: Settings; onOpen: (app: HomeApp) => void; onRetro: () => void }) {
   const { days, hours, minutes, seconds, ready, isAnniversary } = useTogether(settings.startDate);
   const claudeName = settings.aiName || CLAUDE_DEFAULT_NAME;
   const gptName = settings.gptName || "GPT";
@@ -126,6 +126,7 @@ export function HomeView({ settings, onOpen }: { settings: Settings; onOpen: (ap
         </div>
 
         <div className="phone-app-grid phone-app-row">
+          <AppTile label="retro" onClick={onRetro}><IconLineRetro /></AppTile>
           <AppTile label="clawd" onClick={() => onOpen("clawd")}><IconLineClawd /></AppTile>
         </div>
       </div>

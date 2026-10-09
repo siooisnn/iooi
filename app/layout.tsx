@@ -7,6 +7,7 @@ import "./themes/ios-glass.css";
 import "./themes/reading-room.css";
 import "./themes/clawd-room.css";
 import "./themes/blog-room.css";
+import "./themes/xp-desktop.css";
 import { ThemeProvider } from "./components/ThemeProvider";
 
 export const metadata: Metadata = {

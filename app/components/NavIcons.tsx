@@ -50,6 +50,17 @@ export function IconLineClawd(props: LineIconProps) {
   );
 }
 
+/** retro: a chunky old CRT monitor on its little foot. */
+export function IconLineRetro(props: LineIconProps) {
+  return (
+    <LineIcon {...props}>
+      <rect x="3.5" y="4" width="17" height="12.5" rx="2" />
+      <rect x="6.5" y="6.8" width="11" height="7" rx="1" />
+      <path d="M9 20h6M10.5 16.5 10 20M13.5 16.5 14 20" />
+    </LineIcon>
+  );
+}
+
 export function IconLineGear(props: LineIconProps) {
   return (
     <LineIcon {...props}>
