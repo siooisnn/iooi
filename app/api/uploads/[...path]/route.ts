@@ -28,6 +28,10 @@ export async function GET(
     gif: "image/gif",
     webp: "image/webp",
     pdf: "application/pdf",
+    mp3: "audio/mpeg",
+    m4a: "audio/mp4",
+    aac: "audio/aac",
+    wav: "audio/wav",
   };
 
   return new Response(file, {

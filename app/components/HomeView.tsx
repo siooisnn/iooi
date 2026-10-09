@@ -6,11 +6,11 @@ import { MoonEarthMini, MoonLetter } from "./MoonLetter";
 import { CLAUDE_DEFAULT_NAME } from "../lib/app-settings";
 import type { Settings } from "../lib/app-settings";
 import {
-  IconLineBook, IconLineChat, IconLineClawd, IconLineDiary, IconLineGear, IconLineHeart, IconLinePaper, IconLineSnowflake,
+  IconLineBlog, IconLineBook, IconLineChat, IconLineClawd, IconLineDiary, IconLineGear, IconLineHeart, IconLinePaper,
 } from "./NavIcons";
 
 /** Every page the desktop can open. */
-export type HomeApp = "moon" | "chat" | "heartbeat" | "winter" | "reading" | "clawd" | "settings" | "summer-claude" | "summer-gpt";
+export type HomeApp = "moon" | "chat" | "heartbeat" | "blog" | "reading" | "clawd" | "settings" | "summer-claude" | "summer-gpt";
 
 /** Time together since settings.startDate, ticking every second once mounted. */
 function useTogether(startDate: string) {
@@ -121,7 +121,7 @@ export function HomeView({ settings, onOpen }: { settings: Settings; onOpen: (ap
         <div className="phone-app-grid">
           <AppTile label="chat" onClick={() => onOpen("chat")}><IconLineChat /></AppTile>
           <AppTile label="heartbeat" onClick={() => onOpen("heartbeat")}><IconLineHeart /></AppTile>
-          <AppTile label="winter" onClick={() => onOpen("winter")}><IconLineSnowflake /></AppTile>
+          <AppTile label="blog" onClick={() => onOpen("blog")}><IconLineBlog /></AppTile>
           <AppTile label="reading" onClick={() => onOpen("reading")}><IconLineBook /></AppTile>
         </div>
 

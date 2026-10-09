@@ -13,7 +13,28 @@ const ALLOWED_TYPES: Record<string, string> = {
   "text/plain": "txt",
   "text/markdown": "md",
   "text/csv": "csv",
+  // Songs for the blog's music player.
+  "audio/mpeg": "mp3",
+  "audio/mp3": "mp3",
+  "audio/mp4": "m4a",
+  "audio/x-m4a": "m4a",
+  "audio/m4a": "m4a",
+  "audio/aac": "aac",
+  "audio/wav": "wav",
+  "audio/x-wav": "wav",
 };
+
+// Some pickers hand over songs without a MIME type; trust the extension then.
+const AUDIO_EXTENSIONS = new Set(["mp3", "m4a", "aac", "wav"]);
+
+function fileExtension(file: File) {
+  const byType = ALLOWED_TYPES[file.type];
+  if (byType) return byType;
+  const byName = file.name.split(".").pop()?.toLowerCase() || "";
+  return !file.type || file.type === "application/octet-stream"
+    ? AUDIO_EXTENSIONS.has(byName) ? byName : undefined
+    : undefined;
+}
 
 export async function POST(request: Request) {
   try {
@@ -30,10 +51,10 @@ export async function POST(request: Request) {
       return Response.json({ error: "文件太大，最多10MB" }, { status: 413 });
     }
 
-    const ext = ALLOWED_TYPES[file.type];
+    const ext = fileExtension(file);
     if (!ext) {
       return Response.json(
-        { error: "不支持的文件类型，支持：图片、PDF、TXT、MD、CSV" },
+        { error: "不支持的文件类型，支持：图片、PDF、TXT、MD、CSV、MP3、M4A、AAC、WAV" },
         { status: 415 }
       );
     }

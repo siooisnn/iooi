@@ -17,7 +17,7 @@ import type { HomeApp } from "./components/HomeView";
 import { HeartbeatView } from "./components/AppPages";
 import { ReadingView } from "./components/ReadingView";
 import { ClawdView } from "./components/ClawdView";
-import { FragmentsView } from "./components/FragmentsView";
+import { BlogView } from "./components/BlogView";
 import { PageBack } from "./components/PageBack";
 import { ChatView } from "./components/ChatView";
 import { SummerPageView } from "./components/SummerPageView";
@@ -54,7 +54,7 @@ export default function Home() {
   // The desktop, or whichever of its apps is open.
   const [tab, setTab] = useState<"home" | HomeApp>("home");
   useThemePage(
-    tab === "home" || tab === "moon" || tab === "winter" ? "home"
+    tab === "home" || tab === "moon" || tab === "blog" ? "home"
       : tab === "chat" ? "chat"
         : tab === "settings" ? "settings"
           : "diary",
@@ -673,7 +673,7 @@ export default function Home() {
           />
         )}
         {tab === "heartbeat" && <HeartbeatView log={heartbeatLog} onBack={goHome} />}
-        {tab === "winter" && <FragmentsView fragments={fragments} setFragments={setFragments} onClose={goHome} />}
+        {tab === "blog" && <BlogView settings={settings} fragments={fragments} setFragments={setFragments} onBack={goHome} />}
         {tab === "reading" && <ReadingView settings={settings} onBack={goHome} />}
         {tab === "clawd" && <ClawdView onBack={goHome} />}
         {(tab === "summer-claude" || tab === "summer-gpt") && (

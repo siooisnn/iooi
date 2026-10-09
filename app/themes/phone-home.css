@@ -291,8 +291,8 @@
    (summer's grouped entries) take a pale gray fill instead. */
 .heartbeat-body { gap: 12px; }
 
-:root[data-theme] :is(.diary-body, .settings-body, .chat-list-home, .fragment-list-overlay) :is(
-  .hb-log-item, .fragment-page-card, .fragment-new-card,
+:root[data-theme] :is(.diary-body, .settings-body, .chat-list-home) :is(
+  .hb-log-item,
   .summer-native-toolbar, .summer-writer, .summer-doc, .summer-memory-group,
   .summer-memory-card, .summer-layer-card, .settings-group) {
   border: 0;
@@ -301,50 +301,6 @@
 
 :root[data-theme] .summer-memory-group .summer-memory-card {
   background: #f4f4f4;
-}
-
-/* winter: a "New fragment" card heads the list, like New chat. */
-:root[data-theme] .fragment-new-card {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  width: 100%;
-  padding: 12px 14px;
-  border-radius: 16px;
-  color: var(--text-primary);
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-}
-
-:root[data-theme] .fragment-new-plus {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex: 0 0 40px;
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  background: #f2f2f4;
-  color: #1a1a1a;
-}
-
-:root[data-theme] .fragment-new-text {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
-}
-
-:root[data-theme] .fragment-new-text b {
-  font-size: 15px;
-  font-weight: 600;
-}
-
-:root[data-theme] .fragment-new-text span {
-  color: var(--text-light);
-  font-size: 13px;
 }
 
 .reading-body .reading-empty {
@@ -430,7 +386,3 @@
 
 .avatar-list-input:focus + .avatar-list-pencil { color: var(--text-primary); }
 
-/* winter: line snowflakes where the puzzle pieces were. */
-.fragment-page-number svg,
-.fragment-save-state i svg { vertical-align: -2px; }
-.fragment-empty-visual span { color: var(--text-secondary); }

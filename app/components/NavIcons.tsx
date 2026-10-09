@@ -20,13 +20,13 @@ export function IconLineHeart(props: LineIconProps) {
   return <LineIcon {...props}><path d="M12 7.2C9.3 3.5 4 5.1 4 9.5c0 3.45 3.55 6.8 7.1 9.45a1.5 1.5 0 0 0 1.8 0C16.45 16.3 20 12.95 20 9.5c0-4.4-5.3-6-8-2.3Z" /></LineIcon>;
 }
 
-export function IconLineSnowflake(props: LineIconProps) {
+/** blog: an old browser window with a heart on the page. */
+export function IconLineBlog(props: LineIconProps) {
   return (
     <LineIcon {...props}>
-      <path d="M12 3.5v17M4.65 7.75l14.7 8.5M4.65 16.25l14.7-8.5" />
-      <path d="M9.7 5.4 12 7.6l2.3-2.2M9.7 18.6l2.3-2.2 2.3 2.2" />
-      <path d="m5.13 10.3 3.06-.92-.76-3.1m11.44 7.42-3.06.92.76 3.1" />
-      <path d="m7.43 17.72.76-3.1-3.06-.92m11.44-7.42-.76 3.1 3.06.92" />
+      <rect x="3.5" y="4.5" width="17" height="15" rx="2.5" />
+      <path d="M3.5 8.5h17" />
+      <path d="M12 16.6c-1.9-1.35-3.2-2.55-3.2-3.85 0-1.5 1.95-2.1 3.2-.75 1.25-1.35 3.2-.75 3.2.75 0 1.3-1.3 2.5-3.2 3.85Z" />
     </LineIcon>
   );
 }

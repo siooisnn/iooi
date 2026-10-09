@@ -146,14 +146,12 @@
 }
 
 /* Card depth stays quiet on long pages; no blur per conversation or message. */
-:root[data-theme="white-pink"] .app-bg .chat-container > :is(.chat-list-home, .diary-body, .settings-body),
-:root[data-theme="white-pink"] .fragment-list-overlay {
+:root[data-theme="white-pink"] .app-bg .chat-container > :is(.chat-list-home, .diary-body, .settings-body) {
   background: var(--ios-page-bg);
 }
 
-:root[data-theme="white-pink"] .app-bg :is(.chat-list-home, .diary-body, .settings-body, .fragment-list-overlay) :is(
-  .chat-list-profile, .chat-list-card, .hb-log-item,
-  .fragment-page-card, .fragment-new-card, .settings-group,
+:root[data-theme="white-pink"] .app-bg :is(.chat-list-home, .diary-body, .settings-body) :is(
+  .chat-list-profile, .chat-list-card, .hb-log-item, .settings-group,
   .summer-native-toolbar, .summer-writer, .summer-doc,
   .summer-memory-group, .summer-memory-card, .summer-layer-card) {
   border: 0.5px solid rgba(255, 255, 255, 0.8);
@@ -180,7 +178,7 @@
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.12);
 }
 
-:root[data-theme="white-pink"] .app-bg :is(.chat-list-plus-avatar, .fragment-new-plus, .chat-entry-avatar) {
+:root[data-theme="white-pink"] .app-bg :is(.chat-list-plus-avatar, .chat-entry-avatar) {
   background: #eeeeee;
 }
 

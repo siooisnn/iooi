@@ -193,7 +193,7 @@
   background: #ffffff;
 }
 
-:root[data-theme="white-pink"] :is(.bottom-nav, .chat-footer, .fragment-header, .wall-header) {
+:root[data-theme="white-pink"] :is(.bottom-nav, .chat-footer, .wall-header) {
   background: var(--chrome-bg);
 }
 

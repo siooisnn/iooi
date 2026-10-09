@@ -148,8 +148,7 @@
 
 /* The round ‹ at the bottom right of every app page, in the glass the
    floating controls share. Pages have no title bar any more; the thumb finds
-   the way back where it already rests. winter's list is an overlay of its
-   own, so the button is placed there with the same numbers. */
+   the way back where it already rests. */
 :root[data-theme] .page-back-float {
   position: absolute;
   right: var(--page-gutter-right, max(16px, env(safe-area-inset-right)));
@@ -458,20 +457,6 @@
   background: var(--liquid-glass-bg-clear);
   box-shadow: var(--liquid-glass-shadow);
   backdrop-filter: var(--liquid-glass-filter);
-}
-
-/* ━━ winter's list ━━
-   An overlay of its own over the desktop: no title, the same gray as the
-   other pages, the first card level with where theirs start, and room at the
-   end so the last card clears the round ‹. */
-:root[data-theme] .fragment-overlay.fragment-list-overlay {
-  background: var(--page-gray, #e8e8e8);
-  --page-back-size: 56px;
-}
-
-:root[data-theme] .fragment-overlay.fragment-list-overlay > .fragment-list-body {
-  padding: calc(var(--float-top) + 16px) var(--page-gutter-right, 16px)
-    calc(var(--page-back-size) + var(--float-bottom) + 20px) var(--page-gutter-left, 16px);
 }
 
 /* Separate declarations keep the CSS optimizer from dropping the standard

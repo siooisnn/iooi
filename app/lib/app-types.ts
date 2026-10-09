@@ -37,11 +37,16 @@ export type Mood = {
   hearts?: number; // 长按贴贴次数
 };
 
+// A blog post. Old winter fragments are the same entries without the
+// optional fields; the blog shows their first line as the title.
 export type FragmentEntry = {
   id: string;
   content: string;
   createdAt: string;
   updatedAt: string;
+  title?: string;
+  mood?: string;
+  weather?: string;
 };
 
 export type CacheStats = {
