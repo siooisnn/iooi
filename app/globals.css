@@ -1,4 +1,3 @@
-@import url("https://fonts.googleapis.com/css2?family=LXGW+WenKai:wght@300;400;700&display=swap");
 @import "tailwindcss";
 
 :root {
@@ -51,7 +50,8 @@
 html { background: var(--bg-chat); }
 
 body {
-  font-family: "LXGW WenKai", "PingFang SC", "Hiragino Sans GB", sans-serif;
+  /* System type: SF for Latin, PingFang for Chinese on Apple devices. */
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
   background: var(--bg-chat);
   color: var(--text-primary);
   -webkit-font-smoothing: antialiased;

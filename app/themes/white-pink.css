@@ -22,7 +22,7 @@
   --brand-text: #1a1a1a;
   --brand-light: #a1a1a8;
   --brand-rgb: 26, 26, 26;
-  --brand-bubble: #2c2c2e;
+  --brand-bubble: #545458;
   --brand-bubble-ink: #ffffff;
   --brand-avatar: #e5e5ea;
   --bubble-user: var(--brand-bubble);
@@ -59,7 +59,8 @@
   --theme-shadow-rgb: 35, 35, 45;
 }
 
-/* Her bubble colour (Settings → Bubble Color); dark gray is the default. */
+/* Her bubble colour (Settings → Bubble Color); dark gray is the default.
+   Dark gray is a clear mid-dark gray so it doesn't read as black. */
 :root[data-theme="white-pink"][data-bubble="blue"] { --brand-bubble: #007aff; }
 :root[data-theme="white-pink"][data-bubble="black"] { --brand-bubble: #000000; }
 
@@ -296,7 +297,8 @@
 }
 
 :root[data-theme="white-pink"] .chat-entry-preview {
-  color: #9a9aa1;
+  color: #808087;
+  font-weight: 500;
 }
 
 /* Muted rose metadata, for secondary text. */
