@@ -9,6 +9,7 @@ import "./themes/clawd-room.css";
 import "./themes/blog-room.css";
 import "./themes/xp-desktop.css";
 import "./themes/xp-chat.css";
+import "./themes/xp-buddy.css";
 import { ThemeProvider } from "./components/ThemeProvider";
 
 export const metadata: Metadata = {

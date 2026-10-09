@@ -8,6 +8,7 @@ import type { Settings } from "../lib/app-settings";
 import { formatChatListTime } from "../lib/app-time";
 import { getLatestSessionMessage, getSessionPreview, getSessionStamp, latestPrivateSession, listedPrivateSessions, sortByStamp } from "../lib/chat-sessions";
 import { PageBack } from "./PageBack";
+import { RetroBuddyList } from "./RetroBuddyList";
 
 export const CHAT_LIST_TABS: Array<{ id: ChatListTab; label: string }> = [
   { id: "chats", label: "Chats" },
@@ -30,6 +31,8 @@ export function ChatListView({
   listTab,
   setListTab,
   onBack,
+  retro = false,
+  contactSessions,
 }: {
   assistantMode: AssistantMode;
   settings: Settings;
@@ -47,6 +50,10 @@ export function ChatListView({
   listTab: ChatListTab;
   setListTab: (tab: ChatListTab) => void;
   onBack: () => void;
+  // Retro mode shows the list as an MSN buddy list.
+  retro?: boolean;
+  // Both people's windows, so each buddy can open their own latest chat.
+  contactSessions?: Partial<Record<AssistantMode, ChatSession[]>>;
 }) {
   const isGpt = assistantMode === "gpt";
   const claudeName = settings.aiName || CLAUDE_DEFAULT_NAME;
@@ -206,6 +213,42 @@ export function ChatListView({
           <span className="chat-entry-time">{latest ? formatChatListTime(getSessionStamp(session)) : ""}</span>
         </span>
       </button>
+    );
+  }
+
+  if (retro) {
+    const contacts = (["claude", "gpt"] as const).map((mode) => {
+      const own = mode === assistantMode ? sessions : contactSessions?.[mode] || [];
+      return { mode, name: personName(mode), latest: latestPrivateSession(own, mode) };
+    });
+    return (
+      <RetroBuddyList
+        userName={settings.userName || "宝宝"}
+        userAvatar={settings.userAvatar}
+        todayState={settings.todayState}
+        pinnedLine={pinnedLine}
+        startDate={settings.startDate}
+        assistantMode={assistantMode}
+        contacts={contacts}
+        groups={groupsByStamp}
+        pastOwn={pastOwn}
+        groupPreview={groupPreview}
+        onEditPinned={editPinnedLine}
+        onPickContact={(mode) => updateSettings({ chatEntryStyle: mode === "gpt" ? "direct" : "list" })}
+        onOpenContact={(contact) => {
+          if (contact.latest) openPrivateSession(contact.mode, contact.latest.id);
+          else if (contact.mode === assistantMode) createSession();
+          // No window with them yet: tick them first, then 新对话 opens one.
+          else updateSettings({ chatEntryStyle: contact.mode === "gpt" ? "direct" : "list" });
+        }}
+        onOpenSession={openSession}
+        onOpenGroup={openGroup}
+        onNewChat={createSession}
+        onNewGroup={createGroup}
+        onRename={handleRename}
+        onDelete={handleDelete}
+        onClose={onBack}
+      />
     );
   }
 

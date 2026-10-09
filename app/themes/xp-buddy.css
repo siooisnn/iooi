@@ -1,0 +1,588 @@
+/* ━━ Retro chat list: the MSN Messenger buddy list, circa 2007 ━━
+   Only while retro mode is on: ChatListView renders RetroBuddyList instead of
+   the gray cards. Like the XP desktop it is a fixed layer over the page, so
+   none of the shell's floating rules reach it. Every rule starts with
+   :root[data-theme] .xp-buddy-screen (0,3,0) so it outranks white-pink's
+   flat reset of gradients and shadows. */
+
+:root[data-theme] .xp-buddy-screen {
+  --xp-line: #7f9db9;
+  --xp-msn: linear-gradient(180deg, #f3f7fd 0%, #e3ecf9 55%, #d3e1f5 100%);
+  position: fixed;
+  inset: 0;
+  z-index: 340;
+  display: flex;
+  align-items: stretch;
+  justify-content: center;
+  background-color: #0a5fe8;
+  color: #000;
+  font-family: Tahoma, Verdana, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+  font-size: 13px;
+  -webkit-tap-highlight-color: transparent;
+  animation: xpBuddyIn 0.2s ease-out;
+}
+
+@keyframes xpBuddyIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+:root[data-theme] .xp-buddy-screen button {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+:root[data-theme] .xp-buddy-screen button:focus-visible {
+  outline: 1px dotted #000;
+  outline-offset: -2px;
+}
+
+:root[data-theme] .xp-buddy-screen .xp-buddy-window {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  min-width: 0;
+  height: 100%;
+  padding: 0 3px 3px;
+  background: #0831d9;
+}
+
+/* On a wide screen the window floats on the Bliss sky, like the chat room. */
+@media (min-width: 481px) {
+  :root[data-theme] .xp-buddy-screen {
+    align-items: center;
+    background-color: #3d86e8;
+    background-image:
+      radial-gradient(ellipse 100% 40% at 24% 102%, #8fd35c 0%, #67b63a 45%, #4f9f2a 70%, transparent 70.5%),
+      radial-gradient(ellipse 130% 34% at 88% 106%, #7fc64b 0%, #57a82f 55%, #3f8d22 70%, transparent 70.5%),
+      radial-gradient(ellipse 34% 7% at 72% 30%, rgba(255, 255, 255, 0.8), transparent 70%),
+      radial-gradient(ellipse 26% 5% at 20% 40%, rgba(255, 255, 255, 0.65), transparent 70%),
+      linear-gradient(180deg, #1b56c4 0%, #3478df 28%, #6aa8ee 52%, #a9d0f6 68%, #d8ecfc 78%);
+  }
+
+  :root[data-theme] .xp-buddy-screen .xp-buddy-window {
+    width: 360px;
+    height: min(660px, calc(100dvh - 48px));
+    border-radius: 9px 9px 4px 4px;
+    box-shadow: 4px 6px 16px rgba(0, 20, 80, 0.4);
+  }
+}
+
+/* ━━ Title bar ━━ */
+:root[data-theme] .xp-buddy-screen .xp-buddy-titlebar {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 6px;
+  height: calc(32px + env(safe-area-inset-top));
+  margin: 0 -3px;
+  padding: env(safe-area-inset-top) 6px 0 9px;
+  background:
+    linear-gradient(180deg, #3c95ff 0%, #0a5fe8 9%, #0055e5 18%, #0a63f6 45%, #0b5ff0 82%, #0350d8 92%, #0234b8 100%)
+    bottom / 100% 32px no-repeat,
+    #0a5fe8;
+  color: #fff;
+  text-shadow: 1px 1px 0 #0a1d5c;
+}
+
+@media (min-width: 481px) {
+  :root[data-theme] .xp-buddy-screen .xp-buddy-titlebar {
+    border-radius: 8px 8px 0 0;
+  }
+}
+
+:root[data-theme] .xp-buddy-screen .xp-buddy-title-icon {
+  flex: none;
+  width: 18px;
+  height: 18px;
+}
+
+:root[data-theme] .xp-buddy-screen :is(.xp-buddy-title-icon, .xp-buddy-group-icon) svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+:root[data-theme] .xp-buddy-screen .xp-buddy-title-icon svg {
+  filter: drop-shadow(0 1px 0 rgba(0, 0, 0, 0.3));
+}
+
+:root[data-theme] .xp-buddy-screen .xp-buddy-title {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  font-size: 13.5px;
+  font-weight: 700;
+  line-height: 32px;
+  letter-spacing: 0;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: #fff;
+}
+
+:root[data-theme] .xp-buddy-screen .xp-buddy-controls {
+  display: flex;
+  flex: none;
+  gap: 2px;
+}
+
+:root[data-theme] .xp-buddy-screen .xp-buddy-btn {
+  position: relative;
+  display: block;
+  width: 23px;
+  height: 23px;
+  border: 1px solid #fff;
+  border-radius: 3px;
+  background-image: linear-gradient(180deg, #5d9bff 0%, #2765ec 55%, #1a4fd0 100%);
+  box-shadow: inset -1px -1px 0 rgba(0, 0, 0, 0.18);
+}
+
+:root[data-theme] .xp-buddy-screen .xp-buddy-min::after {
+  content: "";
+  position: absolute;
+  left: 6px;
+  bottom: 5px;
+  width: 8px;
+  height: 3px;
+  background: #fff;
+}
+
+:root[data-theme] .xp-buddy-screen .xp-buddy-max::after {
+  content: "";
+  position: absolute;
+  inset: 5px;
+  border: 1px solid #fff;
+  border-top-width: 3px;
+}
+
+:root[data-theme] .xp-buddy-screen button.xp-buddy-close {
+  margin-left: 2px;
+  border: 1px solid #fff;
+  background-image: linear-gradient(180deg, #f39a7f 0%, #e45a2f 50%, #c8381a 100%);
+}
+
+/* A finger-sized hit area around the little red button. */
+:root[data-theme] .xp-buddy-screen .xp-buddy-close::after {
+  content: "";
+  position: absolute;
+  inset: -8px -6px -8px -8px;
+}
+
+:root[data-theme] .xp-buddy-screen .xp-buddy-close svg {
+  display: block;
+  width: 11px;
+  height: 11px;
+  margin: auto;
+  overflow: visible;
+  fill: none;
+  stroke: #fff;
+  stroke-width: 2.1;
+  stroke-linecap: round;
+}
+
+:root[data-theme] .xp-buddy-screen .xp-buddy-close:active {
+  filter: brightness(0.85);
+}
+
+/* ━━ Me: display picture, name, status and personal message ━━ */
+:root[data-theme] .xp-buddy-screen .xp-buddy-me {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-bottom: 1px solid #a7bcd9;
+  background-image: var(--xp-msn);
+}
+
+:root[data-theme] .xp-buddy-screen .xp-buddy-photo {
+  flex: none;
+  display: block;
+  width: 52px;
+  height: 52px;
+  padding: 2px;
+  border: 1px solid var(--xp-line);
+  border-radius: 4px;
+  background-color: #fff;
+  box-shadow: 1px 1px 0 #fff inset, 1px 2px 3px rgba(0, 0, 0, 0.2);
+}
+
+:root[data-theme] .xp-buddy-screen .xp-buddy-photo > * {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: 2px;
+  background-color: #c9d6e8;
+  object-fit: cover;
+}
+
+:root[data-theme] .xp-buddy-screen .xp-buddy-me-text {
+  flex: 1;
+  min-width: 0;
+}
+
+:root[data-theme] .xp-buddy-screen .xp-buddy-me-name {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  margin: 0 0 3px;
+  overflow: hidden;
+  font-size: 14px;
+  line-height: 19px;
+  white-space: nowrap;
+}
+
+:root[data-theme] .xp-buddy-screen .xp-buddy-me-name b {
+  flex: none;
+  max-width: 60%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: #000;
+}
+
+:root[data-theme] .xp-buddy-screen .xp-buddy-me-status {
+  min-width: 0;
+  overflow: hidden;
+  color: #555;
+  font-size: 12.5px;
+  text-overflow: ellipsis;
+}
+
+/* The personal message: a faint field that brightens when touched. */
+:root[data-theme] .xp-buddy-screen .xp-buddy-psm {
+  display: block;
+  width: 100%;
+  padding: 2px 5px;
+  overflow: hidden;
+  border: 1px solid transparent;
+  color: #444;
+  font-size: 12.5px;
+  line-height: 18px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+:root[data-theme] .xp-buddy-screen .xp-buddy-psm:is(:hover, :active) {
+  border-color: var(--xp-line);
+  background: #fff;
+}
+
+:root[data-theme] .xp-buddy-screen .xp-buddy-psm-empty {
+  color: #8a8a8a;
+}
+
+/* ━━ Toolbar ━━ */
+:root[data-theme] .xp-buddy-screen .xp-buddy-toolbar {
+  display: flex;
+  flex: none;
+  gap: 4px;
+  padding: 4px 8px;
+  border-bottom: 1px solid #c3c0b0;
+  background: #ece9d8;
+}
+
+:root[data-theme] .xp-buddy-screen .xp-buddy-tool {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 30px;
+  padding: 0 10px 0 7px;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  color: #000;
+  font-size: 12.5px;
+}
+
+:root[data-theme] .xp-buddy-screen .xp-buddy-tool:is(:hover, :active) {
+  border-color: #c3c0b0 #8d8b7c #8d8b7c #c3c0b0;
+  background-image: linear-gradient(180deg, #fff 0%, #f1efe5 100%);
+}
+
+:root[data-theme] .xp-buddy-screen .xp-buddy-glyph {
+  flex: none;
+  display: block;
+  width: 16px;
+  height: 16px;
+}
+
+/* ━━ The buddy list ━━ */
+:root[data-theme] .xp-buddy-screen .xp-buddy-list {
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: 4px 0 12px;
+  overflow-y: auto;
+  border-left: 1px solid var(--xp-line);
+  border-right: 1px solid var(--xp-line);
+  background: #fff;
+  -webkit-overflow-scrolling: touch;
+}
+
+:root[data-theme] .xp-buddy-screen .xp-buddy-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+:root[data-theme] .xp-buddy-screen .xp-buddy-list::-webkit-scrollbar-thumb {
+  background: #c1d2ee;
+}
+
+/* "▼ 在线 (2)" */
+:root[data-theme] .xp-buddy-screen .xp-buddy-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  min-height: 30px;
+  padding: 4px 10px;
+  color: #2a3f6b;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+:root[data-theme] .xp-buddy-screen .xp-buddy-caret {
+  flex: none;
+  width: 0;
+  height: 0;
+  border-top: 4px solid transparent;
+  border-bottom: 4px solid transparent;
+  border-left: 5px solid #4a6aa5;
+  transition: transform 0.12s ease;
+}
+
+:root[data-theme] .xp-buddy-screen .xp-buddy-caret-open {
+  transform: rotate(90deg);
+}
+
+:root[data-theme] .xp-buddy-screen .xp-buddy-rows {
+  padding-bottom: 4px;
+}
+
+:root[data-theme] .xp-buddy-screen .xp-buddy-row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  margin: 0 4px;
+  border: 1px solid transparent;
+  border-radius: 2px;
+}
+
+:root[data-theme] .xp-buddy-screen .xp-buddy-row:has(> .xp-buddy-open:active),
+:root[data-theme] .xp-buddy-screen .xp-buddy-row:has(> .xp-buddy-more[aria-expanded="true"]) {
+  border-color: #7da2ce;
+  background-image: linear-gradient(180deg, #e8f1fd 0%, #c4dbf7 100%);
+}
+
+:root[data-theme] .xp-buddy-screen .xp-buddy-open {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  min-height: 34px;
+  padding: 3px 4px 3px 22px;
+}
+
+:root[data-theme] .xp-buddy-screen .xp-buddy-line {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  font-size: 13.5px;
+  line-height: 20px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+:root[data-theme] .xp-buddy-screen .xp-buddy-line b {
+  color: #000;
+  font-weight: 400;
+}
+
+:root[data-theme] .xp-buddy-screen .xp-buddy-row-picked .xp-buddy-line b {
+  font-weight: 700;
+}
+
+:root[data-theme] .xp-buddy-screen .xp-buddy-sub {
+  color: #7a7a7a;
+  font-size: 12.5px;
+}
+
+:root[data-theme] .xp-buddy-screen .xp-buddy-time {
+  flex: none;
+  color: #8a8a8a;
+  font-size: 11.5px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* MSN's little green "online" buddy: a head over shoulders. */
+:root[data-theme] .xp-buddy-screen .xp-buddy-dot {
+  position: relative;
+  flex: none;
+  display: block;
+  width: 16px;
+  height: 16px;
+}
+
+:root[data-theme] .xp-buddy-screen .xp-buddy-dot::before,
+:root[data-theme] .xp-buddy-screen .xp-buddy-dot::after {
+  content: "";
+  position: absolute;
+  border: 1px solid #1d6a12;
+  background-image: radial-gradient(circle at 35% 30%, #d8ffb0 0%, #63d13a 45%, #2b9a1a 100%);
+}
+
+:root[data-theme] .xp-buddy-screen .xp-buddy-dot::before {
+  left: 4px;
+  top: 0;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+:root[data-theme] .xp-buddy-screen .xp-buddy-dot::after {
+  left: 1px;
+  bottom: 0;
+  width: 14px;
+  height: 7px;
+  border-radius: 7px 7px 1px 1px;
+}
+
+:root[data-theme] .xp-buddy-screen .xp-buddy-group-icon {
+  flex: none;
+  display: block;
+  width: 17px;
+  height: 17px;
+}
+
+/* The default-contact radio, round and sunken like an XP option button. */
+:root[data-theme] .xp-buddy-screen .xp-buddy-radio {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 34px;
+}
+
+:root[data-theme] .xp-buddy-screen .xp-buddy-radio i {
+  display: grid;
+  place-items: center;
+  width: 13px;
+  height: 13px;
+  border: 1px solid #1c5180;
+  border-radius: 50%;
+  background-image: linear-gradient(135deg, #dcdcd7 0%, #fff 70%);
+}
+
+:root[data-theme] .xp-buddy-screen .xp-buddy-radio[aria-checked="true"] i::after {
+  content: "";
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background-image: radial-gradient(circle at 35% 30%, #b8f08f 0%, #4fb52e 50%, #21811a 100%);
+}
+
+/* ▾ for rename/delete on old windows. */
+:root[data-theme] .xp-buddy-screen .xp-buddy-more {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+}
+
+:root[data-theme] .xp-buddy-screen .xp-buddy-more i {
+  width: 0;
+  height: 0;
+  border-left: 4px solid transparent;
+  border-right: 4px solid transparent;
+  border-top: 5px solid #4a6aa5;
+}
+
+:root[data-theme] .xp-buddy-screen .xp-buddy-menu {
+  position: absolute;
+  top: calc(100% - 4px);
+  right: 6px;
+  z-index: 5;
+  min-width: 132px;
+  padding: 2px;
+  border: 1px solid #aca899;
+  background: #fff;
+  box-shadow: 2px 3px 4px rgba(0, 0, 0, 0.3);
+}
+
+:root[data-theme] .xp-buddy-screen .xp-buddy-menu button {
+  display: block;
+  width: 100%;
+  min-height: 32px;
+  padding: 0 14px 0 20px;
+  color: #000;
+  font-size: 13px;
+}
+
+:root[data-theme] .xp-buddy-screen .xp-buddy-menu button:is(:hover, :active) {
+  background: #316ac5;
+  color: #fff;
+}
+
+:root[data-theme] .xp-buddy-screen .xp-buddy-menu hr {
+  margin: 2px 1px;
+  border: 0;
+  border-top: 1px solid #aca899;
+}
+
+:root[data-theme] .xp-buddy-screen .xp-buddy-empty {
+  margin: 0;
+  padding: 4px 10px 6px 30px;
+  color: #8a8a8a;
+  font-size: 12.5px;
+}
+
+/* ━━ "iooi Today" strip at the bottom ━━ */
+:root[data-theme] .xp-buddy-screen .xp-buddy-today {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 12px calc(7px + env(safe-area-inset-bottom));
+  overflow: hidden;
+  border: 1px solid var(--xp-line);
+  border-top-color: #a7bcd9;
+  background-image: var(--xp-msn);
+  color: #2a3f6b;
+  font-size: 12.5px;
+  white-space: nowrap;
+}
+
+:root[data-theme] .xp-buddy-screen .xp-buddy-today b {
+  color: #c8143c;
+}
+
+:root[data-theme] .xp-buddy-screen .xp-buddy-today-heart {
+  color: #ef2b4f;
+  animation: xpBuddyBeat 1.4s ease-in-out infinite;
+}
+
+@keyframes xpBuddyBeat {
+  0%, 60%, 100% { transform: scale(1); }
+  20% { transform: scale(1.25); }
+  40% { transform: scale(0.95); }
+}
+
+@media (min-width: 481px) {
+  :root[data-theme] .xp-buddy-screen .xp-buddy-today {
+    padding-bottom: 7px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root[data-theme] .xp-buddy-screen,
+  :root[data-theme] .xp-buddy-screen .xp-buddy-today-heart {
+    animation: none;
+  }
+}

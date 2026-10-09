@@ -639,6 +639,8 @@ export default function Home() {
             listTab={listTab}
             setListTab={setListTab}
             onBack={goHome}
+            retro={settings.retroDesktop}
+            contactSessions={{ claude: sessions, gpt: gptSessions }}
           />
         )}
         {tab === "chat" && roomMode === "claude" && activeSession && chatView === "room" && (
