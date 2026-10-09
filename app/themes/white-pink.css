@@ -1,15 +1,18 @@
 /* White Peach is the app appearance. */
 :root[data-theme="white-pink"] .home-body.moon-home {
-  background: #f2f2f2;
+  background: var(--page-gray);
   padding: 4px 20px 24px;
   gap: 4px;
 }
 :root[data-theme="white-pink"] {
   color-scheme: light;
-  --bg-warm: #f5f5f5;
+  /* One gray behind every page, from the desktop to the message list; white
+     cards sit on it with no outline, so the gray alone sets them apart. */
+  --page-gray: #e8e8e8;
+  --bg-warm: var(--page-gray);
   --bg-chat: #ffffff;
-  --chrome-bg: #f5f5f5;
-  --conversation-bg: #f5f5f5;
+  --chrome-bg: var(--page-gray);
+  --conversation-bg: var(--page-gray);
   --border-soft: #ededf0;
   --text-primary: #1a1a1a;
   --text-secondary: #696969;
@@ -75,15 +78,15 @@
 :root[data-theme="white-pink"] .settings-body {
   /* Status values (通道, 截断 否, summer…) read like the other values. */
   --theme-success: var(--theme-muted);
-  background: #f5f5f5;
+  background: var(--page-gray);
   gap: 12px;
 }
 
 /* Settings, like Summer: every block sits in a white card, so gray only shows
-   in the gaps between cards. */
+   in the gaps between cards. No outline: the gray is enough. */
 :root[data-theme="white-pink"] .settings-body .settings-group {
   padding: 16px;
-  border: 1px solid var(--border-soft);
+  border: 0;
   border-radius: 16px;
   background: #ffffff;
 }
@@ -202,7 +205,7 @@
   padding-bottom: calc(4px + env(safe-area-inset-bottom) / 2);
 }
 
-/* Classic rooms: lift the composer bar off the #ededed message list with a
+/* Classic rooms: lift the composer bar off the gray message list with a
    slightly lighter gray, still dark enough for the borderless white input to
    read clearly, plus the same hairline the title bar has underneath. */
 :root[data-theme="white-pink"] .chat-container:not([data-chat-ui="glass"]) .chat-footer {
@@ -240,10 +243,10 @@
   background: var(--conversation-bg);
 }
 
-/* Classic rooms: a WeChat-like #ededed message list so the pure-white AI
-   bubbles stand out; the title bar matches it, keeping only its hairline. */
+/* Classic rooms: the page gray behind the messages so the pure-white AI
+   bubbles stand out, and the list opens into a room without a colour jump. */
 :root[data-theme="white-pink"] .chat-container:not([data-chat-ui="glass"]) :is(.chat-messages, .chat-room-header) {
-  background: #ededed;
+  background: var(--page-gray);
 }
 
 :root[data-theme="white-pink"] .msg-bubble-ai {
@@ -319,7 +322,7 @@
 }
 
 /* 经典 chat background photo: it shows behind the messages only; the title
-   bar and composer stay solid. Without a photo the list stays #ededed.
+   bar and composer stay solid. Without a photo the list stays the page gray.
    z-index -1 inside the isolated room keeps it under every in-flow piece
    (like the group list under the title), not just the positioned ones. */
 :root[data-theme="white-pink"] .chat-container:not([data-chat-ui="glass"])[data-chat-background="image"] {
@@ -376,11 +379,10 @@
   background-color: var(--chrome-bg);
 }
 
-/* Summer and Settings use white chrome and cards on a gray page;
-   Home and Chat keep the gray chrome. */
+/* Summer and Settings: white cards on the same gray page as everything else. */
 :root[data-theme="white-pink"]:is([data-page="diary"], [data-page="settings"]) {
-  --chrome-bg: #ffffff;
-  --bg-chat: #f5f5f5;
+  --chrome-bg: var(--page-gray);
+  --bg-chat: var(--page-gray);
   --theme-surface-soft: #ffffff;
 }
 
@@ -581,7 +583,7 @@
    Like Summer and Settings, the gray shows only between cards, so the cards
    need no outline and the rows inside need no hairlines. */
 :root[data-theme="white-pink"] .chat-list-home {
-  background: #f5f5f5;
+  background: var(--page-gray);
 }
 .chat-list-profile-card {
   flex-shrink: 0;

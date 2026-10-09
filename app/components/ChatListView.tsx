@@ -7,7 +7,7 @@ import { CLAUDE_DEFAULT_NAME } from "../lib/app-settings";
 import type { Settings } from "../lib/app-settings";
 import { formatChatListTime } from "../lib/app-time";
 import { getLatestSessionMessage, getSessionPreview, getSessionStamp, latestPrivateSession, listedPrivateSessions, sortByStamp } from "../lib/chat-sessions";
-import { PageHeader } from "./PageHeader";
+import { PageBack } from "./PageBack";
 
 export const CHAT_LIST_TABS: Array<{ id: ChatListTab; label: string }> = [
   { id: "chats", label: "Chats" },
@@ -25,6 +25,7 @@ export function ChatListView({
   deleteSession,
   openSession: openPrivateSession,
   openGroup,
+  createSession,
   createGroup,
   listTab,
   setListTab,
@@ -40,6 +41,8 @@ export function ChatListView({
   deleteSession: (id: string) => void;
   openSession: (mode: AssistantMode, id: string) => void;
   openGroup: (id: string) => void;
+  // A new window with whoever is ticked in Contacts.
+  createSession: () => void;
   createGroup: () => void;
   listTab: ChatListTab;
   setListTab: (tab: ChatListTab) => void;
@@ -210,7 +213,6 @@ export function ChatListView({
 
   return (
     <>
-      <PageHeader title="chat" onBack={onBack} />
       <section className="chat-entry-body chat-list-home" onClick={() => setOpenActionsFor(null)}>
         <div className="chat-list-profile-card">
           <div className="chat-list-profile">
@@ -252,6 +254,15 @@ export function ChatListView({
               {latestOwn && personRow(assistantMode, latestOwn)}
             </div>
             <div className="chat-list-card">
+              <button type="button" className="chat-entry-item chat-list-new-group" onClick={() => { setOpenActionsFor(null); createSession(); }}>
+                <PlusAvatar />
+                <div className="chat-entry-main">
+                  <div className="chat-entry-row"><span className="chat-entry-name">New chat</span></div>
+                  <p className="chat-entry-preview">开一个新窗口</p>
+                </div>
+              </button>
+            </div>
+            <div className="chat-list-card">
               {pastOwn.length === 0
                 ? <p className="chat-entry-empty">没有更多历史窗口</p>
                 : pastOwn.map((session) => <SwipeSessionRow key={session.id} session={session} />)}
@@ -268,11 +279,7 @@ export function ChatListView({
             )}
             <div className="chat-list-card">
               <button type="button" className="chat-entry-item chat-list-new-group" onClick={createGroup}>
-                <span className="chat-entry-avatar chat-entry-avatar-small chat-list-plus-avatar" aria-hidden="true">
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                    <path d="M12 5v14M5 12h14" />
-                  </svg>
-                </span>
+                <PlusAvatar />
                 <div className="chat-entry-main">
                   <div className="chat-entry-row"><span className="chat-entry-name">New group</span></div>
                   <p className="chat-entry-preview">开一个新的群聊窗口</p>
@@ -319,7 +326,18 @@ export function ChatListView({
           </div>
         )}
       </section>
+      <PageBack onBack={onBack} />
     </>
+  );
+}
+
+function PlusAvatar() {
+  return (
+    <span className="chat-entry-avatar chat-entry-avatar-small chat-list-plus-avatar" aria-hidden="true">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+        <path d="M12 5v14M5 12h14" />
+      </svg>
+    </span>
   );
 }
 

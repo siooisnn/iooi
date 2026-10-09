@@ -5,6 +5,7 @@ import type { FragmentEntry } from "../lib/app-types";
 import { APP_TIME_ZONE } from "../lib/app-time";
 import { genId } from "../lib/chat-sessions";
 import { IconLineSnowflake } from "./NavIcons";
+import { PageBack } from "./PageBack";
 
 export function formatFragmentDate(value: string, withTime = false) {
   const date = new Date(value);
@@ -124,18 +125,7 @@ export function FragmentsView({ fragments, setFragments, onClose }: {
   }
 
   return (
-    <div className="fragment-overlay">
-      <header className="fragment-header">
-        <button type="button" className="fragment-round-button" onClick={onClose} aria-label="返回桌面">
-          <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6" /></svg>
-        </button>
-        <div className="fragment-page-heading">
-          <h2>winter</h2>
-          <p>碎片化时代，我选择碎片化写作。</p>
-        </div>
-        <button type="button" className="fragment-round-button fragment-add-button" onClick={createFragment} aria-label="新建碎片">＋</button>
-      </header>
-
+    <div className="fragment-overlay fragment-list-overlay">
       <main className="fragment-list-body">
         {orderedFragments.length === 0 ? (
           <div className="fragment-empty">
@@ -154,6 +144,17 @@ export function FragmentsView({ fragments, setFragments, onClose }: {
           </div>
         ) : (
           <div className="fragment-pages">
+            <button type="button" className="fragment-new-card" onClick={createFragment}>
+              <span className="fragment-new-plus" aria-hidden="true">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                  <path d="M12 5v14M5 12h14" />
+                </svg>
+              </span>
+              <span className="fragment-new-text">
+                <b>New fragment</b>
+                <span>捡起一片</span>
+              </span>
+            </button>
             {orderedFragments.map((fragment, index) => (
               <button type="button" className="fragment-page-card" key={fragment.id} onClick={() => { setEditingId(fragment.id); setShareState(""); }}>
                 <span className="fragment-page-number"><IconLineSnowflake size={12} /> {String(orderedFragments.length - index).padStart(2, "0")}</span>
@@ -164,6 +165,7 @@ export function FragmentsView({ fragments, setFragments, onClose }: {
           </div>
         )}
       </main>
+      <PageBack onBack={onClose} />
     </div>
   );
 }

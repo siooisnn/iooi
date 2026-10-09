@@ -16,7 +16,7 @@ import { HomeView, MoonPage } from "./components/HomeView";
 import type { HomeApp } from "./components/HomeView";
 import { HeartbeatView, ReadingView } from "./components/AppPages";
 import { FragmentsView } from "./components/FragmentsView";
-import { PageHeader } from "./components/PageHeader";
+import { PageBack } from "./components/PageBack";
 import { ChatView } from "./components/ChatView";
 import { SummerPageView } from "./components/SummerPageView";
 import { SettingsView } from "./components/SettingsView";
@@ -572,8 +572,8 @@ export default function Home() {
     setChatView("group");
   }
 
-  // The round ＋ at the bottom right of the chat list opens a new window
-  // with whoever is ticked in Contacts.
+  // "New chat" on the chat list opens a new window with whoever is ticked
+  // in Contacts.
   function openNewPrivateRoom() {
     if (listMode === "gpt") createGptSession();
     else createSession();
@@ -597,8 +597,8 @@ export default function Home() {
         {tab === "home" && <HomeView settings={settings} onOpen={openApp} />}
         {tab === "moon" && (
           <>
-            <PageHeader onBack={goHome} />
             <MoonPage settings={settings} />
+            <PageBack onBack={goHome} />
           </>
         )}
         {chatListOpen && (
@@ -613,6 +613,7 @@ export default function Home() {
             deleteSession={listMode === "gpt" ? deleteGptSession : deleteSession}
             openSession={openPrivateRoom}
             openGroup={openGroupRoom}
+            createSession={openNewPrivateRoom}
             createGroup={openNewGroupRoom}
             listTab={listTab}
             setListTab={setListTab}
@@ -696,19 +697,6 @@ export default function Home() {
             gptSession={gptActiveSession}
             updateGptSummary={updateGptSummary}
           />
-        )}
-
-        {chatListOpen && (
-          <button
-            type="button"
-            className="bottom-nav-plus"
-            aria-label={`新开${listMode === "gpt" ? settings.gptName || "GPT" : settings.aiName || CLAUDE_DEFAULT_NAME}窗口`}
-            onClick={openNewPrivateRoom}
-          >
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
-              <path d="M12 5v14M5 12h14" />
-            </svg>
-          </button>
         )}
       </div>
     </main>

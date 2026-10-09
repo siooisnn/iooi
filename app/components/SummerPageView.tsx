@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import type { AssistantMode, SummerMemoryItem, SummerState, SummerWritableLayer } from "../lib/app-types";
 import { apiFetchWithTimeout, arrayBufferToBase64 } from "../lib/client-api";
-import { IconBack } from "./NavIcons";
+import { PageBack } from "./PageBack";
 
 export function layerLabel(layer: string) {
   const labels: Record<string, { title: string; sub: string }> = {
@@ -699,26 +699,12 @@ export function SummerItemGroups({
 }
 
 export function SummerPageView({ assistantMode, assistantName, onBack }: { assistantMode: AssistantMode; assistantName: string; onBack: () => void }) {
-  const isGpt = assistantMode === "gpt";
   return (
     <>
-      <header className="chat-header compact-section-header">
-        <div className="header-top">
-          <button type="button" className="header-icon-btn page-back" onClick={onBack} aria-label="返回">
-            <IconBack />
-          </button>
-          <div className="header-center">
-            <h1 className="header-title">summer</h1>
-            <span className="header-subtitle">
-              {isGpt ? `${assistantName} · 独立记忆` : `${assistantName} · 这不是档案，是我们活过的痕迹`}
-            </span>
-          </div>
-          <span className="header-icon-spacer" aria-hidden="true" />
-        </div>
-      </header>
-      <section className="diary-body">
+      <section className="diary-body" aria-label={`${assistantName}的 summer`}>
         <SummerMemoryView assistantMode={assistantMode} />
       </section>
+      <PageBack onBack={onBack} />
     </>
   );
 }

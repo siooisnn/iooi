@@ -82,16 +82,11 @@
   line-height: calc(var(--float-size) - 1px);
 }
 
-:root[data-theme] .app-bg[data-fullscreen-shell="true"] > .chat-container:not([data-home-style="wall"]) > .chat-header :is(.header-title, .header-icon-btn, .settings-back-btn),
-:root[data-theme] .app-bg[data-fullscreen-shell="true"] > .chat-container > .bottom-nav {
+:root[data-theme] .app-bg[data-fullscreen-shell="true"] > .chat-container:not([data-home-style="wall"]) > .chat-header :is(.header-title, .header-icon-btn, .settings-back-btn) {
   border: 0.5px solid var(--liquid-glass-edge);
   background: var(--liquid-glass-bg);
   box-shadow: var(--liquid-glass-shadow);
   backdrop-filter: var(--liquid-glass-filter);
-}
-
-:root[data-theme] .app-bg[data-fullscreen-shell="true"] > .chat-container > .bottom-nav {
-  background: var(--liquid-glass-bg-clear);
 }
 
 :root[data-theme] .app-bg[data-fullscreen-shell="true"] > .chat-container:not([data-home-style="wall"]) > .chat-header .header-title {
@@ -105,42 +100,15 @@
   cursor: pointer;
 }
 
-/* ── Floating glass tab bar ──
-   The bar and the round ＋ beside it together span exactly the width of the
-   chat list's Chats / Groups / Moments switch (the page gutter on each side). */
+/* ── Page gutters and the round ‹ at the bottom right ── */
 :root[data-theme] .app-bg[data-fullscreen-shell="true"] > .chat-container {
   --page-gutter-left: max(16px, env(safe-area-inset-left));
   --page-gutter-right: max(16px, env(safe-area-inset-right));
-  --nav-plus-size: 56px;
-  --nav-plus-gap: 10px;
-}
-
-:root[data-theme] .app-bg[data-fullscreen-shell="true"] > .chat-container > .bottom-nav {
-  position: absolute;
-  left: var(--page-gutter-left);
-  right: calc(var(--page-gutter-right) + var(--nav-plus-size) + var(--nav-plus-gap));
-  bottom: var(--float-bottom);
-  z-index: 30;
-  box-sizing: border-box;
-  height: 56px;
-  align-items: stretch;
-  padding: 0 4px;
-  border-radius: 999px;
-}
-
-:root[data-theme] .app-bg[data-fullscreen-shell="true"] > .chat-container > .bottom-nav .nav-btn {
-  justify-content: center;
-  padding: 0;
-  border-radius: 999px;
-}
-
-/* The current tab is marked by its colour alone, no bar under it. */
-:root[data-theme] .app-bg[data-fullscreen-shell="true"] > .chat-container > .bottom-nav .nav-btn-active::after {
-  content: none;
+  --page-back-size: 56px;
 }
 
 /* The photo wall keeps its own door plate; its room just stops above the
-   floating tab bar. */
+   round ‹. */
 :root[data-theme] .app-bg[data-fullscreen-shell="true"] > .chat-container[data-home-style="wall"] > .chat-header + section {
   padding-bottom: calc(var(--shell-nav-space, var(--shell-nav-fallback)) + 14px);
 }
@@ -169,7 +137,8 @@
 :root[data-theme] .app-bg[data-fullscreen-shell="true"] > .chat-container:not([data-home-style="wall"]) > :is(.home-body, .chat-entry-body, .diary-body, .settings-body)::after {
   content: "";
   display: block;
-  /* Pages without the ＋ still clear the home indicator. */
+  /* Clears the round ‹ (measured as --shell-nav-space), or at least the
+     home indicator. */
   flex: 0 0 calc(max(var(--shell-nav-space, var(--shell-nav-fallback)), env(safe-area-inset-bottom)) + var(--shell-page-end, 16px));
   margin-top: calc(-1 * var(--shell-page-gap, 0px));
 }
@@ -177,17 +146,18 @@
 :root[data-theme] .app-bg[data-fullscreen-shell="true"] > .chat-container > .home-body { --shell-page-end: 24px; --shell-page-gap: 4px; }
 :root[data-theme] .app-bg[data-fullscreen-shell="true"] > .chat-container > .settings-body { --shell-page-end: 20px; --shell-page-gap: 12px; }
 
-/* The round ＋ at the right end of the tab bar, in the same glass. It opens a
-   new private window on the chat list; on the other pages it just completes
-   the bar's shape. */
-:root[data-theme] .app-bg[data-fullscreen-shell="true"] > .chat-container > .bottom-nav-plus {
+/* The round ‹ at the bottom right of every app page, in the glass the
+   floating controls share. Pages have no title bar any more; the thumb finds
+   the way back where it already rests. winter's list is an overlay of its
+   own, so the button is placed there with the same numbers. */
+:root[data-theme] .page-back-float {
   position: absolute;
-  right: var(--page-gutter-right);
+  right: var(--page-gutter-right, max(16px, env(safe-area-inset-right)));
   bottom: var(--float-bottom);
   z-index: 30;
   box-sizing: border-box;
-  width: var(--nav-plus-size);
-  height: var(--nav-plus-size);
+  width: var(--page-back-size, 56px);
+  height: var(--page-back-size, 56px);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -198,19 +168,21 @@
   box-shadow: var(--liquid-glass-shadow);
   backdrop-filter: var(--liquid-glass-filter);
   color: var(--text-primary);
-  cursor: default;
+  cursor: pointer;
   -webkit-tap-highlight-color: transparent;
 }
 
-:root[data-theme] .app-bg[data-fullscreen-shell="true"] > .chat-container[data-chat-view="list"] > .bottom-nav-plus {
-  cursor: pointer;
+/* The chevron's point sits left of its box centre; nudge it to look centred. */
+:root[data-theme] .page-back-float svg {
+  margin-left: -2px;
 }
 
-:root[data-theme] .app-bg[data-fullscreen-shell="true"] > .chat-container[data-chat-view="list"] > .bottom-nav-plus:active {
+:root[data-theme] .page-back-float:active {
   transform: scale(0.94);
 }
 
-/* ── Chat list: profile, quote, switch and white cards on the gray page ── */
+/* ── Chat list: profile, quote, switch and white cards on the gray page.
+   No title above: the profile card is the top of the page. ── */
 :root[data-theme] .app-bg[data-fullscreen-shell="true"] > .chat-container > .chat-list-home {
   --shell-page-gap-top: 16px;
   --shell-page-gap: 12px;
@@ -231,7 +203,7 @@
 
 :root[data-theme] .app-bg .settings-body .settings-menu .settings-menu-row {
   padding: 16px;
-  border: 1px solid var(--border-soft);
+  border: 0;
   border-radius: 16px;
   background: #ffffff;
 }
@@ -488,137 +460,29 @@
   backdrop-filter: var(--liquid-glass-filter);
 }
 
-/* ━━ heartbeat log and 碎片 list ━━
-   Their titles float as glass like the chat list's: a 36px back button and
-   title pill level with the 暮光 back button, the page running underneath.
-   碎片's motto gets its own small, long pill under the title. */
-:root[data-theme] :is(.hb-log-overlay > .chat-header, .fragment-overlay:not(.fragment-editor-overlay) > .fragment-header) {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  z-index: 30;
-  min-height: 0;
-  padding: var(--float-top) var(--float-right) 0 var(--float-left);
-  border-bottom: 0;
-  background: transparent;
-  box-shadow: none;
-  backdrop-filter: none;
-  -webkit-backdrop-filter: none;
-  pointer-events: none;
-  animation: none;
+/* ━━ winter's list ━━
+   An overlay of its own over the desktop: no title, the same gray as the
+   other pages, the first card level with where theirs start, and room at the
+   end so the last card clears the round ‹. */
+:root[data-theme] .fragment-overlay.fragment-list-overlay {
+  background: var(--page-gray, #e8e8e8);
+  --page-back-size: 56px;
 }
 
-:root[data-theme] .hb-log-overlay > .chat-header :is(button, a),
-:root[data-theme] .fragment-overlay:not(.fragment-editor-overlay) > .fragment-header > button {
-  pointer-events: auto;
-}
-
-/* heartbeat */
-:root[data-theme] .hb-log-overlay > .chat-header .header-top {
-  height: var(--float-size);
-  align-items: center;
-}
-
-:root[data-theme] .hb-log-overlay > .chat-header :is(.header-icon-btn, .header-icon-spacer) {
-  width: var(--float-size);
-  height: var(--float-size);
-  flex: 0 0 var(--float-size);
-}
-
-:root[data-theme] .hb-log-overlay > .chat-header .header-center {
-  gap: 0;
-}
-
-:root[data-theme] .hb-log-overlay > .chat-header .header-title {
-  box-sizing: border-box;
-  height: var(--float-size);
-  padding: 0 17px 0 20px;
-  border-radius: 999px;
-  letter-spacing: 3px;
-  line-height: calc(var(--float-size) - 1px);
-}
-
-:root[data-theme] .hb-log-overlay > .hb-log-body {
-  flex: 1 1 auto;
-  min-height: 0;
-  padding-top: calc(var(--float-top) + var(--float-size) + 16px);
-  padding-bottom: calc(16px + env(safe-area-inset-bottom));
-}
-
-/* 碎片: back and ＋ at either side, title and motto stacked between. */
-:root[data-theme] .fragment-overlay:not(.fragment-editor-overlay) > .fragment-header {
-  grid-template-columns: var(--float-size) minmax(0, 1fr) var(--float-size);
-  align-items: start;
-}
-
-:root[data-theme] .fragment-overlay:not(.fragment-editor-overlay) > .fragment-header .fragment-round-button {
-  width: var(--float-size);
-  height: var(--float-size);
-  padding: 0;
-  color: var(--text-primary);
-}
-
-:root[data-theme] .fragment-overlay:not(.fragment-editor-overlay) > .fragment-header .fragment-page-heading {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 6px;
-  min-width: 0;
-}
-
-:root[data-theme] .fragment-overlay:not(.fragment-editor-overlay) > .fragment-header .fragment-page-heading h2 {
-  box-sizing: border-box;
-  height: var(--float-size);
-  margin: 0;
-  /* The trailing letter spacing is taken off the right padding. */
-  padding: 0 calc(20px - 0.16em) 0 20px;
-  border-radius: 999px;
-  line-height: calc(var(--float-size) - 1px);
-}
-
-:root[data-theme] .fragment-overlay:not(.fragment-editor-overlay) > .fragment-header .fragment-page-heading p {
-  box-sizing: border-box;
-  max-width: 100%;
-  height: 24px;
-  margin: 0;
-  padding: 0 12px;
-  border-radius: 999px;
-  font-size: 11px;
-  line-height: 23px;
-}
-
-:root[data-theme] .fragment-overlay:not(.fragment-editor-overlay) > .fragment-list-body {
-  padding-top: calc(var(--float-top) + var(--float-size) + 6px + 24px + 18px);
-}
-
-:root[data-theme] .hb-log-overlay > .chat-header :is(.header-title, .header-icon-btn),
-:root[data-theme] .fragment-overlay:not(.fragment-editor-overlay) > .fragment-header :is(.fragment-round-button, .fragment-page-heading h2, .fragment-page-heading p) {
-  border: 0.5px solid var(--liquid-glass-edge);
-  background: var(--liquid-glass-bg);
-  box-shadow: var(--liquid-glass-shadow);
-  backdrop-filter: var(--liquid-glass-filter);
-}
-
-:root[data-theme] .hb-log-overlay > .chat-header .header-icon-btn {
-  padding: 0;
-  border-radius: 50%;
-  color: var(--text-primary);
-  cursor: pointer;
+:root[data-theme] .fragment-overlay.fragment-list-overlay > .fragment-list-body {
+  padding: calc(var(--float-top) + 16px) var(--page-gutter-right, 16px)
+    calc(var(--page-back-size) + var(--float-bottom) + 20px) var(--page-gutter-left, 16px);
 }
 
 /* Separate declarations keep the CSS optimizer from dropping the standard
    property when it merges the Safari prefix (as in chat-glass.css). */
 @supports (-webkit-backdrop-filter: blur(1px)) {
   :root[data-theme] .app-bg[data-fullscreen-shell="true"] > .chat-container:not([data-home-style="wall"]) > .chat-header :is(.header-title, .header-icon-btn, .settings-back-btn),
-  :root[data-theme] .app-bg[data-fullscreen-shell="true"] > .chat-container > .bottom-nav,
-  :root[data-theme] .app-bg[data-fullscreen-shell="true"] > .chat-container > .bottom-nav-plus,
+  :root[data-theme] .page-back-float,
   :root[data-theme] .app-bg .chat-container:is([data-chat-ui="default"][data-chat-view="room"], [data-chat-view="group"]:not([data-chat-ui])) > .chat-header :is(.chat-room-back, .header-center, .room-header-quota),
   :root[data-theme] .app-bg .chat-container:is([data-chat-ui="default"][data-chat-view="room"], [data-chat-view="group"]:not([data-chat-ui])) > .chat-footer :is(.attach-btn.attach-btn-separate, .input-wrapper),
   :root[data-theme] .app-bg .chat-container[data-chat-view="group"]:not([data-chat-ui]) > .group-session-switcher,
-  :root[data-theme] .app-bg .chat-container[data-chat-view="group"]:not([data-chat-ui]) > .chat-footer .context-usage-badge,
-  :root[data-theme] .hb-log-overlay > .chat-header :is(.header-title, .header-icon-btn),
-  :root[data-theme] .fragment-overlay:not(.fragment-editor-overlay) > .fragment-header :is(.fragment-round-button, .fragment-page-heading h2, .fragment-page-heading p) {
+  :root[data-theme] .app-bg .chat-container[data-chat-view="group"]:not([data-chat-ui]) > .chat-footer .context-usage-badge {
     -webkit-backdrop-filter: var(--liquid-glass-filter);
   }
 }

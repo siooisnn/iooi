@@ -5,7 +5,7 @@ import { CacheStatusPanel } from "./CacheStatusPanel";
 import { ContextDebugPanel } from "./ContextDebugPanel";
 import { NotificationButton } from "./NotificationButton";
 import { ChatBackgroundSetting } from "./ChatBackgroundSetting";
-import { PageHeader } from "./PageHeader";
+import { PageBack } from "./PageBack";
 import { resolveGptModel } from "../lib/gpt-models";
 import type { CacheStats, ChatSession } from "../lib/app-types";
 import { BUBBLE_COLORS, CLAUDE_DEFAULT_NAME, CONTEXT_WINDOW_ROUNDS } from "../lib/app-settings";
@@ -144,7 +144,6 @@ export function SettingsView({
   // Every card is open on one page; no sub-pages.
   return (
     <>
-      <PageHeader title="settings" onBack={onBack} />
       <section className="settings-body">
         <div className="settings-group">
           <h2 className="settings-group-title">Name &amp; Avatar</h2>
@@ -316,6 +315,7 @@ export function SettingsView({
           sessionUserTurns={session?.messages.filter((m) => m.role === "user").length ?? 0}
         />
       </section>
+      <PageBack onBack={onBack} />
     </>
   );
 }

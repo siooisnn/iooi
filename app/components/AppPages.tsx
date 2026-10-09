@@ -1,6 +1,6 @@
 "use client";
 
-import { PageHeader } from "./PageHeader";
+import { PageBack } from "./PageBack";
 import { IconLineBook } from "./NavIcons";
 
 export type HeartbeatEntry = { time: string; action: string; reason: string };
@@ -9,7 +9,6 @@ export type HeartbeatEntry = { time: string; action: string; reason: string };
 export function HeartbeatView({ log, onBack }: { log: HeartbeatEntry[]; onBack: () => void }) {
   return (
     <>
-      <PageHeader title="heartbeat" onBack={onBack} />
       <section className="diary-body heartbeat-body">
         {log.length === 0 ? (
           <p className="chat-entry-empty">还没有记录</p>
@@ -23,6 +22,7 @@ export function HeartbeatView({ log, onBack }: { log: HeartbeatEntry[]; onBack: 
           ))
         )}
       </section>
+      <PageBack onBack={onBack} />
     </>
   );
 }
@@ -31,13 +31,13 @@ export function HeartbeatView({ log, onBack }: { log: HeartbeatEntry[]; onBack: 
 export function ReadingView({ onBack }: { onBack: () => void }) {
   return (
     <>
-      <PageHeader title="reading" onBack={onBack} />
       <section className="diary-body reading-body">
         <div className="reading-empty">
           <IconLineBook size={36} />
           <p>这里还空着</p>
         </div>
       </section>
+      <PageBack onBack={onBack} />
     </>
   );
 }

@@ -4,8 +4,8 @@ import { useEffect } from "react";
 import type { ReactNode } from "react";
 
 function syncBrowserChrome() {
-  const root = document.documentElement;
-  const color = root.dataset.page === "diary" || root.dataset.page === "settings" ? "#ffffff" : "#f5f5f5";
+  // Every page shares the one gray now, so the browser bars match it too.
+  const color = "#e8e8e8";
   document.querySelector('meta[name="theme-color"]')?.setAttribute("content", color);
 }
 

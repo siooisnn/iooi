@@ -3,11 +3,10 @@
 import { useEffect } from "react";
 import type { RefObject } from "react";
 
-// The desktop and its app pages fill the whole screen like 暮光 rooms: the
-// title floats over the page, and on the chat list the round ＋ floats at the
-// bottom right. Each page swaps in its own header, so the shell keeps
-// measuring whichever header and ＋ are currently mounted and exposes the
-// space they cover to the CSS.
+// The desktop and its app pages fill the whole screen like 暮光 rooms, and on
+// every app page the round ‹ floats at the bottom right. Each page mounts its
+// own, so the shell keeps measuring whichever header (if any) and ‹ are
+// currently mounted and exposes the space they cover to the CSS.
 export function useFullscreenShell(enabled: boolean, containerRef: RefObject<HTMLElement | null>) {
   useEffect(() => {
     const container = containerRef.current;
@@ -23,7 +22,7 @@ export function useFullscreenShell(enabled: boolean, containerRef: RefObject<HTM
     const resize = new ResizeObserver(schedule);
     const update = () => {
       const nextHeader = container.querySelector(":scope > .chat-header");
-      const nextNav = container.querySelector(":scope > :is(.bottom-nav, .bottom-nav-plus)");
+      const nextNav = container.querySelector(":scope > .page-back-float");
       // Only re-observe when the element changed, otherwise observe() would
       // fire another resize callback and keep the loop spinning.
       if (nextHeader !== header || nextNav !== nav) {
@@ -33,7 +32,7 @@ export function useFullscreenShell(enabled: boolean, containerRef: RefObject<HTM
         if (header) resize.observe(header, { box: "border-box" });
         if (nav) resize.observe(nav, { box: "border-box" });
       }
-      // Measured from the page edges: the ＋ floats above the bottom edge, so
+      // Measured from the page edges: the ‹ floats above the bottom edge, so
       // its own height is not the space it covers.
       const box = container.getBoundingClientRect();
       const headerSpace = header ? Math.max(0, Math.ceil(header.getBoundingClientRect().bottom - box.top)) : 0;
