@@ -21,7 +21,9 @@
 
 ## 当前状态
 
-- Next.js 项目，核心代码仍主要在 `app/page.tsx`，文件偏大。
+- Next.js 项目。`app/page.tsx` 已拆分，只保留 `Home`（页面切换、全局状态、底部导航）：
+  - 各页面视图在 `app/components/`：`ChatView`、`ChatListView`、`HomeView`、`FragmentsView`、`SummerPageView`、`SettingsView`、`NavIcons`、`ChatContent`
+  - 共用的类型和工具在 `app/lib/`：`app-types`、`app-settings`、`app-time`、`chat-sessions`、`client-api`
 - 已新增组件：
   - `app/components/CacheStatusPanel.tsx`
   - `app/components/ContextDebugPanel.tsx`
@@ -57,7 +59,7 @@ Next.js 会提示 `middleware` 文件约定未来建议换成 `proxy`，这是�
 
 ## 下一步计划
 
-1. 小步拆 `app/page.tsx`，优先拆 `SettingsView`、`DiaryView`、`ChatView`，不要一次性大重构。
+1. `ChatView`（约 1200 行）仍然偏大，以后可以再按输入框、消息列表、开发模式面板细拆。
 2. 继续清理历史乱码和被注释吞掉的旧片段，清一段 build 一次。
 3. 观察 cached：Sonnet 稳定后，可以试 Opus，对比回复质感、延迟和缓存表现。
 4. 后续可把缓存/上下文调试整理成更适合手机看的小折叠面板。
