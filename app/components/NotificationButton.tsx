@@ -113,8 +113,8 @@ export function NotificationButton({ onSubscribe, loadPublicKey, onTest }: Notif
   if (status === "done") {
     return (
       <>
-        <div className="settings-hint" style={{ color: "var(--theme-success, #7c9a92)" }}>Notifications are on</div>
-        <button className="settings-danger-btn" style={{ borderColor: "var(--theme-success, #7c9a92)", color: "var(--theme-success, #7c9a92)" }} onClick={sendTest} disabled={testing}>
+        <div className="settings-hint">Notifications are on</div>
+        <button className="settings-danger-btn" style={{ borderColor: "var(--text-secondary)", color: "var(--text-primary)" }} onClick={sendTest} disabled={testing}>
           {testing ? "Sending…" : "Send a test notification"}
         </button>
         {testResult && <div className="settings-hint">{testResult}</div>}
@@ -122,10 +122,10 @@ export function NotificationButton({ onSubscribe, loadPublicKey, onTest }: Notif
     );
   }
   if (status === "denied") {
-    return <div className="settings-hint" style={{ color: "var(--theme-accent, #c4866c)" }}>Notifications are blocked. Allow them in system settings.</div>;
+    return <div className="settings-hint" style={{ color: "var(--text-primary)", fontWeight: 600 }}>Notifications are blocked. Allow them in system settings.</div>;
   }
   if (status === "unsupported") {
-    return <div className="settings-hint" style={{ color: "var(--theme-accent, #c4866c)" }}>Push isn&apos;t supported here (on iPhone, open iooi from the Home Screen icon).</div>;
+    return <div className="settings-hint" style={{ color: "var(--text-primary)", fontWeight: 600 }}>Push isn&apos;t supported here (on iPhone, open iooi from the Home Screen icon).</div>;
   }
   if (status === "syncing") {
     return <div className="settings-hint">Checking notification subscription…</div>;
@@ -133,9 +133,9 @@ export function NotificationButton({ onSubscribe, loadPublicKey, onTest }: Notif
   return (
     <>
       {status === "failed" && (
-        <div className="settings-hint" style={{ color: "var(--theme-accent, #c4866c)" }}>Subscription sync failed. Tap below to turn it on again.</div>
+        <div className="settings-hint" style={{ color: "var(--text-primary)", fontWeight: 600 }}>Subscription sync failed. Tap below to turn it on again.</div>
       )}
-      <button className="settings-danger-btn" style={{ borderColor: "var(--theme-success, #7c9a92)", color: "var(--theme-success, #7c9a92)" }} onClick={enableNotifications}>
+      <button className="settings-danger-btn" style={{ borderColor: "var(--text-secondary)", color: "var(--text-primary)" }} onClick={enableNotifications}>
         {status === "failed" ? "Turn on again" : "Turn on notifications"}
       </button>
     </>

@@ -81,7 +81,7 @@ export function ChatView({
   onBackToList?: () => void;
 }) {
   const isGpt = assistantMode === "gpt";
-  const claudeUsage = useClaudeUsage(!isGpt && session.kind !== "memo");
+  const claudeUsage = useClaudeUsage(!isGpt);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -98,7 +98,7 @@ export function ChatView({
   const [showModelMenu, setShowModelMenu] = useState(false);
   const [developmentModePrefs, setDevelopmentModePrefs] = useState(loadDevelopmentModePrefs);
   const developmentModePref = developmentModePrefs[session.id];
-  const developmentMode = !isGpt && session.kind !== "memo" && developmentModePref?.enabled === true;
+  const developmentMode = !isGpt && developmentModePref?.enabled === true;
   const developmentProject: DevelopmentProject = developmentModePref?.project ?? "iooi";
   const developmentProjectLabel = developmentProject === "iooi" ? "iooi" : "Summer";
   const workUsageMessages = useMemo<UsageMessage[]>(
@@ -129,7 +129,7 @@ export function ChatView({
   const [initialMessageCount] = useState(() => session.messages.length);
   // Routine Summer wake notices stay hidden in every chat theme.
   const quietSummerWake = true;
-  const showQuota = !isGpt && session.kind !== "memo";
+  const showQuota = !isGpt;
   // Keep stored indices for proposal actions while excluding routine wake
   // notices from visible neighbours, timestamps and bubble grouping.
   const displayMessages = alignLegacySummerCalls(session.messages)
@@ -206,7 +206,7 @@ export function ChatView({
   }, [session.id, session.messages]);
 
   useEffect(() => {
-    if (isGpt || session.kind === "memo") return;
+    if (isGpt) return;
     let disposed = false;
     let lastSyncedTask = "";
     const checkTask = async () => {
@@ -446,7 +446,7 @@ export function ChatView({
 
   async function sendMessage() {
     if ((!input.trim() && !attachments.length) || loading || uploading || sendingRef.current) return;
-    const codeRequest = !isGpt && session.kind !== "memo" && developmentMode;
+    const codeRequest = !isGpt && developmentMode;
     // Work mode only takes screenshots; a stray file must not block the send.
     const sendable = codeRequest ? attachments.filter((item) => item.kind === "image") : attachments;
     const typed = stripObjectPlaceholders(input);
@@ -469,12 +469,6 @@ export function ChatView({
     updateMessages((msgs) => mergeChatMessages(msgs, messagesWithUser));
     setInput("");
     if (inputRef.current) inputRef.current.style.height = "auto";
-
-    // 备忘会话:她的口袋,只收纳,不回复
-    if (session.kind === "memo") {
-      sendingRef.current = false;
-      return;
-    }
 
     const requestId = ++replyRequestIdRef.current;
     const controller = new AbortController();
@@ -769,19 +763,17 @@ export function ChatView({
 
   const roomIdentity = (
     <>
-      <h1 className="header-title chat-room-title">{session.kind === "memo" ? settings.userName : assistantName}</h1>
-      {session.kind !== "memo" && (
-        <span className="header-subtitle chat-room-status">
-          {developmentBadge || (isGpt ? "在线" : getChatStatusLabel(aiMood))}
-        </span>
-      )}
+      <h1 className="header-title chat-room-title">{assistantName}</h1>
+      <span className="header-subtitle chat-room-status">
+        {developmentBadge || (isGpt ? "在线" : getChatStatusLabel(aiMood))}
+      </span>
     </>
   );
 
   return (
     <>
       {listEntryMode ? (
-        <header className={`chat-header chat-room-header single-room-header${session.kind === "memo" ? " single-room-header-title-only" : ""}`}>
+        <header className="chat-header chat-room-header single-room-header">
           <div className="header-top">
             <button className="header-icon-btn chat-room-back" onClick={handleBackToList} aria-label="返回列表">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -821,7 +813,7 @@ export function ChatView({
         </header>
       )}
 
-      {session.kind !== "memo" && showModelMenu && (
+      {showModelMenu && (
         <div className="chat-config-panel room-settings-panel" role="dialog" aria-label="聊天设置">
           <div className="room-settings-heading"><b>聊天设置</b><button type="button" onClick={() => setShowModelMenu(false)} aria-label="关闭聊天设置">×</button></div>
           {!isGpt && <ClaudeUsageDetails {...claudeUsage} />}
@@ -1175,7 +1167,7 @@ export function ChatView({
           {listEntryMode && developmentMode && (
             <ContextUsageBadge kind="work" sessionId={session.id} project={developmentProject} messages={workUsageMessages} />
           )}
-          {listEntryMode ? session.kind !== "memo" && (
+          {listEntryMode ? (
             <button
               type="button"
               className="attach-btn attach-btn-separate composer-settings-btn"

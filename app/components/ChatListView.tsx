@@ -2,17 +2,17 @@
 
 import { useState, useRef } from "react";
 import type { CSSProperties } from "react";
-import type { AssistantMode, ChatListTab, ChatSession, FragmentEntry } from "../lib/app-types";
+import type { AssistantMode, ChatListTab, ChatSession } from "../lib/app-types";
 import { CLAUDE_DEFAULT_NAME } from "../lib/app-settings";
 import type { Settings } from "../lib/app-settings";
 import { formatChatListTime } from "../lib/app-time";
 import { getLatestSessionMessage, getSessionPreview, getSessionStamp, latestPrivateSession, listedPrivateSessions, sortByStamp } from "../lib/chat-sessions";
-import { FragmentsView } from "./FragmentsView";
+import { PageHeader } from "./PageHeader";
 
 export const CHAT_LIST_TABS: Array<{ id: ChatListTab; label: string }> = [
   { id: "chats", label: "Chats" },
   { id: "groups", label: "Groups" },
-  { id: "moments", label: "Moments" },
+  { id: "contacts", label: "Contacts" },
 ];
 
 export function ChatListView({
@@ -20,11 +20,7 @@ export function ChatListView({
   settings,
   updateSettings,
   sessions,
-  otherSessions,
   groupSessions,
-  heartbeatLog,
-  fragments,
-  setFragments,
   renameSession,
   deleteSession,
   openSession: openPrivateSession,
@@ -32,17 +28,14 @@ export function ChatListView({
   createGroup,
   listTab,
   setListTab,
+  onBack,
 }: {
   assistantMode: AssistantMode;
   settings: Settings;
   updateSettings: (patch: Partial<Settings>) => void;
-  // Windows of the person the A/B switch shows, and of the other one.
+  // Windows of the person ticked in Contacts.
   sessions: ChatSession[];
-  otherSessions: ChatSession[];
   groupSessions: ChatSession[];
-  heartbeatLog: Array<{ time: string; action: string; reason: string }>;
-  fragments: FragmentEntry[];
-  setFragments: React.Dispatch<React.SetStateAction<FragmentEntry[]>>;
   renameSession: (id: string, name: string) => void;
   deleteSession: (id: string) => void;
   openSession: (mode: AssistantMode, id: string) => void;
@@ -50,28 +43,23 @@ export function ChatListView({
   createGroup: () => void;
   listTab: ChatListTab;
   setListTab: (tab: ChatListTab) => void;
+  onBack: () => void;
 }) {
   const isGpt = assistantMode === "gpt";
-  const otherMode: AssistantMode = isGpt ? "claude" : "gpt";
   const claudeName = settings.aiName || CLAUDE_DEFAULT_NAME;
   const gptName = settings.gptName || "GPT";
   const personName = (mode: AssistantMode) => mode === "gpt" ? gptName : claudeName;
   const personAvatar = (mode: AssistantMode) => mode === "gpt" ? settings.gptAvatar : settings.aiAvatar;
   const assistantAvatar = personAvatar(assistantMode);
   const [openActionsFor, setOpenActionsFor] = useState<string | null>(null);
-  const [showHbLog, setShowHbLog] = useState(false);
-  const [showFragments, setShowFragments] = useState(false);
   const swipeRef = useRef<{ id: string; startX: number; startY: number; dx: number; dy: number; dragging: boolean } | null>(null);
   const blockClickRef = useRef(false);
 
-  const memoSession = isGpt ? undefined : sessions.find((s) => s.kind === "memo");
   const latestOwn = latestPrivateSession(sessions, assistantMode);
-  const latestOther = latestPrivateSession(otherSessions, otherMode);
   const pastOwn = listedPrivateSessions(sessions, assistantMode).filter((s) => s.id !== latestOwn?.id);
   const groupsByStamp = sortByStamp(groupSessions);
   const latestGroup = groupsByStamp[0];
   const pastGroups = groupsByStamp.slice(1);
-  const latestHeartbeat = isGpt ? undefined : heartbeatLog[0];
   const pinnedLine = (isGpt ? settings.gptChatPinnedLine : settings.chatPinnedLine) ?? "此后我们的每一秒都是恩赐。";
 
   function openSession(id: string) {
@@ -222,6 +210,7 @@ export function ChatListView({
 
   return (
     <>
+      <PageHeader title="chat" onBack={onBack} />
       <section className="chat-entry-body chat-list-home" onClick={() => setOpenActionsFor(null)}>
         <div className="chat-list-profile-card">
           <div className="chat-list-profile">
@@ -261,7 +250,6 @@ export function ChatListView({
             <div className="chat-list-card">
               {latestGroup && groupRow(latestGroup, true)}
               {latestOwn && personRow(assistantMode, latestOwn)}
-              {latestOther && personRow(otherMode, latestOther)}
             </div>
             <div className="chat-list-card">
               {pastOwn.length === 0
@@ -299,83 +287,38 @@ export function ChatListView({
           </>
         )}
 
-        {listTab === "moments" && (
-          <>
-            {!isGpt && (
-              <div className="chat-list-card">
-                <button type="button" className="chat-entry-item chat-entry-subscribe" onClick={() => setShowHbLog(true)}>
-                  <span className="chat-entry-avatar chat-entry-avatar-small chat-entry-avatar-hb"><span>💗</span></span>
-                  <div className="chat-entry-main">
-                    <div className="chat-entry-row"><span className="chat-entry-name">heartbeat</span></div>
-                    <p className="chat-entry-preview">{latestHeartbeat?.reason || "还没有记录"}</p>
-                  </div>
-                  <span className="chat-entry-side">
-                    <span className="chat-entry-time">{latestHeartbeat?.time || ""}</span>
-                  </span>
-                </button>
-              </div>
-            )}
-            <div className="chat-list-card">
-              <button type="button" className="chat-entry-item chat-entry-fragments" onClick={() => setShowFragments(true)}>
-                <span className="chat-entry-avatar chat-entry-avatar-small" aria-hidden="true"><span>🧩</span></span>
-                <div className="chat-entry-main">
-                  <div className="chat-entry-row"><span className="chat-entry-name">碎片</span></div>
-                  <p className="chat-entry-preview">碎片化时代，我选择碎片化写作。</p>
-                </div>
-                <span className="chat-entry-side"><span className="chat-entry-time">{fragments.length ? `${fragments.length} 片` : ""}</span></span>
-              </button>
-            </div>
-            {memoSession && (
-              <div className="chat-list-card">
-                <button type="button" className="chat-entry-item chat-entry-memo" onClick={() => openSession(memoSession.id)}>
-                  <AvatarBlock avatar={settings.userAvatar} small />
+        {listTab === "contacts" && (
+          <div className="chat-list-card" role="radiogroup" aria-label="Contacts">
+            {(["claude", "gpt"] as const).map((mode) => {
+              const selected = assistantMode === mode;
+              return (
+                <button
+                  key={mode}
+                  type="button"
+                  role="radio"
+                  aria-checked={selected}
+                  className="chat-entry-item chat-entry-contact"
+                  onClick={() => updateSettings({ chatEntryStyle: mode === "gpt" ? "direct" : "list" })}
+                >
+                  <AvatarBlock avatar={personAvatar(mode)} small />
                   <div className="chat-entry-main">
                     <div className="chat-entry-row">
-                      <span className="chat-entry-name">{settings.userName || "备忘"}</span>
+                      <span className="chat-entry-name">{personName(mode)}</span>
                     </div>
-                    <p className="chat-entry-preview">{memoSession.messages.length > 0 ? getSessionPreview(getLatestSessionMessage(memoSession)) : "只写给自己的地方"}</p>
                   </div>
-                  <span className="chat-entry-side">
-                    <span className="chat-entry-time">{memoSession.messages.length > 0 ? formatChatListTime(getSessionStamp(memoSession)) : ""}</span>
+                  <span className="chat-entry-side chat-entry-check" aria-hidden="true">
+                    {selected && (
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <polyline points="5 12.5 10 17.5 19 7" />
+                      </svg>
+                    )}
                   </span>
                 </button>
-              </div>
-            )}
-          </>
+              );
+            })}
+          </div>
         )}
       </section>
-
-      {showFragments && <FragmentsView fragments={fragments} setFragments={setFragments} onClose={() => setShowFragments(false)} />}
-      {showHbLog && (
-        <div className="hb-log-overlay">
-          <header className="chat-header chat-room-header">
-            <div className="header-top">
-              <button className="header-icon-btn chat-room-back" onClick={() => setShowHbLog(false)} aria-label="返回">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <polyline points="14.5 5.5 8 12 14.5 18.5" />
-                </svg>
-              </button>
-              <div className="header-center">
-                <h1 className="header-title chat-room-title">heartbeat</h1>
-              </div>
-              <span className="header-icon-spacer" aria-hidden="true" />
-            </div>
-          </header>
-          <div className="hb-log-body">
-            {heartbeatLog.length === 0 ? (
-              <p className="chat-entry-empty">还没有记录</p>
-            ) : (
-              heartbeatLog.map((entry, i) => (
-                <div key={i} className="hb-log-item">
-                  <span className="hb-log-time">{entry.time}</span>
-                  <p className="hb-log-reason">{entry.reason}</p>
-                  {entry.action && <span className="hb-log-action">{entry.action}</span>}
-                </div>
-              ))
-            )}
-          </div>
-        </div>
-      )}
     </>
   );
 }

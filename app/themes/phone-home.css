@@ -1,0 +1,258 @@
+/* ━━ The desktop: one screen, like a phone's home screen ━━
+   Top: her avatar and 酥酥's joined by one line that loops into a heart,
+   the promise and the time together. Middle: the small moon and earth on
+   the left, four apps on the right. Bottom: the dock, icons only.
+   Black, white and gray only; photos keep their colour.
+   Rules start with :root[data-theme] so they outrank white-pink's reset of
+   shadows and blur on every element. */
+:root[data-theme] .app-bg[data-fullscreen-shell="true"] > .chat-container > .home-body.phone-home {
+  --shell-page-gap-top: 8px;
+  --shell-page-gap: 14px;
+  --shell-page-end: 10px;
+  position: relative;
+  align-items: stretch;
+  gap: 14px;
+  padding-left: var(--page-gutter-left);
+  padding-right: var(--page-gutter-right);
+  background: #f2f2f2;
+}
+
+:root[data-theme] .phone-home button {
+  font: inherit;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* ── Couple card ── */
+:root[data-theme] .phone-home .phone-couple-card {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 16px 16px 18px;
+  border: 0.5px solid rgba(0, 0, 0, 0.06);
+  border-radius: 26px;
+  background: #ffffff;
+}
+
+/* The line is drawn in a 300×160 box; the avatars sit at (60,50) and
+   (240,50), r32, so everything is placed in percentages of that box. */
+:root[data-theme] .phone-home .phone-couple-art {
+  position: relative;
+  width: min(300px, 100%);
+  aspect-ratio: 300 / 160;
+}
+
+:root[data-theme] .phone-home .phone-couple-line {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+:root[data-theme] .phone-home .phone-couple-line path {
+  fill: none;
+  stroke: #5a5a5a;
+  stroke-width: 1.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: phoneHeartDraw 2.4s ease-out 0.2s forwards;
+}
+
+@keyframes phoneHeartDraw {
+  to { stroke-dashoffset: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root[data-theme] .phone-home .phone-couple-line path {
+    animation: none;
+    stroke-dashoffset: 0;
+  }
+}
+
+:root[data-theme] .phone-home .phone-couple-avatar {
+  position: absolute;
+  top: 11.25%;
+  width: 21.333%;
+  aspect-ratio: 1;
+  overflow: hidden;
+  border: 2px solid #ffffff;
+  border-radius: 50%;
+  background: #e2e2e2;
+  box-shadow: 0 0 0 0.5px rgba(0, 0, 0, 0.12), 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+:root[data-theme] .phone-home .phone-couple-avatar-left { left: 9.333%; }
+:root[data-theme] .phone-home .phone-couple-avatar-right { right: 9.333%; }
+
+:root[data-theme] .phone-home .phone-couple-avatar img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+:root[data-theme] .phone-home .phone-promise {
+  margin: 2px 0 0;
+  color: #6e6e6e;
+  font-family: "Songti SC", "SimSun", serif;
+  font-size: 13px;
+  letter-spacing: 2px;
+}
+
+:root[data-theme] .phone-home .phone-clock {
+  display: flex;
+  justify-content: center;
+  align-items: baseline;
+  gap: 12px;
+  margin-top: 10px;
+  color: #6e6e6e;
+}
+
+:root[data-theme] .phone-home .phone-clock-part {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+}
+
+:root[data-theme] .phone-home .phone-clock-number {
+  min-width: 1.15em;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 21px;
+  font-variant-numeric: tabular-nums;
+}
+
+:root[data-theme] .phone-home .phone-clock-unit {
+  color: #8e8e8e;
+  font-size: 10px;
+}
+
+/* ── Moon square and the four apps ── */
+:root[data-theme] .phone-home .phone-row {
+  flex-shrink: 0;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+
+:root[data-theme] .phone-home .phone-moon-tile {
+  aspect-ratio: 1;
+  padding: 10px;
+  overflow: hidden;
+  border: 0.5px solid rgba(0, 0, 0, 0.06);
+  border-radius: 24px;
+  background: #ffffff;
+}
+
+:root[data-theme] .phone-home .phone-moon-tile:active,
+:root[data-theme] .phone-home .phone-app:active .phone-app-icon,
+:root[data-theme] .phone-home .phone-dock-app:active {
+  transform: scale(0.95);
+}
+
+:root[data-theme] .phone-home .phone-app-grid {
+  aspect-ratio: 1;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: 1fr 1fr;
+  gap: 4px;
+}
+
+:root[data-theme] .phone-home .phone-app {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #000000;
+}
+
+:root[data-theme] .phone-home .phone-app-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: clamp(44px, 70%, 56px);
+  aspect-ratio: 1;
+  border: 0.5px solid rgba(0, 0, 0, 0.06);
+  border-radius: 16px;
+  background: #ffffff;
+  transition: transform 0.12s ease;
+}
+
+:root[data-theme] .phone-home .phone-app-label {
+  color: #6e6e6e;
+  font-size: 11px;
+  letter-spacing: 0.3px;
+  line-height: 1.2;
+}
+
+/* ── Dock ── */
+:root[data-theme] .phone-home .phone-dock {
+  flex-shrink: 0;
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+  margin-top: auto;
+  height: 76px;
+  padding: 0 14px;
+  border: 0.5px solid var(--liquid-glass-edge);
+  border-radius: 28px;
+  background: var(--liquid-glass-bg-clear);
+  box-shadow: var(--liquid-glass-shadow);
+  backdrop-filter: var(--liquid-glass-filter);
+}
+
+:root[data-theme] .phone-home .phone-dock-app {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  padding: 0;
+  border: 0.5px solid rgba(0, 0, 0, 0.06);
+  border-radius: 16px;
+  background: #ffffff;
+  color: #000000;
+  transition: transform 0.12s ease;
+}
+
+@supports (-webkit-backdrop-filter: blur(1px)) {
+  :root[data-theme] .phone-home .phone-dock {
+    -webkit-backdrop-filter: var(--liquid-glass-filter);
+  }
+}
+
+/* ━━ App pages ━━ */
+.heartbeat-body { gap: 12px; }
+
+.reading-body .reading-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  margin: auto;
+  color: var(--text-light);
+  font-size: 13px;
+}
+
+/* Contacts: a tick after whoever's windows the chat list shows. */
+.chat-entry-check {
+  display: flex;
+  align-items: center;
+  color: var(--text-primary);
+}
+
+/* Settings: 酥酥, 郁郁 and her side by side. */
+.avatar-upload-row.avatar-upload-row-three { gap: 14px; }
+
+/* winter: line snowflakes where the puzzle pieces were. */
+.fragment-page-number svg,
+.fragment-save-state i svg { vertical-align: -2px; }
+.fragment-empty-visual span { color: var(--text-secondary); }

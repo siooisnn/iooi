@@ -169,7 +169,8 @@
 :root[data-theme] .app-bg[data-fullscreen-shell="true"] > .chat-container:not([data-home-style="wall"]) > :is(.home-body, .chat-entry-body, .diary-body, .settings-body)::after {
   content: "";
   display: block;
-  flex: 0 0 calc(var(--shell-nav-space, var(--shell-nav-fallback)) + var(--shell-page-end, 16px));
+  /* Pages without the ＋ still clear the home indicator. */
+  flex: 0 0 calc(max(var(--shell-nav-space, var(--shell-nav-fallback)), env(safe-area-inset-bottom)) + var(--shell-page-end, 16px));
   margin-top: calc(-1 * var(--shell-page-gap, 0px));
 }
 

@@ -6,28 +6,30 @@ type ContextDebugPanelProps = {
   cache: CacheStats | null;
   sessionMessageCount: number;
   sessionUserTurns: number;
+  title?: string;
 };
 
 export function ContextDebugPanel({
   cache,
   sessionMessageCount,
   sessionUserTurns,
+  title = "上下文调试",
 }: ContextDebugPanelProps) {
   return (
     <div className="settings-group">
-      <h2 className="settings-group-title">上下文调试</h2>
-      <div style={{ fontSize: "13px", color: "var(--theme-secondary, #6b5b53)", lineHeight: 2 }}>
-        <div>当前会话:<span style={{ marginLeft: "8px", color: "var(--theme-muted, #8a7d75)" }}>{sessionMessageCount} 条 / {sessionUserTurns} 轮用户</span></div>
-        <div>长期记忆:<span style={{ marginLeft: "8px", color: cache?.summer_used ? "var(--theme-success, #5b8a6b)" : "var(--text-light)" }}>{cache?.summer_used ? "summer" : "等待下一轮确认"}</span></div>
+      <h2 className="settings-group-title">{title}</h2>
+      <div style={{ fontSize: "13px", color: "var(--theme-secondary, #5e5e5e)", lineHeight: 2 }}>
+        <div>当前会话:<span style={{ marginLeft: "8px", color: "var(--theme-muted, #7f7f7f)" }}>{sessionMessageCount} 条 / {sessionUserTurns} 轮用户</span></div>
+        <div>长期记忆:<span style={{ marginLeft: "8px", color: cache?.summer_used ? "var(--text-secondary)" : "var(--text-light)" }}>{cache?.summer_used ? "summer" : "等待下一轮确认"}</span></div>
         {cache ? (
           <>
-            <div>上轮实际发送:<span style={{ marginLeft: "8px", color: "var(--theme-muted, #8a7d75)" }}>{cache.context_messages ?? "-"} 条 / {cache.context_user_turns ?? "-"} 轮用户</span></div>
-            <div>发送方式:<span style={{ marginLeft: "8px", color: "var(--theme-muted, #8a7d75)" }}>{cache.context_mode === "full-window" ? "当前窗口全文" : `最近 ${cache.context_window_rounds ?? 30} 轮`}</span></div>
-            <div>是否截断:<span style={{ marginLeft: "8px", color: cache.context_truncated ? "var(--accent-text)" : "var(--theme-success, #5b8a6b)" }}>
+            <div>上轮实际发送:<span style={{ marginLeft: "8px", color: "var(--theme-muted, #7f7f7f)" }}>{cache.context_messages ?? "-"} 条 / {cache.context_user_turns ?? "-"} 轮用户</span></div>
+            <div>发送方式:<span style={{ marginLeft: "8px", color: "var(--theme-muted, #7f7f7f)" }}>{cache.context_mode === "full-window" ? "当前窗口全文" : `最近 ${cache.context_window_rounds ?? 30} 轮`}</span></div>
+            <div>是否截断:<span style={{ marginLeft: "8px", ...(cache.context_truncated ? { color: "var(--text-primary)", fontWeight: 600 } : { color: "var(--theme-muted, #7f7f7f)" }) }}>
               {cache.context_truncated ? `是，省略 ${cache.context_omitted_messages ?? 0} 条更早消息` : "否"}
             </span></div>
             {typeof cache.context_chars === "number" && (
-              <div>上轮文字量:<span style={{ marginLeft: "8px", color: "var(--theme-muted, #8a7d75)" }}>{cache.context_chars} 字符</span></div>
+              <div>上轮文字量:<span style={{ marginLeft: "8px", color: "var(--theme-muted, #7f7f7f)" }}>{cache.context_chars} 字符</span></div>
             )}
             <div>会话摘要:<span style={{ marginLeft: "8px", color: "var(--text-light)" }}>{cache.context_mode === "full-window" ? "不生成、不注入" : cache.summary_used ? "已注入" : "未使用"}</span></div>
           </>

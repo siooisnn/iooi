@@ -110,19 +110,25 @@ function mergeMessages(local: StoredMessage[] = [], incoming: StoredMessage[] = 
 }
 
 function isEmptyNormalSession(session: StoredSession) {
-  return session.kind !== "memo" && (!Array.isArray(session.messages) || session.messages.length === 0);
+  return !Array.isArray(session.messages) || session.messages.length === 0;
+}
+
+// 备忘 was removed from the app: a memo window still in the store, or sent by
+// an old client, is dropped on the next sync together with its messages.
+function isRemovedMemo(session: StoredSession) {
+  return session.kind === "memo";
 }
 
 function mergeSessions(local: StoredSession[] = [], incoming: StoredSession[] = [], deletedIds = new Set<string>()) {
   const byId = new Map<string, StoredSession>();
   for (const session of local) {
-    if (session && isEmptyNormalSession(session)) continue;
-    if (session?.id && session.kind !== "memo" && deletedIds.has(session.id)) continue;
+    if (!session || isRemovedMemo(session) || isEmptyNormalSession(session)) continue;
+    if (session.id && deletedIds.has(session.id)) continue;
     if (session?.id) byId.set(session.id, { ...session, messages: session.messages || [] });
   }
   for (const session of incoming) {
-    if (!session?.id || isEmptyNormalSession(session)) continue;
-    if (session.kind !== "memo" && deletedIds.has(session.id)) continue;
+    if (!session?.id || isRemovedMemo(session) || isEmptyNormalSession(session)) continue;
+    if (deletedIds.has(session.id)) continue;
     const current = byId.get(session.id);
     if (!current) {
       byId.set(session.id, { ...session, messages: session.messages || [] });

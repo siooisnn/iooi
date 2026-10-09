@@ -5,7 +5,6 @@ import { loadLocalRaw } from "./client-api";
 
 export const BUBBLE_COLORS = [
   { value: "gray", label: "Dark Gray", color: "#545458" },
-  { value: "blue", label: "Bright Blue", color: "#007aff" },
   { value: "black", label: "Black", color: "#000000" },
 ] as const;
 

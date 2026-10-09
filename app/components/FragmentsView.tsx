@@ -4,6 +4,7 @@ import { useState } from "react";
 import type { FragmentEntry } from "../lib/app-types";
 import { APP_TIME_ZONE } from "../lib/app-time";
 import { genId } from "../lib/chat-sessions";
+import { IconLineSnowflake } from "./NavIcons";
 
 export function formatFragmentDate(value: string, withTime = false) {
   const date = new Date(value);
@@ -116,7 +117,7 @@ export function FragmentsView({ fragments, setFragments, onClose }: {
           />
         </main>
         <footer className="fragment-save-state">
-          <span>{shareState || "已自动保存"}</span><i>🧩</i>
+          <span>{shareState || "已自动保存"}</span><i><IconLineSnowflake size={14} /></i>
         </footer>
       </div>
     );
@@ -125,11 +126,11 @@ export function FragmentsView({ fragments, setFragments, onClose }: {
   return (
     <div className="fragment-overlay">
       <header className="fragment-header">
-        <button type="button" className="fragment-round-button" onClick={onClose} aria-label="返回聊天列表">
+        <button type="button" className="fragment-round-button" onClick={onClose} aria-label="返回桌面">
           <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6" /></svg>
         </button>
         <div className="fragment-page-heading">
-          <h2>碎片</h2>
+          <h2>winter</h2>
           <p>碎片化时代，我选择碎片化写作。</p>
         </div>
         <button type="button" className="fragment-round-button fragment-add-button" onClick={createFragment} aria-label="新建碎片">＋</button>
@@ -145,17 +146,17 @@ export function FragmentsView({ fragments, setFragments, onClose }: {
                 <path d="M90 45v49" />
                 <path d="M30 47c17-4 32-1 47 7M30 59c17-4 32-1 47 7M150 47c-17-4-32-1-47 7" />
               </svg>
-              <span>🧩</span>
+              <span><IconLineSnowflake size={22} /></span>
             </div>
             <h3>还没有碎片。</h3>
             <p>先捡起一片，慢慢拼成一本书。</p>
-            <button type="button" onClick={createFragment}>捡起一片 🧩</button>
+            <button type="button" onClick={createFragment}>捡起一片</button>
           </div>
         ) : (
           <div className="fragment-pages">
             {orderedFragments.map((fragment, index) => (
               <button type="button" className="fragment-page-card" key={fragment.id} onClick={() => { setEditingId(fragment.id); setShareState(""); }}>
-                <span className="fragment-page-number">🧩 {String(orderedFragments.length - index).padStart(2, "0")}</span>
+                <span className="fragment-page-number"><IconLineSnowflake size={12} /> {String(orderedFragments.length - index).padStart(2, "0")}</span>
                 <p>{fragment.content || "未写完的这一片……"}</p>
                 <time>{formatFragmentDate(fragment.updatedAt || fragment.createdAt)}</time>
               </button>

@@ -31,16 +31,10 @@ export function createGroupSession(index = 1, id = "group-main"): ChatSession {
   };
 }
 
-export function ensureMemoSession(sessions: ChatSession[]) {
-  if (sessions.some((session) => session.kind === "memo")) return sessions;
-  const memo: ChatSession = {
-    id: "memo-self",
-    kind: "memo",
-    name: "备忘",
-    messages: [],
-    createdAt: new Date().toISOString(),
-  };
-  return [memo, ...sessions];
+// 备忘 was removed: old memo windows left in localStorage or on the server
+// are dropped whenever lists are merged.
+function isRemovedMemo(session: { kind?: string }) {
+  return session.kind === "memo";
 }
 
 export function chatMessageKey(message: Message) {
@@ -126,7 +120,7 @@ export function mergeChatSessionLists(
     const local = localById.get(id);
     const server = serverById.get(id);
     const session = server || local;
-    if (!session || (session.kind !== "memo" && deletedIds.has(id))) continue;
+    if (!session || isRemovedMemo(session) || deletedIds.has(id)) continue;
 
     if (local && server) {
       merged.push({
@@ -215,12 +209,12 @@ export function sortByStamp(sessions: ChatSession[]) {
   return [...sessions].sort((a, b) => getSessionStamp(b).getTime() - getSessionStamp(a).getTime());
 }
 
-// Private windows worth listing: no memo, and for Claude only windows that
-// have been written in (an untouched draft is reused by ＋ instead).
+// Private windows worth listing: for Claude only windows that have been
+// written in (an untouched draft is reused by ＋ instead).
 export function listedPrivateSessions(sessions: ChatSession[], mode: AssistantMode) {
-  return sortByStamp(sessions.filter((s) => s.kind !== "memo" && (mode === "gpt" || s.messages.length > 0)));
+  return sortByStamp(sessions.filter((s) => mode === "gpt" || s.messages.length > 0));
 }
 
 export function latestPrivateSession(sessions: ChatSession[], mode: AssistantMode) {
-  return listedPrivateSessions(sessions, mode)[0] || sortByStamp(sessions.filter((s) => s.kind !== "memo"))[0];
+  return listedPrivateSessions(sessions, mode)[0] || sortByStamp(sessions)[0];
 }

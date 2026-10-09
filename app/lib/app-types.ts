@@ -23,7 +23,7 @@ export type ChatSession = {
   name: string;
   messages: Message[];
   createdAt: string;
-  kind?: "memo" | "group";   // memo 是自己的口袋；group 是独立群聊
+  kind?: "group";   // group 是独立群聊
   summary?: string;          // 滚动摘要:窗口外旧对话的前情提要(王酥酥第一人称)
   summarizedUntil?: number;  // 已摘要到的原始气泡索引
 };
@@ -134,4 +134,4 @@ export type SummerState = {
 export type DevelopmentProject = "iooi" | "summer";
 export type DevelopmentModePref = { enabled: boolean; project: DevelopmentProject };
 
-export type ChatListTab = "chats" | "groups" | "moments";
+export type ChatListTab = "chats" | "groups" | "contacts";

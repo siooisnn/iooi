@@ -1,6 +1,6 @@
 /* White Peach is the app appearance. */
 :root[data-theme="white-pink"] .home-body.moon-home {
-  background: radial-gradient(ellipse at 18% 20%, #f3eae333, transparent 48%), radial-gradient(ellipse at 90% 51%, #e4edf340, transparent 45%), #fdfcfb;
+  background: #f2f2f2;
   padding: 4px 20px 24px;
   gap: 4px;
 }
@@ -12,15 +12,15 @@
   --conversation-bg: #f5f5f5;
   --border-soft: #ededf0;
   --text-primary: #1a1a1a;
-  --text-secondary: #68686f;
-  --text-light: #797980;
+  --text-secondary: #696969;
+  --text-light: #7a7a7a;
   --bubble-ai: #ffffff;
   /* The one theme colour: near-black ink with dark-gray fills. The quiet
      composer re-points --accent to gray, while --brand stays black everywhere,
      so the send button and switches can still use it. */
   --brand: #1a1a1a;
   --brand-text: #1a1a1a;
-  --brand-light: #a1a1a8;
+  --brand-light: #a2a2a2;
   --brand-rgb: 26, 26, 26;
   --brand-bubble: #545458;
   --brand-bubble-ink: #ffffff;
@@ -50,18 +50,17 @@
   --theme-canvas: var(--bg-chat);
   --theme-avatar: #dedee4;
   --theme-bubble-user: var(--bubble-user);
-  --theme-action-muted: #8a8a95;
+  --theme-action-muted: #8b8b8b;
   --theme-accent-rgb: var(--brand-rgb);
   --theme-surface-rgb: 255, 255, 255;
   --theme-soft-rgb: 235, 235, 239;
   --theme-ambient-rgb: 225, 225, 230;
-  --theme-line-rgb: 205, 205, 212;
-  --theme-shadow-rgb: 35, 35, 45;
+  --theme-line-rgb: 206, 206, 206;
+  --theme-shadow-rgb: 36, 36, 36;
 }
 
-/* Her bubble colour (Settings → Bubble Color); dark gray is the default.
-   Dark gray is a clear mid-dark gray so it doesn't read as black. */
-:root[data-theme="white-pink"][data-bubble="blue"] { --brand-bubble: #007aff; }
+/* Her bubble colour (Settings → Bubble Color): dark gray (default) or black.
+   The old blue choice is gone; a saved "blue" falls back to dark gray. */
 :root[data-theme="white-pink"][data-bubble="black"] { --brand-bubble: #000000; }
 
 /* Her bubble's text colour, in classic rooms. */
@@ -107,23 +106,21 @@
   border-bottom-color: var(--border-soft);
 }
 
-:root[data-theme="white-pink"] .chat-entry-memo::after,
-:root[data-theme="white-pink"] .chat-entry-fragments::after,
+:root[data-theme="white-pink"] .chat-entry-contact::after,
 :root[data-theme="white-pink"] .chat-entry-group::after,
-:root[data-theme="white-pink"] .chat-swipe-shell::after,
-:root[data-theme="white-pink"] .chat-entry-subscribe::after {
+:root[data-theme="white-pink"] .chat-swipe-shell::after {
   background: var(--border-soft);
 }
 
 /* Keep the composer quiet; only its send action keeps the theme colour. */
 :root[data-theme="white-pink"] .chat-footer {
-  --accent: #68686f;
-  --accent-text: #505057;
-  --accent-light: #aaaab3;
-  --accent-glow: rgba(35, 35, 45, 0.08);
+  --accent: #696969;
+  --accent-text: #515151;
+  --accent-light: #ababab;
+  --accent-glow: rgba(36, 36, 36, 0.08);
   --theme-accent: var(--accent);
   --theme-link: var(--text-secondary);
-  --theme-accent-rgb: 104, 104, 111;
+  --theme-accent-rgb: 105, 105, 105;
 }
 
 :root[data-theme="white-pink"] .chat-footer .claude-usage-pill {
@@ -231,7 +228,7 @@
 /* Tabs rest in gray; the current tab's icon fills in and its label turns black. */
 :root[data-theme="white-pink"] .nav-btn,
 :root[data-theme="white-pink"] .nav-btn:hover {
-  color: #a1a1a8;
+  color: #a2a2a2;
 }
 
 /* Touch browsers can retain :hover after a tap; it must not dim the active tab. */
@@ -297,13 +294,13 @@
 }
 
 :root[data-theme="white-pink"] .chat-entry-preview {
-  color: #808087;
+  color: #818181;
   font-weight: 500;
 }
 
 /* Muted rose metadata, for secondary text. */
 :root[data-theme="white-pink"] :is(.single-room-header .chat-room-status, .group-speaker-meta) {
-  color: #a97889;
+  color: #848484;
   font-weight: 400;
 }
 

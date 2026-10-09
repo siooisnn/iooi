@@ -9,11 +9,14 @@ import { DEFAULT_GPT_MODEL, resolveGptModel } from "./lib/gpt-models";
 import type { AssistantMode, CacheStats, ChatListTab, ChatSession, FragmentEntry, Message, Mood } from "./lib/app-types";
 import { CLAUDE_DEFAULT_NAME, DEFAULT_PROMPT, MODELS, normalizeClaudeSettings } from "./lib/app-settings";
 import type { Settings } from "./lib/app-settings";
-import { createGroupSession, ensureMemoSession, genId, mergeChatMessages, mergeChatSessionLists, mergeFragments } from "./lib/chat-sessions";
+import { createGroupSession, genId, mergeChatMessages, mergeChatSessionLists, mergeFragments } from "./lib/chat-sessions";
 import { apiFetch, fetchFromServer, fetchGptFromServer, fetchGroupFromServer, getToken, loadLocal, loadLocalRaw, saveLocal, syncGptToServer, syncGroupToServer, syncToServer } from "./lib/client-api";
-import { IconChat, IconDiary, IconHome, IconSettings } from "./components/NavIcons";
 import { ChatListView } from "./components/ChatListView";
-import { HomeView } from "./components/HomeView";
+import { HomeView, MoonPage } from "./components/HomeView";
+import type { HomeApp } from "./components/HomeView";
+import { HeartbeatView, ReadingView } from "./components/AppPages";
+import { FragmentsView } from "./components/FragmentsView";
+import { PageHeader } from "./components/PageHeader";
 import { ChatView } from "./components/ChatView";
 import { SummerPageView } from "./components/SummerPageView";
 import { SettingsView } from "./components/SettingsView";
@@ -46,15 +49,20 @@ export default function Home() {
     city: "",
   };
 
-  const [tab, setTab] = useState<"home" | "chat" | "diary" | "settings">("home");
-  useThemePage(tab);
+  // The desktop, or whichever of its apps is open.
+  const [tab, setTab] = useState<"home" | HomeApp>("home");
+  useThemePage(
+    tab === "home" || tab === "moon" || tab === "winter" ? "home"
+      : tab === "chat" ? "chat"
+        : tab === "settings" ? "settings"
+          : "diary",
+  );
   const [chatView, setChatView] = useState<"list" | "room" | "group">("list");
   const [settings, setSettings] = useState<Settings>(defaultSettings);
   const chatRoomOpen = tab === "chat" && chatView !== "list";
   const shellRef = useRef<HTMLDivElement>(null);
   const activeChatBackground = chatRoomOpen ? settings.classicChatBackground || "" : "";
-  // Which private room is open. Either person's room can be opened from
-  // the list, whichever person the A/B switch currently shows.
+  // Which private room is open: always the person ticked in Contacts.
   const [roomMode, setRoomMode] = useState<AssistantMode>("claude");
   const [listTab, setListTab] = useState<ChatListTab>("chats");
   const [sessions, setSessions] = useState<ChatSession[]>([]);
@@ -176,7 +184,7 @@ export default function Home() {
         initialSessions = [first];
         initialActiveSessionId = first.id;
       }
-      setSessions(ensureMemoSession(initialSessions));
+      setSessions(initialSessions);
       setActiveSessionId(initialActiveSessionId);
       if (mergedGptSessions.length === 0) {
         const firstGpt: ChatSession = { id: `gpt-${genId()}`, name: "GPT 对话 1", messages: [], createdAt: new Date().toISOString() };
@@ -397,15 +405,14 @@ export default function Home() {
   }, [activeSessionId]);
 
   const createSession = useCallback(() => {
-    const existingDraft = sessions.find((session) => session.kind !== "memo" && session.messages.length === 0);
+    const existingDraft = sessions.find((session) => session.messages.length === 0);
     if (existingDraft) {
       setActiveSessionId(existingDraft.id);
       return;
     }
-    const normalCount = sessions.filter((s) => s.kind !== "memo").length;
     const newSession: ChatSession = {
       id: genId(),
-      name: `对话 ${normalCount + 1}`,
+      name: `对话 ${sessions.length + 1}`,
       messages: [],
       createdAt: new Date().toISOString(),
     };
@@ -417,16 +424,13 @@ export default function Home() {
     deletedSessionIds.current.add(id);
     saveLocal("iooi-deleted-session-ids", Array.from(deletedSessionIds.current));
     setSessions((prev) => {
-      const target = prev.find((s) => s.id === id);
-      if (target?.kind === "memo") return prev; // 备忘不可删
       const next = prev.filter((s) => s.id !== id);
-      const normals = next.filter((s) => s.kind !== "memo");
-      if (normals.length === 0) {
+      if (next.length === 0) {
         const fresh: ChatSession = { id: genId(), name: "对话 1", messages: [], createdAt: new Date().toISOString() };
         setActiveSessionId(fresh.id);
-        return [...next, fresh];
+        return [fresh];
       }
-      if (id === activeSessionId) setActiveSessionId(normals[0].id);
+      if (id === activeSessionId) setActiveSessionId(next[0].id);
       return next;
     });
   }, [activeSessionId]);
@@ -506,18 +510,13 @@ export default function Home() {
 
   if (!mounted && !needKey) return <main className="app-bg"><div className="chat-container" /></main>;
 
-  const tabs = [
-    { id: "home" as const, label: "Home", Icon: IconHome },
-    { id: "chat" as const, label: "Chat", Icon: IconChat },
-    { id: "diary" as const, label: "Summer", Icon: IconDiary },
-    { id: "settings" as const, label: "Settings", Icon: IconSettings },
-  ];
+  function openApp(app: HomeApp) {
+    setTab(app);
+    if (app === "chat") setChatView("list");
+  }
 
-  function switchTab(nextTab: "home" | "chat" | "diary" | "settings") {
-    setTab(nextTab);
-    if (nextTab === "chat") {
-      setChatView("list");
-    }
+  function goHome() {
+    setTab("home");
   }
 
   if (needKey) {
@@ -573,10 +572,9 @@ export default function Home() {
     setChatView("group");
   }
 
-  // The round + beside the tab bar only acts on the chat list; on the other
-  // pages it is just part of the bar's shape.
+  // The round ＋ at the bottom right of the chat list opens a new window
+  // with whoever is ticked in Contacts.
   function openNewPrivateRoom() {
-    if (!chatListOpen) return;
     if (listMode === "gpt") createGptSession();
     else createSession();
     setRoomMode(listMode);
@@ -596,7 +594,13 @@ export default function Home() {
         {activeChatBackground && (
           <NextImage className="chat-room-background" src={activeChatBackground} alt="" fill unoptimized aria-hidden="true" />
         )}
-        {tab === "home" && <HomeView settings={settings} />}
+        {tab === "home" && <HomeView settings={settings} onOpen={openApp} />}
+        {tab === "moon" && (
+          <>
+            <PageHeader onBack={goHome} />
+            <MoonPage settings={settings} />
+          </>
+        )}
         {chatListOpen && (
           <ChatListView
             key={listMode}
@@ -604,11 +608,7 @@ export default function Home() {
             settings={settings}
             updateSettings={updateSettings}
             sessions={listMode === "gpt" ? gptSessions : sessions}
-            otherSessions={listMode === "gpt" ? sessions : gptSessions}
             groupSessions={groupSessions}
-            heartbeatLog={listMode === "gpt" ? [] : heartbeatLog}
-            fragments={fragments}
-            setFragments={setFragments}
             renameSession={listMode === "gpt" ? renameGptSession : renameSession}
             deleteSession={listMode === "gpt" ? deleteGptSession : deleteSession}
             openSession={openPrivateRoom}
@@ -616,6 +616,7 @@ export default function Home() {
             createGroup={openNewGroupRoom}
             listTab={listTab}
             setListTab={setListTab}
+            onBack={goHome}
           />
         )}
         {tab === "chat" && roomMode === "claude" && activeSession && chatView === "room" && (
@@ -673,44 +674,35 @@ export default function Home() {
             onBack={() => setChatView("list")}
           />
         )}
-        {tab === "diary" && (
+        {tab === "heartbeat" && <HeartbeatView log={heartbeatLog} onBack={goHome} />}
+        {tab === "winter" && <FragmentsView fragments={fragments} setFragments={setFragments} onClose={goHome} />}
+        {tab === "reading" && <ReadingView onBack={goHome} />}
+        {(tab === "summer-claude" || tab === "summer-gpt") && (
           <SummerPageView
-            key={settings.chatEntryStyle}
-            assistantMode={listMode}
-            assistantName={listMode === "gpt" ? "GPT" : (settings.aiName || CLAUDE_DEFAULT_NAME)}
+            key={tab}
+            assistantMode={tab === "summer-gpt" ? "gpt" : "claude"}
+            assistantName={tab === "summer-gpt" ? settings.gptName || "GPT" : settings.aiName || CLAUDE_DEFAULT_NAME}
+            onBack={goHome}
           />
         )}
         {tab === "settings" && (
           <SettingsView
             settings={settings}
             updateSettings={updateSettings}
-            updateSummary={listMode === "gpt" ? updateGptSummary : updateActiveSummary}
-            lastCache={listMode === "gpt" ? gptLastCache : lastCache}
-            session={listMode === "gpt" ? gptActiveSession : activeSession}
-            assistantMode={listMode}
+            onBack={goHome}
+            claudeCache={lastCache}
+            claudeSession={activeSession}
+            gptCache={gptLastCache}
+            gptSession={gptActiveSession}
+            updateGptSummary={updateGptSummary}
           />
         )}
 
-        {!(tab === "chat" && chatView !== "list") && <nav className="bottom-nav">
-          {tabs.map((t) => (
-            <button
-              key={t.id}
-              className={`nav-btn ${tab === t.id ? "nav-btn-active" : ""}`}
-              aria-current={tab === t.id ? "page" : undefined}
-              onClick={() => switchTab(t.id)}
-            >
-              <t.Icon active={tab === t.id} />
-              <span>{t.label}</span>
-            </button>
-          ))}
-        </nav>}
-        {!(tab === "chat" && chatView !== "list") && (
+        {chatListOpen && (
           <button
             type="button"
             className="bottom-nav-plus"
-            aria-label={chatListOpen ? `新开${listMode === "gpt" ? settings.gptName || "GPT" : settings.aiName || CLAUDE_DEFAULT_NAME}窗口` : undefined}
-            aria-hidden={chatListOpen ? undefined : true}
-            tabIndex={chatListOpen ? undefined : -1}
+            aria-label={`新开${listMode === "gpt" ? settings.gptName || "GPT" : settings.aiName || CLAUDE_DEFAULT_NAME}窗口`}
             onClick={openNewPrivateRoom}
           >
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">

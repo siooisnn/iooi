@@ -5,9 +5,10 @@ import { CacheStatusPanel } from "./CacheStatusPanel";
 import { ContextDebugPanel } from "./ContextDebugPanel";
 import { NotificationButton } from "./NotificationButton";
 import { ChatBackgroundSetting } from "./ChatBackgroundSetting";
+import { PageHeader } from "./PageHeader";
 import { resolveGptModel } from "../lib/gpt-models";
-import type { AssistantMode, CacheStats, ChatSession } from "../lib/app-types";
-import { BUBBLE_COLORS, CLAUDE_DEFAULT_NAME, CONTEXT_WINDOW_ROUNDS, MODELS } from "../lib/app-settings";
+import type { CacheStats, ChatSession } from "../lib/app-types";
+import { BUBBLE_COLORS, CLAUDE_DEFAULT_NAME, CONTEXT_WINDOW_ROUNDS } from "../lib/app-settings";
 import type { Settings } from "../lib/app-settings";
 import { apiFetch } from "../lib/client-api";
 
@@ -17,22 +18,29 @@ export const TODAY_STATES = [
   "sleepy", "exhausted", "low mood", "broken", "missing you",
 ];
 
+// 酥酥 and 郁郁 share one settings page: names and avatars side by side,
+// then each one's cache and context panels.
 export function SettingsView({
-  assistantMode,
   settings,
   updateSettings,
-  updateSummary,
-  lastCache,
-  session,
+  onBack,
+  claudeCache,
+  claudeSession,
+  gptCache,
+  gptSession,
+  updateGptSummary,
 }: {
-  assistantMode: AssistantMode;
   settings: Settings;
   updateSettings: (p: Partial<Settings>) => void;
-  updateSummary: (summary: string, until: number) => void;
-  lastCache: CacheStats | null;
-  session?: ChatSession;
+  onBack: () => void;
+  claudeCache: CacheStats | null;
+  claudeSession?: ChatSession;
+  gptCache: CacheStats | null;
+  gptSession?: ChatSession;
+  updateGptSummary: (summary: string, until: number) => void;
 }) {
-  const isGpt = assistantMode === "gpt";
+  // The manual 会话缓存 is 郁郁's; 酥酥's windows compress on their own.
+  const session = gptSession;
   const [cacheBusy, setCacheBusy] = useState(false);
   const [cacheMessage, setCacheMessage] = useState("");
   const [stateOpen, setStateOpen] = useState(false);
@@ -95,23 +103,22 @@ export function SettingsView({
     setCacheBusy(true);
     setCacheMessage("");
     try {
-      const currentModel = MODELS.find((m) => m.id === settings.model) || MODELS[0];
       const res = await apiFetch("/api/summary", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           previousSummary: session.summary || "",
           messages: slice.map((m) => ({ role: m.role, content: m.content })),
-          aiName: isGpt ? "GPT" : settings.aiName,
-          modelId: isGpt ? resolveGptModel(settings.gptModel).apiId : currentModel.apiId,
-          reasoningEffort: isGpt ? settings.gptReasoningEffort : undefined,
+          aiName: "GPT",
+          modelId: resolveGptModel(settings.gptModel).apiId,
+          reasoningEffort: settings.gptReasoningEffort,
         }),
       });
       const data = await res.json();
       if (!res.ok || !data.ok || !data.summary) {
         throw new Error(data.reason || "生成失败");
       }
-      updateSummary(String(data.summary).trim(), until);
+      updateGptSummary(String(data.summary).trim(), until);
       setCacheMessage(`已生成本窗口缓存，覆盖 ${omitted} 条更早消息。下轮聊天会带上。`);
     } catch (err) {
       setCacheMessage(err instanceof Error ? `生成失败：${err.message}` : "生成失败");
@@ -137,59 +144,30 @@ export function SettingsView({
   // Every card is open on one page; no sub-pages.
   return (
     <>
+      <PageHeader title="settings" onBack={onBack} />
       <section className="settings-body">
         <div className="settings-group">
           <h2 className="settings-group-title">Name &amp; Avatar</h2>
-          <div className="avatar-upload-row">
-            <div className="avatar-upload-item">
-              <button className="avatar-upload-btn" onClick={() => handleAvatarUpload(isGpt ? "gptAvatar" : "aiAvatar")}>
-                {isGpt
-                  ? settings.gptAvatar
-                    ? <img src={settings.gptAvatar} className="avatar-upload-preview" alt="" />
-                    : <div className="avatar-upload-placeholder avatar-ai" />
-                  : settings.aiAvatar
-                    ? <img src={settings.aiAvatar} className="avatar-upload-preview" alt="" />
-                    : <div className="avatar-upload-placeholder avatar-ai" />
-                }
-                <span className="avatar-upload-label">Tap to change</span>
-              </button>
-              <input
-                className="settings-input settings-input-short"
-                value={isGpt ? settings.gptName : settings.aiName}
-                onChange={(e) => updateSettings(isGpt ? { gptName: e.target.value } : { aiName: e.target.value })}
-              />
-            </div>
-            <div className="avatar-upload-item">
-              <button className="avatar-upload-btn" onClick={() => handleAvatarUpload("userAvatar")}>
-                {settings.userAvatar
-                  ? <img src={settings.userAvatar} className="avatar-upload-preview" alt="" />
-                  : <div className="avatar-upload-placeholder avatar-user" />
-                }
-                <span className="avatar-upload-label">Tap to change</span>
-              </button>
-              <input className="settings-input settings-input-short" value={settings.userName} onChange={(e) => updateSettings({ userName: e.target.value })} />
-            </div>
-          </div>
-        </div>
-
-        <div className="settings-group">
-          <h2 className="settings-group-title">A or B?</h2>
-          <p className="settings-hint">My answer is “or”.</p>
-          <div className="model-options">
-            <button
-              className={`model-option ${settings.chatEntryStyle !== "direct" ? "model-option-active" : ""}`}
-              onClick={() => updateSettings({ chatEntryStyle: "list" })}
-            >
-              <span className="model-option-dot" />
-              RainLikeButter
-            </button>
-            <button
-              className={`model-option ${settings.chatEntryStyle === "direct" ? "model-option-active" : ""}`}
-              onClick={() => updateSettings({ chatEntryStyle: "direct" })}
-            >
-              <span className="model-option-dot" />
-              GrassFromAfar
-            </button>
+          <div className="avatar-upload-row avatar-upload-row-three">
+            {([
+              { field: "aiAvatar", nameField: "aiName", placeholder: "avatar-ai" },
+              { field: "gptAvatar", nameField: "gptName", placeholder: "avatar-ai" },
+              { field: "userAvatar", nameField: "userName", placeholder: "avatar-user" },
+            ] as const).map(({ field, nameField, placeholder }) => (
+              <div className="avatar-upload-item" key={field}>
+                <button className="avatar-upload-btn" onClick={() => handleAvatarUpload(field)}>
+                  {settings[field]
+                    ? <img src={settings[field]} className="avatar-upload-preview" alt="" />
+                    : <div className={`avatar-upload-placeholder ${placeholder}`} />}
+                  <span className="avatar-upload-label">Tap to change</span>
+                </button>
+                <input
+                  className="settings-input settings-input-short"
+                  value={settings[nameField]}
+                  onChange={(e) => updateSettings({ [nameField]: e.target.value })}
+                />
+              </div>
+            ))}
           </div>
         </div>
 
@@ -240,7 +218,6 @@ export function SettingsView({
           )}
         </div>
 
-        {!isGpt && <>
         <div className="settings-group">
           <h2 className="settings-group-title">Proactive Care</h2>
           <p className="settings-hint">When off, heartbeat only checks in quietly: no messages, no push notifications.</p>
@@ -263,7 +240,6 @@ export function SettingsView({
             onChange={(e) => updateSettings({ city: e.target.value })}
           />
         </div>
-        </>}
 
         <div className="settings-group">
           <h2 className="settings-group-title">Anniversary</h2>
@@ -279,8 +255,7 @@ export function SettingsView({
           </div>
         </div>
 
-        {!isGpt && (
-          <div className="settings-group">
+        <div className="settings-group">
             <h2 className="settings-group-title">Notifications</h2>
             <p className="settings-hint">Push to your phone when {aiName} writes first.</p>
             <NotificationButton
@@ -305,10 +280,17 @@ export function SettingsView({
               }
             />
           </div>
-        )}
 
-        {isGpt && <div className="settings-group">
-          <h2 className="settings-group-title">会话缓存</h2>
+        <CacheStatusPanel cache={claudeCache} title={`缓存命中 · ${aiName}`} />
+        <ContextDebugPanel
+          title={`上下文调试 · ${aiName}`}
+          cache={claudeCache}
+          sessionMessageCount={claudeSession?.messages.length ?? 0}
+          sessionUserTurns={claudeSession?.messages.filter((m) => m.role === "user").length ?? 0}
+        />
+
+        <div className="settings-group">
+          <h2 className="settings-group-title">会话缓存 · {gptName}</h2>
           <p className="settings-hint">
             把当前窗口已经滑出 30 轮外的旧聊天压成一段前情，后续聊天会带上。
           </p>
@@ -323,12 +305,13 @@ export function SettingsView({
           <p className="settings-hint">
             当前可压缩：{manualCache.slice.length} 条；已缓存长度：{session?.summary?.length || 0} 字
           </p>
-          {cacheMessage && <p className="settings-hint" style={{ color: cacheMessage.startsWith("生成失败") ? "var(--theme-accent, #c4866c)" : "var(--theme-success, #5b8a6b)" }}>{cacheMessage}</p>}
-        </div>}
+          {cacheMessage && <p className="settings-hint" style={cacheMessage.startsWith("生成失败") ? { color: "var(--text-primary)", fontWeight: 600 } : undefined}>{cacheMessage}</p>}
+        </div>
 
-        <CacheStatusPanel cache={lastCache} />
+        <CacheStatusPanel cache={gptCache} title={`缓存命中 · ${gptName}`} />
         <ContextDebugPanel
-          cache={lastCache}
+          title={`上下文调试 · ${gptName}`}
+          cache={gptCache}
           sessionMessageCount={session?.messages.length ?? 0}
           sessionUserTurns={session?.messages.filter((m) => m.role === "user").length ?? 0}
         />
