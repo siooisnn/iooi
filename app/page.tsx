@@ -68,7 +68,9 @@ export default function Home() {
   const finishRetroBoot = useCallback(() => setRetroBoot(false), []);
   const chatRoomOpen = tab === "chat" && chatView !== "list";
   const shellRef = useRef<HTMLDivElement>(null);
-  const activeChatBackground = chatRoomOpen ? settings.classicChatBackground || "" : "";
+  // Retro mode turns private rooms into MSN windows; group rooms keep their look.
+  const retroRoom = settings.retroDesktop && tab === "chat" && chatView === "room";
+  const activeChatBackground = chatRoomOpen && !retroRoom ? settings.classicChatBackground || "" : "";
   // Which private room is open: always the person ticked in Contacts.
   const [roomMode, setRoomMode] = useState<AssistantMode>("claude");
   const [listTab, setListTab] = useState<ChatListTab>("chats");
@@ -590,7 +592,7 @@ export default function Home() {
         ref={shellRef}
         className="chat-container"
         data-chat-view={tab === "chat" ? chatView : undefined}
-        data-chat-ui={tab === "chat" && chatView === "room" ? "default" : undefined}
+        data-chat-ui={tab === "chat" && chatView === "room" ? (retroRoom ? "xp" : "default") : undefined}
         data-chat-background={activeChatBackground ? "image" : undefined}
       >
         {activeChatBackground && (
@@ -658,6 +660,7 @@ export default function Home() {
             renameSession={renameSession}
             listEntryMode
             onBackToList={() => setChatView("list")}
+            retro={settings.retroDesktop}
           />
         )}
         {tab === "chat" && roomMode === "gpt" && gptActiveSession && chatView === "room" && (
@@ -679,6 +682,7 @@ export default function Home() {
             renameSession={renameGptSession}
             listEntryMode
             onBackToList={() => setChatView("list")}
+            retro={settings.retroDesktop}
           />
         )}
         {tab === "chat" && chatView === "group" && (

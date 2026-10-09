@@ -21,6 +21,13 @@ import { APP_TIME_ZONE, formatChatRoomTime, getDateLabel, getNowContext, getTime
 import { genId, getChatStatusLabel, hasLaterUserMessage, isSummerUtilityMessage, mergeChatMessages, shouldShowChatRoomTime } from "../lib/chat-sessions";
 import { apiFetch, saveLocal, syncGptToServer, syncToServer } from "../lib/client-api";
 import { CollapsibleSummerCard, ThinkingBlock, renderContent } from "./ChatContent";
+import { ChatGlyph } from "./RetroDesktop";
+
+// MSN's nudge: the window shakes. Only the look; nothing is sent.
+const NUDGE_FRAMES: Keyframe[] = [
+  [0, 0], [-9, 4], [7, -5], [-8, -3], [9, 5], [-6, 6], [7, -4], [-4, 3], [3, -2], [0, 0],
+].map(([x, y]) => ({ transform: `translate(${x}px, ${y}px)` }));
+const NUDGE_COOLDOWN_MS = 3000;
 
 export const REPLY_REQUEST_LABELS: Record<ReplyRequestState, string> = {
   idle: "",
@@ -62,6 +69,7 @@ export function ChatView({
   renameSession,
   listEntryMode = false,
   onBackToList,
+  retro = false,
 }: {
   assistantMode: AssistantMode;
   settings: Settings;
@@ -79,6 +87,8 @@ export function ChatView({
   renameSession: (id: string, name: string) => void;
   listEntryMode?: boolean;
   onBackToList?: () => void;
+  /** Retro mode: the room as a 2007 MSN window (see xp-chat.css). */
+  retro?: boolean;
 }) {
   const isGpt = assistantMode === "gpt";
   const claudeUsage = useClaudeUsage(!isGpt);
@@ -149,6 +159,25 @@ export function ChatView({
   const [weatherText, setWeatherText] = useState("");
   const [editingProposalIndex, setEditingProposalIndex] = useState<number | null>(null);
   const [proposalDraft, setProposalDraft] = useState<SummerWriteProposal | null>(null);
+
+  // ── Retro: 抖一抖. The notes live only while this window is open. ──
+  const [nudgeNotes, setNudgeNotes] = useState<Array<{ id: string; text: string }>>([]);
+  const lastNudgeRef = useRef(0);
+  function sendNudge() {
+    const now = Date.now();
+    const tooSoon = now - lastNudgeRef.current < NUDGE_COOLDOWN_MS;
+    setNudgeNotes((notes) => [...notes.slice(-4), {
+      id: genId(),
+      text: tooSoon ? "你不能如此频繁地发送闪屏振动。" : "你发送了一个闪屏振动。",
+    }]);
+    followLatest();
+    if (tooSoon) return;
+    lastNudgeRef.current = now;
+    try { navigator.vibrate?.([70, 40, 70]); } catch { /* No vibration on iOS. */ }
+    if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return;
+    scrollRef.current?.closest<HTMLElement>(".chat-container")
+      ?.animate(NUDGE_FRAMES, { duration: 620, easing: "linear" });
+  }
 
   useEffect(() => {
     if (isGpt || !settings.city) return;
@@ -770,9 +799,34 @@ export function ChatView({
     </>
   );
 
+  const retroUserName = settings.userName || "我";
+
   return (
     <>
-      {listEntryMode ? (
+      {listEntryMode && retro ? (
+        <header className="chat-header chat-room-header xp-chat-header">
+          <div className="xp-chat-titlebar">
+            <span className="xp-chat-title-icon" aria-hidden="true"><ChatGlyph /></span>
+            <h1 className="xp-chat-title">{assistantName} - 对话</h1>
+            <div className="xp-chat-controls">
+              <i className="xp-chat-btn xp-chat-min" aria-hidden="true" />
+              <i className="xp-chat-btn xp-chat-max" aria-hidden="true" />
+              <button type="button" className="xp-chat-btn xp-chat-close" onClick={handleBackToList} aria-label="关闭窗口，返回列表" title="关闭">
+                <svg viewBox="0 0 10 10" aria-hidden="true"><path d="M2 2l6 6M8 2l-6 6" /></svg>
+              </button>
+            </div>
+          </div>
+          <div className="xp-chat-to">
+            <span className="xp-chat-to-line">
+              收件人：<i className="xp-chat-buddy" aria-hidden="true" /><b>{assistantName}</b>
+              <span className="xp-chat-to-status">
+                {developmentMode ? `工作中 · ${developmentProjectLabel}` : isGpt ? "在线" : getChatStatusLabel(aiMood)}
+              </span>
+            </span>
+            {showQuota && <ClaudeUsageCircle {...claudeUsage} className="xp-chat-quota" title="剩余百分比：五小时 / 本周；详细额度在聊天设置" />}
+          </div>
+        </header>
+      ) : listEntryMode ? (
         <header className="chat-header chat-room-header single-room-header">
           <div className="header-top">
             <button className="header-icon-btn chat-room-back" onClick={handleBackToList} aria-label="返回列表">
@@ -941,6 +995,9 @@ export function ChatView({
           const showDateSep = listEntryMode ? shouldShowChatRoomTime(message, prevMsg) : message.date && message.date !== prevDate;
           const compactTop = !!prevMsg && prevMsg.role === message.role && !showDateSep;
           const compactBottom = !!nextMsg && nextMsg.role === message.role && nextMsg.date === message.date;
+          // MSN log: "名字 说 (时间):" heads each run of lines from one person.
+          const showSays = retro && !isSummerUtility && (showDateSep || !prevMsg
+            || prevMsg.role !== message.role || isSummerUtilityMessage(prevMsg));
 
           return (
             <div key={index}>
@@ -951,6 +1008,11 @@ export function ChatView({
                       ? formatChatRoomTime(parseMessageDateTime(message) || new Date())
                       : getDateLabel(new Date(message.date!), message.time)}
                   </span>
+                </div>
+              )}
+              {showSays && (
+                <div className={`xp-msg-says ${message.role === "user" ? "xp-msg-says-user" : "xp-msg-says-ai"}`}>
+                  {message.role === "user" ? retroUserName : assistantName} 说{message.time ? ` (${message.time})` : ""}:
                 </div>
               )}
               {message.thinking && (
@@ -1046,6 +1108,10 @@ export function ChatView({
             </div>
           );
         })}
+        {retro && nudgeNotes.map((note) => (
+          <div key={note.id} className="xp-msg-nudge" role="status">{note.text}</div>
+        ))}
+        {retro && streamingReply && <div className="xp-msg-says xp-msg-says-ai">{assistantName} 说:</div>}
         {streamingReply && (
           <div className="msg-row msg-row-ai msg-row-streaming">
             {assistantAvatar
@@ -1070,7 +1136,9 @@ export function ChatView({
               <div className={`msg-bubble msg-bubble-ai reply-status-bubble reply-status-${replyRequestState}`} aria-live="polite">
                 {loading && <div className="typing-dots"><span /><span /><span /></div>}
                 <span className="reply-status-text">{loading || replyRequestState === "paused" || replyRequestState === "failed"
-                  ? replyRequestDetail || REPLY_REQUEST_LABELS[replyRequestState]
+                  ? replyRequestDetail || (retro && loading && (replyRequestState === "preparing" || replyRequestState === "waiting")
+                    ? `${assistantName} 正在输入消息…`
+                    : REPLY_REQUEST_LABELS[replyRequestState])
                   : activeCodeTask?.progress}</span>
               </div>
             </div>
@@ -1088,7 +1156,7 @@ export function ChatView({
         </div>
       )}
 
-      <footer className="chat-footer single-chat-footer">
+      <footer className={`chat-footer single-chat-footer${retro ? " xp-chat-footer" : ""}`}>
         {uploadError && <p className="composer-upload-error" role="alert">{uploadError}</p>}
         {attachments.length > 0 && (
           <div className="composer-attachments" aria-label="待发送的附件">
@@ -1110,79 +1178,137 @@ export function ChatView({
             ))}
           </div>
         )}
-        <div className="composer-row">
-          <input
-            ref={fileInputRef}
-            type="file"
-            multiple
-            className="attach-file-input"
-            accept={isGpt
-              ? "image/*,application/pdf,.txt,.md,.csv"
-              : "image/*"}
-            disabled={uploading || loading}
-            onChange={(event) => void uploadFile(event)}
-            aria-label={isGpt ? "上传图片或文件" : "上传图片"}
-          />
-          <button
-            type="button"
-            className={`attach-btn attach-btn-separate${uploading ? " attach-btn-uploading" : ""}`}
-            onClick={() => fileInputRef.current?.click()}
-            disabled={uploading || loading}
-            aria-label={uploading ? "正在上传" : (isGpt ? "上传图片或文件" : "上传图片")}
-            title={uploading ? "正在上传" : (isGpt ? "上传图片或文件" : "上传图片")}
-          >
-            {uploading ? (
-              <span className="attach-upload-spinner" />
-            ) : (
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48" />
-              </svg>
-            )}
-          </button>
-          <div className="input-wrapper">
-            <textarea
-              ref={inputRef} value={input} onChange={handleInputChange}
-              placeholder={inputHint} rows={1} className="chat-input"
+        {retro ? (
+          <>
+            <div className="xp-chat-toolbar">
+              <input
+                ref={fileInputRef}
+                type="file"
+                multiple
+                className="attach-file-input"
+                accept={isGpt ? "image/*,application/pdf,.txt,.md,.csv" : "image/*"}
+                disabled={uploading || loading}
+                onChange={(event) => void uploadFile(event)}
+                aria-label={isGpt ? "上传图片或文件" : "上传图片"}
+              />
+              <button type="button" className="xp-chat-tool" onClick={() => fileInputRef.current?.click()} disabled={uploading || loading}>
+                <svg viewBox="0 0 16 16" aria-hidden="true">
+                  <rect x="1.5" y="3" width="13" height="10" rx="1" fill="#fff" stroke="#3a6ea5" />
+                  <path d="M2.5 12l3.6-4 2.6 2.7 1.8-1.8 3 3.1z" fill="#4caf3a" />
+                  <circle cx="11" cy="6" r="1.4" fill="#f5b800" />
+                </svg>
+                <span>{uploading ? "上传中…" : isGpt ? "文件" : "图片"}</span>
+              </button>
+              <button type="button" className="xp-chat-tool" onClick={sendNudge} title="发送闪屏振动">
+                <svg viewBox="0 0 16 16" aria-hidden="true">
+                  <path d="M1.5 8h2l1.5-4 2.5 8 2.5-8 1.5 4h3" fill="none" stroke="#d2421c" strokeWidth="1.6" strokeLinejoin="round" strokeLinecap="round" />
+                </svg>
+                <span>抖一抖</span>
+              </button>
+              <span className="xp-chat-toolbar-gap" />
+              {developmentMode && (
+                <ContextUsageBadge kind="work" sessionId={session.id} project={developmentProject} messages={workUsageMessages} />
+              )}
+              <button type="button" className="xp-chat-tool" aria-expanded={showModelMenu} onClick={() => setShowModelMenu((open) => !open)}>
+                <svg viewBox="0 0 16 16" aria-hidden="true">
+                  <path d="M6.6 1.5h2.8l.4 1.8 1.3.6 1.6-1 2 2-1 1.6.6 1.3 1.8.4v2.8l-1.8.4-.6 1.3 1 1.6-2 2-1.6-1-1.3.6-.4 1.8H6.6l-.4-1.8-1.3-.6-1.6 1-2-2 1-1.6-.6-1.3-1.8-.4V6.6l1.8-.4.6-1.3-1-1.6 2-2 1.6 1 1.3-.6z" transform="scale(.94) translate(.5 .5)" fill="#9fb3cf" stroke="#3a5a8c" strokeWidth=".9" strokeLinejoin="round" />
+                  <circle cx="8" cy="8" r="2.2" fill="#fff" stroke="#3a5a8c" strokeWidth=".9" />
+                </svg>
+                <span>设置</span>
+              </button>
+            </div>
+            <div className="xp-chat-compose">
+              <textarea
+                ref={inputRef} value={input} onChange={handleInputChange}
+                placeholder={inputHint} rows={2} className="xp-chat-input"
+                aria-label="输入消息"
+              />
+              <button
+                type="button"
+                onClick={loading ? pauseReply : sendMessage}
+                disabled={!loading && ((!input.trim() && !attachments.length) || uploading)}
+                className="xp-chat-send"
+                aria-label={loading ? "暂停等待回复" : "发送消息"}
+              >
+                {loading ? <>停止(<u>T</u>)</> : <>发送(<u>S</u>)</>}
+              </button>
+            </div>
+          </>
+        ) : (
+          <div className="composer-row">
+            <input
+              ref={fileInputRef}
+              type="file"
+              multiple
+              className="attach-file-input"
+              accept={isGpt
+                ? "image/*,application/pdf,.txt,.md,.csv"
+                : "image/*"}
+              disabled={uploading || loading}
+              onChange={(event) => void uploadFile(event)}
+              aria-label={isGpt ? "上传图片或文件" : "上传图片"}
             />
             <button
               type="button"
-              onClick={loading ? pauseReply : sendMessage}
-              disabled={!loading && ((!input.trim() && !attachments.length) || uploading)}
-              className={`send-btn${loading ? " pause-reply-btn" : ""}`}
-              aria-label={loading ? "暂停等待回复" : "发送消息"}
-              title={loading ? "暂停等待回复" : "发送"}
+              className={`attach-btn attach-btn-separate${uploading ? " attach-btn-uploading" : ""}`}
+              onClick={() => fileInputRef.current?.click()}
+              disabled={uploading || loading}
+              aria-label={uploading ? "正在上传" : (isGpt ? "上传图片或文件" : "上传图片")}
+              title={uploading ? "正在上传" : (isGpt ? "上传图片或文件" : "上传图片")}
             >
-              {loading ? (
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="white" aria-hidden="true">
-                  <rect x="6" y="5" width="4" height="14" rx="1" />
-                  <rect x="14" y="5" width="4" height="14" rx="1" />
-                </svg>
+              {uploading ? (
+                <span className="attach-upload-spinner" />
               ) : (
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                  <line x1="12" y1="19" x2="12" y2="5" /><polyline points="5 12 12 5 19 12" />
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48" />
                 </svg>
               )}
             </button>
+            <div className="input-wrapper">
+              <textarea
+                ref={inputRef} value={input} onChange={handleInputChange}
+                placeholder={inputHint} rows={1} className="chat-input"
+              />
+              <button
+                type="button"
+                onClick={loading ? pauseReply : sendMessage}
+                disabled={!loading && ((!input.trim() && !attachments.length) || uploading)}
+                className={`send-btn${loading ? " pause-reply-btn" : ""}`}
+                aria-label={loading ? "暂停等待回复" : "发送消息"}
+                title={loading ? "暂停等待回复" : "发送"}
+              >
+                {loading ? (
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="white" aria-hidden="true">
+                    <rect x="6" y="5" width="4" height="14" rx="1" />
+                    <rect x="14" y="5" width="4" height="14" rx="1" />
+                  </svg>
+                ) : (
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <line x1="12" y1="19" x2="12" y2="5" /><polyline points="5 12 12 5 19 12" />
+                  </svg>
+                )}
+              </button>
+            </div>
+            {listEntryMode && developmentMode && (
+              <ContextUsageBadge kind="work" sessionId={session.id} project={developmentProject} messages={workUsageMessages} />
+            )}
+            {listEntryMode ? (
+              <button
+                type="button"
+                className="attach-btn attach-btn-separate composer-settings-btn"
+                aria-label="聊天设置"
+                aria-expanded={showModelMenu}
+                title="聊天设置"
+                onClick={() => setShowModelMenu((open) => !open)}
+              >
+                <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="m9.5 3-.6 2.4-2 .9-2.3-.7L2 10l1.8 1.7v2.2L2 15.6l2.6 4.4 2.3-.7 2 .9.6 2.4h5l.6-2.4 2-.9 2.3.7 2.6-4.4-1.8-1.7v-2.2L22 10l-2.6-4.4-2.3.7-2-.9L14.5 3Z" transform="translate(0 -1) scale(1 .95)" />
+                  <circle cx="12" cy="12" r="3" />
+                </svg>
+              </button>
+            ) : showQuota && <ClaudeUsageCircle {...claudeUsage} />}
           </div>
-          {listEntryMode && developmentMode && (
-            <ContextUsageBadge kind="work" sessionId={session.id} project={developmentProject} messages={workUsageMessages} />
-          )}
-          {listEntryMode ? (
-            <button
-              type="button"
-              className="attach-btn attach-btn-separate composer-settings-btn"
-              aria-label="聊天设置"
-              aria-expanded={showModelMenu}
-              title="聊天设置"
-              onClick={() => setShowModelMenu((open) => !open)}
-            >
-              <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                <path d="m9.5 3-.6 2.4-2 .9-2.3-.7L2 10l1.8 1.7v2.2L2 15.6l2.6 4.4 2.3-.7 2 .9.6 2.4h5l.6-2.4 2-.9 2.3.7 2.6-4.4-1.8-1.7v-2.2L22 10l-2.6-4.4-2.3.7-2-.9L14.5 3Z" transform="translate(0 -1) scale(1 .95)" />
-                <circle cx="12" cy="12" r="3" />
-              </svg>
-            </button>
-          ) : showQuota && <ClaudeUsageCircle {...claudeUsage} />}
-        </div>
+        )}
       </footer>
 
       {showSessions && (

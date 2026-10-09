@@ -1,0 +1,747 @@
+/* ━━ Retro chat room: a private room as an MSN Messenger window, circa 2007 ━━
+   Only while retro mode is on: page.tsx sets data-chat-ui="xp" on the room
+   instead of "default", so none of the floating-glass rules apply, and
+   ChatView swaps in the title bar, the "名字 说 (时间):" log lines, the
+   toolbar with 抖一抖 and the sunken input box.
+   Every rule starts with the full room selector (0,6,0) so it outranks
+   white-pink's flat reset and ios-glass's rounded bubbles. */
+
+:root[data-theme] .app-bg .chat-container[data-chat-ui="xp"][data-chat-view="room"] {
+  --xp-frame: #0831d9;
+  --xp-face: #ece9d8;
+  --xp-msn: linear-gradient(180deg, #f3f7fd 0%, #e3ecf9 55%, #d3e1f5 100%);
+  --xp-line: #7f9db9;
+  position: relative;
+  isolation: isolate;
+  padding: 0 3px;
+  border: 0;
+  background: var(--xp-frame);
+  color: #000;
+  font-family: Tahoma, Verdana, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* On a wide screen the window floats on the Bliss sky. */
+@media (min-width: 481px) {
+  :root[data-theme] .app-bg:has(> .chat-container[data-chat-ui="xp"][data-chat-view="room"]) {
+    background-color: #3d86e8;
+    background-image:
+      radial-gradient(ellipse 100% 40% at 24% 102%, #8fd35c 0%, #67b63a 45%, #4f9f2a 70%, transparent 70.5%),
+      radial-gradient(ellipse 130% 34% at 88% 106%, #7fc64b 0%, #57a82f 55%, #3f8d22 70%, transparent 70.5%),
+      linear-gradient(180deg, #1b56c4 0%, #3478df 28%, #6aa8ee 52%, #a9d0f6 68%, #d8ecfc 78%);
+  }
+
+  :root[data-theme] .app-bg .chat-container[data-chat-ui="xp"][data-chat-view="room"] {
+    border-radius: 9px 9px 4px 4px;
+    box-shadow: 4px 6px 16px rgba(0, 20, 80, 0.4);
+  }
+}
+
+:root[data-theme] .app-bg .chat-container[data-chat-ui="xp"][data-chat-view="room"] button {
+  font-family: inherit;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* ━━ Title bar and the 收件人 line ━━ */
+:root[data-theme] .app-bg .chat-container[data-chat-ui="xp"][data-chat-view="room"] > .chat-header {
+  position: relative;
+  z-index: 5;
+  flex: none;
+  margin: 0 -3px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+:root[data-theme] .app-bg .chat-container[data-chat-ui="xp"][data-chat-view="room"] .xp-chat-titlebar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: calc(32px + env(safe-area-inset-top));
+  padding: env(safe-area-inset-top) 6px 0 9px;
+  /* The gloss covers the 32px bar; the status-bar strip above it is plain blue. */
+  background:
+    linear-gradient(180deg, #3c95ff 0%, #0a5fe8 9%, #0055e5 18%, #0a63f6 45%, #0b5ff0 82%, #0350d8 92%, #0234b8 100%)
+    bottom / 100% 32px no-repeat,
+    #0a5fe8;
+  color: #fff;
+  text-shadow: 1px 1px 0 #0a1d5c;
+}
+
+@media (min-width: 481px) {
+  :root[data-theme] .app-bg .chat-container[data-chat-ui="xp"][data-chat-view="room"] .xp-chat-titlebar {
+    border-radius: 8px 8px 0 0;
+  }
+}
+
+:root[data-theme] .app-bg .chat-container[data-chat-ui="xp"][data-chat-view="room"] .xp-chat-title-icon {
+  flex: none;
+  width: 18px;
+  height: 18px;
+}
+
+:root[data-theme] .app-bg .chat-container[data-chat-ui="xp"][data-chat-view="room"] .xp-chat-title-icon svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  filter: drop-shadow(0 1px 0 rgba(0, 0, 0, 0.3));
+}
+
+:root[data-theme] .app-bg .chat-container[data-chat-ui="xp"][data-chat-view="room"] .xp-chat-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  font-size: 13.5px;
+  font-weight: 700;
+  line-height: 32px;
+  letter-spacing: 0;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: #fff;
+}
+
+:root[data-theme] .app-bg .chat-container[data-chat-ui="xp"][data-chat-view="room"] .xp-chat-controls {
+  display: flex;
+  flex: none;
+  gap: 2px;
+}
+
+:root[data-theme] .app-bg .chat-container[data-chat-ui="xp"][data-chat-view="room"] .xp-chat-btn {
+  position: relative;
+  display: block;
+  width: 23px;
+  height: 23px;
+  padding: 0;
+  border: 1px solid #fff;
+  border-radius: 3px;
+  background-image: linear-gradient(180deg, #5d9bff 0%, #2765ec 55%, #1a4fd0 100%);
+  box-shadow: inset -1px -1px 0 rgba(0, 0, 0, 0.18);
+}
+
+:root[data-theme] .app-bg .chat-container[data-chat-ui="xp"][data-chat-view="room"] .xp-chat-min::after {
+  content: "";
+  position: absolute;
+  left: 6px;
+  bottom: 5px;
+  width: 8px;
+  height: 3px;
+  background: #fff;
+}
+
+:root[data-theme] .app-bg .chat-container[data-chat-ui="xp"][data-chat-view="room"] .xp-chat-max::after {
+  content: "";
+  position: absolute;
+  inset: 5px;
+  border: 1px solid #fff;
+  border-top-width: 3px;
+}
+
+:root[data-theme] .app-bg .chat-container[data-chat-ui="xp"][data-chat-view="room"] .xp-chat-close {
+  margin-left: 2px;
+  background-image: linear-gradient(180deg, #f39a7f 0%, #e45a2f 50%, #c8381a 100%);
+  cursor: pointer;
+}
+
+/* A finger-sized hit area around the little red button. */
+:root[data-theme] .app-bg .chat-container[data-chat-ui="xp"][data-chat-view="room"] .xp-chat-close::after {
+  content: "";
+  position: absolute;
+  inset: -8px -6px -8px -8px;
+}
+
+:root[data-theme] .app-bg .chat-container[data-chat-ui="xp"][data-chat-view="room"] .xp-chat-close svg {
+  display: block;
+  width: 11px;
+  height: 11px;
+  margin: auto;
+  overflow: visible;
+  fill: none;
+  stroke: #fff;
+  stroke-width: 2.1;
+  stroke-linecap: round;
+}
+
+:root[data-theme] .app-bg .chat-container[data-chat-ui="xp"][data-chat-view="room"] .xp-chat-close:active {
+  filter: brightness(0.85);
+}
+
+:root[data-theme] .app-bg .chat-container[data-chat-ui="xp"][data-chat-view="room"] .xp-chat-to {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin: 0 3px;
+  padding: 6px 10px;
+  border-bottom: 1px solid #a7bcd9;
+  background-image: var(--xp-msn);
+  color: #333;
+  font-size: 12.5px;
+  line-height: 18px;
+}
+
+:root[data-theme] .app-bg .chat-container[data-chat-ui="xp"][data-chat-view="room"] .xp-chat-to-line {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+:root[data-theme] .app-bg .chat-container[data-chat-ui="xp"][data-chat-view="room"] .xp-chat-to-line b {
+  flex: none;
+  color: #000;
+  font-weight: 700;
+}
+
+/* MSN's little green "online" buddy. */
+:root[data-theme] .app-bg .chat-container[data-chat-ui="xp"][data-chat-view="room"] .xp-chat-buddy {
+  flex: none;
+  width: 10px;
+  height: 10px;
+  margin: 0 4px 0 2px;
+  border: 1px solid #1d7a12;
+  border-radius: 50%;
+  background-image: radial-gradient(circle at 35% 30%, #d8ffb0 0%, #63d13a 45%, #2b9a1a 100%);
+}
+
+:root[data-theme] .app-bg .chat-container[data-chat-ui="xp"][data-chat-view="room"] .xp-chat-to-status {
+  min-width: 0;
+  overflow: hidden;
+  margin-left: 6px;
+  color: #6d6d6d;
+  text-overflow: ellipsis;
+}
+
+:root[data-theme] .app-bg .chat-container[data-chat-ui="xp"][data-chat-view="room"] .xp-chat-to-status::before { content: "("; }
+:root[data-theme] .app-bg .chat-container[data-chat-ui="xp"][data-chat-view="room"] .xp-chat-to-status::after { content: ")"; }
+
+:root[data-theme] .app-bg .chat-container[data-chat-ui="xp"][data-chat-view="room"] .xp-chat-quota {
+  flex: none;
+  padding: 0 6px;
+  border: 1px solid var(--xp-line);
+  background: #fff;
+  color: #333;
+  font-size: 11px;
+  line-height: 16px;
+  font-variant-numeric: tabular-nums;
+}
+
+:root[data-theme] .app-bg .chat-container[data-chat-ui="xp"][data-chat-view="room"] .xp-chat-quota.composer-usage-stale {
+  opacity: 0.55;
+}
+
+/* ━━ The conversation log ━━ */
+:root[data-theme] .app-bg .chat-container[data-chat-ui="xp"][data-chat-view="room"] > .chat-messages {
+  flex: 1 1 auto;
+  min-height: 0;
+  gap: 0;
+  margin: 0;
+  padding: 8px 12px 16px;
+  border-left: 1px solid var(--xp-line);
+  border-right: 1px solid var(--xp-line);
+  background: #fff;
+  animation: none;
+}
+
+:root[data-theme] .app-bg .chat-container[data-chat-ui="xp"][data-chat-view="room"] > .chat-messages > * {
+  flex-shrink: 0;
+}
+
+:root[data-theme] .app-bg .chat-container[data-chat-ui="xp"][data-chat-view="room"] > .chat-messages::-webkit-scrollbar {
+  width: 6px;
+}
+
+:root[data-theme] .app-bg .chat-container[data-chat-ui="xp"][data-chat-view="room"] > .chat-messages::-webkit-scrollbar-thumb {
+  border-radius: 0;
+  background: #c1d2ee;
+}
+
+/* "酥酥 说 (18:49):" */
+:root[data-theme] .app-bg .chat-container[data-chat-ui="xp"][data-chat-view="room"] .xp-msg-says {
+  margin-top: 10px;
+  color: #6d6d6d;
+  font-size: 12.5px;
+  line-height: 18px;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+:root[data-theme] .app-bg .chat-container[data-chat-ui="xp"][data-chat-view="room"] .date-separator + .xp-msg-says {
+  margin-top: 2px;
+}
+
+/* Every line sits under its 说 line, indented, with no bubble or avatar. */
+:root[data-theme] .app-bg .chat-container[data-chat-ui="xp"][data-chat-view="room"] .msg-row {
+  display: block;
+  margin: 0;
+  padding: 0 0 0 14px;
+  animation: none;
+}
+
+:root[data-theme] .app-bg .chat-container[data-chat-ui="xp"][data-chat-view="room"] .msg-row > :is(.avatar, .avatar-img) {
+  display: none;
+}
+
+:root[data-theme] .app-bg .chat-container[data-chat-ui="xp"][data-chat-view="room"] :is(.msg-content-ai, .msg-content-user) {
+  display: block;
+  max-width: 100%;
+}
+
+:root[data-theme] .app-bg .chat-container[data-chat-ui="xp"][data-chat-view="room"] .msg-bubble {
+  min-height: 0;
+  margin: 0;
+  padding: 1px 0 2px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  color: #111;
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+:root[data-theme] .app-bg .chat-container[data-chat-ui="xp"][data-chat-view="room"] .msg-bubble::before,
+:root[data-theme] .app-bg .chat-container[data-chat-ui="xp"][data-chat-view="room"] .msg-bubble::after {
+  content: none;
+}
+
+:root[data-theme] .app-bg .chat-container[data-chat-ui="xp"][data-chat-view="room"] .msg-bubble .chat-message-link {
+  color: #0033cc;
+  text-decoration-color: currentColor;
+}
+
+/* Photos in a thin sunken frame. */
+:root[data-theme] .app-bg .chat-container[data-chat-ui="xp"][data-chat-view="room"] .msg-bubble.msg-bubble-img {
+  display: inline-block;
+  max-width: 100%;
+  margin: 3px 0 2px;
+  padding: 3px !important;
+  border: 1px solid var(--xp-line);
+  background: #fff;
+}
+
+:root[data-theme] .app-bg .chat-container[data-chat-ui="xp"][data-chat-view="room"] :is(.msg-image, .msg-image-tile) {
+  border-radius: 0;
+}
+
+:root[data-theme] .app-bg .chat-container[data-chat-ui="xp"][data-chat-view="room"] .msg-image-caption {
+  padding: 5px 2px 1px;
+  font-size: 14px;
+}
+
+/* A date / time break: a thin rule with the time in the middle. */
+:root[data-theme] .app-bg .chat-container[data-chat-ui="xp"][data-chat-view="room"] .date-separator {
+  gap: 8px;
+  margin: 12px 0 4px;
+  padding: 0;
+}
+
+:root[data-theme] .app-bg .chat-container[data-chat-ui="xp"][data-chat-view="room"] .date-separator::before,
+:root[data-theme] .app-bg .chat-container[data-chat-ui="xp"][data-chat-view="room"] .date-separator::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: #dbe3ef;
+}
+
+:root[data-theme] .app-bg .chat-container[data-chat-ui="xp"][data-chat-view="room"] .date-separator-text {
+  padding: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  color: #8a94a6;
+  font-size: 11px;
+  letter-spacing: 0;
+}
+
+/* Thinking: a little blue link that opens a gray quote. */
+:root[data-theme] .app-bg .chat-container[data-chat-ui="xp"][data-chat-view="room"] .thinking-row {
+  margin: 1px 0 1px;
+  padding-left: 14px;
+}
+
+:root[data-theme] .app-bg .chat-container[data-chat-ui="xp"][data-chat-view="room"] .thinking-toggle {
+  color: #0033cc;
+  font-size: 12px;
+  opacity: 1;
+}
+
+:root[data-theme] .app-bg .chat-container[data-chat-ui="xp"][data-chat-view="room"] .thinking-toggle span {
+  text-decoration: underline;
+}
+
+:root[data-theme] .app-bg .chat-container[data-chat-ui="xp"][data-chat-view="room"] .thinking-content {
+  border-left: 2px solid var(--xp-line);
+  border-radius: 0;
+  background: #f5f5f5;
+  box-shadow: none;
+  color: #555;
+}
+
+/* Summer notes: a yellow tooltip box, like XP's balloon tips. */
+:root[data-theme] .app-bg .chat-container[data-chat-ui="xp"][data-chat-view="room"] .msg-row-summer-utility {
+  margin: 4px 0 2px;
+}
+
+:root[data-theme] .app-bg .chat-container[data-chat-ui="xp"][data-chat-view="room"] .msg-bubble.msg-bubble-summer-utility {
+  display: block;
+  padding: 4px 8px;
+  border: 1px solid #c9c38f;
+  background: #ffffe1;
+  color: #444;
+  font-size: 12px;
+  line-height: 1.5;
+  letter-spacing: 0;
+  white-space: pre-wrap;
+}
+
+:root[data-theme] .app-bg .chat-container[data-chat-ui="xp"][data-chat-view="room"] .summer-collapse-toggle {
+  color: #444;
+}
+
+:root[data-theme] .app-bg .chat-container[data-chat-ui="xp"][data-chat-view="room"] .summer-collapse-content {
+  border-top-color: #e3dcaa;
+  color: #444;
+}
+
+/* Every small action button is the XP push button. */
+:root[data-theme] .app-bg .chat-container[data-chat-ui="xp"][data-chat-view="room"] :is(.summer-proposal-actions button, .claude-usage-refresh) {
+  min-height: 24px;
+  padding: 2px 10px;
+  border: 1px solid #003c74;
+  border-radius: 3px;
+  background-image: linear-gradient(180deg, #fff 0%, #f4f4ef 60%, #dcdad0 100%);
+  color: #000;
+  font-size: 12px;
+}
+
+:root[data-theme] .app-bg .chat-container[data-chat-ui="xp"][data-chat-view="room"] :is(.summer-proposal-editor input, .summer-proposal-editor select, .summer-proposal-editor textarea) {
+  border: 1px solid var(--xp-line);
+  border-radius: 0;
+  background: #fff;
+  color: #000;
+  font-size: 16px;
+}
+
+/* "酥酥 正在输入消息…" with MSN's pencil. */
+:root[data-theme] .app-bg .chat-container[data-chat-ui="xp"][data-chat-view="room"] .reply-status-bubble {
+  display: flex;
+  max-width: 100%;
+  margin-top: 8px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+
+:root[data-theme] .app-bg .chat-container[data-chat-ui="xp"][data-chat-view="room"] .msg-row:has(> .msg-content-ai > .reply-status-bubble) {
+  padding-left: 0;
+}
+
+:root[data-theme] .app-bg .chat-container[data-chat-ui="xp"][data-chat-view="room"] .reply-status-bubble .typing-dots {
+  display: none;
+}
+
+:root[data-theme] .app-bg .chat-container[data-chat-ui="xp"][data-chat-view="room"] .reply-status-bubble::before {
+  content: "✎";
+  flex: none;
+  color: #3a6ea5;
+  font-size: 14px;
+  line-height: 18px;
+}
+
+/* The dots only render while a reply is loading, so they mark "still typing". */
+:root[data-theme] .app-bg .chat-container[data-chat-ui="xp"][data-chat-view="room"] .reply-status-bubble:has(> .typing-dots)::before {
+  animation: xpChatPencil 0.9s ease-in-out infinite alternate;
+}
+
+@keyframes xpChatPencil {
+  from { transform: translate(0, 0) rotate(0deg); }
+  to { transform: translate(3px, -1px) rotate(-12deg); }
+}
+
+:root[data-theme] .app-bg .chat-container[data-chat-ui="xp"][data-chat-view="room"] .reply-status-text {
+  color: #6d6d6d;
+  font-size: 12.5px;
+  line-height: 18px;
+}
+
+/* "你发送了一个闪屏振动。" */
+:root[data-theme] .app-bg .chat-container[data-chat-ui="xp"][data-chat-view="room"] .xp-msg-nudge {
+  margin: 10px 0 2px;
+  padding: 3px 0 3px 8px;
+  border-left: 3px solid #e45a2f;
+  color: #555;
+  font-size: 12.5px;
+  line-height: 18px;
+}
+
+:root[data-theme] .app-bg .chat-container[data-chat-ui="xp"][data-chat-view="room"] .empty-chat p {
+  color: #8a94a6;
+  font-size: 13px;
+}
+
+/* ━━ Toolbar and the input box ━━ */
+:root[data-theme] .app-bg .chat-container[data-chat-ui="xp"][data-chat-view="room"] > .chat-footer {
+  position: relative;
+  z-index: 30;
+  flex: none;
+  margin: 0;
+  padding: 0 8px calc(8px + max(4px, calc(env(safe-area-inset-bottom) - 14px)));
+  border-top: 1px solid var(--xp-line);
+  background-image: var(--xp-msn);
+  background-color: #dbe6f7;
+}
+
+@media (min-width: 481px) {
+  :root[data-theme] .app-bg .chat-container[data-chat-ui="xp"][data-chat-view="room"] > .chat-footer {
+    margin-bottom: 3px;
+  }
+}
+
+:root[data-theme] .app-bg .chat-container[data-chat-ui="xp"][data-chat-view="room"] .xp-chat-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin: 0 -4px;
+  padding: 4px 0;
+}
+
+:root[data-theme] .app-bg .chat-container[data-chat-ui="xp"][data-chat-view="room"] .xp-chat-toolbar-gap {
+  flex: 1;
+}
+
+:root[data-theme] .app-bg .chat-container[data-chat-ui="xp"][data-chat-view="room"] .xp-chat-tool {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 28px;
+  padding: 0 7px;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  background: transparent;
+  color: #1b2f57;
+  font-size: 12.5px;
+  cursor: pointer;
+}
+
+:root[data-theme] .app-bg .chat-container[data-chat-ui="xp"][data-chat-view="room"] .xp-chat-tool svg {
+  display: block;
+  width: 16px;
+  height: 16px;
+  flex: none;
+}
+
+:root[data-theme] .app-bg .chat-container[data-chat-ui="xp"][data-chat-view="room"] .xp-chat-tool:active,
+:root[data-theme] .app-bg .chat-container[data-chat-ui="xp"][data-chat-view="room"] .xp-chat-tool[aria-expanded="true"] {
+  border-color: #7da2ce;
+  background: rgba(255, 255, 255, 0.7);
+  box-shadow: inset 1px 1px 2px rgba(0, 40, 120, 0.15);
+}
+
+:root[data-theme] .app-bg .chat-container[data-chat-ui="xp"][data-chat-view="room"] .xp-chat-tool:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+:root[data-theme] .app-bg .chat-container[data-chat-ui="xp"][data-chat-view="room"] .xp-chat-compose {
+  display: flex;
+  align-items: stretch;
+  gap: 6px;
+}
+
+/* 16px text keeps iOS from zooming in on focus. */
+:root[data-theme] .app-bg .chat-container[data-chat-ui="xp"][data-chat-view="room"] .xp-chat-input {
+  flex: 1;
+  min-width: 0;
+  min-height: 56px;
+  max-height: 120px;
+  padding: 5px 7px;
+  border: 1px solid var(--xp-line);
+  border-radius: 0;
+  outline: none;
+  background: #fff;
+  box-shadow: inset 1px 1px 0 rgba(0, 0, 0, 0.06);
+  color: #000;
+  font: inherit;
+  font-size: 16px;
+  line-height: 1.4;
+  resize: none;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+:root[data-theme] .app-bg .chat-container[data-chat-ui="xp"][data-chat-view="room"] .xp-chat-input::placeholder {
+  color: #9aa3b2;
+  font-size: 14px;
+}
+
+:root[data-theme] .app-bg .chat-container[data-chat-ui="xp"][data-chat-view="room"] .xp-chat-send {
+  flex: none;
+  width: 68px;
+  padding: 0;
+  border: 1px solid #003c74;
+  border-radius: 3px;
+  background-image: linear-gradient(180deg, #fff 0%, #f4f4ef 60%, #dcdad0 100%);
+  box-shadow: inset 0 -2px 0 rgba(0, 0, 0, 0.06);
+  color: #000;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+:root[data-theme] .app-bg .chat-container[data-chat-ui="xp"][data-chat-view="room"] .xp-chat-send:not(:disabled):active {
+  background-image: linear-gradient(180deg, #e3e3db 0%, #ece9d8 100%);
+  box-shadow: inset 1px 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+:root[data-theme] .app-bg .chat-container[data-chat-ui="xp"][data-chat-view="room"] .xp-chat-send:disabled {
+  border-color: #c9c7ba;
+  color: #aca899;
+  cursor: default;
+}
+
+:root[data-theme] .app-bg .chat-container[data-chat-ui="xp"][data-chat-view="room"] .composer-upload-error {
+  margin: 6px 0 0;
+  color: #b0261b;
+  font-size: 12px;
+}
+
+:root[data-theme] .app-bg .chat-container[data-chat-ui="xp"][data-chat-view="room"] .composer-attachments {
+  padding: 6px 0 2px;
+}
+
+:root[data-theme] .app-bg .chat-container[data-chat-ui="xp"][data-chat-view="room"] .composer-attachment {
+  border: 1px solid var(--xp-line);
+  border-radius: 0;
+  background: #fff;
+}
+
+:root[data-theme] .app-bg .chat-container[data-chat-ui="xp"][data-chat-view="room"] .composer-attachment img {
+  border-radius: 0;
+}
+
+/* ━━ 聊天设置 as an XP dialog above the toolbar ━━ */
+:root[data-theme] .app-bg .chat-container[data-chat-ui="xp"][data-chat-view="room"] > .room-settings-panel {
+  top: auto;
+  left: 10px;
+  right: 10px;
+  bottom: calc(var(--twilight-footer-space, 120px) + 6px);
+  max-height: calc(100% - var(--twilight-header-space, 70px) - var(--twilight-footer-space, 120px) - 16px);
+  padding: 0 0 12px;
+  border: 3px solid var(--xp-frame);
+  border-top-width: 0;
+  border-radius: 8px 8px 3px 3px;
+  background: var(--xp-face);
+  box-shadow: 4px 6px 14px rgba(0, 20, 80, 0.35);
+  color: #000;
+  font-size: 12.5px;
+}
+
+:root[data-theme] .app-bg .chat-container[data-chat-ui="xp"][data-chat-view="room"] > .room-settings-panel > :not(.room-settings-heading) {
+  margin-left: 12px;
+  margin-right: 12px;
+}
+
+:root[data-theme] .app-bg .chat-container[data-chat-ui="xp"][data-chat-view="room"] .room-settings-heading {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  height: 30px;
+  margin: 0 0 12px;
+  padding: 0 5px 0 9px;
+  background-image: linear-gradient(180deg, #3c95ff 0%, #0a5fe8 9%, #0055e5 18%, #0a63f6 45%, #0b5ff0 82%, #0350d8 92%, #0234b8 100%);
+  color: #fff;
+  font-size: 13px;
+  text-shadow: 1px 1px 0 #0a1d5c;
+}
+
+:root[data-theme] .app-bg .chat-container[data-chat-ui="xp"][data-chat-view="room"] .room-settings-heading button {
+  width: 22px;
+  height: 22px;
+  border: 1px solid #fff;
+  border-radius: 3px;
+  background-image: linear-gradient(180deg, #f39a7f 0%, #e45a2f 50%, #c8381a 100%);
+  color: #fff;
+  font-size: 17px;
+  font-weight: 700;
+  line-height: 18px;
+  text-shadow: none;
+}
+
+:root[data-theme] .app-bg .chat-container[data-chat-ui="xp"][data-chat-view="room"] .room-settings-panel .chat-config-section > p,
+:root[data-theme] .app-bg .chat-container[data-chat-ui="xp"][data-chat-view="room"] .room-settings-panel .claude-usage-title {
+  color: #0046d5;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+:root[data-theme] .app-bg .chat-container[data-chat-ui="xp"][data-chat-view="room"] .room-settings-panel :is(.settings-hint, .claude-usage-row, .claude-usage-row small) {
+  color: #444;
+}
+
+:root[data-theme] .app-bg .chat-container[data-chat-ui="xp"][data-chat-view="room"] .room-settings-panel .claude-usage-details {
+  border-bottom-color: #c5c2b2;
+}
+
+:root[data-theme] .app-bg .chat-container[data-chat-ui="xp"][data-chat-view="room"] .room-settings-panel .chat-config-option {
+  min-height: 27px;
+  padding: 3px 10px;
+  border: 1px solid #003c74;
+  border-radius: 3px;
+  background-image: linear-gradient(180deg, #fff 0%, #f4f4ef 60%, #dcdad0 100%);
+  color: #000;
+  font-size: 12.5px;
+}
+
+/* The chosen option glows orange inside, like a hovered XP button. */
+:root[data-theme] .app-bg .chat-container[data-chat-ui="xp"][data-chat-view="room"] .room-settings-panel .chat-config-option-active {
+  font-weight: 700;
+  box-shadow: inset 0 0 0 2px #f8b33c;
+}
+
+:root[data-theme] .app-bg .chat-container[data-chat-ui="xp"][data-chat-view="room"] .room-settings-panel .chat-config-option:disabled {
+  opacity: 0.55;
+}
+
+/* Switches become XP check boxes with a green tick. */
+:root[data-theme] .app-bg .chat-container[data-chat-ui="xp"][data-chat-view="room"] .room-settings-panel .chat-config-switch {
+  color: #000;
+  font-size: 12px;
+}
+
+:root[data-theme] .app-bg .chat-container[data-chat-ui="xp"][data-chat-view="room"] .room-settings-panel .chat-config-switch i {
+  order: -1;
+  width: 13px;
+  height: 13px;
+  border: 1px solid #1c5180;
+  border-radius: 0;
+  background: #fff;
+  background-image: linear-gradient(135deg, #dcdcd7 0%, #fff 70%);
+}
+
+:root[data-theme] .app-bg .chat-container[data-chat-ui="xp"][data-chat-view="room"] .room-settings-panel .chat-config-switch i::after {
+  display: none;
+}
+
+:root[data-theme] .app-bg .chat-container[data-chat-ui="xp"][data-chat-view="room"] .room-settings-panel .chat-config-switch-on i::after {
+  content: "";
+  display: block;
+  top: 0;
+  left: 3px;
+  width: 4px;
+  height: 8px;
+  border: solid #21a121;
+  border-width: 0 2px 2px 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  transform: rotate(45deg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root[data-theme] .app-bg .chat-container[data-chat-ui="xp"][data-chat-view="room"] .reply-status-bubble::before {
+    animation: none;
+  }
+}

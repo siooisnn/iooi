@@ -27,8 +27,8 @@ function useIds() {
   return { ref: (name: string) => `${id}-${name}`, paint: (name: string) => `url(#${id}-${name})` };
 }
 
-/** chat: the two MSN buddies, blue behind green. */
-function ChatGlyph() {
+/** chat: the two MSN buddies, blue behind green. The XP chat window uses it too. */
+export function ChatGlyph() {
   const { ref, paint } = useIds();
   return (
     <svg viewBox="0 0 48 48" aria-hidden="true">
