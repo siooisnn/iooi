@@ -1,7 +1,6 @@
 "use client";
 
 import { PageBack } from "./PageBack";
-import { IconLineBook } from "./NavIcons";
 
 export type HeartbeatEntry = { time: string; action: string; reason: string };
 
@@ -21,21 +20,6 @@ export function HeartbeatView({ log, onBack }: { log: HeartbeatEntry[]; onBack: 
             </div>
           ))
         )}
-      </section>
-      <PageBack onBack={onBack} />
-    </>
-  );
-}
-
-/** reading: not decided yet, so the page only holds its place. */
-export function ReadingView({ onBack }: { onBack: () => void }) {
-  return (
-    <>
-      <section className="diary-body reading-body">
-        <div className="reading-empty">
-          <IconLineBook size={36} />
-          <p>这里还空着</p>
-        </div>
       </section>
       <PageBack onBack={onBack} />
     </>

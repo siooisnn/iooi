@@ -1,0 +1,215 @@
+/* clawd: one terracotta crab-ish friend on the grayscale page. */
+
+/* Desktop: a second row of apps under the 2×2, on the same four columns. */
+:root[data-theme] .phone-home .phone-app-grid.phone-app-row {
+  grid-column: 1 / -1;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+:root[data-theme] .clawd-room {
+  --clawd: #d77757;
+  --clawd-dark: #2b2b2b;
+  gap: 16px;
+  color: #303030;
+}
+
+:root[data-theme] .clawd-room :is(h1, p) { margin: 0; }
+:root[data-theme] .clawd-room button { font: inherit; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+:root[data-theme] .clawd-room button:focus-visible { outline: 2px solid #686868; outline-offset: 3px; }
+
+:root[data-theme] .clawd-head { display: flex; flex-direction: column; gap: 4px; flex-shrink: 0; }
+:root[data-theme] .clawd-eyebrow { color: #808080; font-size: 12px; letter-spacing: 1.8px; }
+:root[data-theme] .clawd-head h1 { font-size: 25px; font-weight: 600; line-height: 1.35; }
+:root[data-theme] .clawd-head p { color: #888; font-size: 12px; }
+
+/* ── Stage ── */
+:root[data-theme] .clawd-stage {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex-shrink: 0;
+  padding: 22px 18px 16px;
+  border-radius: 22px;
+  background: #fff;
+  box-shadow: var(--ios-card-shadow);
+  transition: background 0.6s ease;
+}
+
+:root[data-theme] .clawd-stage.is-night { background: #3a3a3c; }
+
+:root[data-theme] .clawd-bubble {
+  position: relative;
+  max-width: 86%;
+  margin-bottom: 18px;
+  padding: 9px 14px;
+  border-radius: 16px;
+  background: #f2f2f2;
+  color: #444;
+  font-size: 14px;
+  line-height: 1.5;
+  text-align: center;
+  animation: clawdBubble 0.25s ease-out;
+}
+
+:root[data-theme] .clawd-bubble::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: -6px;
+  width: 12px;
+  height: 12px;
+  background: inherit;
+  transform: translateX(-50%) rotate(45deg);
+  border-radius: 2px;
+}
+
+:root[data-theme] .clawd-stage.is-night .clawd-bubble { background: #4a4a4c; color: #ddd; }
+
+:root[data-theme] .clawd-room .clawd-pet-button {
+  position: relative;
+  display: block;
+  width: min(62%, 220px);
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+
+:root[data-theme] .clawd-sprite {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+  shape-rendering: crispEdges;
+}
+
+:root[data-theme] .clawd-sprite :is(.clawd-body > rect:not(.clawd-arm), .clawd-arm, .clawd-legs rect) { fill: var(--clawd); }
+:root[data-theme] .clawd-sprite .clawd-eyes rect,
+:root[data-theme] .clawd-sprite .clawd-eyes-closed rect { fill: var(--clawd-dark); }
+:root[data-theme] .clawd-sprite .clawd-eyes-glad polyline {
+  fill: none;
+  stroke: var(--clawd-dark);
+  stroke-width: 0.55;
+  stroke-linecap: square;
+  shape-rendering: geometricPrecision;
+}
+
+:root[data-theme] .clawd-shadow {
+  width: 44%;
+  height: 8px;
+  margin-top: 2px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.08);
+  animation: clawdShadow 2.4s ease-in-out infinite;
+}
+
+:root[data-theme] .clawd-stage.is-night .clawd-shadow { background: rgba(0, 0, 0, 0.25); }
+
+:root[data-theme] .clawd-hint { margin-top: 12px; color: #aaa; font-size: 11px; }
+:root[data-theme] .clawd-stage.is-night .clawd-hint { color: #8a8a8e; }
+
+/* Idle: a slow bob, a blink, the legs taking turns. */
+:root[data-theme] .clawd-sprite .clawd-body { animation: clawdBob 2.4s ease-in-out infinite; }
+:root[data-theme] .clawd-sprite .clawd-eyes { animation: clawdBlink 4.2s infinite; transform-box: fill-box; transform-origin: center; }
+:root[data-theme] .clawd-sprite .clawd-legs rect:nth-child(odd) { animation: clawdStep 1.2s steps(1) infinite; }
+:root[data-theme] .clawd-sprite .clawd-legs rect:nth-child(even) { animation: clawdStep 1.2s steps(1) 0.6s infinite; }
+
+:root[data-theme] .clawd-sprite.clawd-sleeping .clawd-body { animation: clawdBreathe 3.6s ease-in-out infinite; transform-box: fill-box; transform-origin: center bottom; }
+:root[data-theme] .clawd-sprite.clawd-sleeping .clawd-legs rect { animation: none; }
+:root[data-theme] .clawd-sprite:is(.clawd-sad, .clawd-tired, .clawd-hungry) .clawd-body { animation-duration: 4s; }
+
+:root[data-theme] .clawd-sprite.clawd-hop { animation: clawdHop 0.55s ease-out 2; }
+:root[data-theme] .clawd-sprite.clawd-wiggle { animation: clawdWiggle 0.5s ease-in-out 2; transform-origin: center bottom; }
+:root[data-theme] .clawd-sprite.clawd-eat .clawd-body { animation: clawdChew 0.3s ease-in-out 5; transform-box: fill-box; transform-origin: center bottom; }
+:root[data-theme] .clawd-sprite.clawd-splash { animation: clawdShake 0.18s linear 6; }
+:root[data-theme] .clawd-sprite:is(.clawd-hop, .clawd-wiggle) .clawd-arm { animation: clawdWave 0.25s steps(1) 4; }
+
+:root[data-theme] .clawd-zzz {
+  position: absolute;
+  top: -6%;
+  right: 2%;
+  display: flex;
+  gap: 3px;
+  color: #c7c7cc;
+  font-size: 15px;
+  font-weight: 600;
+  pointer-events: none;
+}
+
+:root[data-theme] .clawd-zzz > span { animation: clawdZ 2.4s ease-in-out infinite; opacity: 0; }
+:root[data-theme] .clawd-zzz > span:nth-child(2) { animation-delay: 0.6s; font-size: 18px; }
+:root[data-theme] .clawd-zzz > span:nth-child(3) { animation-delay: 1.2s; font-size: 22px; }
+
+:root[data-theme] .clawd-heart {
+  position: absolute;
+  top: 10%;
+  color: var(--clawd);
+  font-size: 18px;
+  pointer-events: none;
+  animation: clawdHeart 1.4s ease-out forwards;
+}
+
+/* ── Stats ── */
+:root[data-theme] .clawd-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  flex-shrink: 0;
+  padding: 16px 18px;
+  border-radius: 22px;
+  background: #fff;
+  box-shadow: var(--ios-card-shadow);
+}
+
+:root[data-theme] .clawd-stat { display: flex; align-items: center; gap: 12px; font-size: 13px; }
+:root[data-theme] .clawd-stat-label { flex: 0 0 auto; color: #666; }
+:root[data-theme] .clawd-stat-bar { position: relative; flex: 1 1 auto; height: 6px; border-radius: 99px; overflow: hidden; background: #ececec; }
+:root[data-theme] .clawd-stat-bar > span { position: absolute; inset: 0 auto 0 0; border-radius: inherit; background: #6a6a6a; transition: width 0.5s ease; }
+:root[data-theme] .clawd-stat.is-low .clawd-stat-bar > span { background: var(--clawd); }
+:root[data-theme] .clawd-stat-value { flex: 0 0 2.2em; color: #888; font-size: 12px; font-variant-numeric: tabular-nums; text-align: right; }
+:root[data-theme] .clawd-stat.is-low .clawd-stat-value { color: var(--clawd); }
+
+/* ── Actions ── */
+:root[data-theme] .clawd-actions {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+:root[data-theme] .clawd-room .clawd-actions button {
+  padding: 13px 4px;
+  border: 0;
+  border-radius: 15px;
+  background: #fff;
+  color: #3a3a3a;
+  font-size: 14px;
+  box-shadow: var(--ios-card-shadow);
+  transition: transform 0.12s ease;
+}
+
+:root[data-theme] .clawd-room .clawd-actions button:active:not(:disabled) { transform: scale(0.95); }
+:root[data-theme] .clawd-room .clawd-actions button:disabled { opacity: 0.4; cursor: default; }
+
+:root[data-theme] .clawd-note { color: #999; font-size: 11px; line-height: 1.7; text-align: center; }
+
+@keyframes clawdBubble { from { opacity: 0; transform: translateY(4px) scale(0.96); } }
+@keyframes clawdBob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-0.35px); } }
+@keyframes clawdShadow { 0%, 100% { transform: scaleX(1); } 50% { transform: scaleX(0.92); } }
+@keyframes clawdBlink { 0%, 94%, 100% { transform: scaleY(1); } 96% { transform: scaleY(0.1); } }
+@keyframes clawdStep { 0% { transform: translateY(0); } 50% { transform: translateY(-0.3px); } }
+@keyframes clawdBreathe { 0%, 100% { transform: scaleY(1); } 50% { transform: scaleY(0.95); } }
+@keyframes clawdHop { 0%, 100% { transform: translateY(0); } 40% { transform: translateY(-14%); } 70% { transform: translateY(1%); } }
+@keyframes clawdWiggle { 0%, 100% { transform: rotate(0); } 25% { transform: rotate(-5deg); } 75% { transform: rotate(5deg); } }
+@keyframes clawdChew { 0%, 100% { transform: scale(1, 1); } 50% { transform: scale(1.04, 0.94); } }
+@keyframes clawdShake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-2%); } 75% { transform: translateX(2%); } }
+@keyframes clawdWave { 0% { transform: translateY(0); } 50% { transform: translateY(-1px); } }
+@keyframes clawdZ { 0% { opacity: 0; transform: translate(0, 6px); } 30% { opacity: 1; } 100% { opacity: 0; transform: translate(6px, -14px); } }
+@keyframes clawdHeart { from { opacity: 1; transform: translateY(0) scale(0.8); } to { opacity: 0; transform: translateY(-48px) scale(1.2); } }
+
+@media (prefers-reduced-motion: reduce) {
+  :root[data-theme] .clawd-room :is(.clawd-sprite, .clawd-sprite *, .clawd-shadow, .clawd-bubble, .clawd-zzz > span, .clawd-heart) {
+    animation: none !important;
+  }
+  :root[data-theme] .clawd-zzz > span { opacity: 1; }
+}

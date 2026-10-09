@@ -1,0 +1,106 @@
+/* A quiet bookshelf and paper-like reader inside the grayscale shell. */
+:root[data-theme] .reading-room {
+  gap: 18px;
+  color: #303030;
+}
+
+:root[data-theme] .reading-room :is(h1, h2, p) { margin: 0; }
+:root[data-theme] .reading-room h1 { font-size: 25px; font-weight: 600; line-height: 1.35; }
+:root[data-theme] .reading-room h2,
+:root[data-theme] .reading-dialog h2 { font-size: 16px; font-weight: 600; line-height: 1.5; margin: 0; }
+:root[data-theme] .reading-room button,
+:root[data-theme] .reading-dialog button { font: inherit; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+:root[data-theme] :is(.reading-room, .reading-dialog) button:disabled { opacity: 0.4; cursor: default; }
+:root[data-theme] :is(.reading-room, .reading-dialog) button:focus-visible { outline: 2px solid #686868; outline-offset: 3px; }
+
+:root[data-theme] .reading-shelf-head,
+:root[data-theme] .reading-section-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+:root[data-theme] .reading-eyebrow { display: block; margin-bottom: 5px; color: #808080; font-size: 12px; letter-spacing: 1.8px; }
+:root[data-theme] .reading-intro { color: #777; font-size: 13px; line-height: 1.7; }
+:root[data-theme] .reading-room .reading-add { width: 40px; height: 40px; padding: 0; flex: 0 0 40px; border: 0.5px solid #fff; border-radius: 50%; background: var(--liquid-glass-bg); color: #454545; font-size: 26px; box-shadow: var(--ios-card-shadow); }
+
+:root[data-theme] .reading-card,
+:root[data-theme] .reading-room .reading-book-card { padding: 18px; border: 0.5px solid rgba(255,255,255,0.85); border-radius: 22px; background: var(--ios-card-bg, #fff); box-shadow: var(--ios-card-shadow); }
+:root[data-theme] .reading-card { display: flex; flex-direction: column; gap: 14px; flex-shrink: 0; }
+:root[data-theme] .reading-empty-state { align-items: center; gap: 16px; padding: 38px 22px 26px; text-align: center; }
+:root[data-theme] .reading-empty-state > svg { color: #707070; margin-bottom: 6px; }
+:root[data-theme] .reading-empty-state > p { font-size: 13px; color: #777; line-height: 1.8; }
+:root[data-theme] :is(.reading-room, .reading-dialog) .reading-primary { display: block; width: 100%; padding: 13px 16px; border: 0; border-radius: 15px; color: #fff; background: #565656; font-size: 14px; font-weight: 500; text-align: center; }
+:root[data-theme] .reading-room :is(.reading-demo-link, .reading-text-button),
+:root[data-theme] .reading-dialog .reading-text-button { padding: 5px 0; border: 0; background: transparent; color: #646464; font-size: 13px; }
+:root[data-theme] .reading-demo-link { align-self: center; }
+:root[data-theme] .reading-back-link { align-self: flex-start; }
+:root[data-theme] .reading-local-note { color: #888; font-size: 11px; line-height: 1.7; text-align: center; }
+:root[data-theme] .reading-small { color: #858585; font-size: 12px; line-height: 1.6; }
+
+:root[data-theme] .reading-shelf { display: flex; flex-direction: column; gap: 12px; }
+:root[data-theme] .reading-room .reading-book-card { display: flex; align-items: center; gap: 16px; width: 100%; min-width: 0; padding: 16px; text-align: left; color: #303030; }
+:root[data-theme] .reading-cover { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; flex: 0 0 70px; width: 70px; min-height: 100px; padding: 12px 8px; border-radius: 4px 10px 10px 4px; border-left: 3px solid rgba(0,0,0,0.08); background: linear-gradient(145deg,#f1f1f1,#d8d8d8); box-shadow: 2px 3px 9px rgba(0,0,0,0.06); text-align: center; color: #555; }
+:root[data-theme] .reading-cover > span { font-size: 10px; line-height: 1.5; overflow-wrap: anywhere; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; overflow: hidden; }
+:root[data-theme] .reading-cover > small { font-size: 7px; color: #888; }
+:root[data-theme] .reading-book-info { display: flex; flex-direction: column; gap: 6px; flex: 1 1 auto; min-width: 0; }
+:root[data-theme] .reading-book-info > strong { font-size: 15px; line-height: 1.5; overflow-wrap: anywhere; }
+:root[data-theme] .reading-book-person { display: flex; align-items: center; gap: 7px; font-size: 12px; color: #666; }
+:root[data-theme] .reading-card-arrow { color: #9a9a9a; font-size: 22px; flex-shrink: 0; }
+:root[data-theme] .reading-avatar { display: inline-flex; align-items: center; justify-content: center; flex: 0 0 26px; width: 26px; height: 26px; border-radius: 50%; overflow: hidden; background: #dedede; color: #777; font-size: 11px; }
+:root[data-theme] .reading-avatar img { width: 100%; height: 100%; object-fit: cover; }
+
+:root[data-theme] .reading-book-hero { display: flex; flex-direction: column; align-items: center; gap: 14px; padding: 8px 10px 4px; text-align: center; }
+:root[data-theme] .reading-cover-large { width: 116px; min-height: 158px; flex-basis: auto; gap: 14px; padding: 20px 12px; }
+:root[data-theme] .reading-cover-large > span { font-size: 15px; }
+:root[data-theme] .reading-cover-large > small { font-size: 9px; }
+:root[data-theme] .reading-book-hero > h1 { font-size: 22px; overflow-wrap: anywhere; }
+:root[data-theme] .reading-book-hero > p { color: #888; font-size: 12px; }
+:root[data-theme] .reading-companions { display: flex; gap: 8px; }
+:root[data-theme] :is(.reading-room, .reading-dialog) .reading-companion { display: flex; align-items: center; gap: 7px; min-width: 0; flex: 1; padding: 10px; border: 1px solid #e5e5e5; border-radius: 14px; background: #f7f7f7; color: #777; font-size: 13px; text-align: left; }
+:root[data-theme] :is(.reading-room, .reading-dialog) .reading-companion.is-selected { border-color: #b8b8b8; background: #eee; color: #333; }
+:root[data-theme] .reading-companion > span:not(.reading-avatar) { overflow-wrap: anywhere; }
+:root[data-theme] .reading-selected-mark { margin-left: auto; font-size: 11px; }
+:root[data-theme] .reading-badge { flex-shrink: 0; padding: 4px 8px; border-radius: 999px; background: #eee; color: #888; font-size: 10px; }
+:root[data-theme] .reading-pre-read > p { color: #777; font-size: 13px; line-height: 1.8; }
+:root[data-theme] .reading-pre-read progress { width: 100%; height: 4px; border: 0; border-radius: 99px; overflow: hidden; background: #e6e6e6; accent-color: #858585; }
+:root[data-theme] .reading-pre-read progress::-webkit-progress-bar { background: #e6e6e6; }
+:root[data-theme] .reading-pre-read progress::-webkit-progress-value { background: #858585; }
+:root[data-theme] .reading-notice { display: flex; align-items: center; gap: 12px; padding: 12px; border-radius: 12px; background: #fff; border: 1px solid #d7d7d7; color: #555; font-size: 12px; line-height: 1.7; flex-shrink: 0; }
+:root[data-theme] .reading-notice > button { margin-left: auto; padding: 2px 6px; border: 0; background: transparent; color: inherit; }
+
+/* Reading keeps its own scroller; the shell's floating back stays reachable. */
+:root[data-theme] .app-bg[data-fullscreen-shell="true"] > .chat-container > .reading-room.reading-reader { padding-top: max(20px, var(--float-top)); padding-bottom: max(4px, env(safe-area-inset-bottom)); overflow: hidden; gap: 0; background: #f8f8f8; }
+:root[data-theme] .app-bg[data-fullscreen-shell="true"] > .chat-container > .reading-room.reading-reader::after { display: none; }
+:root[data-theme] .reading-reader-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-shrink: 0; padding: 0 0 14px; }
+:root[data-theme] .reading-reader-head > div { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 5px; }
+:root[data-theme] .reading-reader-head strong { font-size: 14px; font-weight: 500; max-width: 100%; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+:root[data-theme] .reading-reader-head span { color: #999; font-size: 10px; }
+:root[data-theme] :is(.reading-room, .reading-dialog) .reading-icon-button { padding: 5px; border: 0; background: transparent; color: #555; font-size: 17px; }
+:root[data-theme] .reading-reader-tools { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-shrink: 0; padding: 7px 0 12px; border-bottom: 0.5px solid #ddd; }
+:root[data-theme] .reading-room .reading-notes-button { display: flex; align-items: center; gap: 6px; padding: 4px 8px; border: 0; border-radius: 999px; background: #eaeaea; color: #777; font-size: 11px; }
+:root[data-theme] .reading-notes-button .reading-avatar { width: 20px; height: 20px; flex-basis: 20px; }
+:root[data-theme] .reading-text { position: relative; flex: 1 1 auto; min-height: 0; padding: 24px 1px 32px; overflow-y: auto; overscroll-behavior: contain; overflow-anchor: none; scroll-behavior: auto; scrollbar-width: thin; font-family: "Songti SC", "Noto Serif CJK SC", "STSong", serif; line-height: 2; color: #343434; }
+:root[data-theme] .reading-text > h1 { font-family: inherit; font-size: 1.15em; margin-bottom: 30px; text-align: center; font-weight: 500; }
+:root[data-theme] .reading-paragraph { position: relative; margin-bottom: 1.2em; overflow-wrap: anywhere; }
+:root[data-theme] .reading-paragraph.has-annotation { padding-right: 34px; }
+:root[data-theme] .reading-paragraph > p { text-indent: 2em; }
+:root[data-theme] .reading-room .reading-annotation-mark { position: absolute; right: 0; top: 4px; display: flex; padding: 2px; border: 0.5px solid #fff; border-radius: 50%; background: #ececec; box-shadow: 0 2px 6px rgba(0,0,0,0.06); }
+:root[data-theme] .reading-text .reading-chapter-end { color: #999; text-align: center; font-family: inherit; font-size: 11px; margin-top: 32px; }
+:root[data-theme] .reading-reader-footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 56px; flex-shrink: 0; padding: 10px 72px 10px 0; border-top: 0.5px solid #ddd; }
+:root[data-theme] .reading-reader-footer > span { color: #999; font-size: 10px; }
+
+:root[data-theme] .reading-dialog { position: fixed; width: min(440px, calc(100% - 28px)); max-height: min(75dvh, 650px); margin: auto; padding: 0; border: 0.5px solid #fff; border-radius: 24px; background: #f8f8f8; color: #333; box-shadow: 0 12px 50px rgba(0,0,0,0.15); }
+:root[data-theme] .reading-dialog::backdrop { background: rgba(0,0,0,0.18); backdrop-filter: blur(4px); }
+:root[data-theme] .reading-dialog-inner { display: flex; flex-direction: column; gap: 18px; padding: 22px; }
+:root[data-theme] .reading-input-label { display: flex; flex-direction: column; gap: 8px; font-size: 12px; color: #777; }
+:root[data-theme] .reading-title-input { width: 100%; min-width: 0; padding: 11px 12px; border: 1px solid #ddd; border-radius: 12px; background: #fff; color: #333; font: inherit; font-size: 16px; }
+:root[data-theme] .reading-toc { display: flex; flex-direction: column; gap: 6px; }
+:root[data-theme] .reading-dialog .reading-toc > button { display: flex; align-items: baseline; gap: 12px; padding: 12px; border: 0; border-radius: 12px; background: transparent; color: #666; text-align: left; font-size: 14px; overflow-wrap: anywhere; }
+:root[data-theme] .reading-toc > button > span { flex: 0 0 22px; font-size: 11px; color: #aaa; }
+:root[data-theme] .reading-dialog .reading-toc > button[aria-current] { background: #e9e9e9; color: #333; }
+:root[data-theme] .reading-note-empty { display: flex; flex-direction: column; align-items: center; gap: 14px; padding: 14px 0; text-align: center; }
+:root[data-theme] .reading-note-empty > p { font-size: 14px; margin: 0; }
+:root[data-theme] .reading-note-empty > span:last-child { font-size: 12px; color: #999; line-height: 1.8; }
+:root[data-theme] .reading-note-person { display: flex; align-items: center; gap: 8px; color: #888; font-size: 12px; }
+:root[data-theme] .reading-note blockquote { margin: 18px 0; padding: 10px 14px; border-left: 2px solid #ccc; color: #888; background: #eee; font-size: 13px; line-height: 1.8; }
+:root[data-theme] .reading-note > p { margin: 0; font-size: 15px; line-height: 1.9; }
+
+@media (prefers-reduced-motion: reduce) {
+  :root[data-theme] .reading-room * { scroll-behavior: auto; }
+}

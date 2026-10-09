@@ -6,11 +6,11 @@ import { MoonEarthMini, MoonLetter } from "./MoonLetter";
 import { CLAUDE_DEFAULT_NAME } from "../lib/app-settings";
 import type { Settings } from "../lib/app-settings";
 import {
-  IconLineBook, IconLineChat, IconLineDiary, IconLineGear, IconLineHeart, IconLinePaper, IconLineSnowflake,
+  IconLineBook, IconLineChat, IconLineClawd, IconLineDiary, IconLineGear, IconLineHeart, IconLinePaper, IconLineSnowflake,
 } from "./NavIcons";
 
 /** Every page the desktop can open. */
-export type HomeApp = "moon" | "chat" | "heartbeat" | "winter" | "reading" | "settings" | "summer-claude" | "summer-gpt";
+export type HomeApp = "moon" | "chat" | "heartbeat" | "winter" | "reading" | "clawd" | "settings" | "summer-claude" | "summer-gpt";
 
 /** Time together since settings.startDate, ticking every second once mounted. */
 function useTogether(startDate: string) {
@@ -124,19 +124,32 @@ export function HomeView({ settings, onOpen }: { settings: Settings; onOpen: (ap
           <AppTile label="winter" onClick={() => onOpen("winter")}><IconLineSnowflake /></AppTile>
           <AppTile label="reading" onClick={() => onOpen("reading")}><IconLineBook /></AppTile>
         </div>
+
+        <div className="phone-app-grid phone-app-row">
+          <AppTile label="clawd" onClick={() => onOpen("clawd")}><IconLineClawd /></AppTile>
+        </div>
       </div>
 
-      <nav className="phone-glass phone-dock" aria-label="Dock">
-        <button type="button" className="phone-glass phone-app-icon phone-dock-app" onClick={() => onOpen("settings")} aria-label="settings">
-          <IconLineGear />
-        </button>
-        <button type="button" className="phone-glass phone-app-icon phone-dock-app" onClick={() => onOpen("summer-claude")} aria-label={`${claudeName}的 summer`}>
-          <IconLineDiary />
-        </button>
-        <button type="button" className="phone-glass phone-app-icon phone-dock-app" onClick={() => onOpen("summer-gpt")} aria-label={`${gptName}的 summer`}>
-          <IconLinePaper />
-        </button>
-      </nav>
+      <div className="phone-home-bottom">
+        <div className="phone-glass phone-search" aria-hidden="true">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="10.5" cy="10.5" r="6.5" />
+            <path d="m16 16 4.5 4.5" />
+          </svg>
+          <span>Search</span>
+        </div>
+        <nav className="phone-glass phone-dock" aria-label="Dock">
+          <button type="button" className="phone-glass phone-app-icon phone-dock-app" onClick={() => onOpen("settings")} aria-label="settings">
+            <IconLineGear />
+          </button>
+          <button type="button" className="phone-glass phone-app-icon phone-dock-app" onClick={() => onOpen("summer-claude")} aria-label={`${claudeName}的 summer`}>
+            <IconLineDiary />
+          </button>
+          <button type="button" className="phone-glass phone-app-icon phone-dock-app" onClick={() => onOpen("summer-gpt")} aria-label={`${gptName}的 summer`}>
+            <IconLinePaper />
+          </button>
+        </nav>
+      </div>
     </section>
   );
 }

@@ -2,31 +2,31 @@
 
 import type { ReactNode } from "react";
 
-// ── Desktop app icons: black 1.5px lines, no fill. ──
+// A shared optical size and rounded curves keep the desktop icons one family.
 type LineIconProps = { size?: number };
 function LineIcon({ size = 26, children }: LineIconProps & { children: ReactNode }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       {children}
     </svg>
   );
 }
 
 export function IconLineChat(props: LineIconProps) {
-  return <LineIcon {...props}><path d="M20.5 11.5c0 4.14-3.8 7.5-8.5 7.5a9.6 9.6 0 0 1-3.2-.54L4 20l1.2-3.6A7.06 7.06 0 0 1 3.5 11.5C3.5 7.36 7.3 4 12 4s8.5 3.36 8.5 7.5z" /></LineIcon>;
+  return <LineIcon {...props}><path d="M20.5 11.5c0 4.15-3.8 7.5-8.5 7.5-1.1 0-2.15-.18-3.1-.52-.3-.1-.62-.08-.91.05l-3.07 1.36c-.43.19-.85-.24-.66-.66l1.1-2.5a1 1 0 0 0-.12-1.04A6.9 6.9 0 0 1 3.5 11.5C3.5 7.35 7.3 4 12 4s8.5 3.35 8.5 7.5Z" /></LineIcon>;
 }
 
 export function IconLineHeart(props: LineIconProps) {
-  return <LineIcon {...props}><path d="M12 20s-7.5-4.6-7.5-10.1A4.4 4.4 0 0 1 12 7.2a4.4 4.4 0 0 1 7.5 2.7C19.5 15.4 12 20 12 20z" /></LineIcon>;
+  return <LineIcon {...props}><path d="M12 7.2C9.3 3.5 4 5.1 4 9.5c0 3.45 3.55 6.8 7.1 9.45a1.5 1.5 0 0 0 1.8 0C16.45 16.3 20 12.95 20 9.5c0-4.4-5.3-6-8-2.3Z" /></LineIcon>;
 }
 
 export function IconLineSnowflake(props: LineIconProps) {
   return (
     <LineIcon {...props}>
-      <path d="M12 2.5v19M3.77 7.25l16.46 9.5M3.77 16.75l16.46-9.5" />
-      <path d="M9.5 4.5 12 6.5l2.5-2M9.5 19.5 12 17.5l2.5 2" />
-      <path d="M4.3 10.4l3.1-.6-1.1-3M19.7 13.6l-3.1.6 1.1 3" />
-      <path d="M6.3 17l1.1-3-3.1-.6M17.7 7l-1.1 3 3.1.6" />
+      <path d="M12 3.5v17M4.65 7.75l14.7 8.5M4.65 16.25l14.7-8.5" />
+      <path d="M9.7 5.4 12 7.6l2.3-2.2M9.7 18.6l2.3-2.2 2.3 2.2" />
+      <path d="m5.13 10.3 3.06-.92-.76-3.1m11.44 7.42-3.06.92.76 3.1" />
+      <path d="m7.43 17.72.76-3.1-3.06-.92m11.44-7.42-.76 3.1 3.06.92" />
     </LineIcon>
   );
 }
@@ -34,8 +34,18 @@ export function IconLineSnowflake(props: LineIconProps) {
 export function IconLineBook(props: LineIconProps) {
   return (
     <LineIcon {...props}>
-      <path d="M12 6.5C10.2 5 7.3 4.5 3 4.8v13.4c4.3-.3 7.2.2 9 1.7 1.8-1.5 4.7-2 9-1.7V4.8c-4.3-.3-7.2.2-9 1.7z" />
-      <path d="M12 6.5v13.4" />
+      <path d="M12 6.4C10.15 4.95 7.7 4.5 4.4 4.7c-.8.05-1.4.7-1.4 1.5v11.4c0 .8.65 1.4 1.45 1.35 2.9-.18 5.2.2 7 1.2.34.2.76.2 1.1 0 1.8-1 4.1-1.38 7-1.2.8.05 1.45-.55 1.45-1.35V6.2c0-.8-.6-1.45-1.4-1.5-3.3-.2-5.75.25-7.6 1.7Z" />
+      <path d="M12 6.4v13.2" />
+    </LineIcon>
+  );
+}
+
+// clawd: a square little body, two arms, four legs, two upright eyes.
+export function IconLineClawd(props: LineIconProps) {
+  return (
+    <LineIcon {...props}>
+      <rect x="5.5" y="6" width="13" height="9" rx="1.5" />
+      <path d="M5.5 10.5h-2.5M18.5 10.5h2.5M8 15v3.5M10.5 15v3.5M13.5 15v3.5M16 15v3.5M9.5 8.8v1.8M14.5 8.8v1.8" />
     </LineIcon>
   );
 }
@@ -43,7 +53,7 @@ export function IconLineBook(props: LineIconProps) {
 export function IconLineGear(props: LineIconProps) {
   return (
     <LineIcon {...props}>
-      <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+      <path d="M10.8 3.1a1.45 1.45 0 0 1 2.4 0l.7 1.05c.3.44.83.66 1.35.56l1.24-.25a1.45 1.45 0 0 1 1.7 1.7l-.25 1.24c-.1.52.12 1.05.56 1.35l1.05.7a1.45 1.45 0 0 1 0 2.4l-1.05.7c-.44.3-.66.83-.56 1.35l.25 1.24a1.45 1.45 0 0 1-1.7 1.7l-1.24-.25c-.52-.1-1.05.12-1.35.56l-.7 1.05a1.45 1.45 0 0 1-2.4 0l-.7-1.05a1.3 1.3 0 0 0-1.35-.56l-1.24.25a1.45 1.45 0 0 1-1.7-1.7l.25-1.24a1.3 1.3 0 0 0-.56-1.35l-1.05-.7a1.45 1.45 0 0 1 0-2.4l1.05-.7c.44-.3.66-.83.56-1.35l-.25-1.24a1.45 1.45 0 0 1 1.7-1.7l1.24.25c.52.1 1.05-.12 1.35-.56l.7-1.05Z" transform="translate(0 1.6)" />
       <circle cx="12" cy="12" r="3" />
     </LineIcon>
   );
@@ -53,9 +63,8 @@ export function IconLineGear(props: LineIconProps) {
 export function IconLineDiary(props: LineIconProps) {
   return (
     <LineIcon {...props}>
-      <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
-      <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
-      <path d="M8 7h8M8 11h5" />
+      <path d="M7 3.5h10.5A1.5 1.5 0 0 1 19 5v15.5H7a2.5 2.5 0 0 1-2.5-2.5V6A2.5 2.5 0 0 1 7 3.5Z" />
+      <path d="M4.5 18A2.5 2.5 0 0 1 7 15.5h12M8.5 7.5h6M8.5 11h4" />
     </LineIcon>
   );
 }
@@ -64,9 +73,8 @@ export function IconLineDiary(props: LineIconProps) {
 export function IconLinePaper(props: LineIconProps) {
   return (
     <LineIcon {...props}>
-      <path d="M14.5 2.5H6a1.5 1.5 0 0 0-1.5 1.5v16A1.5 1.5 0 0 0 6 21.5h12a1.5 1.5 0 0 0 1.5-1.5V7.5z" />
-      <path d="M14.5 2.5v5h5" />
-      <path d="M8 11.5h8M8 14.5h8M8 17.5h5" />
+      <path d="M14.2 3.5H7A2 2 0 0 0 5 5.5v13a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8.3c0-.53-.21-1.04-.59-1.41L15.61 4.1a2 2 0 0 0-1.41-.6Z" />
+      <path d="M14 3.5v3.3A1.7 1.7 0 0 0 15.7 8.5H19M8.5 12h7M8.5 15h7M8.5 18h4" />
     </LineIcon>
   );
 }
