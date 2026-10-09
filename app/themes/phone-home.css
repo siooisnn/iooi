@@ -1,20 +1,38 @@
-/* ━━ The desktop: one screen, like a phone's home screen ━━
-   Top: her avatar and 酥酥's joined by one line that loops into a heart,
-   the promise and the time together. Middle: the small moon and earth on
-   the left, four apps on the right. Bottom: the dock, icons only.
-   Black, white and gray only; photos keep their colour.
+/* ━━ The desktop: one screen, like an iPhone home screen ━━
+   Sizes follow Apple's widget table for a 393pt-wide iPhone, scaled to the
+   real width with cqw (1cqw = 1% of the desktop's width):
+   - a 338pt grid with 27.5pt either side, four columns, 22pt between the
+     two halves, so a small widget is 158×158 and a medium one 338×158;
+   - app icons 60pt with a ~13.4pt corner, labels 12pt underneath;
+   - widgets keep a ~22pt corner and their name underneath, like iOS;
+   - the dock is ~12pt in from each side, ~92pt tall, ~34pt corner, and
+     sits just above the bottom edge.
+   Top: 酥酥 and her joined by a heartbeat line ("As time goes by").
+   Middle: the moon and earth ("Moonbound love") and four apps.
+   Bottom: the dock. Everything floats as frosted glass over a soft grey
+   wallpaper; black, white and grey only, photos keep their colour.
    Rules start with :root[data-theme] so they outrank white-pink's reset of
-   shadows and blur on every element. */
+   shadows, gradients and blur on every element. */
 :root[data-theme] .app-bg[data-fullscreen-shell="true"] > .chat-container > .home-body.phone-home {
   --shell-page-gap-top: 8px;
-  --shell-page-gap: 14px;
-  --shell-page-end: 10px;
+  --shell-page-gap: 0px;
+  container-type: inline-size;
   position: relative;
-  align-items: stretch;
-  gap: 14px;
-  padding-left: var(--page-gutter-left);
-  padding-right: var(--page-gutter-right);
-  background: #f2f2f2;
+  align-items: center;
+  gap: 0;
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
+  background:
+    radial-gradient(circle at 14% 16%, rgba(0, 0, 0, 0.075), transparent 38%),
+    radial-gradient(circle at 92% 46%, rgba(0, 0, 0, 0.06), transparent 40%),
+    radial-gradient(circle at 26% 78%, rgba(0, 0, 0, 0.05), transparent 36%),
+    radial-gradient(circle at 80% 96%, rgba(0, 0, 0, 0.06), transparent 34%),
+    #f0f0f0;
+}
+
+/* The dock sits ~12pt above the bottom edge, under the home indicator. */
+:root[data-theme] .app-bg[data-fullscreen-shell="true"] > .chat-container:not([data-home-style="wall"]) > .home-body.phone-home::after {
+  flex-basis: max(12px, calc(env(safe-area-inset-bottom) - 20px));
 }
 
 :root[data-theme] .phone-home button {
@@ -23,60 +41,75 @@
   -webkit-tap-highlight-color: transparent;
 }
 
-/* ── Couple card ── */
-:root[data-theme] .phone-home .phone-couple-card {
+/* ── Glass: frosted white, a bright top edge, a faint lift ── */
+:root[data-theme] .phone-home .phone-glass {
+  border: 0.5px solid rgba(255, 255, 255, 0.8);
+  background: linear-gradient(155deg, rgba(255, 255, 255, 0.74), rgba(255, 255, 255, 0.4));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.95),
+    inset 0 -1px 1px rgba(0, 0, 0, 0.03),
+    0 0 0 0.5px rgba(0, 0, 0, 0.06),
+    0 8px 24px rgba(0, 0, 0, 0.07);
+  -webkit-backdrop-filter: blur(24px) saturate(1.6);
+  backdrop-filter: blur(24px) saturate(1.6);
+}
+
+/* ── Grid: medium widget on top, small widget + 2×2 apps below ── */
+:root[data-theme] .phone-home .phone-grid {
+  position: relative;
+  z-index: 2;
   flex-shrink: 0;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  column-gap: 5.6cqw;
+  row-gap: 5.6cqw;
+  width: 86cqw;
+}
+
+:root[data-theme] .phone-home .phone-widget {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  min-width: 0;
+}
+
+:root[data-theme] .phone-home .phone-widget-medium { grid-column: 1 / -1; }
+:root[data-theme] .phone-home .phone-widget-small { grid-column: 1 / span 2; }
+
+:root[data-theme] .phone-home .phone-widget-label,
+:root[data-theme] .phone-home .phone-app-label {
+  overflow: hidden;
+  color: #555555;
+  font-size: 12px;
+  line-height: 15px;
+  letter-spacing: 0.2px;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+:root[data-theme] .phone-home .phone-widget-label { margin-top: 6px; }
+
+/* ── As time goes by ── */
+:root[data-theme] .phone-home .phone-couple-card {
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 16px 16px 18px;
-  border: 0.5px solid rgba(0, 0, 0, 0.06);
-  border-radius: 26px;
-  background: #ffffff;
+  justify-content: center;
+  aspect-ratio: 338 / 158;
+  padding: 3cqw 5cqw;
+  border-radius: 5.6cqw;
 }
 
-/* The line is drawn in a 300×160 box; the avatars sit at (60,50) and
-   (240,50), r32, so everything is placed in percentages of that box. */
-:root[data-theme] .phone-home .phone-couple-art {
-  position: relative;
-  width: min(300px, 100%);
-  aspect-ratio: 300 / 160;
-}
-
-:root[data-theme] .phone-home .phone-couple-line {
-  position: absolute;
-  inset: 0;
+:root[data-theme] .phone-home .phone-couple-row {
+  display: flex;
+  align-items: center;
   width: 100%;
-  height: 100%;
-  overflow: visible;
-}
-
-:root[data-theme] .phone-home .phone-couple-line path {
-  fill: none;
-  stroke: #5a5a5a;
-  stroke-width: 1.2;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  stroke-dasharray: 1;
-  stroke-dashoffset: 1;
-  animation: phoneHeartDraw 2.4s ease-out 0.2s forwards;
-}
-
-@keyframes phoneHeartDraw {
-  to { stroke-dashoffset: 0; }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  :root[data-theme] .phone-home .phone-couple-line path {
-    animation: none;
-    stroke-dashoffset: 0;
-  }
 }
 
 :root[data-theme] .phone-home .phone-couple-avatar {
-  position: absolute;
-  top: 11.25%;
-  width: 21.333%;
+  flex: 0 0 auto;
+  width: 13cqw;
   aspect-ratio: 1;
   overflow: hidden;
   border: 2px solid #ffffff;
@@ -85,9 +118,6 @@
   box-shadow: 0 0 0 0.5px rgba(0, 0, 0, 0.12), 0 4px 12px rgba(0, 0, 0, 0.08);
 }
 
-:root[data-theme] .phone-home .phone-couple-avatar-left { left: 9.333%; }
-:root[data-theme] .phone-home .phone-couple-avatar-right { right: 9.333%; }
-
 :root[data-theme] .phone-home .phone-couple-avatar img {
   display: block;
   width: 100%;
@@ -95,12 +125,43 @@
   object-fit: cover;
 }
 
+/* The trace is drawn on from her side to his once the desktop opens. */
+:root[data-theme] .phone-home .phone-couple-line {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 40px;
+  margin: 0 1.5cqw;
+  overflow: visible;
+  clip-path: inset(-4px 100% -4px 0);
+  animation: phoneTraceDraw 1.8s ease-out 0.2s forwards;
+}
+
+:root[data-theme] .phone-home .phone-couple-line path {
+  fill: none;
+  stroke: #5a5a5a;
+  stroke-width: 1.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+@keyframes phoneTraceDraw {
+  to { clip-path: inset(-4px 0 -4px 0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root[data-theme] .phone-home .phone-couple-line {
+    animation: none;
+    clip-path: none;
+  }
+}
+
 :root[data-theme] .phone-home .phone-promise {
-  margin: 2px 0 0;
+  margin: 2.6cqw 0 0;
   color: #6e6e6e;
   font-family: "Songti SC", "SimSun", serif;
   font-size: 13px;
   letter-spacing: 2px;
+  line-height: 1.3;
 }
 
 :root[data-theme] .phone-home .phone-clock {
@@ -108,7 +169,7 @@
   justify-content: center;
   align-items: baseline;
   gap: 12px;
-  margin-top: 10px;
+  margin-top: 1.6cqw;
   color: #6e6e6e;
 }
 
@@ -121,7 +182,7 @@
 :root[data-theme] .phone-home .phone-clock-number {
   min-width: 1.15em;
   font-family: Georgia, "Times New Roman", serif;
-  font-size: 21px;
+  font-size: 20px;
   font-variant-numeric: tabular-nums;
 }
 
@@ -130,42 +191,27 @@
   font-size: 10px;
 }
 
-/* ── Moon square and the four apps ── */
-:root[data-theme] .phone-home .phone-row {
-  flex-shrink: 0;
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 14px;
-}
-
+/* ── Moonbound love ── */
 :root[data-theme] .phone-home .phone-moon-tile {
   aspect-ratio: 1;
-  padding: 10px;
+  padding: 2cqw;
   overflow: hidden;
-  border: 0.5px solid rgba(0, 0, 0, 0.06);
-  border-radius: 24px;
-  background: #ffffff;
+  border-radius: 5.6cqw;
 }
 
-:root[data-theme] .phone-home .phone-moon-tile:active,
-:root[data-theme] .phone-home .phone-app:active .phone-app-icon,
-:root[data-theme] .phone-home .phone-dock-app:active {
-  transform: scale(0.95);
-}
-
+/* ── Apps: icon tops line up with the widget, labels with its name ── */
 :root[data-theme] .phone-home .phone-app-grid {
-  aspect-ratio: 1;
+  grid-column: 3 / span 2;
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  grid-template-rows: 1fr 1fr;
-  gap: 4px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-content: space-between;
+  column-gap: 5.6cqw;
 }
 
 :root[data-theme] .phone-home .phone-app {
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
   gap: 5px;
   min-width: 0;
   padding: 0;
@@ -174,59 +220,52 @@
   color: #000000;
 }
 
+:root[data-theme] .phone-home .phone-app-label { max-width: 100%; }
+
 :root[data-theme] .phone-home .phone-app-icon {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: clamp(44px, 70%, 56px);
-  aspect-ratio: 1;
-  border: 0.5px solid rgba(0, 0, 0, 0.06);
-  border-radius: 16px;
-  background: #ffffff;
-  transition: transform 0.12s ease;
-}
-
-:root[data-theme] .phone-home .phone-app-label {
-  color: #6e6e6e;
-  font-size: 11px;
-  letter-spacing: 0.3px;
-  line-height: 1.2;
-}
-
-/* ── Dock ── */
-:root[data-theme] .phone-home .phone-dock {
-  flex-shrink: 0;
-  display: flex;
-  justify-content: space-around;
-  align-items: center;
-  margin-top: auto;
-  height: 76px;
-  padding: 0 14px;
-  border: 0.5px solid var(--liquid-glass-edge);
-  border-radius: 28px;
-  background: var(--liquid-glass-bg-clear);
-  box-shadow: var(--liquid-glass-shadow);
-  backdrop-filter: var(--liquid-glass-filter);
-}
-
-:root[data-theme] .phone-home .phone-dock-app {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 56px;
-  height: 56px;
+  flex: 0 0 auto;
+  width: 15.27cqw;
+  height: 15.27cqw;
   padding: 0;
-  border: 0.5px solid rgba(0, 0, 0, 0.06);
-  border-radius: 16px;
-  background: #ffffff;
+  border-radius: 3.4cqw;
   color: #000000;
   transition: transform 0.12s ease;
 }
 
-@supports (-webkit-backdrop-filter: blur(1px)) {
-  :root[data-theme] .phone-home .phone-dock {
-    -webkit-backdrop-filter: var(--liquid-glass-filter);
-  }
+:root[data-theme] .phone-home .phone-app-icon svg {
+  width: 48%;
+  height: 48%;
+}
+
+:root[data-theme] .phone-home .phone-moon-tile:active,
+:root[data-theme] .phone-home .phone-app:active .phone-app-icon,
+:root[data-theme] .phone-home .phone-dock-app:active {
+  transform: scale(0.95);
+}
+
+/* ── Dock ── */
+:root[data-theme] .phone-home .phone-dock {
+  position: relative;
+  z-index: 2;
+  flex-shrink: 0;
+  display: flex;
+  justify-content: space-evenly;
+  align-items: center;
+  box-sizing: border-box;
+  width: 93.9cqw;
+  height: 23.4cqw;
+  margin-top: auto;
+  padding: 0 4cqw;
+  border-radius: 8.6cqw;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.5), rgba(255, 255, 255, 0.3));
+}
+
+/* Icons on the dock's glass are a little milkier so they still stand out. */
+:root[data-theme] .phone-home .phone-dock .phone-dock-app {
+  background: linear-gradient(155deg, rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0.62));
 }
 
 /* ━━ App pages ━━ */

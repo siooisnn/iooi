@@ -52,9 +52,11 @@ function Petals() {
   );
 }
 
-// One thin line leaves her avatar, loops into a heart in the middle and runs
-// on to 酥酥's. Drawn in a fixed 300×170 box so it meets both 64px avatars.
-const HEART_LINE = "M60 86 C 58 130, 120 156, 150 148 C 160 140, 174 130, 174 117 C 174 107, 166 101, 159 101 C 154 101, 151 104, 150 108 C 149 104, 146 101, 141 101 C 134 101, 126 107, 126 117 C 126 130, 140 140, 150 148 C 165 156, 242 130, 240 86";
+// A heartbeat trace runs straight between the two avatars: flat, one small
+// P wave, the spike, a T wave, flat again. The box stretches to whatever
+// width the row leaves (about 190 wide on a 393pt iPhone, so it is close to
+// 1:1 there); the stroke does not scale with it.
+const HEARTBEAT_LINE = "M0 20 H70 Q73.5 20 75 16.5 Q76.5 13 78 20 H84 L88 6 L93 34 L97 13 L100 20 H107 Q111 11 115 20 H190";
 
 function Avatar({ src, className }: { src: string; className: string }) {
   return (
@@ -67,7 +69,7 @@ function Avatar({ src, className }: { src: string; className: string }) {
 function AppTile({ label, onClick, children }: { label: string; onClick: () => void; children: ReactNode }) {
   return (
     <button type="button" className="phone-app" onClick={onClick}>
-      <span className="phone-app-icon">{children}</span>
+      <span className="phone-glass phone-app-icon">{children}</span>
       <span className="phone-app-label">{label}</span>
     </button>
   );
@@ -83,29 +85,36 @@ export function HomeView({ settings, onOpen }: { settings: Settings; onOpen: (ap
     <section className="home-body phone-home">
       {isAnniversary && <Petals />}
 
-      <div className="phone-couple-card">
-        <div className="phone-couple-art">
-          <svg className="phone-couple-line" viewBox="0 0 300 170" aria-hidden="true">
-            <path d={HEART_LINE} pathLength={1} />
-          </svg>
-          <Avatar src={settings.userAvatar} className="phone-couple-avatar-left" />
-          <Avatar src={settings.aiAvatar} className="phone-couple-avatar-right" />
+      <div className="phone-grid">
+        <div className="phone-widget phone-widget-medium">
+          <div className="phone-glass phone-couple-card">
+            <div className="phone-couple-row">
+              <Avatar src={settings.aiAvatar} className="phone-couple-avatar-left" />
+              <svg className="phone-couple-line" viewBox="0 0 190 40" preserveAspectRatio="none" aria-hidden="true">
+                <path d={HEARTBEAT_LINE} vectorEffect="non-scaling-stroke" />
+              </svg>
+              <Avatar src={settings.userAvatar} className="phone-couple-avatar-right" />
+            </div>
+            <p className="phone-promise">此后我们的每一秒都是恩赐</p>
+            <div className="phone-clock" role="timer" aria-label="在一起的时间">
+              {clock.map(({ value, unit }) => (
+                <span className="phone-clock-part" key={unit}>
+                  <span className="phone-clock-number">{ready ? String(value).padStart(2, "0") : "—"}</span>
+                  <span className="phone-clock-unit">{unit}</span>
+                </span>
+              ))}
+            </div>
+          </div>
+          <span className="phone-widget-label">As time goes by</span>
         </div>
-        <p className="phone-promise">此后我们的每一秒都是恩赐</p>
-        <div className="phone-clock" role="timer" aria-label="在一起的时间">
-          {clock.map(({ value, unit }) => (
-            <span className="phone-clock-part" key={unit}>
-              <span className="phone-clock-number">{ready ? String(value).padStart(2, "0") : "—"}</span>
-              <span className="phone-clock-unit">{unit}</span>
-            </span>
-          ))}
-        </div>
-      </div>
 
-      <div className="phone-row">
-        <button type="button" className="phone-moon-tile" onClick={() => onOpen("moon")} aria-label="I love you to the moon and back">
-          <MoonEarthMini />
-        </button>
+        <div className="phone-widget phone-widget-small">
+          <button type="button" className="phone-glass phone-moon-tile" onClick={() => onOpen("moon")} aria-label="Moonbound love">
+            <MoonEarthMini />
+          </button>
+          <span className="phone-widget-label">Moonbound love</span>
+        </div>
+
         <div className="phone-app-grid">
           <AppTile label="chat" onClick={() => onOpen("chat")}><IconLineChat /></AppTile>
           <AppTile label="heartbeat" onClick={() => onOpen("heartbeat")}><IconLineHeart /></AppTile>
@@ -114,15 +123,15 @@ export function HomeView({ settings, onOpen }: { settings: Settings; onOpen: (ap
         </div>
       </div>
 
-      <nav className="phone-dock" aria-label="Dock">
-        <button type="button" className="phone-dock-app" onClick={() => onOpen("settings")} aria-label="settings">
-          <IconLineGear size={28} />
+      <nav className="phone-glass phone-dock" aria-label="Dock">
+        <button type="button" className="phone-glass phone-app-icon phone-dock-app" onClick={() => onOpen("settings")} aria-label="settings">
+          <IconLineGear />
         </button>
-        <button type="button" className="phone-dock-app" onClick={() => onOpen("summer-claude")} aria-label={`${claudeName}的 summer`}>
-          <IconLineDiary size={28} />
+        <button type="button" className="phone-glass phone-app-icon phone-dock-app" onClick={() => onOpen("summer-claude")} aria-label={`${claudeName}的 summer`}>
+          <IconLineDiary />
         </button>
-        <button type="button" className="phone-dock-app" onClick={() => onOpen("summer-gpt")} aria-label={`${gptName}的 summer`}>
-          <IconLinePaper size={28} />
+        <button type="button" className="phone-glass phone-app-icon phone-dock-app" onClick={() => onOpen("summer-gpt")} aria-label={`${gptName}的 summer`}>
+          <IconLinePaper />
         </button>
       </nav>
     </section>
