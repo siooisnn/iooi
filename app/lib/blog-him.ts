@@ -71,7 +71,7 @@ function cstDay() {
   return new Date().toLocaleDateString("zh-CN", { timeZone: "Asia/Shanghai" });
 }
 
-function hisName(settings: Record<string, unknown>) {
+export function hisName(settings: Record<string, unknown>) {
   return typeof settings.aiName === "string" && settings.aiName.trim() ? settings.aiName.trim() : CLAUDE_DEFAULT_NAME;
 }
 
@@ -103,10 +103,10 @@ function systemPrompt(settings: Record<string, unknown>, memory: string, task: s
   return [normalizeSystemPrompt(typeof settings.prompt === "string" ? settings.prompt : ""), memory, task].filter(Boolean).join("\n\n");
 }
 
-type HerPost = { id: string; title: string; content: string; createdAt: string; updatedAt: string; mood: string; weather: string };
+export type HerPost = { id: string; title: string; content: string; createdAt: string; updatedAt: string; mood: string; weather: string };
 
 /** Her posts as stored by the sync (`fragments`), newest first. */
-function herPostsFrom(store: Record<string, unknown>): HerPost[] {
+export function herPostsFrom(store: Record<string, unknown>): HerPost[] {
   return sortPosts((Array.isArray(store.fragments) ? store.fragments : []).flatMap((item) => {
     const post = item as Record<string, unknown>;
     if (!post || typeof post.id !== "string" || typeof post.content !== "string" || !post.content.trim()) return [];

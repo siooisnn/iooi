@@ -6,6 +6,9 @@ import type { NextRequest } from "next/server";
 export function middleware(req: NextRequest) {
   const TOKEN = process.env.IOOI_TOKEN || "";
   if (!TOKEN) return NextResponse.next();
+  // The iooi MCP and its OAuth endpoints check their own credentials (mcp-oauth.ts).
+  const path = req.nextUrl.pathname;
+  if (path === "/api/mcp" || path.startsWith("/api/mcp/")) return NextResponse.next();
 
   const headerToken = req.headers.get("x-iooi-token");
   const queryToken = req.nextUrl.searchParams.get("t");

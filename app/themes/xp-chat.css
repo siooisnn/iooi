@@ -879,3 +879,18 @@
   color: #b00;
   font-size: 12px;
 }
+
+:root[data-theme] .app-bg .chat-container[data-chat-ui="xp"] .chat-messages .msg-blog-card {
+  border: 1px solid #7f9db9;
+  border-radius: 0;
+  background: linear-gradient(#fffef5, #f6f0d8);
+  color: #1d2b4f;
+  font-family: Tahoma, "Microsoft YaHei", sans-serif;
+  font-size: 12px;
+  box-shadow: 1px 1px 0 rgba(0, 0, 0, 0.12);
+}
+
+:root[data-theme] .app-bg .chat-container[data-chat-ui="xp"] .chat-messages .msg-blog-card-go {
+  color: #0645ad;
+  text-decoration: underline;
+}

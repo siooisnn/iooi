@@ -171,16 +171,18 @@ function useClock() {
 
 // ── Page ──
 
-export function BlogView({ settings, fragments, setFragments, onBack }: {
+export function BlogView({ settings, fragments, setFragments, onBack, initialScreen }: {
   settings: Settings;
   fragments: FragmentEntry[];
   setFragments: React.Dispatch<React.SetStateAction<FragmentEntry[]>>;
   onBack: () => void;
+  /** Opened from a card in the chat: start on that post. */
+  initialScreen?: { kind: "post" | "him-post"; id: string };
 }) {
   const [blog, setBlog] = useState<BlogState>(() => parseBlogState(null));
   const [loading, setLoading] = useState(true);
   const [offline, setOffline] = useState(false);
-  const [screen, setScreen] = useState<Screen>({ kind: "home" });
+  const [screen, setScreen] = useState<Screen>(() => initialScreen || { kind: "home" });
   const [popup, setPopup] = useState<Popup>(null);
   const [startOpen, setStartOpen] = useState(false);
   const [filter, setFilter] = useState<Filter>(null);
@@ -235,11 +237,25 @@ export function BlogView({ settings, fragments, setFragments, onBack }: {
         if (result.blog) {
           setBlog(result.blog);
           setHimWriting(Boolean(result.writing));
+          if (initialScreen) {
+            if (initialScreen.kind === "him-post") {
+              const latest = latestHisPost(result.blog);
+              if (latest && latest.createdAt > readHisSeen()) {
+                markHisSeen(latest.createdAt);
+                setHisSeen(latest.createdAt);
+              }
+            }
+            void blogRequest({ type: "view", postId: initialScreen.id }).then((viewed) => {
+              if (alive && viewed.blog) setBlog(viewed.blog);
+            });
+          }
         } else setOffline(true);
         setLoading(false);
       }, Math.max(0, 900 - (Date.now() - started)));
     });
     return () => { alive = false; };
+    // Runs once per opening; the deep link is fixed for this instance.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -355,7 +371,7 @@ export function BlogView({ settings, fragments, setFragments, onBack }: {
             onToast={setToast}
             onUpdate={setBlog}
           />
-        ) : (
+        ) : !loading && (
           <XpWindow title="找不到文件" icon="⚠" onClose={() => go({ kind: "him" })} className="blog-missing">
             <p>这篇日志已经不在了。</p>
             <button type="button" className="xp-button" onClick={() => go({ kind: "him" })}>确定</button>

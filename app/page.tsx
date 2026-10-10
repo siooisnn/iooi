@@ -20,7 +20,7 @@ import { ReadingView } from "./components/ReadingView";
 import { ClawdView } from "./components/ClawdView";
 import { BlogView } from "./components/BlogView";
 import { PageBack } from "./components/PageBack";
-import { ChatView } from "./components/ChatView";
+import { ChatView, type BlogTarget } from "./components/ChatView";
 import { SummerPageView } from "./components/SummerPageView";
 import { SettingsView } from "./components/SettingsView";
 import { MoodPage } from "./components/MoodPage";
@@ -58,6 +58,8 @@ export default function Home() {
 
   // The desktop, or whichever of its apps is open.
   const [tab, setTab] = useState<"home" | HomeApp>("home");
+  // A blog card tapped in the chat: which post to open, and back goes to the chat.
+  const [blogTarget, setBlogTarget] = useState<BlogTarget | null>(null);
   useThemePage(
     tab === "home" || tab === "moon" || tab === "blog" ? "home"
       : tab === "chat" ? "chat"
@@ -519,12 +521,26 @@ export default function Home() {
   if (!mounted && !needKey) return <main className="app-bg"><div className="chat-container" /></main>;
 
   function openApp(app: HomeApp) {
+    setBlogTarget(null);
     setTab(app);
     if (app === "chat") setChatView("list");
   }
 
   function goHome() {
+    setBlogTarget(null);
     setTab("home");
+  }
+
+  function openBlogFromChat(target: BlogTarget) {
+    setBlogTarget(target);
+    setTab("blog");
+  }
+
+  function leaveBlog() {
+    if (blogTarget) {
+      setBlogTarget(null);
+      setTab("chat");
+    } else goHome();
   }
 
   if (needKey) {
@@ -668,6 +684,7 @@ export default function Home() {
             listEntryMode
             onBackToList={() => setChatView("list")}
             retro={settings.retroDesktop}
+            onOpenBlogPost={openBlogFromChat}
           />
         )}
         {tab === "chat" && roomMode === "gpt" && gptActiveSession && chatView === "room" && (
@@ -707,7 +724,14 @@ export default function Home() {
           />
         )}
         {tab === "heartbeat" && <HeartbeatView log={heartbeatLog} onBack={goHome} />}
-        {tab === "blog" && <BlogView settings={settings} fragments={fragments} setFragments={setFragments} onBack={goHome} />}
+        {tab === "blog" && <BlogView
+          key={blogTarget ? `${blogTarget.kind}-${blogTarget.id}` : "blog"}
+          settings={settings}
+          fragments={fragments}
+          setFragments={setFragments}
+          onBack={leaveBlog}
+          initialScreen={blogTarget || undefined}
+        />}
         {tab === "reading" && <ReadingView settings={settings} onBack={goHome} />}
         {tab === "clawd" && <ClawdView onBack={goHome} />}
         {tab === "mood" && <MoodPage mood={dailyMood} retro={settings.retroDesktop} onBack={goHome} />}

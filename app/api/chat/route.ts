@@ -10,6 +10,9 @@ import { extractSummerSearchTarget } from "@/app/lib/summer-search-query";
 import { createVisibleReplyStream } from "@/app/lib/visible-reply-stream";
 import { NUDGE_PROMPT, NUDGE_REPLY_TEXT, parseNudgeReply } from "@/app/lib/chat-nudge";
 import { isExplicitSummerWriteRequest } from "@/app/lib/summer-write-intent";
+import { asksForBlogPost, BLOG_CHAT_BRIDGE, mentionsBlog, parseBlogMarkers, stripBlogMarkers } from "@/app/lib/blog-markers";
+import { readBlogDigest, runBlogMarkers } from "@/app/lib/blog-tools";
+import type { BlogCard } from "@/app/lib/app-types";
 import {
   findDuplicateSummerWrite,
   filterDuplicateSummerWrites,
@@ -30,7 +33,7 @@ function cstTime() {
 function cstToday() {
   return new Date().toLocaleDateString("zh-CN", { timeZone: "Asia/Shanghai" });
 }
-type StoreMsg = { role: string; content: string; time?: string; date?: string; thinking?: string; image?: string; images?: string[]; file?: string; source?: string; roundId?: string; speaker?: "claude" | "gpt"; proposal?: SummerWrite };
+type StoreMsg = { role: string; content: string; time?: string; date?: string; thinking?: string; image?: string; images?: string[]; file?: string; source?: string; roundId?: string; speaker?: "claude" | "gpt"; proposal?: SummerWrite; blog?: BlogCard };
 type TextBlock = {
   type: "text";
   text: string;
@@ -713,9 +716,10 @@ async function persistRound(
   replySource?: string,
   allowLaterUser = false,
   nudge = false,
+  blogCards: BlogCard[] = [],
 ) {
   const stamp = { time: cstTime(), date: cstToday() };
-  if (!sessionId || (!reply && !nudge)) return stamp;
+  if (!sessionId || (!reply && !nudge && !blogCards.length)) return stamp;
   try {
     const diaryRegex = /\[日记\]([\s\S]*?)\[\/日记\]/g;
     const cleanReply = reply.replace(diaryRegex, "").replace(/\[心情[:：].+?\]/g, "").trim();
@@ -768,6 +772,10 @@ async function persistRound(
           ...(i === 0 && thinkingContent ? { thinking: thinkingContent } : {}),
         });
       });
+      for (const card of blogCards) {
+        pushAssistant({ role: "assistant", source: "blog_card", content: card.text, blog: card,
+          time: now, date: today, roundId: userMsg?.roundId });
+      }
       if (nudge) {
         pushAssistant({ role: "assistant", source: "chat_nudge", content: NUDGE_REPLY_TEXT,
           time: now, date: today, roundId: userMsg?.roundId });
@@ -1081,6 +1089,8 @@ export async function POST(request: Request) {
   if (systemPrompt) {
     system.push({ type: "text", text: systemPrompt, cache_control: cacheControl() });
   }
+  // The blog is only his in the private chat; in a group he just talks.
+  if (!skipPersist) system.push({ type: "text", text: BLOG_CHAT_BRIDGE, cache_control: cacheControl() });
 
   let summerUsed = false;
   let summerNotice = "";
@@ -1200,6 +1210,13 @@ export async function POST(request: Request) {
   }
   summerMs = Date.now() - summerStartedAt;
 
+  let blogNote = "";
+  if (!skipPersist && mentionsBlog(query)) {
+    try {
+      blogNote = `【博客现状】\n${readBlogDigest()}`;
+    } catch {}
+  }
+
   const combinedDynamicPrompt = [
     dynamicPrompt,
     summerNotice,
@@ -1210,6 +1227,7 @@ export async function POST(request: Request) {
       : "",
     summerExactDate,
     summerSearch,
+    blogNote,
   ].filter(Boolean).join("\n\n");
 
   // 图片只从 iooi 自己的 uploads 目录读取并交给 Claude 订阅；文件仍明确拒绝，不会切换到 API。
@@ -1348,7 +1366,9 @@ ${combinedDynamicPrompt}
           });
         }
       }
-      const nudgeResult = parseNudgeReply(stripVisibleSummerDiary(stripSummerWriteTags(reply)), nudgeEnabled);
+      const blogMarkers = skipPersist ? [] : parseBlogMarkers(reply);
+      const blogCards = blogMarkers.length ? await runBlogMarkers(blogMarkers, { asked: asksForBlogPost(query) }) : [];
+      const nudgeResult = parseNudgeReply(stripVisibleSummerDiary(stripSummerWriteTags(stripBlogMarkers(reply))), nudgeEnabled);
       reply = nudgeResult.reply;
       const proposalMs = Date.now() - proposalStartedAt;
 
@@ -1357,7 +1377,7 @@ ${combinedDynamicPrompt}
       const groupPersistedDate = skipPersist && groupSessionId ? cstToday() : "";
       let replyStamp: { time: string; date: string } | undefined;
       if (!skipPersist) {
-        replyStamp = await persistRound(sessionId, userMsg, reply, thinkingContent, summerCalls, summerWriteProposals, undefined, false, nudgeResult.nudge);
+        replyStamp = await persistRound(sessionId, userMsg, reply, thinkingContent, summerCalls, summerWriteProposals, undefined, false, nudgeResult.nudge, blogCards);
       } else if (groupSessionId) {
         await persistGroupRound(
           String(groupSessionId),
@@ -1425,6 +1445,7 @@ ${combinedDynamicPrompt}
             summer_writes: summerWriteProposals.filter((proposal) => proposal.status === "committed").length,
             summer_write_proposals: summerWriteProposals,
             summer_calls: summerCalls,
+            blog_cards: blogCards,
             reply_persisted_time: replyStamp?.time,
             reply_persisted_date: replyStamp?.date,
             web_search_used: data.webSearchUsed,

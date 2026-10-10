@@ -14,7 +14,7 @@ import type { CodeReleaseState } from "../lib/code-release";
 import { imageFields, MAX_IMAGES_PER_MESSAGE, messageImages, stripObjectPlaceholders } from "../lib/message-images";
 import { prepareImageForUpload } from "../lib/image-compress";
 import { workContextHistory } from "../lib/work-context";
-import type { AssistantMode, CacheStats, ChatSession, ClaudeReasoningEffort, DevelopmentModePref, DevelopmentProject, GptReasoningEffort, Message, PendingAttachment, ReplyRequestState, SummerCall, SummerWriteProposal } from "../lib/app-types";
+import type { AssistantMode, BlogCard, CacheStats, ChatSession, ClaudeReasoningEffort, DevelopmentModePref, DevelopmentProject, GptReasoningEffort, Message, PendingAttachment, ReplyRequestState, SummerCall, SummerWriteProposal } from "../lib/app-types";
 import { CLAUDE_REASONING_OPTIONS, CONTEXT_WINDOW_ROUNDS, DEVELOPMENT_MODE_KEY, GPT_DEFAULT_PROMPT, GPT_REASONING_OPTIONS, MODELS, loadDevelopmentModePrefs } from "../lib/app-settings";
 import type { Settings } from "../lib/app-settings";
 import { APP_TIME_ZONE, formatChatRoomTime, getDateLabel, getNowContext, getTime, getTodayStr, parseMessageDateTime } from "../lib/app-time";
@@ -55,6 +55,15 @@ export const INPUT_HINTS = [
   "有什么开心的事吗",
 ];
 
+export type BlogTarget = { kind: "him-post" | "post"; id: string };
+
+function blogCardTarget(card?: BlogCard): BlogTarget | null {
+  if (!card?.ok || !card.postId || !card.owner) return null;
+  return { kind: card.owner === "him" ? "him-post" : "post", id: card.postId };
+}
+
+const BLOG_CARD_ICON: Record<BlogCard["kind"], string> = { post: "📝", comment: "💬", motto: "✏️" };
+
 // Chat View
 export function ChatView({
   assistantMode,
@@ -73,6 +82,7 @@ export function ChatView({
   listEntryMode = false,
   onBackToList,
   retro = false,
+  onOpenBlogPost,
 }: {
   assistantMode: AssistantMode;
   settings: Settings;
@@ -92,6 +102,8 @@ export function ChatView({
   onBackToList?: () => void;
   /** Retro mode: the room as a 2007 MSN window (see xp-chat.css). */
   retro?: boolean;
+  /** A blog card in the chat was tapped: open that post in the blog. */
+  onOpenBlogPost?: (target: BlogTarget) => void;
 }) {
   const isGpt = assistantMode === "gpt";
   const claudeUsage = useClaudeUsage(!isGpt);
@@ -159,7 +171,7 @@ export function ChatView({
     for (const { message, index } of displayMessages) {
       if (message.source === "summer_write_ignored") continue;
       const speakable = message.role === "assistant" && !isSummerUtilityMessage(message)
-        && message.source !== "chat_nudge" && hasSpeakableText(message.content);
+        && message.source !== "chat_nudge" && message.source !== "blog_card" && hasSpeakableText(message.content);
       if (!speakable) { close(); continue; }
       if (run && run.date !== message.date) close();
       run ??= { key: `${session.id}:${index}`, texts: [], last: index, date: message.date };
@@ -557,7 +569,9 @@ export function ChatView({
       const allMsgs = [
         ...messagesWithUser.filter((m) => !m.source?.startsWith("summer_") && !m.source?.startsWith("code_task_")).map((m) => {
           return {
-            role: m.role, content: m.content,
+            role: m.role,
+            // He sees what the blog did, marked so he does not mistake it for something he said.
+            content: m.source === "blog_card" ? `【系统记录：博客】${m.content}` : m.content,
             ...imageFields(messageImages(m)), ...(m.file ? { file: m.file } : {}),
           };
         }),
@@ -703,7 +717,11 @@ export function ChatView({
       }
       const nudgeMsgs: Message[] = nudge && data.nudge === true ? [{ role: "assistant", source: "chat_nudge",
         content: NUDGE_REPLY_TEXT, time: now, date: today, roundId: userMsg.roundId }] : [];
-      const finalMessages = [...messagesWithUser, ...summerCallMsgs, ...newMsgs, ...nudgeMsgs, ...summerWriteMsgs];
+      const blogCardMsgs: Message[] = (data.cache?.blog_cards || []).map((card: BlogCard) => ({
+        role: "assistant" as const, source: "blog_card", content: card.text, blog: card,
+        roundId: userMsg.roundId, time: now, date: today,
+      }));
+      const finalMessages = [...messagesWithUser, ...summerCallMsgs, ...newMsgs, ...blogCardMsgs, ...nudgeMsgs, ...summerWriteMsgs];
       sessionMessagesRef.current = mergeChatMessages(sessionMessagesRef.current, finalMessages);
       updateMessages((msgs) => mergeChatMessages(msgs, finalMessages));
       if (nudgeMsgs.length) playNudge();
@@ -1022,6 +1040,25 @@ export function ChatView({
         )}
         {displayMessages.map(({ message, index }, displayIndex) => {
           if (message.source === "summer_write_ignored") return null;
+          if (message.source === "blog_card") {
+            const target = blogCardTarget(message.blog);
+            const label = message.content.replace(/^（|）$/g, "");
+            const icon = BLOG_CARD_ICON[message.blog?.kind || "post"] || "📝";
+            return <div key={index} className="msg-blog-card-row">
+              {target && onOpenBlogPost ? (
+                <button type="button" className="msg-blog-card" onClick={() => onOpenBlogPost(target)}>
+                  <span className="msg-blog-card-icon" aria-hidden>{icon}</span>
+                  <span className="msg-blog-card-text">{label}</span>
+                  <span className="msg-blog-card-go">点开看看 »</span>
+                </button>
+              ) : (
+                <div className={`msg-blog-card${message.blog?.ok ? "" : " msg-blog-card-off"}`} role="status">
+                  <span className="msg-blog-card-icon" aria-hidden>{icon}</span>
+                  <span className="msg-blog-card-text">{label}</span>
+                </div>
+              )}
+            </div>;
+          }
           if (message.source === "chat_nudge") return <div key={index} className="xp-msg-nudge" role="status">
             {message.role === "user" ? message.content : `${assistantName}${message.content}`}
           </div>;

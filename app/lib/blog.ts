@@ -94,6 +94,8 @@ export const BLOG_LIMITS = {
   hisMood: 10,
   hisPost: 4000,
   hisPosts: 500,
+  /** However he gets there (button, heartbeat, chat, MCP), at most this many posts a day. */
+  hisPostsPerDay: 3,
   topic: 100,
 } as const;
 
@@ -207,7 +209,8 @@ export type BlogAction =
   | { type: "comment-delete"; id: string }
   | { type: "post-delete"; postId: string }
   | { type: "him-post-add"; title: string; content: string; mood?: string; weather?: string; motto?: string }
-  | { type: "him-post-delete"; postId: string };
+  | { type: "him-post-delete"; postId: string }
+  | { type: "him-motto"; motto: string };
 
 /**
  * One change to the blog. Returns the new state, or an error message when the
@@ -261,11 +264,19 @@ export function applyBlogAction(
     case "him-post-add": {
       const post = parseHisPost({ ...action, id, createdAt: now.toISOString() });
       if (!post) return { error: "他这篇是空的" };
+      if (hisPostsToday(state, now) >= BLOG_LIMITS.hisPostsPerDay) {
+        return { error: `他今天已经发了 ${BLOG_LIMITS.hisPostsPerDay} 篇，明天再写吧` };
+      }
       const motto = typeof action.motto === "string" ? text(action.motto, BLOG_LIMITS.motto) : "";
       return {
         ...state,
         him: { motto: motto || state.him.motto, posts: [...state.him.posts, post].slice(-BLOG_LIMITS.hisPosts) },
       };
+    }
+    case "him-motto": {
+      const motto = text(action.motto, BLOG_LIMITS.motto);
+      if (!motto) return { error: "签名是空的" };
+      return { ...state, him: { ...state.him, motto } };
     }
     case "him-post-delete": {
       const views = { ...state.views };
@@ -314,6 +325,12 @@ export function parseHisDraft(raw: string): HisDraft | null {
     ...(weather ? { weather } : {}),
     ...(motto ? { motto } : {}),
   };
+}
+
+/** How many posts he has put up on the day (her time zone) that `now` falls on. */
+export function hisPostsToday(state: BlogState, now: Date) {
+  const today = blogDayKey(now.toISOString());
+  return state.him.posts.filter((post) => blogDayKey(post.createdAt) === today).length;
 }
 
 /** The newest post in his space, if he has written any. */

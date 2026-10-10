@@ -3371,3 +3371,16 @@ body {
 }
 .chat-background-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .chat-background-actions .model-option { width: auto; }
+
+/* Blog cards in the chat: what he posted or left on the blog this round. */
+.msg-blog-card-row { display: flex; justify-content: flex-start; margin: 6px 0 8px; }
+.msg-blog-card {
+  display: inline-flex; align-items: center; gap: 8px; max-width: min(86%, 420px);
+  padding: 8px 12px; border: 1px solid var(--accent-light); border-radius: 12px;
+  background: var(--accent-glow); color: var(--accent-text); font: inherit; font-size: 13px; line-height: 1.45;
+  text-align: left; cursor: pointer;
+}
+.msg-blog-card-off { cursor: default; opacity: 0.7; }
+.msg-blog-card-icon { flex: none; }
+.msg-blog-card-text { min-width: 0; overflow-wrap: anywhere; }
+.msg-blog-card-go { flex: none; color: var(--text-secondary); font-size: 12px; white-space: nowrap; }

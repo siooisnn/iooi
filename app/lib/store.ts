@@ -48,6 +48,7 @@ const mainStore = createJsonStore("store.json");
 const gptStore = createJsonStore("gpt-store.json");
 const groupStore = createJsonStore("group-store.json");
 const contextStore = createJsonStore("context-snapshots.json", true);
+const mcpAuthStore = createJsonStore("mcp-oauth.json", true);
 
 export const readStore = mainStore.read;
 export const withStore = mainStore.write;
@@ -57,3 +58,5 @@ export const readGroupStore = groupStore.read;
 export const withGroupStore = groupStore.write;
 export const readContextStore = contextStore.read;
 export const withContextStore = contextStore.write;
+export const readMcpAuthStore = mcpAuthStore.read;
+export const withMcpAuthStore = mcpAuthStore.write;

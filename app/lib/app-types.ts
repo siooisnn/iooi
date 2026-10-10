@@ -13,6 +13,17 @@ export type Message = {
   roundId?: string;
   speaker?: "claude" | "gpt";
   proposal?: SummerWriteProposal;
+  blog?: BlogCard;
+};
+
+/** What he did on the blog from the private chat, shown as a card under his reply. */
+export type BlogCard = {
+  kind: "post" | "comment" | "motto";
+  ok: boolean;
+  text: string;
+  postId?: string;
+  owner?: "him" | "her";
+  title?: string;
 };
 
 // Picked but not yet sent; lives only in the composer until she presses send.
@@ -78,6 +89,7 @@ export type CacheStats = {
   reply_persist_ms?: number;
   summer_calls?: SummerCall[];
   summer_write_proposals?: SummerWriteProposal[];
+  blog_cards?: BlogCard[];
   time?: string;
 };
 
