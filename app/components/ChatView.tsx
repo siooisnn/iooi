@@ -23,6 +23,8 @@ import { apiFetch, saveLocal, syncGptToServer, syncToServer } from "../lib/clien
 import { CollapsibleSummerCard, ThinkingBlock, renderContent } from "./ChatContent";
 import { ChatGlyph } from "./RetroDesktop";
 import { NUDGE_USER_TEXT, NUDGE_REPLY_TEXT } from "../lib/chat-nudge";
+import { hasSpeakableText } from "../lib/tts-text";
+import { useSpeaker } from "../lib/use-speaker";
 
 // Animate only the current interaction, never a replayed history entry.
 const NUDGE_FRAMES: Keyframe[] = [
@@ -147,6 +149,25 @@ export function ChatView({
     .map((message, index) => ({ message, index }))
     .filter(({ message }) => !(message.source === "summer_call" &&
       message.content.includes("已读取 Summer 唤醒内容与记忆状态")));
+  // Speaker: each run of Claude's plain-text bubbles is read out as one reply;
+  // the button sits under the run's last bubble.
+  const speaker = useSpeaker(!isGpt);
+  const speakRuns = new Map<number, { key: string; texts: string[] }>();
+  if (speaker.enabled) {
+    let run: { key: string; texts: string[]; last: number; date?: string } | null = null;
+    const close = () => { if (run) speakRuns.set(run.last, { key: run.key, texts: run.texts }); run = null; };
+    for (const { message, index } of displayMessages) {
+      if (message.source === "summer_write_ignored") continue;
+      const speakable = message.role === "assistant" && !isSummerUtilityMessage(message)
+        && message.source !== "chat_nudge" && hasSpeakableText(message.content);
+      if (!speakable) { close(); continue; }
+      if (run && run.date !== message.date) close();
+      run ??= { key: `${session.id}:${index}`, texts: [], last: index, date: message.date };
+      run.texts.push(message.content);
+      run.last = index;
+    }
+    close();
+  }
   const { scrollRef, handleScroll, followLatest } = useChatScrollPosition(
     `iooi-scroll-${assistantMode}-${session.id}`,
     session.messages.length + streamingReply.length,
@@ -1116,6 +1137,23 @@ export function ChatView({
                     </div>
                   )}
                 </div>
+                {speakRuns.has(index) && (() => {
+                  const run = speakRuns.get(index)!;
+                  const on = speaker.activeKey === run.key;
+                  const failed = speaker.error?.key === run.key ? speaker.error.message : "";
+                  return (
+                    <div className="msg-speak-row">
+                      <button type="button"
+                        className={`msg-speak${on ? ` msg-speak-${speaker.phase}` : ""}`}
+                        aria-label={on ? "停止朗读" : "念给我听"} title={on ? "停止" : "念给我听"}
+                        aria-pressed={on}
+                        onClick={() => speaker.toggle(run.key, run.texts)}>
+                        <SpeakerGlyph />
+                      </button>
+                      {failed && <span className="msg-speak-error" role="status">{failed}</span>}
+                    </div>
+                  );
+                })()}
                 {message.role === "user" && !isSummerUtility && (
                   settings.userAvatar
                     ? <img src={settings.userAvatar} className="avatar avatar-img" alt="" />
@@ -1375,5 +1413,15 @@ export function ChatView({
         </div>
       )}
     </>
+  );
+}
+
+function SpeakerGlyph() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
+      <path className="msg-speak-cone" d="M2 6h2.6L8 3.2v9.6L4.6 10H2z" />
+      <path className="msg-speak-wave msg-speak-wave-1" d="M10.2 6.1a2.6 2.6 0 0 1 0 3.8" />
+      <path className="msg-speak-wave msg-speak-wave-2" d="M12 4.3a5.1 5.1 0 0 1 0 7.4" />
+    </svg>
   );
 }
