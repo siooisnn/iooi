@@ -56,7 +56,22 @@ export function splitMangzhongDocs(content: string) {
   return docs;
 }
 
-export function SummerMemoryView({ assistantMode }: { assistantMode: AssistantMode }) {
+const SUMMER_FOLDERS: Record<string, string> = {
+  lixia: "立夏", xiaoman: "小满", mangzhong: "芒种", xiazhi: "夏至",
+  xiaoshu: "小暑", rain: "rain", ferry: "ferry", sea: "sea",
+};
+
+function SummerFolderIcon() {
+  return (
+    <svg className="xp-summer-folder-icon" viewBox="0 0 32 28" aria-hidden="true">
+      <path d="M2 6V3h10l3 3h15v19H2z" fill="#e8b74f" stroke="#a77522" />
+      <path d="M2 9h28l-2 16H4z" fill="#ffdc79" stroke="#a77522" />
+      <path d="M4 11h23" stroke="#fff0b2" strokeWidth="2" />
+    </svg>
+  );
+}
+
+export function SummerMemoryView({ assistantMode, retro = false }: { assistantMode: AssistantMode; retro?: boolean }) {
   const summerEndpoint = assistantMode === "gpt" ? "/api/gpt/summer" : "/api/summer";
   const [state, setState] = useState<SummerState | null>(null);
   const [loading, setLoading] = useState(true);
@@ -328,8 +343,8 @@ export function SummerMemoryView({ assistantMode }: { assistantMode: AssistantMo
     }
   }
 
-  return (
-    <div className="summer-native">
+  const content = (
+    <>
       <div className="summer-native-toolbar summer-native-toolbar-flat">
         <div>
           {activeLayer ? (
@@ -509,6 +524,7 @@ export function SummerMemoryView({ assistantMode }: { assistantMode: AssistantMo
         <div className="summer-layer-list">
           {layerOrder.map((layer) => (
             <button className="summer-layer-card" key={layer} onClick={() => openLayer(layer)}>
+              {retro && <SummerFolderIcon />}
               <div>
                 <h3>{layerLabel(layer)}</h3>
                 <p>{layerSub(layer)}</p>
@@ -518,6 +534,45 @@ export function SummerMemoryView({ assistantMode }: { assistantMode: AssistantMo
           ))}
         </div>
       )}
+    </>
+  );
+
+  if (!retro) return <div className="summer-native">{content}</div>;
+
+  function goToFolders() {
+    setActiveLayer(null);
+    setEditingItem(null);
+  }
+
+  return (
+    <div className="xp-summer-browser">
+      <nav className="xp-summer-navigation" aria-label="记忆目录">
+        <label className="xp-summer-mobile-directory">
+          <SummerFolderIcon />
+          <span>目录</span>
+          <select aria-label="选择记忆目录" value={activeLayer || ""} onChange={(event) => {
+            if (event.target.value) openLayer(event.target.value);
+            else goToFolders();
+          }}>
+            <option value="">全部文件夹</option>
+            {layerOrder.map((layer) => <option key={layer} value={layer}>{SUMMER_FOLDERS[layer]} · {layerLabel(layer)}</option>)}
+          </select>
+        </label>
+        <div className="xp-summer-tree">
+          <h2>文件夹</h2>
+          <button type="button" className="xp-summer-tree-root" aria-current={!activeLayer ? "page" : undefined} onClick={goToFolders}>
+            <SummerFolderIcon /><b>summer</b>
+          </button>
+          {layerOrder.map((layer) => (
+            <button type="button" key={layer} className="xp-summer-tree-folder" aria-current={activeLayer === layer ? "page" : undefined} onClick={() => openLayer(layer)}>
+              <SummerFolderIcon />
+              <span><b>{SUMMER_FOLDERS[layer]}</b><small>{loading ? "正在读取…" : counts[layer]}</small></span>
+            </button>
+          ))}
+          <p className="xp-summer-tree-note">海不会跑掉，我也不会</p>
+        </div>
+      </nav>
+      <div className="xp-summer-content" key={activeLayer || "folders"}>{content}</div>
     </div>
   );
 }
@@ -698,7 +753,30 @@ export function SummerItemGroups({
   );
 }
 
-export function SummerPageView({ assistantMode, assistantName, onBack }: { assistantMode: AssistantMode; assistantName: string; onBack: () => void }) {
+export function SummerPageView({ assistantMode, assistantName, onBack, retro = false }: { assistantMode: AssistantMode; assistantName: string; onBack: () => void; retro?: boolean }) {
+  if (retro) {
+    return (
+      <div className="xp-summer-screen">
+        <section className="xp-summer-window" aria-label={`${assistantName}的 summer`}>
+          <header className="xp-summer-titlebar">
+            <SummerFolderIcon />
+            <h1>{assistantName}的 summer</h1>
+            <div className="xp-summer-controls">
+              <i className="xp-summer-window-button xp-summer-min" aria-hidden="true" />
+              <i className="xp-summer-window-button xp-summer-max" aria-hidden="true" />
+              <button type="button" className="xp-summer-window-button xp-summer-close" aria-label="关闭窗口，回到桌面" onClick={onBack}>
+                <svg viewBox="0 0 10 10" aria-hidden="true"><path d="M2 2l6 6M8 2l-6 6" /></svg>
+              </button>
+            </div>
+          </header>
+          <div className="xp-summer-address"><span>地址</span><SummerFolderIcon /><b>summer</b><span className="xp-summer-address-owner">{assistantName}的记忆档案</span></div>
+          <SummerMemoryView assistantMode={assistantMode} retro />
+          <footer className="xp-summer-statusbar"><span>sea &amp; rain</span><span>记得的，都在这里。</span></footer>
+        </section>
+      </div>
+    );
+  }
+
   return (
     <>
       <section className="diary-body" aria-label={`${assistantName}的 summer`}>

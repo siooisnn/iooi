@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef } from "react";
 import { CacheStatusPanel } from "./CacheStatusPanel";
 import { ContextDebugPanel } from "./ContextDebugPanel";
 import { NotificationButton } from "./NotificationButton";
@@ -11,13 +11,15 @@ import type { CacheStats, ChatSession } from "../lib/app-types";
 import { CLAUDE_DEFAULT_NAME } from "../lib/app-settings";
 import type { Settings } from "../lib/app-settings";
 import { apiFetch } from "../lib/client-api";
+import { GearGlyph } from "./RetroDesktop";
 
-// Settings View
-export const TODAY_STATES = [
-  "happy", "lucky", "chill", "busy", "studying", "thinking",
-  "sleepy", "exhausted", "low mood", "broken", "missing you",
+const CONTROL_SECTIONS = [
+  { title: "外观与身份", items: [{ label: "姓名与头像", index: 0 }, { label: "桌面背景", index: 1 }, { label: "聊天背景", index: 2 }] },
+  { title: "日常与提醒", items: [{ label: "主动关怀", index: 3 }, { label: "天气与城市", index: 4 }, { label: "纪念日", index: 5 }, { label: "消息通知", index: 6 }] },
+  { title: "运行信息", items: [{ label: "酥酥 · 缓存", index: 7 }, { label: "酥酥 · 上下文", index: 8 }, { label: "郁郁 · 缓存", index: 9 }, { label: "郁郁 · 上下文", index: 10 }] },
 ];
 
+// Settings View
 // 酥酥 and 郁郁 share one settings page: names and avatars in a list,
 // then each one's cache and context panels.
 export function SettingsView({
@@ -37,7 +39,10 @@ export function SettingsView({
   gptCache: CacheStats | null;
   gptSession?: ChatSession;
 }) {
-  const [stateOpen, setStateOpen] = useState(false);
+  const settingsRef = useRef<HTMLElement>(null);
+  function jumpTo(index: number) {
+    settingsRef.current?.children[index]?.scrollIntoView({ block: "start", behavior: "auto" });
+  }
   function handleAvatarUpload(field: "aiAvatar" | "gptAvatar" | "userAvatar") {
     const input = document.createElement("input");
     input.type = "file";
@@ -70,20 +75,9 @@ export function SettingsView({
   const aiName = settings.aiName || CLAUDE_DEFAULT_NAME;
   const gptName = settings.gptName || "GPT";
 
-  function pickTodayState(value: string) {
-    updateSettings({ todayState: value });
-    setStateOpen(false);
-  }
-
-  function customTodayState() {
-    const next = window.prompt("Today's State:", settings.todayState);
-    if (next !== null) pickTodayState(next.trim().slice(0, 40));
-  }
-
   // Every card is open on one page; no sub-pages.
-  return (
-    <>
-      <section className="settings-body">
+  const content = (
+      <section className="settings-body" ref={settingsRef} aria-label="设置项目">
         <div className="settings-group">
           <h2 className="settings-group-title">Name &amp; Avatar</h2>
           <div className="avatar-list">
@@ -128,28 +122,6 @@ export function SettingsView({
           background={settings.classicChatBackground}
           onChange={(classicChatBackground) => updateSettings({ classicChatBackground })}
         />
-
-        <div className="settings-group settings-state-card">
-          <button type="button" className="settings-state-head" aria-expanded={stateOpen} onClick={() => setStateOpen((open) => !open)}>
-            <span className="settings-group-title">Today&apos;s State</span>
-            <span className="settings-state-value">{settings.todayState || "Not set"}</span>
-            <svg className="settings-state-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6" /></svg>
-          </button>
-          {stateOpen && (
-            <div className="settings-state-options" role="group" aria-label="Today's State">
-              {TODAY_STATES.map((value) => (
-                <button type="button" key={value}
-                  className={`settings-state-chip${settings.todayState === value ? " settings-state-chip-active" : ""}`}
-                  aria-pressed={settings.todayState === value}
-                  onClick={() => pickTodayState(value)}>{value}</button>
-              ))}
-              <button type="button" className="settings-state-chip settings-state-chip-quiet" onClick={customTodayState}>custom…</button>
-              {settings.todayState && (
-                <button type="button" className="settings-state-chip settings-state-chip-quiet" onClick={() => pickTodayState("")}>clear</button>
-              )}
-            </div>
-          )}
-        </div>
 
         <div className="settings-group">
           <h2 className="settings-group-title">Proactive Care</h2>
@@ -230,7 +202,42 @@ export function SettingsView({
           sessionUserTurns={gptSession?.messages.filter((m) => m.role === "user").length ?? 0}
         />
       </section>
-      <PageBack onBack={onBack} />
-    </>
+  );
+
+  if (!settings.retroDesktop) return <>{content}<PageBack onBack={onBack} /></>;
+
+  return (
+    <div className="xp-summer-screen xp-control-screen">
+      <section className="xp-summer-window" aria-label="控制面板">
+        <header className="xp-summer-titlebar">
+          <span className="xp-control-title-icon"><GearGlyph /></span><h1>控制面板</h1>
+          <div className="xp-summer-controls">
+            <i className="xp-summer-window-button xp-summer-min" aria-hidden="true" />
+            <i className="xp-summer-window-button xp-summer-max" aria-hidden="true" />
+            <button type="button" className="xp-summer-window-button xp-summer-close" aria-label="关闭窗口，回到桌面" onClick={onBack}><svg viewBox="0 0 10 10" aria-hidden="true"><path d="M2 2l6 6M8 2l-6 6" /></svg></button>
+          </div>
+        </header>
+        <div className="xp-summer-address"><span>地址</span><b>我的电脑</b><span>›</span><b>控制面板</b></div>
+        <div className="xp-control-mobile-directory">
+          <select aria-label="跳转设置项目" defaultValue="" onChange={(event) => { if (event.target.value) jumpTo(Number(event.target.value)); }}>
+            <option value="">选择设置项目…</option>
+            {CONTROL_SECTIONS.map((group) => <optgroup key={group.title} label={group.title}>{group.items.map((item) => <option key={item.index} value={item.index}>{item.label}</option>)}</optgroup>)}
+          </select>
+        </div>
+        <div className="xp-control-browser">
+          <nav className="xp-control-navigation" aria-label="控制面板目录">
+            <div className="xp-control-nav-heading"><GearGlyph /><h2>控制面板</h2></div>
+            {CONTROL_SECTIONS.map((group) => (
+              <section className="xp-control-task-group" key={group.title}>
+                <h3>{group.title}</h3>
+                <div>{group.items.map((item) => <button type="button" key={item.index} onClick={() => jumpTo(item.index)}><span aria-hidden="true">›</span>{item.label}</button>)}</div>
+              </section>
+            ))}
+          </nav>
+          {content}
+        </div>
+        <footer className="xp-summer-statusbar"><span>11 个设置项目</span><span>更改后自动保存</span></footer>
+      </section>
+    </div>
   );
 }

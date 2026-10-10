@@ -61,6 +61,10 @@ export function IconLineRetro(props: LineIconProps) {
   );
 }
 
+export function IconLineMood(props: LineIconProps) {
+  return <LineIcon {...props}><circle cx="12" cy="12" r="8.5" /><path d="M8.5 13.5c.7 2 2 3 3.5 3s2.8-1 3.5-3M9 8.7v1.1M15 8.7v1.1" /></LineIcon>;
+}
+
 export function IconLineGear(props: LineIconProps) {
   return (
     <LineIcon {...props}>

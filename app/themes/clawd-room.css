@@ -2,7 +2,7 @@
 
 /* Desktop: retro sits under blog and clawd right under reading (last
    column), leaving the wallpaper's left side clear. */
-:root[data-theme] .phone-home .phone-app-grid.phone-app-row > .phone-app:last-child {
+:root[data-theme] .phone-home .phone-app-grid.phone-app-row > .phone-app:nth-child(2) {
   grid-column: 2;
 }
 

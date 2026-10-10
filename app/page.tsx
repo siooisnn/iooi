@@ -23,6 +23,8 @@ import { PageBack } from "./components/PageBack";
 import { ChatView } from "./components/ChatView";
 import { SummerPageView } from "./components/SummerPageView";
 import { SettingsView } from "./components/SettingsView";
+import { MoodPage } from "./components/MoodPage";
+import { useDailyMood } from "./lib/use-daily-mood";
 
 // Main App
 export default function Home() {
@@ -95,6 +97,7 @@ export default function Home() {
   const [needKey, setNeedKey] = useState(false);
   const [keyInput, setKeyInput] = useState("");
   const [mounted, setMounted] = useState(false);
+  const dailyMood = useDailyMood(mounted && !needKey);
   // The shell div only exists once the app is unlocked and mounted.
   useFullscreenShell(mounted && !needKey && !chatRoomOpen, shellRef);
   const deletedSessionIds = useRef<Set<string>>(new Set(loadLocalRaw<string[]>("iooi-deleted-session-ids", [])));
@@ -641,6 +644,7 @@ export default function Home() {
             onBack={goHome}
             retro={settings.retroDesktop}
             contactSessions={{ claude: sessions, gpt: gptSessions }}
+            todayState={dailyMood.current?.value || ""}
           />
         )}
         {tab === "chat" && roomMode === "claude" && activeSession && chatView === "room" && (
@@ -704,12 +708,14 @@ export default function Home() {
         {tab === "blog" && <BlogView settings={settings} fragments={fragments} setFragments={setFragments} onBack={goHome} />}
         {tab === "reading" && <ReadingView settings={settings} onBack={goHome} />}
         {tab === "clawd" && <ClawdView onBack={goHome} />}
+        {tab === "mood" && <MoodPage mood={dailyMood} retro={settings.retroDesktop} onBack={goHome} />}
         {(tab === "summer-claude" || tab === "summer-gpt") && (
           <SummerPageView
             key={tab}
             assistantMode={tab === "summer-gpt" ? "gpt" : "claude"}
             assistantName={tab === "summer-gpt" ? settings.gptName || "GPT" : settings.aiName || CLAUDE_DEFAULT_NAME}
             onBack={goHome}
+            retro={settings.retroDesktop}
           />
         )}
         {tab === "settings" && (

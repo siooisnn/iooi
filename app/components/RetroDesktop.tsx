@@ -50,6 +50,18 @@ export function ChatGlyph() {
   );
 }
 
+export function MoodGlyph() {
+  const { ref, paint } = useIds();
+  return (
+    <svg viewBox="0 0 48 48" aria-hidden="true">
+      <defs><radialGradient id={ref("smile")} cx="33%" cy="28%" r="75%"><stop stopColor="#fff9bd" /><stop offset=".55" stopColor="#ffe46b" /><stop offset="1" stopColor="#e5ac27" /></radialGradient></defs>
+      <circle cx="24" cy="24" r="20" fill={paint("smile")} stroke="#996713" strokeWidth="1.4" />
+      <ellipse cx="17" cy="18" rx="2" ry="3" fill="#5e4318" /><ellipse cx="31" cy="18" rx="2" ry="3" fill="#5e4318" />
+      <path d="M14 28c2.5 6 6 8 10 8s7.5-2 10-8" fill="none" stroke="#5e4318" strokeWidth="2.5" strokeLinecap="round" />
+    </svg>
+  );
+}
+
 /** heartbeat: a glossy red heart with a white trace through it. */
 function HeartGlyph() {
   const { ref, paint } = useIds();
@@ -127,7 +139,7 @@ function PhoneGlyph() {
 }
 
 /** Control Panel for settings. */
-function GearGlyph() {
+export function GearGlyph() {
   return (
     <svg viewBox="0 0 48 48" aria-hidden="true">
       <rect x="4" y="8" width="40" height="32" rx="3" fill="#dfe9f7" stroke="#38639f" strokeWidth="1.4" />
@@ -278,6 +290,7 @@ export function RetroDesktop({ settings, onOpen, onExit, boot, onBooted }: {
             <DeskIcon label="reading" onClick={() => open("reading")}><BookGlyph /></DeskIcon>
             <DeskIcon label="clawd" onClick={() => open("clawd")}><ClawdGlyph /></DeskIcon>
             <DeskIcon label="回到 2026" onClick={shutDown}><PhoneGlyph /></DeskIcon>
+            <DeskIcon label="mood" onClick={() => open("mood")}><MoodGlyph /></DeskIcon>
           </div>
 
           <button type="button" className="xp-desk-gadget" onClick={() => open("moon")} aria-label="Moonbound love">
@@ -300,6 +313,7 @@ export function RetroDesktop({ settings, onOpen, onExit, boot, onBooted }: {
                 <MenuItem icon={<ChatGlyph />} label="chat" note="和他说说话" onClick={() => open("chat")} />
                 <MenuItem icon={<BlogGlyph />} label="blog" note="我的小博客" onClick={() => open("blog")} />
                 <MenuItem icon={<BookGlyph />} label="reading" onClick={() => open("reading")} />
+                <MenuItem icon={<MoodGlyph />} label="mood" note="今天是什么心情" onClick={() => open("mood")} />
                 <MenuItem icon={<HeartGlyph />} label="heartbeat" onClick={() => open("heartbeat")} />
               </div>
               <div className="xp-desk-menu-right">

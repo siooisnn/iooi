@@ -33,6 +33,7 @@ export function ChatListView({
   onBack,
   retro = false,
   contactSessions,
+  todayState = "",
 }: {
   assistantMode: AssistantMode;
   settings: Settings;
@@ -54,6 +55,7 @@ export function ChatListView({
   retro?: boolean;
   // Both people's windows, so each buddy can open their own latest chat.
   contactSessions?: Partial<Record<AssistantMode, ChatSession[]>>;
+  todayState?: string;
 }) {
   const isGpt = assistantMode === "gpt";
   const claudeName = settings.aiName || CLAUDE_DEFAULT_NAME;
@@ -225,7 +227,7 @@ export function ChatListView({
       <RetroBuddyList
         userName={settings.userName || "宝宝"}
         userAvatar={settings.userAvatar}
-        todayState={settings.todayState}
+        todayState={todayState}
         pinnedLine={pinnedLine}
         startDate={settings.startDate}
         assistantMode={assistantMode}
@@ -265,7 +267,7 @@ export function ChatListView({
             <div className="chat-list-profile-text">
               <h1 className="chat-list-profile-name">{settings.userName || "宝宝"}</h1>
               <p className="chat-list-profile-state">
-                Today&apos;s State: <span>{settings.todayState || "—"}</span>
+                Today&apos;s State: <span>{todayState || "—"}</span>
               </p>
             </div>
           </div>
