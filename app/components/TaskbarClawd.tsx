@@ -79,7 +79,7 @@ export function TaskbarClawd() {
       aria-label={asleep ? "clawd 在睡觉" : "戳一下 clawd"}
     >
       <span className="xp-clawd-body">
-        <svg viewBox="0 0 18 10" width="36" height="20" shapeRendering="crispEdges" aria-hidden="true">
+        <svg viewBox="0 0 18 10" width="72" height="40" shapeRendering="crispEdges" aria-hidden="true">
           <PixelSprite rows={asleep ? BODY_ASLEEP : BODY} palette={PALETTE} />
           <PixelSprite rows={LEGS_A} palette={PALETTE} className="xp-clawd-legs-a" />
           <PixelSprite rows={LEGS_B} palette={PALETTE} className="xp-clawd-legs-b" />

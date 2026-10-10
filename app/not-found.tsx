@@ -7,7 +7,7 @@ export default function NotFound() {
       alignItems: "center", justifyContent: "center", gap: "16px",
       background: "var(--theme-canvas, #f7f7f7)", color: "var(--theme-text, #414141)", textAlign: "center", padding: "24px",
     }}>
-      <img src="/icon-bear-192.png" alt="" style={{ width: 72, height: 72, borderRadius: 18, opacity: 0.85 }} />
+      <img src="/icon-iooi-192.png" alt="" style={{ width: 72, height: 72, borderRadius: 18, opacity: 0.85 }} />
       <p style={{ fontSize: 18, fontWeight: 600 }}>这里没有路啦</p>
       <p style={{ fontSize: 14, color: "var(--theme-muted, #939393)" }}>小熊迷路了，回家找我吧</p>
       <Link href="/" style={{

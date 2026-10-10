@@ -2,7 +2,7 @@
 
 import { useEffect, useId, useState } from "react";
 import type { ReactNode } from "react";
-import { MoonEarthMini } from "./MoonLetter";
+import { MoonEarthPixel } from "./MoonEarthPixel";
 import { TaskbarClawd } from "./TaskbarClawd";
 import { HEARTBEAT_LINE, Petals, useTogether } from "./HomeView";
 import type { HomeApp } from "./HomeView";
@@ -296,7 +296,7 @@ export function RetroDesktop({ settings, onOpen, onExit, boot, onBooted }: {
           </div>
 
           <button type="button" className="xp-desk-gadget" onClick={() => open("moon")} aria-label="Moonbound love">
-            <span className="xp-desk-gadget-glass"><MoonEarthMini /></span>
+            <span className="xp-desk-gadget-pixels"><MoonEarthPixel /></span>
             <span className="xp-desk-icon-label">Moonbound love</span>
           </button>
         </div>

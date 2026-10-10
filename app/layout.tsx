@@ -44,7 +44,7 @@ export default function RootLayout({
   return (
     <html lang="zh-CN" data-theme="white-pink" suppressHydrationWarning>
       <head>
-        <link rel="apple-touch-icon" href="/icon-bear-192.png" />
+        <link rel="apple-touch-icon" href="/icon-iooi-192.png" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
       </head>
       <body><ThemeProvider>{children}</ThemeProvider></body>
