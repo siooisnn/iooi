@@ -140,10 +140,13 @@
 }
 
 /* Flat surfaces, with only the four counter tiles keeping their requested glow.
-   Images remain untouched; these reset only CSS surface effects. */
-:root[data-theme="white-pink"] body *,
-:root[data-theme="white-pink"] body *::before,
-:root[data-theme="white-pink"] body *::after,
+   Images remain untouched; these reset only CSS surface effects.
+   The blog is its own 2007 room (rainbow title text is a background-clip
+   gradient, the bar is a dotted gradient), so it keeps its effects. :where()
+   adds no specificity, so every other rule wins or loses exactly as before. */
+:root[data-theme="white-pink"] body *:where(:not(.blog-overlay, .blog-overlay *)),
+:root[data-theme="white-pink"] body *:where(:not(.blog-overlay, .blog-overlay *))::before,
+:root[data-theme="white-pink"] body *:where(:not(.blog-overlay, .blog-overlay *))::after,
 :root[data-theme="white-pink"] .chat-footer * {
   background-image: none;
   box-shadow: none;

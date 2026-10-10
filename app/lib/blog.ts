@@ -321,6 +321,152 @@ export function latestHisPost(state: BlogState) {
   return sortPosts(state.him.posts)[0] as HisPost | undefined;
 }
 
+/**
+ * What he sends back when nobody asked him to write: a post, or a decision
+ * to leave it today ({"skip": true}). Null when it is neither.
+ */
+export function parseHisDecision(raw: string): { draft: HisDraft } | { skip: string } | null {
+  const draft = parseHisDraft(raw);
+  if (draft) return { draft };
+  const cleaned = raw.replace(/```(?:json)?/gi, "");
+  const start = cleaned.indexOf("{");
+  const end = cleaned.lastIndexOf("}");
+  if (start < 0 || end <= start) return null;
+  try {
+    const data = JSON.parse(cleaned.slice(start, end + 1)) as Record<string, unknown>;
+    if (data && data.skip === true) return { skip: text(data.reason, 120) || "今天没什么想写的" };
+  } catch {}
+  return null;
+}
+
+// ── His own visits (the heartbeat) ──
+// Every half hour the heartbeat may let him drop by on his own: first to
+// answer her (a new post of hers he hasn't been to, or a comment of hers left
+// hanging), otherwise, every week or two, to write something himself. All of
+// it is decided here, purely, so the tests can walk through it.
+
+const HOUR = 3_600_000;
+const DAY = 24 * HOUR;
+
+export const BLOG_BEAT = {
+  /** Her posts and comments older than this are left alone. */
+  freshDays: 3,
+  /** He comes to a new post of hers 1–4 hours after she last touched it… */
+  postDelayHours: [1, 4],
+  /** …and answers a comment of hers 0.5–3 hours later, like a person would. */
+  replyDelayHours: [0.5, 3],
+  /** A visit that fails twice is given up on. */
+  maxTries: 2,
+  commentsPerDay: 8,
+  /** No post of his own within a week of the last one. */
+  minPostGapDays: 7,
+  /** After two weeks he always at least thinks about writing. */
+  sureGapDays: 14,
+  /** Between those, each day has this chance of him thinking about it. */
+  dailyChance: 0.4,
+  /** He thinks about writing at most once in this many hours. */
+  considerEveryHours: 20,
+} as const;
+
+/** 0 ≤ n < 1, fixed per id: the same post always gets the same delay. */
+export function idFraction(id: string) {
+  let hash = 2166136261;
+  for (let index = 0; index < id.length; index += 1) {
+    hash ^= id.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return (hash >>> 0) / 4294967296;
+}
+
+function delayMs(id: string, [low, high]: readonly [number, number]) {
+  return (low + (high - low) * idFraction(id)) * HOUR;
+}
+
+function stamp(iso: string) {
+  const time = new Date(iso).getTime();
+  return Number.isNaN(time) ? 0 : time;
+}
+
+export type HerPostRef = { id: string; createdAt: string; updatedAt?: string };
+
+export type BlogVisit = {
+  postId: string;
+  /** True when it is his own post (he is answering her comment there). */
+  own: boolean;
+  /** What he is answering: her post id, or her latest comment id. */
+  key: string;
+};
+
+/**
+ * The visit he owes her right now, if any: the one that has been waiting the
+ * longest. `tried` counts failed attempts by visit key.
+ */
+export function pickBlogVisit(
+  state: BlogState,
+  herPosts: HerPostRef[],
+  now: Date,
+  tried: Record<string, number> = {},
+): BlogVisit | null {
+  const nowMs = now.getTime();
+  const fresh = (ms: number) => ms > 0 && nowMs - ms <= BLOG_BEAT.freshDays * DAY;
+  const threads = new Map<string, BlogComment[]>();
+  for (const comment of state.comments) {
+    const list = threads.get(comment.postId) || [];
+    list.push(comment);
+    threads.set(comment.postId, list);
+  }
+  const due: Array<BlogVisit & { readyAt: number }> = [];
+  const consider = (postId: string, own: boolean) => {
+    const thread = (threads.get(postId) || []).slice().sort((a, b) => stamp(a.createdAt) - stamp(b.createdAt));
+    const last = thread[thread.length - 1];
+    // Her comment is the last word: he answers it.
+    if (last && last.author === "her" && fresh(stamp(last.createdAt))) {
+      due.push({ postId, own, key: last.id, readyAt: stamp(last.createdAt) + delayMs(last.id, BLOG_BEAT.replyDelayHours) });
+    }
+  };
+  for (const post of herPosts) {
+    const thread = threads.get(post.id) || [];
+    const touched = Math.max(stamp(post.createdAt), stamp(post.updatedAt || ""));
+    if (!thread.some((comment) => comment.author === "him")) {
+      // A new post of hers he hasn't been to. Waiting from her last edit
+      // means he never lands on something she is still writing.
+      if (fresh(stamp(post.createdAt))) {
+        due.push({ postId: post.id, own: false, key: post.id, readyAt: touched + delayMs(post.id, BLOG_BEAT.postDelayHours) });
+        continue;
+      }
+    }
+    consider(post.id, false);
+  }
+  for (const post of state.him.posts) consider(post.id, true);
+  const ready = due
+    .filter((visit) => visit.readyAt <= nowMs && (tried[visit.key] || 0) < BLOG_BEAT.maxTries)
+    .sort((a, b) => a.readyAt - b.readyAt);
+  if (!ready.length) return null;
+  const { postId, own, key } = ready[0];
+  return { postId, own, key };
+}
+
+/**
+ * Whether he sits down to think about a post of his own today. `roll` is a
+ * random 0–1; a day he decides against still counts as considered.
+ */
+export function shouldConsiderWriting(
+  { lastPostAt, lastConsideredAt, now, roll }: { lastPostAt: string | null; lastConsideredAt: number; now: Date; roll: number },
+): { consider: boolean; counts: boolean; reason: string } {
+  const nowMs = now.getTime();
+  if (lastConsideredAt && nowMs - lastConsideredAt < BLOG_BEAT.considerEveryHours * HOUR) {
+    return { consider: false, counts: false, reason: "今天已经想过要不要写了" };
+  }
+  const gapDays = lastPostAt ? (nowMs - stamp(lastPostAt)) / DAY : Infinity;
+  if (gapDays < BLOG_BEAT.minPostGapDays) {
+    return { consider: false, counts: false, reason: `离上一篇不到 ${BLOG_BEAT.minPostGapDays} 天` };
+  }
+  if (gapDays < BLOG_BEAT.sureGapDays && roll >= BLOG_BEAT.dailyChance) {
+    return { consider: false, counts: true, reason: "今天没想起来写" };
+  }
+  return { consider: true, counts: true, reason: "想想要不要写一篇" };
+}
+
 // ── Posts ──
 
 /** Her title, or the first line of the post for old winter fragments. */

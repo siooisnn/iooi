@@ -52,6 +52,7 @@ export default function Home() {
     thinking: true,
     webSearch: false,
     proactiveCare: false,
+    blogAutonomy: false,
     city: "",
   };
 

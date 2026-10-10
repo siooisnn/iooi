@@ -136,6 +136,14 @@ export function SettingsView({
             <span className="model-option-dot" />
             {settings.proactiveCare ? "On" : "Off"}
           </button>
+          <p className="settings-hint" style={{ marginTop: 6 }}>Blog space: now and then {aiName} writes in his own space and drops by to comment on yours, without being asked. You find out from the push.</p>
+          <button
+            className={`model-option ${settings.blogAutonomy ? "model-option-active" : ""}`}
+            onClick={() => updateSettings({ blogAutonomy: !settings.blogAutonomy })}
+          >
+            <span className="model-option-dot" />
+            {settings.blogAutonomy ? "On" : "Off"}
+          </button>
         </div>
 
         <div className="settings-group">

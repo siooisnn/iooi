@@ -32,6 +32,9 @@ export type Settings = {
   thinking: boolean;
   webSearch: boolean;
   proactiveCare: boolean;
+  // On the same heartbeat, he sometimes writes in his blog space and drops by
+  // to comment on hers, unasked. Off unless she turns it on.
+  blogAutonomy?: boolean;
   city: string;
 };
 

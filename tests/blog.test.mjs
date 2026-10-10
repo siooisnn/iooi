@@ -2,7 +2,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   applyBlogAction, blogArchive, blogDayKey, calendarWeeks, DEFAULT_BLOG_PROFILE, DEFAULT_HIS_MOTTO, latestHisPost,
-  parseBlogState, parseHisDraft, postExcerpt, postTitle, shiftMonth, songTitleFromFile, sortPosts, visitorDigits,
+  parseBlogState, parseHisDecision, parseHisDraft, pickBlogVisit, postExcerpt, postTitle, shiftMonth, shouldConsiderWriting,
+  songTitleFromFile, sortPosts, visitorDigits,
 } from '../app/lib/blog.ts';
 
 const NOW = new Date('2026-10-09T04:00:00Z');
@@ -160,4 +161,60 @@ test('his draft is read from bare, fenced or chatty JSON', () => {
   assert.equal(parseHisDraft('{"title":"x","content":""}'), null);
   assert.equal(parseHisDraft('写不出来'), null);
   assert.equal(parseHisDraft('{broken'), null);
+});
+
+test('when nobody asked, he may write or decide not to', () => {
+  assert.equal(parseHisDecision('{"title":"t","content":"正文"}').draft.content, '正文');
+  assert.deepEqual(parseHisDecision('{"skip":true,"reason":"今天没东西写"}'), { skip: '今天没东西写' });
+  assert.deepEqual(parseHisDecision('{"skip":true}'), { skip: '今天没什么想写的' });
+  assert.equal(parseHisDecision('{"skip":false}'), null);
+  assert.equal(parseHisDecision('嗯'), null);
+});
+
+const H = 3_600_000;
+const ago = (hours) => new Date(NOW.getTime() - hours * H).toISOString();
+
+test('he drops by her new post a few hours later, never while she is still editing', () => {
+  const blog = parseBlogState(null);
+  // Written 30 minutes ago: too soon for anyone.
+  assert.equal(pickBlogVisit(blog, [{ id: 'p1', createdAt: ago(0.5), updatedAt: ago(0.5) }], NOW), null);
+  // Written 5 hours ago: every delay (1–4 h) has passed.
+  assert.deepEqual(pickBlogVisit(blog, [{ id: 'p1', createdAt: ago(5), updatedAt: ago(5) }], NOW), { postId: 'p1', own: false, key: 'p1' });
+  // Written long ago but edited a moment ago: wait.
+  assert.equal(pickBlogVisit(blog, [{ id: 'p1', createdAt: ago(10), updatedAt: ago(0.2) }], NOW), null);
+  // Older than three days: left alone.
+  assert.equal(pickBlogVisit(blog, [{ id: 'p1', createdAt: ago(80), updatedAt: ago(80) }], NOW), null);
+  // Failed twice: given up.
+  assert.equal(pickBlogVisit(blog, [{ id: 'p1', createdAt: ago(5) }], NOW, { p1: 2 }), null);
+});
+
+test('he answers her comment where she left the last word, and only there', () => {
+  let blog = parseBlogState(null);
+  blog = applyBlogAction(blog, { type: 'him-post-add', title: '熵增', content: '乱是默认的' }, { now: new Date(NOW.getTime() - 48 * H), id: 'him-1' });
+  const post = [{ id: 'p1', createdAt: ago(40), updatedAt: ago(40) }];
+  blog = applyBlogAction(blog, { type: 'comment', postId: 'p1', content: '沙发', author: 'him' }, { now: new Date(NOW.getTime() - 30 * H), id: 'c1' });
+  assert.equal(pickBlogVisit(blog, post, NOW), null, 'he already has the last word');
+
+  blog = applyBlogAction(blog, { type: 'comment', postId: 'p1', content: '哼', author: 'her' }, { now: new Date(NOW.getTime() - 4 * H), id: 'c2' });
+  assert.deepEqual(pickBlogVisit(blog, post, NOW), { postId: 'p1', own: false, key: 'c2' });
+
+  blog = applyBlogAction(blog, { type: 'comment', postId: 'him-1', content: '踩', author: 'her' }, { now: new Date(NOW.getTime() - 5 * H), id: 'c3' });
+  assert.equal(pickBlogVisit(blog, post, NOW).key, 'c3', 'the longest-waiting comment goes first');
+  assert.equal(pickBlogVisit(blog, post, NOW).own, true);
+
+  blog = applyBlogAction(blog, { type: 'comment', postId: 'him-1', content: '回你', author: 'him' }, at('c4'));
+  blog = applyBlogAction(blog, { type: 'comment', postId: 'p1', content: '回你', author: 'him' }, at('c5'));
+  assert.equal(pickBlogVisit(blog, post, NOW), null);
+});
+
+test('he writes on his own every week or two, at most once a day', () => {
+  const base = { now: NOW, lastConsideredAt: 0, roll: 0.9 };
+  assert.equal(shouldConsiderWriting({ ...base, lastPostAt: ago(24 * 3) }).consider, false);
+  assert.equal(shouldConsiderWriting({ ...base, lastPostAt: ago(24 * 3) }).counts, false, 'too soon is not a day spent');
+  const unlucky = shouldConsiderWriting({ ...base, lastPostAt: ago(24 * 9) });
+  assert.deepEqual([unlucky.consider, unlucky.counts], [false, true]);
+  assert.equal(shouldConsiderWriting({ ...base, lastPostAt: ago(24 * 9), roll: 0.1 }).consider, true);
+  assert.equal(shouldConsiderWriting({ ...base, lastPostAt: ago(24 * 15) }).consider, true, 'after two weeks he always thinks about it');
+  assert.equal(shouldConsiderWriting({ ...base, lastPostAt: null }).consider, true);
+  assert.equal(shouldConsiderWriting({ ...base, lastPostAt: ago(24 * 15), lastConsideredAt: NOW.getTime() - 5 * H }).consider, false);
 });

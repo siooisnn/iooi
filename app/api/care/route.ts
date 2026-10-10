@@ -2,6 +2,8 @@ import { readStore, withStore } from "@/app/lib/store";
 import { describePushResult, sendPushToAll } from "@/app/lib/push";
 import { isClaudeCodeEnabled, runClaudeCodeChat } from "@/app/lib/claude-code";
 import { latestUserSession, messageTimestamp } from "@/app/lib/chat-timeline";
+import { blogHeartbeat } from "@/app/lib/blog-him";
+import { after } from "next/server";
 
 export const runtime = "nodejs";
 
@@ -50,6 +52,10 @@ function log(careState: Record<string, unknown>, action: string, reason: string)
 }
 
 export async function POST() {
+  // His blog visits ride the same heartbeat but run after the response: a post
+  // takes a minute or two, and the caller shouldn't wait for it. It keeps its
+  // own switch (settings.blogAutonomy) and its own log (store.blogBeat).
+  after(() => blogHeartbeat().catch(() => undefined));
   try {
     const snapshot = readStore();
     if (!snapshot) return Response.json({ action: "silent", reason: "no data" });
