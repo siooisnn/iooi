@@ -5,8 +5,9 @@
 import { readStore, withStore } from "@/app/lib/store";
 import {
   applyBlogAction, BLOG_BEAT, BLOG_LIMITS, BLOG_MOODS, BLOG_WEATHERS, latestHisPost, parseBlogState, parseHisDecision,
-  pickBlogVisit, postExcerpt, postTitle, shouldConsiderWriting, sortPosts,
+  pickBlogVisit, postExcerpt, postImages, postTitle, shouldConsiderWriting, sortPosts,
 } from "@/app/lib/blog";
+import { loadUploadImages } from "@/app/lib/upload-images";
 import type { BlogAction, BlogState, HisDraft, HisPost } from "@/app/lib/blog";
 import { describePushResult, sendPushToAll } from "@/app/lib/push";
 import { isClaudeCodeEnabled, normalizeClaudeCodeModel, runClaudeCodeChat } from "@/app/lib/claude-code";
@@ -103,14 +104,17 @@ function systemPrompt(settings: Record<string, unknown>, memory: string, task: s
   return [normalizeSystemPrompt(typeof settings.prompt === "string" ? settings.prompt : ""), memory, task].filter(Boolean).join("\n\n");
 }
 
-export type HerPost = { id: string; title: string; content: string; createdAt: string; updatedAt: string; mood: string; weather: string };
+export type HerPost = {
+  id: string; title: string; content: string; createdAt: string; updatedAt: string; mood: string; weather: string; images: string[];
+};
 
 /** Her posts as stored by the sync (`fragments`), newest first. */
 export function herPostsFrom(store: Record<string, unknown>): HerPost[] {
   return sortPosts((Array.isArray(store.fragments) ? store.fragments : []).flatMap((item) => {
     const post = item as Record<string, unknown>;
-    if (!post || typeof post.id !== "string" || typeof post.content !== "string" || !post.content.trim()) return [];
-    if (typeof post.createdAt !== "string") return [];
+    if (!post || typeof post.id !== "string" || typeof post.content !== "string") return [];
+    const images = postImages(post);
+    if ((!post.content.trim() && !images.length) || typeof post.createdAt !== "string") return [];
     return [{
       id: post.id,
       title: typeof post.title === "string" ? post.title : "",
@@ -119,13 +123,14 @@ export function herPostsFrom(store: Record<string, unknown>): HerPost[] {
       updatedAt: typeof post.updatedAt === "string" ? post.updatedAt : post.createdAt,
       mood: typeof post.mood === "string" && (BLOG_MOODS as readonly string[]).includes(post.mood) ? post.mood : "",
       weather: typeof post.weather === "string" && (BLOG_WEATHERS as readonly string[]).includes(post.weather) ? post.weather : "",
+      images,
     }];
   }));
 }
 
 // ── Comments ──
 
-type PostForComment = { title: string; content: string; createdAt: string; mood: string; weather: string };
+type PostForComment = { title: string; content: string; createdAt: string; mood: string; weather: string; images: number };
 
 function commentPrompt(me: string, post: PostForComment, thread: string, own: boolean, auto: boolean) {
   const written = post.createdAt ? cstDate(post.createdAt) : "";
@@ -146,8 +151,8 @@ function commentPrompt(me: string, post: PostForComment, thread: string, own: bo
 ${own ? "你的日志" : "文章"}标题：${post.title || "（没写标题）"}
 ${[written && `写于：${written}`, post.mood && `心情：${post.mood}`, post.weather && `天气：${post.weather}`].filter(Boolean).join("　")}
 正文：
-${post.content}
-
+${post.content || "（没写字，只放了图。）"}
+${post.images ? `\n她在文章里配了 ${post.images} 张图，附在这段话后面，按顺序排。图也是文章的一部分：看清楚图里是什么，可以接着图说，但别一张张描述。\n` : ""}
 这篇下面已经有的留言：
 ${thread}
 
@@ -156,7 +161,7 @@ ${rules}
 - 不要 markdown，不要引号，不要署名。直接输出留言正文。`;
 }
 
-export type AskPost = { id?: unknown; title?: unknown; content?: unknown; createdAt?: unknown; mood?: unknown; weather?: unknown };
+export type AskPost = { id?: unknown; title?: unknown; content?: unknown; createdAt?: unknown; mood?: unknown; weather?: unknown; images?: unknown };
 
 export type HimResult =
   | { kind: "done"; blog: BlogState }
@@ -181,10 +186,14 @@ export async function commentAsHim({ postId, sent, modelId, auto = false, signal
   const ownPost = blog.him.posts.find((post) => post.id === postId);
   const stored = ownPost ? undefined : herPostsFrom(store).find((post) => post.id === postId);
   const given = sent || {};
+  const fromPage = !ownPost && !auto && (typeof given.content === "string" || Array.isArray(given.images));
   const content = ownPost ? ownPost.content
-    : !auto && typeof given.content === "string" ? given.content.trim().slice(0, 8000)
+    : fromPage ? (typeof given.content === "string" ? given.content.trim().slice(0, 8000) : "")
       : stored?.content.trim().slice(0, 8000) || "";
-  if (!postId || !content) return { kind: "failed", error: "这篇还是空的，写点什么他才好留言", status: 400 };
+  // Only her own uploads; his posts have no photos.
+  const imageUrls = ownPost ? [] : fromPage ? postImages(given) : stored?.images || [];
+  const images = loadUploadImages(imageUrls);
+  if (!postId || (!content && !images.length)) return { kind: "failed", error: "这篇还是空的，写点什么他才好留言", status: 400 };
   if (!isClaudeCodeEnabled()) return { kind: "failed", error: "Claude 订阅通道暂时不可用，他这会儿来不了", status: 503 };
 
   const settings = (store.settings || {}) as Record<string, unknown>;
@@ -200,15 +209,16 @@ export async function commentAsHim({ postId, sent, modelId, auto = false, signal
     ? earlier.map((comment) => `${comment.author === "him" ? "你" : "她"}：${comment.content}`).join("\n")
     : "（还没有人留言，你是沙发。）";
   const post: PostForComment = ownPost
-    ? { title: ownPost.title, content, createdAt: ownPost.createdAt, mood: ownPost.mood || "", weather: ownPost.weather || "" }
-    : auto && stored
-      ? { title: stored.title, content, createdAt: stored.createdAt, mood: stored.mood, weather: stored.weather }
+    ? { title: ownPost.title, content, createdAt: ownPost.createdAt, mood: ownPost.mood || "", weather: ownPost.weather || "", images: 0 }
+    : !fromPage && stored
+      ? { title: stored.title, content, createdAt: stored.createdAt, mood: stored.mood, weather: stored.weather, images: images.length }
       : {
         title: typeof given.title === "string" ? given.title.trim().slice(0, 60) : "",
         content,
         createdAt: typeof given.createdAt === "string" ? given.createdAt : "",
         mood: typeof given.mood === "string" && (BLOG_MOODS as readonly string[]).includes(given.mood) ? given.mood : "",
         weather: typeof given.weather === "string" && (BLOG_WEATHERS as readonly string[]).includes(given.weather) ? given.weather : "",
+        images: images.length,
       };
 
   const memory = await readSummerWake();
@@ -216,7 +226,12 @@ export async function commentAsHim({ postId, sent, modelId, auto = false, signal
   try {
     const result = await runClaudeCodeChat({
       systemPrompt: systemPrompt(settings, memory, "这是博客留言任务：只输出一条留言正文，不要使用工具。"),
-      messages: [{ role: "user", content: commentPrompt(me, post, thread, Boolean(ownPost), auto) }],
+      messages: [{
+        role: "user",
+        content: images.length
+          ? [{ type: "text", text: commentPrompt(me, post, thread, Boolean(ownPost), auto) }, ...images]
+          : commentPrompt(me, post, thread, Boolean(ownPost), auto),
+      }],
       modelId: pickModel(modelId ?? settingsModel(settings)),
       reasoningEffort: "low",
       priority: auto ? "background" : "interactive",
@@ -242,7 +257,7 @@ export async function commentAsHim({ postId, sent, modelId, auto = false, signal
   if ("error" in saved) return { kind: "failed", error: saved.error, status: 400 };
 
   if (auto) {
-    const title = ownPost ? ownPost.title : postTitle({ id: postId, content, createdAt: post.createdAt, updatedAt: post.createdAt, title: post.title });
+    const title = ownPost ? ownPost.title : postTitle({ id: postId, content, createdAt: post.createdAt, updatedAt: post.createdAt, title: post.title, images: imageUrls });
     try {
       const push = await sendPushToAll({
         title: ownPost ? `${me}回了你的留言` : `${me}来踩了你的博客`,

@@ -62,6 +62,8 @@ export type BlogPostLike = {
   title?: string;
   mood?: string;
   weather?: string;
+  /** Her photos, iooi upload URLs, shown under the text. */
+  images?: string[];
 };
 
 export const BLOG_TIME_ZONE = "Asia/Shanghai";
@@ -97,9 +99,25 @@ export const BLOG_LIMITS = {
   /** However he gets there (button, heartbeat, chat, MCP), at most this many posts a day. */
   hisPostsPerDay: 3,
   topic: 100,
+  postImages: 9,
 } as const;
 
 const UPLOAD_URL = /^\/uploads\/[A-Za-z0-9._-]{1,120}$/;
+
+/** The photos of a post: only iooi's own uploads, no repeats, at most nine. */
+export function postImages(post: { images?: unknown } | null | undefined): string[] {
+  if (!post || !Array.isArray(post.images)) return [];
+  const urls = post.images.filter((url): url is string => typeof url === "string" && UPLOAD_URL.test(url) && !url.includes(".."));
+  return [...new Set(urls)].slice(0, BLOG_LIMITS.postImages);
+}
+
+/** Whether a post has anything in it: words, a title or a photo. */
+export function postHasBody(post: { content?: unknown; title?: unknown; images?: unknown }) {
+  return (typeof post.content === "string" && Boolean(post.content.trim()))
+    || (typeof post.title === "string" && Boolean(post.title.trim()))
+    || postImages(post).length > 0;
+}
+
 const ID = /^[A-Za-z0-9._:-]{1,120}$/;
 
 function text(value: unknown, max: number) {
@@ -491,13 +509,14 @@ export function postTitle(post: BlogPostLike) {
   const own = (post.title || "").trim();
   if (own) return own;
   const firstLine = post.content.split(/\r?\n/).map((line) => line.trim()).find(Boolean) || "";
-  if (!firstLine) return "无题";
+  if (!firstLine) return postImages(post).length ? "图片日志" : "无题";
   const chars = Array.from(firstLine);
   return chars.length > 16 ? `${chars.slice(0, 16).join("")}…` : firstLine;
 }
 
 export function postExcerpt(post: BlogPostLike, max = 120) {
-  const body = post.content.replace(/\s+/g, " ").trim();
+  const body = post.content.replace(/\s+/g, " ").trim()
+    || (postImages(post).length ? `［${postImages(post).length} 张图片］` : "");
   const chars = Array.from(body);
   return chars.length > max ? `${chars.slice(0, max).join("")}……` : body;
 }

@@ -12,6 +12,7 @@ import type { BlogCard } from "@/app/lib/app-types";
 import { blogDigest, blogPostText } from "@/app/lib/blog-digest";
 import { changeBlog, herPostsFrom, hisName } from "@/app/lib/blog-him";
 import { describePushResult, sendPushToAll } from "@/app/lib/push";
+import { loadUploadImages } from "@/app/lib/upload-images";
 
 export type BlogDone = { ok: true; message: string; postId?: string; title?: string };
 export type BlogFailed = { ok: false; error: string };
@@ -42,6 +43,12 @@ export function readBlogDigest(limits?: { herLimit?: number; hisLimit?: number }
 export function readBlogPost(postId: string) {
   const { blog, herPosts } = current();
   return blogPostText(blog, herPosts, postId);
+}
+
+/** The photos in her post, ready to show him. Empty for his posts or a post without photos. */
+export function readBlogPostImages(postId: string) {
+  const { herPosts } = current();
+  return loadUploadImages(herPosts.find((post) => post.id === postId)?.images || []);
 }
 
 export async function publishHisPost(

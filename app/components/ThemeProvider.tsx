@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import type { ReactNode } from "react";
+import { installCuteFx } from "../lib/cute-fx";
 
 function syncBrowserChrome() {
   // Every page shares the one gray now, so the browser bars match it too.
@@ -16,6 +17,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
       localStorage.removeItem("iooi-status-bar-clearance"); // retired tuning slider
     } catch { /* Appearance is fixed even without storage. */ }
     syncBrowserChrome();
+    return installCuteFx();
   }, []);
   return children;
 }

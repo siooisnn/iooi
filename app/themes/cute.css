@@ -1,0 +1,277 @@
+/* ━━ A little cuter everywhere ━━
+   Loaded last. Sparkles and hearts are DOM bursts from app/lib/cute-fx.ts;
+   buttons squish on press and spring back; new chat bubbles pop in. Nothing
+   here uses background-image or box-shadow, so the flat white-pink reset
+   leaves it alone. */
+
+/* Rounded Latin letters and digits on Apple devices; Chinese still falls
+   through to PingFang. XP windows set their own Tahoma and are untouched. */
+body {
+  font-family: ui-rounded, "SF Pro Rounded", -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+}
+
+/* ── Sparkles under her finger, hearts off the send button ── */
+.cute-burst {
+  position: fixed;
+  z-index: 2147483000;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+}
+
+.cute-burst i {
+  position: absolute;
+  left: 0;
+  top: 0;
+  font-family: -apple-system, sans-serif;
+  font-size: 14px;
+  font-style: normal;
+  line-height: 1;
+  text-shadow: 0 0 4px #fff;
+}
+
+.cute-burst-sparkle i {
+  color: #ffd84a;
+  animation: cuteSparkle 0.9s ease-out forwards;
+}
+
+.cute-burst-sparkle i:nth-child(1) { --dx: 22px; --dy: 16px; }
+.cute-burst-sparkle i:nth-child(2) { color: #ff7eb6; --dx: -26px; --dy: -22px; }
+.cute-burst-sparkle i:nth-child(3) { color: #ff4f9a; font-size: 11px; --dx: 24px; --dy: -26px; }
+.cute-burst-sparkle i:nth-child(4) { color: #7cc8ff; --dx: -6px; --dy: 26px; }
+
+@keyframes cuteSparkle {
+  from { opacity: 1; transform: translate(-50%, -50%) scale(0.4); }
+  to { opacity: 0; transform: translate(calc(-50% + var(--dx)), calc(-50% + var(--dy))) scale(1.2) rotate(40deg); }
+}
+
+.cute-burst-heart i {
+  color: #ff6fa3;
+  font-size: 15px;
+  animation: cuteHeart 1.25s cubic-bezier(0.2, 0.7, 0.3, 1) forwards;
+}
+
+.cute-burst-heart i:nth-child(1) { --dx: -14px; --rot: -14deg; }
+.cute-burst-heart i:nth-child(2) { color: #ff9ec4; font-size: 12px; --dx: 4px; --rot: 8deg; animation-delay: 0.08s; }
+.cute-burst-heart i:nth-child(3) { color: #ff4f8f; font-size: 11px; --dx: 16px; --rot: 18deg; animation-delay: 0.16s; }
+
+@keyframes cuteHeart {
+  0% { opacity: 0; transform: translate(-50%, -30%) scale(0.3); }
+  20% { opacity: 1; transform: translate(-50%, -90%) scale(1.15); }
+  100% { opacity: 0; transform: translate(calc(-50% + var(--dx)), -480%) scale(0.9) rotate(var(--rot)); }
+}
+
+/* ── Buttons: squish while pressed, boing on release ── */
+[data-cute-squish] { scale: 0.9; }
+[data-cute-boing] { animation: cuteBoing 0.42s ease-out both; }
+
+[data-cute-squish="soft"] { scale: 0.97; }
+[data-cute-boing="soft"] { animation-name: cuteBoingSoft; }
+
+@keyframes cuteBoingSoft {
+  0% { scale: 0.97; }
+  45% { scale: 1.015; }
+  100% { scale: 1; }
+}
+
+@keyframes cuteBoing {
+  0% { scale: 0.9; }
+  40% { scale: 1.08; }
+  65% { scale: 0.97; }
+  85% { scale: 1.02; }
+  100% { scale: 1; }
+}
+
+/* ── New chat bubbles pop in from their own side ── */
+.msg-row-user { transform-origin: 100% 100%; }
+.msg-row-ai { transform-origin: 0 100%; }
+.msg-row { animation-duration: 0.5s; }
+
+@keyframes msgIn {
+  0% { opacity: 0; transform: translateY(10px) scale(0.86); }
+  55% { opacity: 1; transform: translateY(-2px) scale(1.03); }
+  78% { transform: translateY(0) scale(0.99); }
+  100% { opacity: 1; transform: none; }
+}
+
+/* ── The kitty typing his reply ── */
+.typing-kitty {
+  display: inline-flex;
+  flex: none;
+  line-height: 0;
+}
+
+.typing-kitty svg { overflow: visible; }
+
+.typing-kitty .kitty-paw-l,
+.typing-kitty .kitty-paw-r { animation: kittyTap 0.44s steps(1, end) infinite; }
+.typing-kitty .kitty-paw-r { animation-delay: -0.22s; }
+
+@keyframes kittyTap {
+  0% { transform: translateY(-2px); }
+  50% { transform: translateY(0); }
+}
+
+.typing-kitty .kitty-tail {
+  transform-box: fill-box;
+  transform-origin: 0 100%;
+  animation: kittyTail 1.4s ease-in-out infinite alternate;
+}
+
+@keyframes kittyTail {
+  from { transform: rotate(-10deg); }
+  to { transform: rotate(14deg); }
+}
+
+.typing-kitty .kitty-eyes {
+  transform-box: fill-box;
+  transform-origin: 50% 50%;
+  animation: kittyBlink 3.6s infinite;
+}
+
+@keyframes kittyBlink {
+  0%, 90%, 96%, 100% { transform: scaleY(1); }
+  93% { transform: scaleY(0.15); }
+}
+
+.typing-kitty .kitty-heart {
+  transform-box: fill-box;
+  transform-origin: 50% 50%;
+  animation: kittyHeart 2.6s ease-out infinite;
+}
+
+@keyframes kittyHeart {
+  0%, 55% { opacity: 0; transform: translateY(2px) scale(0.6); }
+  70% { opacity: 1; transform: translateY(0) scale(1); }
+  100% { opacity: 0; transform: translateY(-4px) scale(1.1); }
+}
+
+/* ── clawd on the XP taskbar ── */
+:root[data-theme] .xp-desktop .xp-clawd {
+  position: absolute;
+  bottom: 100%;
+  left: 4%;
+  z-index: 1;
+  display: block;
+  width: 36px;
+  height: 20px;
+  margin: 0 0 -1px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  animation: xpClawdWalk 40s linear infinite;
+}
+
+@keyframes xpClawdWalk {
+  0% { left: 4%; }
+  40% { left: calc(100% - 150px); }
+  50% { left: calc(100% - 150px); }
+  90% { left: 4%; }
+  100% { left: 4%; }
+}
+
+:root[data-theme] .xp-desktop .xp-clawd:focus-visible {
+  outline: 1px dotted #fff;
+  outline-offset: 2px;
+}
+
+:root[data-theme] .xp-desktop .xp-clawd-body {
+  display: block;
+  line-height: 0;
+  transform-origin: 50% 60%;
+}
+
+:root[data-theme] .xp-desktop .xp-clawd-legs-a,
+:root[data-theme] .xp-desktop .xp-clawd-legs-b { animation: xpClawdStep 0.5s steps(1, end) infinite; }
+:root[data-theme] .xp-desktop .xp-clawd-legs-b { animation-delay: -0.25s; }
+
+@keyframes xpClawdStep {
+  0% { transform: translateY(-1px); }
+  50% { transform: translateY(0); }
+}
+
+:root[data-theme] .xp-desktop .xp-clawd.is-rolling { animation-play-state: paused; }
+:root[data-theme] .xp-desktop .xp-clawd.is-rolling .xp-clawd-body { animation: xpClawdRoll 0.95s cubic-bezier(0.3, 0.6, 0.4, 1) both; }
+
+@keyframes xpClawdRoll {
+  0% { transform: none; }
+  30% { transform: translateY(-12px) rotate(180deg); }
+  60% { transform: translateY(0) rotate(360deg); }
+  75% { transform: translateY(-3px) rotate(360deg); }
+  100% { transform: translateY(0) rotate(360deg); }
+}
+
+/* Asleep in his room, he naps by the tray instead of walking. */
+:root[data-theme] .xp-desktop .xp-clawd.is-asleep {
+  left: auto;
+  right: 140px;
+  animation: none;
+}
+
+:root[data-theme] .xp-desktop .xp-clawd.is-asleep :is(.xp-clawd-legs-a, .xp-clawd-legs-b) { animation: none; }
+
+:root[data-theme] .xp-desktop .xp-clawd.is-asleep .xp-clawd-body {
+  transform-origin: 50% 100%;
+  animation: xpClawdBreath 3s ease-in-out infinite;
+}
+
+@keyframes xpClawdBreath {
+  0%, 100% { transform: scaleY(1); }
+  50% { transform: scaleY(0.9); }
+}
+
+:root[data-theme] .xp-desktop .xp-clawd-z {
+  position: absolute;
+  right: -6px;
+  top: -8px;
+  color: #fff;
+  font: bold 10px Tahoma, Verdana, sans-serif;
+  text-shadow: 0 1px 0 #1941a5;
+  animation: xpClawdZ 2.4s ease-out infinite;
+}
+
+@keyframes xpClawdZ {
+  0% { opacity: 0; transform: translate(0, 4px) scale(0.7); }
+  30% { opacity: 1; }
+  100% { opacity: 0; transform: translate(6px, -10px) scale(1.2); }
+}
+
+/* XP tooltip yellow for whatever he says when poked. */
+:root[data-theme] .xp-desktop .xp-clawd-say {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  padding: 3px 7px;
+  border: 1px solid #000;
+  border-radius: 6px;
+  background: #ffffe1;
+  color: #000;
+  font: 11px/1.3 Tahoma, Verdana, "PingFang SC", sans-serif;
+  white-space: nowrap;
+  transform: translateX(-50%);
+  animation: xpClawdSay 0.25s ease-out both;
+}
+
+:root[data-theme] .xp-desktop .xp-clawd-say::after {
+  content: "";
+  position: absolute;
+  top: 100%;
+  left: calc(50% - 4px);
+  border: 4px solid transparent;
+  border-top-color: #000;
+}
+
+@keyframes xpClawdSay {
+  from { opacity: 0; transform: translate(-50%, 4px) scale(0.8); }
+  to { opacity: 1; transform: translateX(-50%); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .msg-row { animation-duration: 0.01s; }
+  .typing-kitty :is(.kitty-paw-l, .kitty-paw-r, .kitty-tail, .kitty-eyes),
+  :root[data-theme] .xp-desktop :is(.xp-clawd, .xp-clawd-legs-a, .xp-clawd-legs-b, .xp-clawd-body, .xp-clawd-z),
+  :root[data-theme] .xp-desktop .xp-clawd.is-rolling .xp-clawd-body { animation: none; }
+  .typing-kitty .kitty-heart { display: none; }
+}

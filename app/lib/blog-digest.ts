@@ -13,7 +13,13 @@ export type DigestHerPost = {
   updatedAt: string;
   mood: string;
   weather: string;
+  images?: string[];
 };
+
+function photoNote(post: DigestHerPost) {
+  const count = post.images?.length || 0;
+  return count ? ` · 配图 ${count} 张` : "";
+}
 
 const stampFormat = new Intl.DateTimeFormat("zh-CN", {
   timeZone: "Asia/Shanghai", month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit", hour12: false,
@@ -55,7 +61,7 @@ export function blogDigest(blog: BlogState, herPosts: DigestHerPost[], {
     "她的日志（新的在前）：",
     ...(hers.length
       ? hers.flatMap((post) => [
-        `- id=${post.id} · ${stamp(post.createdAt)}《${postTitle(post)}》${post.mood ? ` · 心情 ${post.mood}` : ""} · ${threadNote(threadOf(blog, post.id), true)}`,
+        `- id=${post.id} · ${stamp(post.createdAt)}《${postTitle(post)}》${post.mood ? ` · 心情 ${post.mood}` : ""}${photoNote(post)} · ${threadNote(threadOf(blog, post.id), true)}`,
         `  ${postExcerpt(post, 60)}`,
       ])
       : ["（她最近没写。）"]),
@@ -80,7 +86,8 @@ export function blogPostText(blog: BlogState, herPosts: DigestHerPost[], postId:
     `《${title}》 id=${postId}`,
     meta,
     "",
-    (his || her)!.content,
+    (his || her)!.content || "（没写字，只放了图。）",
+    ...(her?.images?.length ? ["", `（她在这篇里配了 ${her.images.length} 张图，按顺序附在后面。）`] : []),
     "",
     `—— 留言（${thread.length}）——`,
     ...(thread.length

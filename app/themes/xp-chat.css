@@ -450,14 +450,10 @@
   line-height: 18px;
 }
 
-/* The dots only render while a reply is loading, so they mark "still typing". */
-:root[data-theme] .app-bg .chat-container[data-chat-ui="xp"]:is([data-chat-view="room"], [data-chat-view="group"]) .reply-status-bubble:has(> .typing-dots)::before {
-  animation: xpChatPencil 0.9s ease-in-out infinite alternate;
-}
-
-@keyframes xpChatPencil {
-  from { transform: translate(0, 0) rotate(0deg); }
-  to { transform: translate(3px, -1px) rotate(-12deg); }
+/* The typing kitty only renders while a reply is loading; she replaces the
+   pencil then. Paused or failed replies keep the plain pencil. */
+:root[data-theme] .app-bg .chat-container[data-chat-ui="xp"]:is([data-chat-view="room"], [data-chat-view="group"]) .reply-status-bubble:has(> .typing-kitty)::before {
+  content: none;
 }
 
 :root[data-theme] .app-bg .chat-container[data-chat-ui="xp"]:is([data-chat-view="room"], [data-chat-view="group"]) .reply-status-text {

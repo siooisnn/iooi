@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useRef, useEffect, useMemo } from "react";
+import { TypingKitty } from "./TypingKitty";
+import { sendHearts } from "../lib/cute-fx";
 import { ClaudeUsageCircle, ClaudeUsageDetails, useClaudeUsage } from "./ClaudeUsageBadge";
 import { ContextUsageBadge, type UsageMessage } from "./ContextUsageBadge";
 import { buildChatContext } from "../lib/chat-context";
@@ -521,6 +523,7 @@ export function ChatView({
     const typed = nudge ? NUDGE_USER_TEXT : stripObjectPlaceholders(input);
     if (!typed.trim() && !sendable.length) return;
     sendingRef.current = true;
+    if (!nudge) sendHearts();
     const pendingFile = sendable.find((item) => item.kind === "file");
     const userText = typed.trim() || !pendingFile ? typed : `📄 ${pendingFile.name}`;
     const userMsg: Message = { role: "user", content: userText, time: getTime(), date: getTodayStr(),
@@ -1226,7 +1229,7 @@ export function ChatView({
             }
             <div className="msg-content-ai">
               <div className={`msg-bubble msg-bubble-ai reply-status-bubble reply-status-${replyRequestState}`} aria-live="polite">
-                {loading && <div className="typing-dots"><span /><span /><span /></div>}
+                {loading && <TypingKitty />}
                 <span className="reply-status-text">{loading || replyRequestState === "paused" || replyRequestState === "failed"
                   ? replyRequestDetail || (retro && loading && (replyRequestState === "preparing" || replyRequestState === "waiting")
                     ? `${assistantName} 正在输入消息…`

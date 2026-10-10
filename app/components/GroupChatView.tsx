@@ -4,6 +4,8 @@ import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type Chang
 import { readChatResponse } from "../lib/chat-stream";
 import { useChatScrollPosition } from "../lib/use-chat-scroll-position";
 import { useTwilightLayout } from "../lib/use-twilight-layout";
+import { TypingKitty } from "./TypingKitty";
+import { sendHearts } from "../lib/cute-fx";
 import { ClaudeUsageCircle, useClaudeUsage } from "./ClaudeUsageBadge";
 import { imageFields, MAX_IMAGES_PER_MESSAGE, messageImages, stripObjectPlaceholders } from "../lib/message-images";
 import { prepareImageForUpload } from "../lib/image-compress";
@@ -522,6 +524,7 @@ export function GroupChatView({
     const text = stripObjectPlaceholders(input).trim();
     if ((!text && !attachments.length) || loading || uploading || sendingRef.current) return;
     sendingRef.current = true;
+    sendHearts();
     followLatest();
     const previousMessages = messagesRef.current;
     const pendingFile = attachments.find((item) => item.kind === "file");
@@ -849,7 +852,7 @@ export function GroupChatView({
             {activeSpeaker && <Avatar src={activeSpeaker === "gpt" ? settings.gptAvatar : settings.aiAvatar} />}
             <div className="msg-content-ai">
               <div className={`msg-bubble msg-bubble-ai reply-status-bubble reply-status-${replyState}`} aria-live="polite">
-                {loading && <div className="typing-dots"><span /><span /><span /></div>}
+                {loading && <TypingKitty />}
                 <span className="reply-status-text">{statusText}</span>
               </div>
             </div>

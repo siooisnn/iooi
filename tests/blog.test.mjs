@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   applyBlogAction, blogArchive, blogDayKey, calendarWeeks, DEFAULT_BLOG_PROFILE, DEFAULT_HIS_MOTTO, latestHisPost,
-  parseBlogState, parseHisDecision, parseHisDraft, pickBlogVisit, postExcerpt, postTitle, shiftMonth, shouldConsiderWriting,
+  parseBlogState, parseHisDecision, parseHisDraft, pickBlogVisit, postExcerpt, postHasBody, postImages, postTitle, shiftMonth, shouldConsiderWriting,
   songTitleFromFile, sortPosts, visitorDigits,
 } from '../app/lib/blog.ts';
 
@@ -217,4 +217,21 @@ test('he writes on his own every week or two, at most once a day', () => {
   assert.equal(shouldConsiderWriting({ ...base, lastPostAt: ago(24 * 15) }).consider, true, 'after two weeks he always thinks about it');
   assert.equal(shouldConsiderWriting({ ...base, lastPostAt: null }).consider, true);
   assert.equal(shouldConsiderWriting({ ...base, lastPostAt: ago(24 * 15), lastConsideredAt: NOW.getTime() - 5 * H }).consider, false);
+});
+
+test('post photos keep only her own uploads, without repeats, at most nine', () => {
+  const many = Array.from({ length: 12 }, (_, i) => `/uploads/p${i}.jpg`);
+  assert.equal(postImages({ images: many }).length, 9);
+  assert.deepEqual(postImages({ images: ['/uploads/a.jpg', '/uploads/a.jpg', 'https://evil.example/x.jpg', '/uploads/../x', 3] }), ['/uploads/a.jpg']);
+  assert.deepEqual(postImages({}), []);
+  assert.deepEqual(postImages(null), []);
+});
+
+test('a post with only photos still counts, and reads sensibly', () => {
+  const post = { id: 'p', content: '  ', createdAt: '2026-10-09T04:00:00Z', updatedAt: '2026-10-09T04:00:00Z', images: ['/uploads/a.jpg'] };
+  assert.equal(postHasBody(post), true);
+  assert.equal(postHasBody({ ...post, images: [] }), false);
+  assert.equal(postTitle(post), '图片日志');
+  assert.equal(postExcerpt(post), '［1 张图片］');
+  assert.equal(postExcerpt({ ...post, content: '有字' }), '有字');
 });

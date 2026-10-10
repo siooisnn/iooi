@@ -93,3 +93,15 @@ test("the digest and a post read as text with ids and who is waiting", () => {
   assert.match(blogPostText(blog, hers, "p1"), /她写的/);
   assert.equal(blogPostText(blog, hers, "nope"), null);
 });
+
+test("her photos show up in the digest and the post as a count", () => {
+  const blog = parseBlogState(null);
+  const hers = [{
+    id: "p2", title: "", content: "", createdAt: NOW.toISOString(), updatedAt: NOW.toISOString(), mood: "", weather: "",
+    images: ["/uploads/a.jpg", "/uploads/b.png"],
+  }];
+  assert.match(blogDigest(blog, hers, { now: NOW }), /id=p2 .*《图片日志》 · 配图 2 张/);
+  const post = blogPostText(blog, hers, "p2");
+  assert.match(post, /没写字，只放了图/);
+  assert.match(post, /配了 2 张图/);
+});

@@ -5,7 +5,7 @@
 
 import { BLOG_LIMITS, BLOG_WEATHERS } from "@/app/lib/blog";
 import {
-  commentFromHim, deleteHisComment, deleteHisPost, publishHisPost, readBlogDigest, readBlogPost, setHisMotto,
+  commentFromHim, deleteHisComment, deleteHisPost, publishHisPost, readBlogDigest, readBlogPost, readBlogPostImages, setHisMotto,
 } from "@/app/lib/blog-tools";
 import type { BlogToolResult } from "@/app/lib/blog-tools";
 
@@ -83,7 +83,8 @@ const TOOLS = [
   },
 ];
 
-type ToolResult = { content: Array<{ type: "text"; text: string }>; isError: boolean };
+type ToolContent = { type: "text"; text: string } | { type: "image"; data: string; mimeType: string };
+type ToolResult = { content: ToolContent[]; isError: boolean };
 
 function reply(body: string, isError = false): ToolResult {
   return { content: [{ type: "text", text: body }], isError };
@@ -107,7 +108,11 @@ export async function callTool(name: string, args: Record<string, unknown>): Pro
       return reply(readBlogDigest({ herLimit: limit(args.her_limit), hisLimit: limit(args.his_limit) }));
     case "blog_read_post": {
       const post = readBlogPost(text(args.post_id));
-      return post ? reply(post) : reply("找不到这篇日志，先用 blog_read 看看 id", true);
+      if (!post) return reply("找不到这篇日志，先用 blog_read 看看 id", true);
+      // Her photos come along as images, so he sees what she posted.
+      const images = readBlogPostImages(text(args.post_id))
+        .map((block): ToolContent => ({ type: "image", data: block.source.data, mimeType: block.source.media_type }));
+      return { content: [{ type: "text", text: post }, ...images], isError: false };
     }
     case "blog_write_post":
       return fromBlog(await publishHisPost(args));

@@ -13,6 +13,7 @@ import "./themes/xp-buddy.css";
 import "./themes/xp-summer.css";
 import "./themes/mood.css";
 import "./themes/xp-control.css";
+import "./themes/cute.css";
 import { ThemeProvider } from "./components/ThemeProvider";
 
 export const metadata: Metadata = {

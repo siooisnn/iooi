@@ -10,7 +10,8 @@ import { genId } from "../lib/chat-sessions";
 import { prepareImageForUpload } from "../lib/image-compress";
 import {
   BLOG_LIMITS, BLOG_MOODS, BLOG_TIME_ZONE, BLOG_WEATHERS, blogArchive, blogDayKey, blogMonthKey, calendarWeeks,
-  latestHisPost, monthLabel, parseBlogState, postExcerpt, postTitle, shiftMonth, songTitleFromFile, sortPosts, visitorDigits,
+  latestHisPost, monthLabel, parseBlogState, postExcerpt, postHasBody, postImages, postTitle, shiftMonth, songTitleFromFile, sortPosts,
+  visitorDigits,
 } from "../lib/blog";
 import type { BlogAction, BlogComment, BlogPostLike, BlogProfile, BlogState, HisPost } from "../lib/blog";
 
@@ -22,6 +23,7 @@ type Screen =
   | { kind: "him" }
   | { kind: "him-post"; id: string };
 type Popup = null | "calendar" | "archive" | "playlist" | "him-write";
+type Viewer = null | { urls: string[]; index: number };
 type Filter = null | { kind: "month" | "day"; key: string };
 type Sparkle = { id: number; x: number; y: number };
 
@@ -190,6 +192,7 @@ export function BlogView({ settings, fragments, setFragments, onBack, initialScr
   const [sparkles, setSparkles] = useState<Sparkle[]>([]);
   const [himWriting, setHimWriting] = useState(false);
   const [hisSeen, setHisSeen] = useState(readHisSeen);
+  const [viewer, setViewer] = useState<Viewer>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const clock = useClock();
   useSyncPlaylist(blog);
@@ -201,7 +204,7 @@ export function BlogView({ settings, fragments, setFragments, onBack, initialScr
   const hisName = settings.aiName || CLAUDE_DEFAULT_NAME;
   const hisAvatar = settings.aiAvatar;
   const modelId = (MODELS.find((model) => model.id === settings.model) || MODELS[0]).apiId;
-  const posts = useMemo(() => sortPosts(fragments.filter((post) => post.content.trim() || post.title?.trim())), [fragments]);
+  const posts = useMemo(() => sortPosts(fragments.filter(postHasBody)), [fragments]);
   const hisPosts = useMemo(() => sortPosts(blog.him.posts), [blog.him.posts]);
   const hisLatest = latestHisPost(blog);
   const hisFresh = Boolean(hisLatest && hisLatest.createdAt > hisSeen);
@@ -370,6 +373,7 @@ export function BlogView({ settings, fragments, setFragments, onBack, initialScr
             run={run}
             onToast={setToast}
             onUpdate={setBlog}
+            onView={(urls, index) => setViewer({ urls, index })}
           />
         ) : !loading && (
           <XpWindow title="找不到文件" icon="⚠" onClose={() => go({ kind: "him" })} className="blog-missing">
@@ -393,6 +397,7 @@ export function BlogView({ settings, fragments, setFragments, onBack, initialScr
             run={run}
             onToast={setToast}
             onUpdate={setBlog}
+            onView={(urls, index) => setViewer({ urls, index })}
           />
         ) : (
           <XpWindow title="找不到文件" icon="⚠" onClose={() => go({ kind: "home" })} className="blog-missing">
@@ -408,6 +413,7 @@ export function BlogView({ settings, fragments, setFragments, onBack, initialScr
             createdAt={screen.createdAt}
             fragments={fragments}
             setFragments={setFragments}
+            onToast={setToast}
             onDone={(saved) => saved ? go({ kind: "post", id: screen.id }) : go({ kind: "home" })}
           />
         )}
@@ -436,6 +442,8 @@ export function BlogView({ settings, fragments, setFragments, onBack, initialScr
       {popup === "him-write" && (
         <WritePopup name={hisName} onClose={() => setPopup(null)} onSubmit={(topic) => { void askHimToWrite(topic); }} />
       )}
+
+      {viewer && <PhotoViewer urls={viewer.urls} start={viewer.index} onClose={() => setViewer(null)} />}
 
       {startOpen && (
         <>
@@ -564,7 +572,8 @@ function BlogHome({ blog, posts, shownPosts, filter, offline, herName, herAvatar
           <button type="button" className="blog-post-open" onClick={() => onOpenPost(post.id)}>
             <h3>{postTitle(post)}</h3>
             <PostMeta post={post} />
-            <p className="blog-post-excerpt">{postExcerpt(post)}</p>
+            {post.content.trim() && <p className="blog-post-excerpt">{postExcerpt(post)}</p>}
+            <PhotoThumbs urls={postImages(post)} />
           </button>
           <div className="blog-post-foot">
             <button type="button" className="blog-link" onClick={() => onOpenPost(post.id)}>阅读全文&gt;&gt;</button>
@@ -882,11 +891,12 @@ function PlaylistPopup({ blog, offline, onClose, run, onToast }: {
 
 // ── Post ──
 
-function PostPage({ post, byHim = false, blog, herName, herAvatar, hisName, hisAvatar, modelId, onBack, onEdit, onDelete, run, onToast, onUpdate }: {
+function PostPage({ post, byHim = false, blog, herName, herAvatar, hisName, hisAvatar, modelId, onBack, onEdit, onDelete, run, onToast, onUpdate, onView }: {
   post: FragmentEntry | HisPost; byHim?: boolean;
   blog: BlogState; herName: string; herAvatar: string; hisName: string; hisAvatar: string; modelId: string;
   onBack: () => void; onEdit?: () => void; onDelete: () => void;
   run: (body: BlogRequest) => Promise<boolean>; onToast: (text: string) => void; onUpdate: (blog: BlogState) => void;
+  onView: (urls: string[], index: number) => void;
 }) {
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
@@ -895,6 +905,7 @@ function PostPage({ post, byHim = false, blog, herName, herAvatar, hisName, hisA
     .filter((comment) => comment.postId === post.id)
     .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
   const shown: BlogPostLike = "updatedAt" in post ? post : { ...post, updatedAt: post.createdAt };
+  const photos = postImages(shown);
   // On his own post he answers her, so there must be something of hers to answer.
   const canAsk = !byHim || comments.some((comment) => comment.author === "her");
 
@@ -921,7 +932,8 @@ function PostPage({ post, byHim = false, blog, herName, herAvatar, hisName, hisA
         <h1 className="blog-post-title">{postTitle(shown)}</h1>
         {byHim && <p className="blog-post-author"><Avatar src={hisAvatar} />{hisName}</p>}
         <PostMeta post={shown} />
-        <div className="blog-post-content">{post.content}</div>
+        {(post.content.trim() || !photos.length) && <div className="blog-post-content">{post.content}</div>}
+        <PhotoWall urls={photos} onView={onView} />
         <div className="blog-post-tools">
           <span>阅读({blog.views[post.id] || 0}) | 评论({comments.length})</span>
           <span>
@@ -992,13 +1004,47 @@ function CommentItem({ comment, floor, name, avatar, onDelete }: {
 
 // ── Notepad ──
 
-function PostEditor({ id, createdAt, fragments, setFragments, onDone }: {
+function PostEditor({ id, createdAt, fragments, setFragments, onToast, onDone }: {
   id: string; createdAt: string; fragments: FragmentEntry[];
   setFragments: React.Dispatch<React.SetStateAction<FragmentEntry[]>>;
+  onToast: (text: string) => void;
   onDone: (saved: boolean) => void;
 }) {
   const existing = fragments.find((post) => post.id === id);
   const post: FragmentEntry = existing || { id, content: "", createdAt, updatedAt: createdAt };
+  const images = postImages(post);
+  const [uploading, setUploading] = useState(0);
+  const photoRef = useRef<HTMLInputElement>(null);
+
+  // Photos upload one by one and land in the post as each one finishes,
+  // so a slow one never holds up the rest.
+  async function addPhotos(files: File[]) {
+    const room = BLOG_LIMITS.postImages - images.length - uploading;
+    if (room <= 0) { onToast(`一篇最多放 ${BLOG_LIMITS.postImages} 张图`); return; }
+    if (files.length > room) onToast(`一篇最多放 ${BLOG_LIMITS.postImages} 张图，多的先没放`);
+    const picked = files.slice(0, room);
+    setUploading((count) => count + picked.length);
+    for (const file of picked) {
+      try {
+        const url = await uploadFile(await prepareImageForUpload(file));
+        const updatedAt = new Date().toISOString();
+        setFragments((current) => {
+          const found = current.find((item) => item.id === id);
+          const base = found || post;
+          const next = { ...base, images: [...postImages(base), url].slice(0, BLOG_LIMITS.postImages), updatedAt };
+          return found ? current.map((item) => item.id === id ? next : item) : [next, ...current];
+        });
+      } catch (error) {
+        onToast(error instanceof Error ? error.message : "图片没传上去");
+      } finally {
+        setUploading((count) => count - 1);
+      }
+    }
+  }
+
+  function removePhoto(url: string) {
+    update({ images: images.filter((item) => item !== url) });
+  }
 
   // Saved as she types, like winter was; the post appears once it has words.
   function update(patch: Partial<FragmentEntry>) {
@@ -1009,7 +1055,7 @@ function PostEditor({ id, createdAt, fragments, setFragments, onDone }: {
   }
 
   function done() {
-    const empty = !post.content.trim() && !post.title?.trim();
+    const empty = !postHasBody(post);
     if (empty) setFragments((current) => current.filter((item) => item.id !== id));
     onDone(!empty);
   }
@@ -1037,11 +1083,93 @@ function PostEditor({ id, createdAt, fragments, setFragments, onDone }: {
       </div>
       <textarea className="blog-notepad-text" value={post.content} autoFocus={!existing}
         placeholder="今天想写点什么呢……" aria-label="文章正文" onChange={(event) => update({ content: event.target.value })} />
+      <div className="blog-notepad-photos">
+        {images.map((url) => (
+          <span key={url} className="blog-notepad-photo">
+            <img src={url} alt="" />
+            <button type="button" onClick={() => removePhoto(url)} aria-label="拿掉这张图">×</button>
+          </span>
+        ))}
+        {Array.from({ length: uploading }, (_, index) => (
+          <span key={`up-${index}`} className="blog-notepad-photo is-uploading" aria-label="正在上传"><i>♥</i></span>
+        ))}
+        {images.length + uploading < BLOG_LIMITS.postImages && (
+          <button type="button" className="blog-notepad-add" onClick={() => photoRef.current?.click()}>
+            <span aria-hidden="true">🖼</span>插图
+          </button>
+        )}
+        <input ref={photoRef} type="file" accept="image/*" multiple hidden onChange={(event) => {
+          const files = Array.from(event.target.files || []);
+          event.target.value = "";
+          if (files.length) void addPhotos(files);
+        }} />
+      </div>
       <div className="blog-notepad-foot">
-        <span>{existing ? "已自动保存" : "开始写就会自动保存"}</span>
+        <span>{uploading ? `图片上传中（${uploading}）…` : existing ? "已自动保存" : "开始写就会自动保存"}</span>
         <button type="button" className="xp-button" onClick={done}>写好了</button>
       </div>
     </XpWindow>
+  );
+}
+
+// ── Photos ──
+
+// Tiny previews on the home card: up to three, then "+N".
+function PhotoThumbs({ urls }: { urls: string[] }) {
+  if (!urls.length) return null;
+  return (
+    <span className="blog-thumbs" aria-label={`${urls.length} 张图片`}>
+      {urls.slice(0, 3).map((url, index) => (
+        <span key={url} className="blog-thumb">
+          <img src={url} alt="" loading="lazy" />
+          {index === 2 && urls.length > 3 && <b>+{urls.length - 3}</b>}
+        </span>
+      ))}
+    </span>
+  );
+}
+
+// Under the text: polaroids taped to the page, a little crooked.
+function PhotoWall({ urls, onView }: { urls: string[]; onView: (urls: string[], index: number) => void }) {
+  if (!urls.length) return null;
+  return (
+    <div className={`blog-photos${urls.length === 1 ? " is-single" : ""}`}>
+      {urls.map((url, index) => (
+        <button type="button" key={url} className="blog-polaroid" onClick={() => onView(urls, index)} aria-label={`看第 ${index + 1} 张图`}>
+          <img src={url} alt="" loading="lazy" />
+        </button>
+      ))}
+    </div>
+  );
+}
+
+// "Windows 图片和传真查看器", for one photo at a time.
+function PhotoViewer({ urls, start, onClose }: { urls: string[]; start: number; onClose: () => void }) {
+  const [index, setIndex] = useState(start);
+  const step = (delta: number) => setIndex((current) => (current + delta + urls.length) % urls.length);
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+      else if (event.key === "ArrowLeft") setIndex((current) => (current - 1 + urls.length) % urls.length);
+      else if (event.key === "ArrowRight") setIndex((current) => (current + 1) % urls.length);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [urls.length, onClose]);
+  return (
+    <div className="blog-popup-layer blog-viewer-layer">
+      <button type="button" className="blog-popup-scrim" onClick={onClose} aria-label="关闭图片" />
+      <XpWindow title="Windows 图片和传真查看器" icon="🖼" onClose={onClose} className="blog-popup blog-viewer">
+        <div className="blog-viewer-stage">
+          <img src={urls[index]} alt={`第 ${index + 1} 张图`} />
+        </div>
+        <div className="blog-viewer-bar">
+          <button type="button" className="xp-button" onClick={() => step(-1)} disabled={urls.length < 2} aria-label="上一张">◀</button>
+          <span>{index + 1} / {urls.length}</span>
+          <button type="button" className="xp-button" onClick={() => step(1)} disabled={urls.length < 2} aria-label="下一张">▶</button>
+        </div>
+      </XpWindow>
+    </div>
   );
 }
 

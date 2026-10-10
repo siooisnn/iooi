@@ -58,6 +58,8 @@ export type FragmentEntry = {
   title?: string;
   mood?: string;
   weather?: string;
+  /** Photos in the post, iooi upload URLs. */
+  images?: string[];
 };
 
 export type CacheStats = {

@@ -3,6 +3,7 @@
 import { useEffect, useId, useState } from "react";
 import type { ReactNode } from "react";
 import { MoonEarthMini } from "./MoonLetter";
+import { TaskbarClawd } from "./TaskbarClawd";
 import { HEARTBEAT_LINE, Petals, useTogether } from "./HomeView";
 import type { HomeApp } from "./HomeView";
 import { CLAUDE_DEFAULT_NAME } from "../lib/app-settings";
@@ -339,6 +340,7 @@ export function RetroDesktop({ settings, onOpen, onExit, boot, onBooted }: {
       )}
 
       <footer className="xp-desk-taskbar">
+        {!startOpen && !boot && !leaving && <TaskbarClawd />}
         <button type="button" className={`xp-desk-start${startOpen ? " is-open" : ""}`} onClick={() => setStartOpen((value) => !value)}>
           <StartFlag /><span>start</span>
         </button>
