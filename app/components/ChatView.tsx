@@ -22,8 +22,9 @@ import { genId, getChatStatusLabel, hasLaterUserMessage, isSummerUtilityMessage,
 import { apiFetch, saveLocal, syncGptToServer, syncToServer } from "../lib/client-api";
 import { CollapsibleSummerCard, ThinkingBlock, renderContent } from "./ChatContent";
 import { ChatGlyph } from "./RetroDesktop";
+import { NUDGE_USER_TEXT, NUDGE_REPLY_TEXT } from "../lib/chat-nudge";
 
-// MSN's nudge: the window shakes. Only the look; nothing is sent.
+// Animate only the current interaction, never a replayed history entry.
 const NUDGE_FRAMES: Keyframe[] = [
   [0, 0], [-9, 4], [7, -5], [-8, -3], [9, 5], [-6, 6], [7, -4], [-4, 3], [3, -2], [0, 0],
 ].map(([x, y]) => ({ transform: `translate(${x}px, ${y}px)` }));
@@ -160,23 +161,28 @@ export function ChatView({
   const [editingProposalIndex, setEditingProposalIndex] = useState<number | null>(null);
   const [proposalDraft, setProposalDraft] = useState<SummerWriteProposal | null>(null);
 
-  // ── Retro: 抖一抖. The notes live only while this window is open. ──
+  // Claude nudges enter the real conversation; GPT retains its local effect.
   const [nudgeNotes, setNudgeNotes] = useState<Array<{ id: string; text: string }>>([]);
   const lastNudgeRef = useRef(0);
-  function sendNudge() {
-    const now = Date.now();
-    const tooSoon = now - lastNudgeRef.current < NUDGE_COOLDOWN_MS;
-    setNudgeNotes((notes) => [...notes.slice(-4), {
-      id: genId(),
-      text: tooSoon ? "你不能如此频繁地发送闪屏振动。" : "你发送了一个闪屏振动。",
-    }]);
-    followLatest();
-    if (tooSoon) return;
-    lastNudgeRef.current = now;
-    try { navigator.vibrate?.([70, 40, 70]); } catch { /* No vibration on iOS. */ }
+  function playNudge() {
     if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return;
+    try { navigator.vibrate?.([70, 40, 70]); } catch { /* No vibration on iOS. */ }
     scrollRef.current?.closest<HTMLElement>(".chat-container")
       ?.animate(NUDGE_FRAMES, { duration: 620, easing: "linear" });
+  }
+  function sendNudge(now: number) {
+    if (loading || uploading || sendingRef.current || (!isGpt && developmentMode)) return;
+    const tooSoon = now - lastNudgeRef.current < NUDGE_COOLDOWN_MS;
+    if (tooSoon || isGpt) {
+      setNudgeNotes((notes) => [...notes.slice(-4), {
+        id: genId(), text: tooSoon ? "你不能如此频繁地发送闪屏振动。" : NUDGE_USER_TEXT,
+      }]);
+      followLatest();
+    }
+    if (tooSoon) return;
+    lastNudgeRef.current = now;
+    playNudge();
+    if (!isGpt) void sendMessage(true);
   }
 
   useEffect(() => {
@@ -473,12 +479,13 @@ export function ChatView({
     }));
   }
 
-  async function sendMessage() {
-    if ((!input.trim() && !attachments.length) || loading || uploading || sendingRef.current) return;
+  async function sendMessage(nudge = false) {
+    if ((!nudge && !input.trim() && !attachments.length) || loading || uploading || sendingRef.current) return;
+    if (nudge && (isGpt || developmentMode || !retro)) return;
     const codeRequest = !isGpt && developmentMode;
     // Work mode only takes screenshots; a stray file must not block the send.
-    const sendable = codeRequest ? attachments.filter((item) => item.kind === "image") : attachments;
-    const typed = stripObjectPlaceholders(input);
+    const sendable = nudge ? [] : codeRequest ? attachments.filter((item) => item.kind === "image") : attachments;
+    const typed = nudge ? NUDGE_USER_TEXT : stripObjectPlaceholders(input);
     if (!typed.trim() && !sendable.length) return;
     sendingRef.current = true;
     const pendingFile = sendable.find((item) => item.kind === "file");
@@ -488,16 +495,19 @@ export function ChatView({
       ...(pendingFile ? { file: pendingFile.url } : {}),
       ...(!isGpt ? { roundId: genId() } : {}),
       ...(codeRequest ? { source: `code_task_${developmentProject}` } : {}),
+      ...(nudge ? { source: "chat_nudge" } : {}),
     };
-    setAttachments([]);
-    setUploadError("");
+    if (!nudge) {
+      setAttachments([]);
+      setUploadError("");
+      setInput("");
+      if (inputRef.current) inputRef.current.style.height = "auto";
+    }
     followLatest();
     const baseMessages = sessionMessagesRef.current;
     const messagesWithUser = [...baseMessages, userMsg];
     sessionMessagesRef.current = messagesWithUser;
     updateMessages((msgs) => mergeChatMessages(msgs, messagesWithUser));
-    setInput("");
-    if (inputRef.current) inputRef.current.style.height = "auto";
 
     const requestId = ++replyRequestIdRef.current;
     const controller = new AbortController();
@@ -516,7 +526,7 @@ export function ChatView({
     }
 
     // Auto-rename session on first message
-    if (userText.trim() && session.messages.length === 0 && (session.name.startsWith("对话") || session.name.startsWith("GPT 对话"))) {
+    if (!nudge && userText.trim() && session.messages.length === 0 && (session.name.startsWith("对话") || session.name.startsWith("GPT 对话"))) {
       const autoName = userText.slice(0, 20) + (userText.length > 20 ? "..." : "");
       renameSession(session.id, autoName);
     }
@@ -580,6 +590,7 @@ export function ChatView({
           reasoningEffort: isGpt ? settings.gptReasoningEffort : settings.claudeReasoningEffort,
           sessionId: session.id,
           userMsg,
+          ...(nudge ? { retroNudge: true } : {}),
           recentSummerProposals,
           quietSummerWake,
           stream: !isGpt,
@@ -617,7 +628,7 @@ export function ChatView({
         setReplyRequestDetail("");
         return;
       }
-      let reply: string = data.reply || "...";
+      let reply: string = data.reply ?? "...";
       const thinkingContent: string = data.thinking || "";
 
       const moodMatch = reply.match(/\[心情[:：](.+?)\]/);
@@ -666,12 +677,15 @@ export function ChatView({
         date: today,
         ...(i === 0 && thinkingContent ? { thinking: thinkingContent } : {}),
       }));
-      if (hasLaterUserMessage(sessionMessagesRef.current, userMsg)) {
+      if (controller.signal.aborted || activeReplyRequestRef.current?.id !== requestId || hasLaterUserMessage(sessionMessagesRef.current, userMsg)) {
         return;
       }
-      const finalMessages = [...messagesWithUser, ...summerCallMsgs, ...newMsgs, ...summerWriteMsgs];
+      const nudgeMsgs: Message[] = nudge && data.nudge === true ? [{ role: "assistant", source: "chat_nudge",
+        content: NUDGE_REPLY_TEXT, time: now, date: today, roundId: userMsg.roundId }] : [];
+      const finalMessages = [...messagesWithUser, ...summerCallMsgs, ...newMsgs, ...nudgeMsgs, ...summerWriteMsgs];
       sessionMessagesRef.current = mergeChatMessages(sessionMessagesRef.current, finalMessages);
       updateMessages((msgs) => mergeChatMessages(msgs, finalMessages));
+      if (nudgeMsgs.length) playNudge();
       setReplyRequestState("idle");
       setReplyRequestDetail("");
 
@@ -987,6 +1001,9 @@ export function ChatView({
         )}
         {displayMessages.map(({ message, index }, displayIndex) => {
           if (message.source === "summer_write_ignored") return null;
+          if (message.source === "chat_nudge") return <div key={index} className="xp-msg-nudge" role="status">
+            {message.role === "user" ? message.content : `${assistantName}${message.content}`}
+          </div>;
           const isSummerUtility = listEntryMode && isSummerUtilityMessage(message);
           const animateMessage = !listEntryMode || index >= initialMessageCount;
           const prevMsg = displayIndex > 0 ? displayMessages[displayIndex - 1].message : null;
@@ -1199,7 +1216,7 @@ export function ChatView({
                 </svg>
                 <span>{uploading ? "上传中…" : isGpt ? "文件" : "图片"}</span>
               </button>
-              <button type="button" className="xp-chat-tool" onClick={sendNudge} title="发送闪屏振动">
+              <button type="button" className="xp-chat-tool" onClick={() => sendNudge(Date.now())} disabled={loading || uploading || (!isGpt && developmentMode)} title="发送闪屏振动">
                 <svg viewBox="0 0 16 16" aria-hidden="true">
                   <path d="M1.5 8h2l1.5-4 2.5 8 2.5-8 1.5 4h3" fill="none" stroke="#d2421c" strokeWidth="1.6" strokeLinejoin="round" strokeLinecap="round" />
                 </svg>
@@ -1225,7 +1242,7 @@ export function ChatView({
               />
               <button
                 type="button"
-                onClick={loading ? pauseReply : sendMessage}
+                onClick={loading ? pauseReply : () => void sendMessage()}
                 disabled={!loading && ((!input.trim() && !attachments.length) || uploading)}
                 className="xp-chat-send"
                 aria-label={loading ? "暂停等待回复" : "发送消息"}
@@ -1271,7 +1288,7 @@ export function ChatView({
               />
               <button
                 type="button"
-                onClick={loading ? pauseReply : sendMessage}
+                onClick={loading ? pauseReply : () => void sendMessage()}
                 disabled={!loading && ((!input.trim() && !attachments.length) || uploading)}
                 className={`send-btn${loading ? " pause-reply-btn" : ""}`}
                 aria-label={loading ? "暂停等待回复" : "发送消息"}

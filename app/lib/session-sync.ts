@@ -56,7 +56,7 @@ function messageKey(message: StoredMessage) {
     return ["summer_proposal", proposalId].join("\u0001");
   }
   const content = (message.content || "").trim().replace(/\s+/g, " ");
-  if (message.roundId && message.role === "assistant") {
+  if (message.roundId && (message.role === "assistant" || message.source === "chat_nudge")) {
     return [message.role, message.speaker || "", message.source || "", message.roundId, content].join("\u0001");
   }
   if (message.role === "assistant" && message.source !== "summer_call" && content.length >= 4 && !imageKey(message) && !message.file) {

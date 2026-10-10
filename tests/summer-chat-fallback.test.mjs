@@ -19,7 +19,7 @@ const mocks = new Map([
     export const normalizeClaudeCodeModel = (model) => model;
     export const runClaudeCodeChat = async (input) => {
       f.inputs.push(input);
-      input.onTextDelta?.(f.reply);
+      for (const character of f.reply) input.onTextDelta?.(character);
       return { reply: f.reply, model: input.modelId, durationMs: 1, queueWaitMs: 0,
         webSearchUsed: false, usage: { input_tokens: 10, output_tokens: 5,
           cache_creation_input_tokens: 0, cache_read_input_tokens: 0 } };
@@ -77,7 +77,7 @@ test("Summer failures do not block Claude replies or lose the round", async (t) 
     failure = undefined;
     failSearch = false;
   }
-  async function chat(extra = {}) {
+  async function chat(extra = {}, expectedReply = "我在，继续聊。") {
     const content = extra.content || "今天有点累";
     const response = await POST(new Request("http://iooi.test/api/chat", {
       method: "POST", headers: { "content-type": "application/json" },
@@ -89,14 +89,49 @@ test("Summer failures do not block Claude replies or lose the round", async (t) 
       const events = (await response.text()).trim().split("\n").map((line) => JSON.parse(line));
       data = events.find((event) => event.type === "done");
       assert.ok(data, "stream ends with a successful final reply");
+      assert.ok(!events.filter((event) => event.type === "delta").map((event) => event.text).join("").includes("iooi_nudge"));
       await Promise.all(fixture.jobs);
     } else data = await response.json();
     assert.equal(response.status, 200);
     assert.equal(fixture.inputs.length, 1, "the model is reached after a Summer failure");
-    assert.equal(data.reply, "我在，继续聊。");
+    assert.equal(data.reply, expectedReply);
     return data;
   }
   try {
+    await t.test("Claude chooses to nudge with its reply, persisted without metadata", async () => {
+      reset(); fixture.reply = "抖回来啦。[iooi_nudge]";
+      const data = await chat({ stream: true, retroNudge: true,
+        userMsg: { role: "user", content: "你发送了一个闪屏振动。", source: "chat_nudge", roundId: "nudge-1" } }, "抖回来啦。");
+      assert.equal(data.nudge, true);
+      assert.match(fixture.inputs[0].systemPrompt, /自行决定是否也抖/);
+      const messages = fixture.store.sessions[0].messages;
+      assert.equal(messages.filter((message) => message.role === "assistant" && message.source === "chat_nudge").length, 1);
+      assert.ok(messages.every((message) => !message.content.includes("iooi_nudge")));
+      assert.equal(messages.at(-1).roundId, "nudge-1");
+    });
+    await t.test("Claude can respond with text alone", async () => {
+      reset();
+      const data = await chat({ retroNudge: true, userMsg: { role: "user", content: "你发送了一个闪屏振动。", source: "chat_nudge", roundId: "nudge-2" } });
+      assert.equal(data.nudge, false);
+      assert.equal(fixture.store.sessions[0].messages.filter((message) => message.role === "assistant" && message.source === "chat_nudge").length, 0);
+    });
+    await t.test("ordinary and group replies cannot trigger nudges", async () => {
+      for (const extra of [{}, { retroNudge: true }, { skipPersist: true, groupSessionId: "group-test", retroNudge: true,
+        userMsg: { role: "user", content: "你发送了一个闪屏振动。", source: "chat_nudge" } }]) {
+        reset(); fixture.reply = "我在。[iooi_nudge]";
+        const data = await chat({ stream: true, ...extra }, "我在。");
+        assert.equal(data.nudge, false);
+        assert.doesNotMatch(fixture.inputs[0].systemPrompt, /自行决定是否也抖/);
+        const messages = (extra.skipPersist ? fixture.groupStore : fixture.store).sessions[0].messages;
+        assert.ok(!messages.some((message) => message.role === "assistant" && message.source === "chat_nudge"));
+      }
+    });
+    await t.test("a nudge-only reply still saves its action and user event", async () => {
+      reset(); fixture.reply = "[iooi_nudge]";
+      const data = await chat({ retroNudge: true, userMsg: { role: "user", content: "你发送了一个闪屏振动。", source: "chat_nudge", roundId: "nudge-3" } }, "");
+      assert.equal(data.nudge, true);
+      assert.equal(fixture.store.sessions[0].messages.at(-1).source, "chat_nudge");
+    });
     for (const [name, error] of [
       ["DNS failure", new TypeError("fetch failed", { cause: { code: "ENOTFOUND" } })],
       ["timeout", new DOMException("Summer timed out", "AbortError")],

@@ -1,6 +1,7 @@
-type HiddenSection = "summer" | "mood" | null;
+type HiddenSection = "summer" | "mood" | "nudge" | null;
 
 const OPENERS = [
+  { text: "[iooi_nudge", section: "nudge" as const },
   { text: "[summer_remember", section: "summer" as const },
   { text: "[心情:", section: "mood" as const },
   { text: "[心情：", section: "mood" as const },
@@ -36,7 +37,7 @@ export function createVisibleReplyStream() {
           // Hidden proposal content can be long. Only its possible closing
           // marker prefix must stay buffered.
           const keep = Math.min(buffer.length, closer.length - 1);
-          buffer = buffer.slice(-keep);
+          buffer = keep ? buffer.slice(-keep) : "";
           break;
         }
         buffer = buffer.slice(closerIndex + closer.length);

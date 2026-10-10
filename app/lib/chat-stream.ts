@@ -1,4 +1,5 @@
 export type StreamReply = {
+  nudge?: boolean;
   reply?: string;
   thinking?: string;
   status?: number;

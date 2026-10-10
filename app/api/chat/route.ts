@@ -8,6 +8,7 @@ import { startCodeRelease } from "@/app/lib/code-release";
 import { parseCodeReleaseCommand } from "@/app/lib/code-release-command";
 import { extractSummerSearchTarget } from "@/app/lib/summer-search-query";
 import { createVisibleReplyStream } from "@/app/lib/visible-reply-stream";
+import { NUDGE_PROMPT, NUDGE_REPLY_TEXT, parseNudgeReply } from "@/app/lib/chat-nudge";
 import { isExplicitSummerWriteRequest } from "@/app/lib/summer-write-intent";
 import {
   findDuplicateSummerWrite,
@@ -711,9 +712,10 @@ async function persistRound(
   summerWriteProposals: SummerWrite[] = [],
   replySource?: string,
   allowLaterUser = false,
+  nudge = false,
 ) {
   const stamp = { time: cstTime(), date: cstToday() };
-  if (!sessionId || !reply) return stamp;
+  if (!sessionId || (!reply && !nudge)) return stamp;
   try {
     const diaryRegex = /\[日记\]([\s\S]*?)\[\/日记\]/g;
     const cleanReply = reply.replace(diaryRegex, "").replace(/\[心情[:：].+?\]/g, "").trim();
@@ -766,6 +768,10 @@ async function persistRound(
           ...(i === 0 && thinkingContent ? { thinking: thinkingContent } : {}),
         });
       });
+      if (nudge) {
+        pushAssistant({ role: "assistant", source: "chat_nudge", content: NUDGE_REPLY_TEXT,
+          time: now, date: today, roundId: userMsg?.roundId });
+      }
       for (const proposal of summerWriteProposals) {
         const committed = proposal.status === "committed" || proposal.status === "duplicate";
         pushAssistant({
@@ -923,6 +929,7 @@ export async function POST(request: Request) {
     groupSessionName,
     groupSpeakerName,
     codeMode,
+    retroNudge,
   } = await request.json();
   const requestMessages: ChatRequestMessage[] = Array.isArray(messages)
     ? messages.map((message: ChatRequestMessage) => sanitizeIncomingMessage(message))
@@ -930,6 +937,7 @@ export async function POST(request: Request) {
   const userMsg: StoreMsg | undefined = rawUserMsg && typeof rawUserMsg === "object"
     ? sanitizeIncomingMessage(rawUserMsg as StoreMsg)
     : undefined;
+  const nudgeEnabled = retroNudge === true && !skipPersist && !codeMode && userMsg?.source === "chat_nudge";
   if (codeMode !== undefined) {
     const token = process.env.IOOI_TOKEN;
     if (!token || request.headers.get("x-iooi-token") !== token) {
@@ -1265,6 +1273,8 @@ ${combinedDynamicPrompt}
     }
   }
 
+  if (nudgeEnabled) system.push({ type: "text", text: NUDGE_PROMPT });
+
   // --- Add cache_control to the last message before the new user message ---
   // This caches the conversation history prefix so only the new message is uncached
   if (anthropicMessages.length >= 2) {
@@ -1338,7 +1348,8 @@ ${combinedDynamicPrompt}
           });
         }
       }
-      reply = stripVisibleSummerDiary(stripSummerWriteTags(reply));
+      const nudgeResult = parseNudgeReply(stripVisibleSummerDiary(stripSummerWriteTags(reply)), nudgeEnabled);
+      reply = nudgeResult.reply;
       const proposalMs = Date.now() - proposalStartedAt;
 
       const persistStartedAt = Date.now();
@@ -1346,7 +1357,7 @@ ${combinedDynamicPrompt}
       const groupPersistedDate = skipPersist && groupSessionId ? cstToday() : "";
       let replyStamp: { time: string; date: string } | undefined;
       if (!skipPersist) {
-        replyStamp = await persistRound(sessionId, userMsg, reply, thinkingContent, summerCalls, summerWriteProposals);
+        replyStamp = await persistRound(sessionId, userMsg, reply, thinkingContent, summerCalls, summerWriteProposals, undefined, false, nudgeResult.nudge);
       } else if (groupSessionId) {
         await persistGroupRound(
           String(groupSessionId),
@@ -1399,6 +1410,7 @@ ${combinedDynamicPrompt}
         status: 200,
         body: {
           reply,
+          nudge: nudgeResult.nudge,
           thinking: thinkingContent,
           cache: {
             model: data.model,

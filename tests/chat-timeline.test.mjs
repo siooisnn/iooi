@@ -54,3 +54,15 @@ test("sync keeps identical reads and replies from separate turns and deduplicate
   await send();
   assert.deepEqual(store.sessions[0].messages, replies);
 });
+
+test("separate nudges within one minute survive repeated history sync", async () => {
+  const messages = ["nudge-1", "nudge-2"].flatMap(roundId => [
+    { ...user("07:46", "你发送了一个闪屏振动。"), source: "chat_nudge", roundId },
+    { ...user("07:46", "向你发送了一个闪屏振动。"), role: "assistant", source: "chat_nudge", roundId },
+  ]);
+  const store = { sessions: [{ id: "nudges", messages: messages.slice(0, 2) }] };
+  const handlers = createSessionSyncHandlers({ read: () => store, write: async fn => fn(store) });
+  const send = () => handlers.POST(new Request("http://test/api/sync", { method: "POST", body: JSON.stringify({ sessions: [{ id: "nudges", messages }] }) }));
+  await send(); await send();
+  assert.deepEqual(store.sessions[0].messages, messages);
+});

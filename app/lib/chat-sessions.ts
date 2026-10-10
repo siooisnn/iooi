@@ -43,7 +43,7 @@ export function chatMessageKey(message: Message) {
     return ["summer_proposal", proposalId].join("\u0001");
   }
   const content = (message.content || "").trim().replace(/\s+/g, " ");
-  if (message.roundId && message.role === "assistant") {
+  if (message.roundId && (message.role === "assistant" || message.source === "chat_nudge")) {
     return [message.role, message.speaker || "", message.source || "", message.roundId, content].join("\u0001");
   }
   if (message.role === "assistant" && message.source !== "summer_call" && content.length >= 4 && !imageKey(message) && !message.file) {
@@ -146,7 +146,8 @@ export function hasLaterUserMessage(messages: Message[], userMsg: Message) {
     m.role === "user" &&
     m.content === userMsg.content &&
     m.time === userMsg.time &&
-    m.date === userMsg.date
+    m.date === userMsg.date &&
+    (!m.roundId || !userMsg.roundId || m.roundId === userMsg.roundId)
   );
   if (index < 0) return false;
   return messages.slice(index + 1).some((m) => m.role === "user");

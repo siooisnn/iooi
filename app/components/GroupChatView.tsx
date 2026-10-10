@@ -8,6 +8,7 @@ import { ClaudeUsageCircle, useClaudeUsage } from "./ClaudeUsageBadge";
 import { imageFields, MAX_IMAGES_PER_MESSAGE, messageImages, stripObjectPlaceholders } from "../lib/message-images";
 import { prepareImageForUpload } from "../lib/image-compress";
 import { ContextUsageBadge, type UsageMessage } from "./ContextUsageBadge";
+import { ChatGlyph } from "./RetroDesktop";
 
 type PendingAttachment = { id: string; kind: "image" | "file"; url: string; name: string };
 
@@ -320,6 +321,7 @@ export function GroupChatView({
   updateMessages,
   updateSummary,
   onBack,
+  retro = false,
 }: {
   session: GroupSession;
   settings: GroupSettings;
@@ -329,6 +331,7 @@ export function GroupChatView({
   updateMessages: (updater: (messages: GroupChatMessage[]) => GroupChatMessage[]) => void;
   updateSummary: (summary: string, until: number) => void;
   onBack: () => void;
+  retro?: boolean;
 }) {
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -727,6 +730,26 @@ export function GroupChatView({
   return (
     <>
       <header className="chat-header chat-room-header group-room-header">
+        {retro ? <>
+          <div className="xp-chat-titlebar">
+            <span className="xp-chat-title-icon" aria-hidden="true"><ChatGlyph /></span>
+            <span className="xp-chat-title">{session.name || "一个群"} - 群聊</span>
+            <div className="xp-chat-controls">
+              <span className="xp-chat-btn xp-chat-min" aria-hidden="true" />
+              <span className="xp-chat-btn xp-chat-max" aria-hidden="true" />
+              <button type="button" className="xp-chat-btn xp-chat-close" onClick={onBack} aria-label="返回">
+                <svg viewBox="0 0 12 12" aria-hidden="true"><path d="M2 2l8 8M10 2l-8 8" /></svg>
+              </button>
+            </div>
+          </div>
+          <div className="xp-chat-to">
+            <div className="xp-group-members" aria-label="群成员">
+              <span className="xp-chat-buddy" aria-hidden="true" />
+              <span>{settings.userName || "你"}、{settings.aiName || "王酥酥"}、{settings.gptName || "GPT"}</span>
+            </div>
+            <ClaudeUsageCircle {...claudeUsage} className="xp-chat-quota" title="剩余百分比：五小时 / 本周" />
+          </div>
+        </> :
         <div className="header-top">
           <button className="header-icon-btn chat-room-back" onClick={onBack} aria-label="返回">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -744,7 +767,7 @@ export function GroupChatView({
           <div className="room-header-usage">
             <ClaudeUsageCircle {...claudeUsage} className="room-header-quota" title="剩余百分比：五小时 / 本周" />
           </div>
-        </div>
+        </div>}
       </header>
 
       <section className="chat-messages" ref={scrollRef} onScroll={handleScroll}>
@@ -760,10 +783,13 @@ export function GroupChatView({
           return (
             <div key={`${message.time}-${index}`}>
               {showDate && message.date && <div className="date-separator"><span className="date-separator-text">{message.date}</span></div>}
+              {retro && !isUtility && <div className={`xp-msg-says${message.speaker === "gpt" ? " xp-msg-says-gpt" : ""}`}>
+                {isUser ? settings.userName || "你" : owner} 说{message.time ? ` (${message.time})` : ""}:
+              </div>}
               <div className={`msg-row ${isUser ? "msg-row-user" : "msg-row-ai"} ${isUtility ? "msg-row-summer-utility" : ""}`}>
                 {!isUser && !isUtility && <Avatar src={avatar} />}
                 <div className={isUser ? "msg-content-user" : "msg-content-ai"}>
-                  <span className={`msg-time ${!isUser ? "group-speaker-meta" : ""}`}>{!isUser && owner ? `${owner} · ` : ""}{message.time}</span>
+                  {!retro && <span className={`msg-time ${!isUser ? "group-speaker-meta" : ""}`}>{!isUser && owner ? `${owner} · ` : ""}{message.time}</span>}
                   {isUtility ? (
                     <GroupSummerCard message={message}>
                       {message.source === "summer_write_proposal" && (
@@ -805,15 +831,18 @@ export function GroupChatView({
           );
         })}
         {streamingReply?.text && (
+          <Fragment>
+          {retro && <div className="xp-msg-says">{speakerName(streamingReply.speaker, settings)} 说:</div>}
           <div className="msg-row msg-row-ai msg-row-streaming">
             <Avatar src={streamingReply.speaker === "gpt" ? settings.gptAvatar : settings.aiAvatar} />
             <div className="msg-content-ai">
-              <span className="msg-time group-speaker-meta">{speakerName(streamingReply.speaker, settings)}</span>
+              {!retro && <span className="msg-time group-speaker-meta">{speakerName(streamingReply.speaker, settings)}</span>}
               <div className="msg-bubble msg-bubble-ai msg-bubble-streaming" aria-live="polite">
                 {renderGroupContent(streamingReply.text)}
               </div>
             </div>
           </div>
+          </Fragment>
         )}
         {((loading && !streamingReply?.text) || replyState === "paused") && (
           <div className="msg-row msg-row-ai">
@@ -829,6 +858,18 @@ export function GroupChatView({
       </section>
 
       <footer className="chat-footer group-chat-footer">
+        {retro && <div className="xp-chat-toolbar">
+          <button type="button" className="xp-chat-tool" aria-label="群聊菜单" aria-expanded={showMenu}
+            onClick={() => { setShowMenu((open) => !open); setShowWebSearchMenu(false); }}>
+            <span aria-hidden="true">@</span><span>点名 / 搜索</span>
+          </button>
+          <button type="button" className="xp-chat-tool" onClick={() => fileInputRef.current?.click()} disabled={uploading || loading} aria-label="上传图片或文件">
+            <svg viewBox="0 0 16 16" aria-hidden="true"><rect x="1.5" y="3" width="13" height="10" rx="1" fill="#fff" stroke="#3a6ea5" /><path d="M2.5 12l3.6-4 2.6 2.7 1.8-1.8 3 3.1z" fill="#4caf3a" /><circle cx="11" cy="6" r="1.4" fill="#f5b800" /></svg>
+            <span>{uploading ? "上传中…" : "文件"}</span>
+          </button>
+          <span className="xp-chat-toolbar-gap" />
+          <ContextUsageBadge kind="group" sessionId={session.id} messages={usageMessages} systemPrompt={usageSystemPrompt} />
+        </div>}
         {uploadError && <p className="composer-upload-error" role="alert">{uploadError}</p>}
         {attachments.length > 0 && (
           <div className="composer-attachments" aria-label="待发送的附件">
@@ -884,11 +925,12 @@ export function GroupChatView({
             Web Search
           </button>
         </div>}
-        <div className="composer-row">
+        <div className={retro ? "xp-chat-compose" : "composer-row"}>
+          {!retro &&
           <button type="button" className="attach-btn attach-btn-separate group-menu-trigger" aria-label="群聊菜单" aria-expanded={showMenu}
             onClick={() => { setShowMenu((open) => !open); setShowWebSearchMenu(false); }}>
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16" /></svg>
-          </button>
+          </button>}
           <input
             ref={fileInputRef}
             type="file"
@@ -899,7 +941,7 @@ export function GroupChatView({
             onChange={(event) => void uploadFile(event)}
             aria-label="上传图片或文件"
           />
-          <button
+          {!retro && <button
             type="button"
             className={`attach-btn attach-btn-separate${uploading ? " attach-btn-uploading" : ""}`}
             onClick={() => fileInputRef.current?.click()}
@@ -914,8 +956,8 @@ export function GroupChatView({
                 <path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48" />
               </svg>
             )}
-          </button>
-          <div className="input-wrapper">
+          </button>}
+          <div className={retro ? "xp-group-input" : "input-wrapper"}>
             <textarea
               ref={inputRef}
               value={input}
@@ -925,24 +967,25 @@ export function GroupChatView({
                 event.target.style.height = `${Math.min(event.target.scrollHeight, 120)}px`;
               }}
               placeholder="和他们说点什么…"
-              rows={1}
-              className="chat-input"
+              rows={retro ? 2 : 1}
+              className={retro ? "xp-chat-input" : "chat-input"}
+              aria-label="输入消息"
             />
             <button
               type="button"
               onClick={loading ? pauseReply : () => void sendMessage()}
               disabled={!loading && ((!input.trim() && !attachments.length) || uploading)}
-              className={`send-btn${loading ? " pause-reply-btn" : ""}`}
+              className={retro ? "xp-chat-send" : `send-btn${loading ? " pause-reply-btn" : ""}`}
               aria-label={loading ? "暂停等待回复" : "发送消息"}
             >
-              {loading ? (
+              {retro ? (loading ? "暂停" : "发送") : loading ? (
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="white" aria-hidden="true"><rect x="6" y="5" width="4" height="14" rx="1" /><rect x="14" y="5" width="4" height="14" rx="1" /></svg>
               ) : (
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><line x1="12" y1="19" x2="12" y2="5" /><polyline points="5 12 12 5 19 12" /></svg>
               )}
             </button>
           </div>
-          <ContextUsageBadge kind="group" sessionId={session.id} messages={usageMessages} systemPrompt={usageSystemPrompt} />
+          {!retro && <ContextUsageBadge kind="group" sessionId={session.id} messages={usageMessages} systemPrompt={usageSystemPrompt} />}
         </div>
       </footer>
     </>

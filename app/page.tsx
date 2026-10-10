@@ -70,8 +70,8 @@ export default function Home() {
   const finishRetroBoot = useCallback(() => setRetroBoot(false), []);
   const chatRoomOpen = tab === "chat" && chatView !== "list";
   const shellRef = useRef<HTMLDivElement>(null);
-  // Retro mode turns private rooms into MSN windows; group rooms keep their look.
-  const retroRoom = settings.retroDesktop && tab === "chat" && chatView === "room";
+  // Retro mode turns private and group rooms into MSN windows.
+  const retroRoom = settings.retroDesktop && tab === "chat" && (chatView === "room" || chatView === "group");
   const activeChatBackground = chatRoomOpen && !retroRoom ? settings.classicChatBackground || "" : "";
   // Which private room is open: always the person ticked in Contacts.
   const [roomMode, setRoomMode] = useState<AssistantMode>("claude");
@@ -595,7 +595,7 @@ export default function Home() {
         ref={shellRef}
         className="chat-container"
         data-chat-view={tab === "chat" ? chatView : undefined}
-        data-chat-ui={tab === "chat" && chatView === "room" ? (retroRoom ? "xp" : "default") : undefined}
+        data-chat-ui={tab === "chat" && chatView === "room" ? (retroRoom ? "xp" : "default") : retroRoom ? "xp" : undefined}
         data-chat-background={activeChatBackground ? "image" : undefined}
       >
         {activeChatBackground && (
@@ -696,6 +696,7 @@ export default function Home() {
             key={`group-${groupSession.id}`}
             session={groupSession}
             settings={settings}
+            retro={settings.retroDesktop}
             claudeModelId={(MODELS.find((model) => model.id === settings.model) || MODELS[0]).apiId}
             gptModelId={resolveGptModel(settings.gptModel).apiId}
             updateSettings={updateSettings}
