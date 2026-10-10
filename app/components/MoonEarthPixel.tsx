@@ -51,7 +51,7 @@ const STARS = [[8, 10], [40, 8], [56, 20], [8, 43], [25, 56], [58, 55]];
 /** An XP-only postcard, drawn in whole pixels like the desktop's clawd. */
 export function MoonEarthPixel() {
   return (
-    <svg className="xp-desk-moon-pixels" viewBox="0 0 64 64" shapeRendering="crispEdges" aria-hidden="true">
+    <svg className="xp-desk-moon-pixels" width="64" height="64" viewBox="0 0 64 64" shapeRendering="crispEdges" aria-hidden="true">
       <g fill="#b9b8e4">
         {STARS.map(([x, y]) => <rect key={`${x}-${y}`} x={x} y={y} width="1" height="1" />)}
         <path d="M49 10h1v2h2v1h-2v2h-1v-2h-2v-1h2zM11 52h1v2h2v1h-2v2h-1v-2H9v-1h2z" />

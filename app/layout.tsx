@@ -14,6 +14,7 @@ import "./themes/xp-summer.css";
 import "./themes/mood.css";
 import "./themes/xp-control.css";
 import "./themes/cute.css";
+import "./themes/sky-wallpaper.css";
 import { ThemeProvider } from "./components/ThemeProvider";
 
 export const metadata: Metadata = {
@@ -33,7 +34,7 @@ export const viewport: Viewport = {
   maximumScale: 1,
   userScalable: false,
   viewportFit: "cover",
-  themeColor: "#e8e8e8",
+  themeColor: "#5cbcff",
 };
 
 export default function RootLayout({

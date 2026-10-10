@@ -1,5 +1,5 @@
 /* ━━ Retro desktop: the home screen as Windows XP, circa 2007 ━━
-   A Bliss-like green hill under a blue sky, glossy outlined icons with
+   The blog's candy sky, glossy outlined icons with
    white shadowed labels, the "As time goes by.exe" window, the moon as a
    sidebar gadget and the blue Luna taskbar.
    Every rule starts with :root[data-theme] .xp-desktop so it outranks
@@ -20,14 +20,7 @@
   color: #000;
   font-family: Tahoma, Verdana, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
   font-size: 13px;
-  background-color: #3d86e8;
-  background-image:
-    radial-gradient(ellipse 100% 40% at 24% 102%, #8fd35c 0%, #67b63a 45%, #4f9f2a 70%, transparent 70.5%),
-    radial-gradient(ellipse 130% 34% at 88% 106%, #7fc64b 0%, #57a82f 55%, #3f8d22 70%, transparent 70.5%),
-    radial-gradient(ellipse 34% 7% at 72% 30%, rgba(255, 255, 255, 0.8), transparent 70%),
-    radial-gradient(ellipse 26% 5% at 20% 40%, rgba(255, 255, 255, 0.65), transparent 70%),
-    radial-gradient(ellipse 44% 8% at 50% 58%, rgba(255, 255, 255, 0.55), transparent 70%),
-    linear-gradient(180deg, #1b56c4 0%, #3478df 28%, #6aa8ee 52%, #a9d0f6 68%, #d8ecfc 78%);
+  background: var(--iooi-sky-background);
   -webkit-tap-highlight-color: transparent;
   -webkit-user-select: none;
   user-select: none;
@@ -275,15 +268,16 @@
 :root[data-theme] .xp-desktop .xp-desk-gadget-pixels {
   display: block;
   width: 100%;
-  aspect-ratio: 1;
-  padding: 5%;
+  padding: 4px;
   border: 2px solid #58658e;
   border-radius: 0;
   background: #202d50;
   box-shadow: inset 2px 2px 0 #8795bc, inset -2px -2px 0 #111a36, 3px 3px 0 rgba(29, 38, 67, 0.3);
 }
 
-:root[data-theme] .xp-desktop .xp-desk-moon-pixels { display: block; width: 100%; height: 100%; }
+/* The SVG's intrinsic square ratio determines height, including in WebKit.
+   Equal fixed padding keeps the entire framed postcard square too. */
+:root[data-theme] .xp-desktop .xp-desk-moon-pixels { display: block; width: 100%; height: auto; }
 
 :root[data-theme] .xp-desktop .xp-desk-gadget:active .xp-desk-gadget-pixels { filter: brightness(1.15); }
 

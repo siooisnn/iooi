@@ -1,6 +1,6 @@
 // iooi service worker — push notifications
 
-const IOOI_SW_VERSION = "2026-10-11-iooi-pixel-icon";
+const IOOI_SW_VERSION = "2026-10-11-candy-sky";
 
 self.addEventListener("install", () => {
   self.skipWaiting();

@@ -22,12 +22,7 @@
   gap: 0;
   padding-left: env(safe-area-inset-left);
   padding-right: env(safe-area-inset-right);
-  background:
-    radial-gradient(circle at 14% 16%, rgba(0, 0, 0, 0.075), transparent 38%),
-    radial-gradient(circle at 92% 46%, rgba(0, 0, 0, 0.06), transparent 40%),
-    radial-gradient(circle at 26% 78%, rgba(0, 0, 0, 0.05), transparent 36%),
-    radial-gradient(circle at 80% 96%, rgba(0, 0, 0, 0.06), transparent 34%),
-    var(--page-gray, #e8e8e8);
+  background: var(--iooi-sky-background);
 }
 
 /* Her own photo as wallpaper (Settings → Home Background): it fills the

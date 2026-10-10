@@ -19,6 +19,7 @@ import { HeartbeatView } from "./components/AppPages";
 import { ReadingView } from "./components/ReadingView";
 import { ClawdView } from "./components/ClawdView";
 import { BlogView } from "./components/BlogView";
+import { SkyClouds } from "./components/SkyClouds";
 import { PageBack } from "./components/PageBack";
 import { ChatView, type BlogTarget } from "./components/ChatView";
 import { SummerPageView } from "./components/SummerPageView";
@@ -606,8 +607,13 @@ export default function Home() {
   }
 
   return (
-    <main className="app-bg"
+    <main className="app-bg" data-wallpaper="sky"
       data-fullscreen-shell={tab === "chat" && chatView !== "list" ? undefined : "true"}>
+      {tab !== "blog" && !(tab === "home" && settings.homeBackground) && (
+        <div className="iooi-status-sky" aria-hidden="true">
+          <div className="iooi-status-sky-canvas"><SkyClouds /></div>
+        </div>
+      )}
       <div
         ref={shellRef}
         className="chat-container"

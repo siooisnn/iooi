@@ -4,12 +4,13 @@ import { useEffect, useId, useState } from "react";
 import type { ReactNode } from "react";
 import { MoonEarthPixel } from "./MoonEarthPixel";
 import { TaskbarClawd } from "./TaskbarClawd";
+import { SkyClouds } from "./SkyClouds";
 import { HEARTBEAT_LINE, Petals, useTogether } from "./HomeView";
 import type { HomeApp } from "./HomeView";
 import { CLAUDE_DEFAULT_NAME } from "../lib/app-settings";
 import type { Settings } from "../lib/app-settings";
 
-/* The desktop as a 2007 Windows XP screen: a Bliss-ish hill, chunky glossy
+/* The desktop as a 2007 Windows XP screen: a candy sky, chunky glossy
    icons, an "As time goes by.exe" window, the moon as a sidebar gadget and a
    blue taskbar with the green start button. Only looks differ; every icon
    opens the same app as the gray glass desktop. */
@@ -249,6 +250,7 @@ export function RetroDesktop({ settings, onOpen, onExit, boot, onBooted }: {
       className={`xp-desktop${settings.homeBackground ? " xp-desktop-photo" : ""}`}
       style={settings.homeBackground ? { backgroundImage: `url("${settings.homeBackground}")` } : undefined}
     >
+      {!settings.homeBackground && <SkyClouds />}
       {isAnniversary && <Petals />}
 
       <div className="xp-desk-area">

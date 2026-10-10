@@ -8,6 +8,7 @@ import { CLAUDE_DEFAULT_NAME, MODELS } from "../lib/app-settings";
 import { apiFetch } from "../lib/client-api";
 import { genId } from "../lib/chat-sessions";
 import { prepareImageForUpload } from "../lib/image-compress";
+import { SkyClouds } from "./SkyClouds";
 import {
   BLOG_LIMITS, BLOG_MOODS, BLOG_TIME_ZONE, BLOG_WEATHERS, blogArchive, blogDayKey, blogMonthKey, calendarWeeks,
   latestHisPost, monthLabel, parseBlogState, postExcerpt, postHasBody, postImages, postTitle, shiftMonth, songTitleFromFile, sortPosts,
@@ -339,7 +340,7 @@ export function BlogView({ settings, fragments, setFragments, onBack, initialScr
 
   return (
     <div className="blog-overlay" onPointerDown={(event) => sparkle(event.clientX, event.clientY)}>
-      <div className="blog-sky" aria-hidden="true"><i /><i /><i /><i /></div>
+      <SkyClouds />
 
       <div className={`blog-scroll${inHisSpace ? " is-him" : ""}`} ref={scrollRef}>
         {screen.kind === "home" && (

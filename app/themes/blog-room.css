@@ -20,10 +20,7 @@
   color: var(--blog-ink);
   font-family: Tahoma, Verdana, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
   font-size: 14px;
-  background:
-    radial-gradient(circle, rgba(255, 255, 255, 0.55) 2px, transparent 2.5px) 0 0 / 22px 22px,
-    radial-gradient(circle, rgba(255, 140, 196, 0.45) 2px, transparent 2.5px) 11px 11px / 22px 22px,
-    linear-gradient(180deg, #5cbcff 0%, #9bdcff 45%, #c9ecff 78%, #ffe1f0 100%);
+  background: var(--iooi-sky-background);
   -webkit-tap-highlight-color: transparent;
   animation: blogOpen 0.28s ease-out;
 }
@@ -54,40 +51,6 @@
 .blog-overlay :is(button, input, textarea, select):focus-visible {
   outline: 2px dotted var(--blog-ink);
   outline-offset: 2px;
-}
-
-/* Fluffy clouds drifting behind everything. */
-.blog-sky { position: absolute; inset: 0; pointer-events: none; }
-
-.blog-sky i {
-  position: absolute;
-  width: 120px;
-  height: 38px;
-  border-radius: 40px;
-  background: #fff;
-  opacity: 0.85;
-  filter: drop-shadow(0 4px 0 rgba(120, 190, 255, 0.35));
-  animation: blogCloud 38s linear infinite;
-}
-
-.blog-sky i::before,
-.blog-sky i::after {
-  content: "";
-  position: absolute;
-  border-radius: 50%;
-  background: #fff;
-}
-
-.blog-sky i::before { width: 54px; height: 54px; left: 18px; top: -26px; }
-.blog-sky i::after { width: 40px; height: 40px; left: 60px; top: -16px; }
-.blog-sky i:nth-child(1) { top: 9%; left: -30%; }
-.blog-sky i:nth-child(2) { top: 34%; left: -50%; transform: scale(0.7); animation-duration: 52s; animation-delay: -20s; }
-.blog-sky i:nth-child(3) { top: 61%; left: -40%; transform: scale(1.15); animation-duration: 45s; animation-delay: -32s; }
-.blog-sky i:nth-child(4) { top: 84%; left: -30%; transform: scale(0.8); animation-duration: 60s; animation-delay: -8s; }
-
-@keyframes blogCloud {
-  from { translate: 0 0; }
-  to { translate: 180vw 0; }
 }
 
 .blog-scroll {

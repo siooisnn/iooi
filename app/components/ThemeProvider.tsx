@@ -5,8 +5,8 @@ import type { ReactNode } from "react";
 import { installCuteFx } from "../lib/cute-fx";
 
 function syncBrowserChrome() {
-  // Every page shares the one gray now, so the browser bars match it too.
-  const color = "#e8e8e8";
+  // Match the top of the blog's shared sky wallpaper.
+  const color = "#5cbcff";
   document.querySelector('meta[name="theme-color"]')?.setAttribute("content", color);
 }
 

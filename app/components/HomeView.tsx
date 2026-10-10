@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import type { ReactNode } from "react";
 import { MoonEarthMini, MoonLetter } from "./MoonLetter";
+import { SkyClouds } from "./SkyClouds";
 import { CLAUDE_DEFAULT_NAME } from "../lib/app-settings";
 import type { Settings } from "../lib/app-settings";
 import {
@@ -86,6 +87,7 @@ export function HomeView({ settings, onOpen, onRetro }: { settings: Settings; on
       className={`home-body phone-home${settings.homeBackground ? " phone-home-wallpaper" : ""}`}
       style={settings.homeBackground ? { backgroundImage: `url("${settings.homeBackground}")` } : undefined}
     >
+      {!settings.homeBackground && <SkyClouds />}
       {isAnniversary && <Petals />}
 
       <div className="phone-grid">

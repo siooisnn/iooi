@@ -26,12 +26,9 @@
     var(--page-gray);
 }
 
-/* Soft light gives the clear glass something to catch on a plain wallpaper. */
+/* The default wallpaper is the blog's candy sky behind the clear glass. */
 :root[data-theme="white-pink"] .app-bg[data-fullscreen-shell="true"] > .chat-container > .home-body.phone-home:not(.phone-home-wallpaper) {
-  background:
-    radial-gradient(ellipse at 5% 5%, rgba(255, 255, 255, 0.82), transparent 58%),
-    radial-gradient(ellipse at 100% 65%, rgba(0, 0, 0, 0.075), transparent 65%),
-    linear-gradient(160deg, #e8e8e8, #e0e0e0);
+  background: var(--iooi-sky-background);
 }
 
 :root[data-theme="white-pink"] .phone-home .phone-glass {

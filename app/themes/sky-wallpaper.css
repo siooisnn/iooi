@@ -1,0 +1,81 @@
+:root {
+  --iooi-sky-background:
+    radial-gradient(circle, rgba(255,255,255,.55) 2px, transparent 2.5px) 0 0 / 22px 22px,
+    radial-gradient(circle, rgba(255,140,196,.45) 2px, transparent 2.5px) 11px 11px / 22px 22px,
+    linear-gradient(180deg, #5cbcff 0%, #9bdcff 45%, #c9ecff 78%, #ffe1f0 100%);
+}
+
+:root[data-theme],
+:root[data-theme] body { background-color: #5cbcff; }
+
+:root[data-theme] .app-bg[data-wallpaper="sky"],
+:root[data-theme] .xp-buddy-screen,
+:root[data-theme] .xp-summer-screen {
+  background: var(--iooi-sky-background);
+}
+
+:root[data-theme] .iooi-sky-clouds {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+:root[data-theme] .iooi-sky-clouds i {
+  position: absolute;
+  width: 120px;
+  height: 38px;
+  border-radius: 40px;
+  background: #fff;
+  opacity: .85;
+  filter: drop-shadow(0 4px 0 rgba(120,190,255,.35));
+  animation: iooiSkyCloud 38s linear infinite;
+}
+
+:root[data-theme] .iooi-sky-clouds i::before,
+:root[data-theme] .iooi-sky-clouds i::after {
+  content: "";
+  position: absolute;
+  border-radius: 50%;
+  background: #fff;
+}
+
+:root[data-theme] .iooi-sky-clouds i::before { width: 54px; height: 54px; left: 18px; top: -26px; }
+:root[data-theme] .iooi-sky-clouds i::after { width: 40px; height: 40px; left: 60px; top: -16px; }
+:root[data-theme] .iooi-sky-clouds i:nth-child(1) { top: 9%; left: -30%; }
+:root[data-theme] .iooi-sky-clouds i:nth-child(2) { top: 34%; left: -50%; transform: scale(.7); animation-duration: 52s; animation-delay: -20s; }
+:root[data-theme] .iooi-sky-clouds i:nth-child(3) { top: 61%; left: -40%; transform: scale(1.15); animation-duration: 45s; animation-delay: -32s; }
+:root[data-theme] .iooi-sky-clouds i:nth-child(4) { top: 84%; left: -30%; transform: scale(.8); animation-duration: 60s; animation-delay: -8s; }
+
+@keyframes iooiSkyCloud {
+  from { translate: 0 0; }
+  to { translate: 180vw 0; }
+}
+
+/* Paint just the system status area above opaque page windows. Keep a
+   full-height canvas inside the clip so its gradient matches the desktop. */
+:root[data-theme] .iooi-status-sky {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: env(safe-area-inset-top);
+  z-index: 350;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+:root[data-theme] .iooi-status-sky-canvas {
+  position: absolute;
+  inset: 0 0 auto;
+  height: 100vh;
+  background: var(--iooi-sky-background);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root[data-theme] .iooi-sky-clouds i { animation: none; }
+  :root[data-theme] .iooi-sky-clouds i:nth-child(1) { left: 12%; }
+  :root[data-theme] .iooi-sky-clouds i:nth-child(2) { left: 72%; }
+  :root[data-theme] .iooi-sky-clouds i:nth-child(3) { left: 28%; }
+  :root[data-theme] .iooi-sky-clouds i:nth-child(4) { left: 65%; }
+}
