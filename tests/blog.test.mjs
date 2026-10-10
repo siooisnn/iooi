@@ -1,8 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  applyBlogAction, blogArchive, blogDayKey, calendarWeeks, DEFAULT_BLOG_PROFILE, parseBlogState,
-  postExcerpt, postTitle, shiftMonth, songTitleFromFile, sortPosts, visitorDigits,
+  applyBlogAction, blogArchive, blogDayKey, calendarWeeks, DEFAULT_BLOG_PROFILE, DEFAULT_HIS_MOTTO, latestHisPost,
+  parseBlogState, parseHisDraft, postExcerpt, postTitle, shiftMonth, songTitleFromFile, sortPosts, visitorDigits,
 } from '../app/lib/blog.ts';
 
 const NOW = new Date('2026-10-09T04:00:00Z');
@@ -117,4 +117,47 @@ test('calendar weeks start on Sunday and months shift across years', () => {
   for (const week of weeks) assert.equal(week.length, 7);
   assert.equal(shiftMonth('2026-01', -1), '2025-12');
   assert.equal(shiftMonth('2026-12', 1), '2027-01');
+});
+
+test('his space starts empty and drops broken posts', () => {
+  assert.deepEqual(parseBlogState(null).him, { motto: DEFAULT_HIS_MOTTO, posts: [] });
+  const blog = parseBlogState({ him: { motto: '新签名', posts: [
+    { id: 'him-1', title: '周记', content: '这周', createdAt: '2026-10-01T00:00:00Z', mood: '还行', weather: '晴' },
+    { id: 'him-2', title: 'x', content: '   ', createdAt: '2026-10-02T00:00:00Z' },
+    { id: '../bad', title: 'x', content: 'y', createdAt: '2026-10-02T00:00:00Z' },
+    { id: 'him-3', content: '没标题', createdAt: '2026-10-03T00:00:00Z', weather: '冰雹' },
+  ] } });
+  assert.equal(blog.him.motto, '新签名');
+  assert.deepEqual(blog.him.posts.map((post) => post.id), ['him-1', 'him-3']);
+  assert.equal(blog.him.posts[1].title, '无题');
+  assert.equal(blog.him.posts[1].weather, undefined);
+});
+
+test('he adds and she deletes posts in his space', () => {
+  let blog = parseBlogState(null);
+  blog = applyBlogAction(blog, { type: 'him-post-add', title: '第一篇', content: '你好', mood: '开心', motto: '换个签名' }, at('him-a'));
+  assert.equal(blog.him.posts[0].createdAt, NOW.toISOString());
+  assert.equal(blog.him.motto, '换个签名');
+  blog = applyBlogAction(blog, { type: 'him-post-add', title: '第二篇', content: '还是我' }, { now: new Date('2026-10-10T00:00:00Z'), id: 'him-b' });
+  assert.equal(blog.him.motto, '换个签名', 'an empty motto keeps the old one');
+  assert.equal(latestHisPost(blog).id, 'him-b');
+  assert.ok('error' in applyBlogAction(blog, { type: 'him-post-add', title: 't', content: ' ' }, at('him-c')));
+
+  blog = applyBlogAction(blog, { type: 'comment', postId: 'him-a', content: '踩踩', author: 'her' }, at('c1'));
+  blog = applyBlogAction(blog, { type: 'view', postId: 'him-a' }, at('v'));
+  blog = applyBlogAction(blog, { type: 'him-post-delete', postId: 'him-a' }, at('x'));
+  assert.deepEqual(blog.him.posts.map((post) => post.id), ['him-b']);
+  assert.deepEqual(blog.comments, []);
+  assert.equal(blog.views['him-a'], undefined);
+});
+
+test('his draft is read from bare, fenced or chatty JSON', () => {
+  const json = '{"title":"周六","content":"今天她去托班了。","mood":"想她","weather":"多云","motto":""}';
+  assert.deepEqual(parseHisDraft(json), { title: '周六', content: '今天她去托班了。', mood: '想她', weather: '多云' });
+  assert.equal(parseHisDraft('```json\n' + json + '\n```').title, '周六');
+  assert.equal(parseHisDraft('好的：' + json).content, '今天她去托班了。');
+  assert.equal(parseHisDraft('{"title":"x","content":"y","weather":"冰雹"}').weather, undefined);
+  assert.equal(parseHisDraft('{"title":"x","content":""}'), null);
+  assert.equal(parseHisDraft('写不出来'), null);
+  assert.equal(parseHisDraft('{broken'), null);
 });

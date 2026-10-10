@@ -1,8 +1,12 @@
 // The blog: an XP-blue, 2007-style home for everything she writes. Posts are
 // the old winter fragments (same ids, same dates, kept in `fragments`); this
 // file holds what lives next to them on the server under `blog`: the profile,
-// the guestbook comments, the playlist and the visitor counter. Everything is
-// pure and import-free so the page, the API route and the tests share it.
+// the guestbook comments, the playlist and the visitor counter, plus his own
+// space (`him`): his signature and the posts he writes. His posts live here,
+// not in `fragments`, because only the server writes `blog` and the front
+// end's whole-object sync could otherwise overwrite something he just wrote.
+// Everything is pure and import-free so the page, the API route and the tests
+// share it.
 
 export type BlogAuthor = "her" | "him";
 
@@ -25,12 +29,28 @@ export type BlogProfile = {
   notice: string;
 };
 
+/** A post in his space. Only the server writes these, through "him-post-add". */
+export type HisPost = {
+  id: string;
+  title: string;
+  content: string;
+  createdAt: string;
+  mood?: string;
+  weather?: string;
+};
+
+export type HisSpace = {
+  motto: string;
+  posts: HisPost[];
+};
+
 export type BlogState = {
   profile: BlogProfile;
   songs: BlogSong[];
   comments: BlogComment[];
   visits: number;
   views: Record<string, number>;
+  him: HisSpace;
 };
 
 /** A post as the page sees it; the stored shape is FragmentEntry plus these optional fields. */
@@ -58,6 +78,8 @@ export const DEFAULT_BLOG_PROFILE: BlogProfile = {
 export const BLOG_MOODS = ["开心", "平静", "甜甜的", "想你", "有点丧", "emo", "困困", "生气"] as const;
 export const BLOG_WEATHERS = ["晴", "多云", "阴", "小雨", "大雨", "雪", "大风"] as const;
 
+export const DEFAULT_HIS_MOTTO = "在这里写给你看。";
+
 export const BLOG_LIMITS = {
   title: 40,
   motto: 60,
@@ -69,6 +91,10 @@ export const BLOG_LIMITS = {
   songTitle: 80,
   songs: 40,
   comments: 3000,
+  hisMood: 10,
+  hisPost: 4000,
+  hisPosts: 500,
+  topic: 100,
 } as const;
 
 const UPLOAD_URL = /^\/uploads\/[A-Za-z0-9._-]{1,120}$/;
@@ -101,6 +127,35 @@ function parseProfile(raw: unknown): BlogProfile {
     avatar: isUploadUrl(source.avatar) ? source.avatar : "",
     about: pick("about", BLOG_LIMITS.about),
     notice: pick("notice", BLOG_LIMITS.notice),
+  };
+}
+
+function parseHisPost(raw: unknown): HisPost | null {
+  const post = raw && typeof raw === "object" ? raw as Record<string, unknown> : null;
+  if (!post || typeof post.id !== "string" || !ID.test(post.id) || !validDate(post.createdAt)) return null;
+  const content = text(post.content, BLOG_LIMITS.hisPost);
+  if (!content) return null;
+  const mood = text(post.mood, BLOG_LIMITS.hisMood);
+  const weather = (BLOG_WEATHERS as readonly string[]).includes(post.weather as string) ? post.weather as string : "";
+  return {
+    id: post.id,
+    title: text(post.title, BLOG_LIMITS.postTitle) || "无题",
+    content,
+    createdAt: post.createdAt as string,
+    ...(mood ? { mood } : {}),
+    ...(weather ? { weather } : {}),
+  };
+}
+
+function parseHisSpace(raw: unknown): HisSpace {
+  const source = raw && typeof raw === "object" ? raw as Record<string, unknown> : {};
+  const posts = (Array.isArray(source.posts) ? source.posts : []).flatMap((item) => {
+    const post = parseHisPost(item);
+    return post ? [post] : [];
+  });
+  return {
+    motto: typeof source.motto === "string" ? text(source.motto, BLOG_LIMITS.motto) : DEFAULT_HIS_MOTTO,
+    posts: posts.slice(-BLOG_LIMITS.hisPosts),
   };
 }
 
@@ -138,6 +193,7 @@ export function parseBlogState(raw: unknown): BlogState {
     comments: comments.slice(-BLOG_LIMITS.comments),
     visits: count(source.visits),
     views,
+    him: parseHisSpace(source.him),
   };
 }
 
@@ -149,7 +205,9 @@ export type BlogAction =
   | { type: "song-remove"; id: string }
   | { type: "comment"; postId: string; content: string; author: BlogAuthor }
   | { type: "comment-delete"; id: string }
-  | { type: "post-delete"; postId: string };
+  | { type: "post-delete"; postId: string }
+  | { type: "him-post-add"; title: string; content: string; mood?: string; weather?: string; motto?: string }
+  | { type: "him-post-delete"; postId: string };
 
 /**
  * One change to the blog. Returns the new state, or an error message when the
@@ -200,9 +258,67 @@ export function applyBlogAction(
       delete views[action.postId];
       return { ...state, views, comments: state.comments.filter((comment) => comment.postId !== action.postId) };
     }
+    case "him-post-add": {
+      const post = parseHisPost({ ...action, id, createdAt: now.toISOString() });
+      if (!post) return { error: "他这篇是空的" };
+      const motto = typeof action.motto === "string" ? text(action.motto, BLOG_LIMITS.motto) : "";
+      return {
+        ...state,
+        him: { motto: motto || state.him.motto, posts: [...state.him.posts, post].slice(-BLOG_LIMITS.hisPosts) },
+      };
+    }
+    case "him-post-delete": {
+      const views = { ...state.views };
+      delete views[action.postId];
+      return {
+        ...state,
+        views,
+        comments: state.comments.filter((comment) => comment.postId !== action.postId),
+        him: { ...state.him, posts: state.him.posts.filter((post) => post.id !== action.postId) },
+      };
+    }
     default:
       return { error: "不认识的操作" };
   }
+}
+
+// ── His writing ──
+
+export type HisDraft = { title: string; content: string; mood?: string; weather?: string; motto?: string };
+
+/**
+ * What the model sends back when he writes a post: one JSON object, maybe
+ * wrapped in a code fence or a stray sentence. Null when there is no post in it.
+ */
+export function parseHisDraft(raw: string): HisDraft | null {
+  const cleaned = raw.replace(/```(?:json)?/gi, "");
+  const start = cleaned.indexOf("{");
+  const end = cleaned.lastIndexOf("}");
+  if (start < 0 || end <= start) return null;
+  let data: Record<string, unknown>;
+  try {
+    data = JSON.parse(cleaned.slice(start, end + 1));
+  } catch {
+    return null;
+  }
+  if (!data || typeof data !== "object") return null;
+  const content = text(data.content, BLOG_LIMITS.hisPost);
+  if (!content) return null;
+  const mood = text(data.mood, BLOG_LIMITS.hisMood);
+  const weather = (BLOG_WEATHERS as readonly string[]).includes(data.weather as string) ? data.weather as string : "";
+  const motto = text(data.motto, BLOG_LIMITS.motto);
+  return {
+    title: text(data.title, BLOG_LIMITS.postTitle) || "无题",
+    content,
+    ...(mood ? { mood } : {}),
+    ...(weather ? { weather } : {}),
+    ...(motto ? { motto } : {}),
+  };
+}
+
+/** The newest post in his space, if he has written any. */
+export function latestHisPost(state: BlogState) {
+  return sortPosts(state.him.posts)[0] as HisPost | undefined;
 }
 
 // ── Posts ──
@@ -224,7 +340,7 @@ export function postExcerpt(post: BlogPostLike, max = 120) {
 }
 
 /** Newest first by the day it was written; editing never moves a post. */
-export function sortPosts<T extends BlogPostLike>(posts: T[]) {
+export function sortPosts<T extends { createdAt: string }>(posts: T[]) {
   return [...posts].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 }
 

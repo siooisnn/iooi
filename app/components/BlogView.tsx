@@ -10,16 +10,18 @@ import { genId } from "../lib/chat-sessions";
 import { prepareImageForUpload } from "../lib/image-compress";
 import {
   BLOG_LIMITS, BLOG_MOODS, BLOG_TIME_ZONE, BLOG_WEATHERS, blogArchive, blogDayKey, blogMonthKey, calendarWeeks,
-  monthLabel, parseBlogState, postExcerpt, postTitle, shiftMonth, songTitleFromFile, sortPosts, visitorDigits,
+  latestHisPost, monthLabel, parseBlogState, postExcerpt, postTitle, shiftMonth, songTitleFromFile, sortPosts, visitorDigits,
 } from "../lib/blog";
-import type { BlogAction, BlogComment, BlogProfile, BlogState } from "../lib/blog";
+import type { BlogAction, BlogComment, BlogPostLike, BlogProfile, BlogState, HisPost } from "../lib/blog";
 
 type Screen =
   | { kind: "home" }
   | { kind: "post"; id: string }
   | { kind: "edit"; id: string; createdAt: string }
-  | { kind: "profile" };
-type Popup = null | "calendar" | "archive" | "playlist";
+  | { kind: "profile" }
+  | { kind: "him" }
+  | { kind: "him-post"; id: string };
+type Popup = null | "calendar" | "archive" | "playlist" | "him-write";
 type Filter = null | { kind: "month" | "day"; key: string };
 type Sparkle = { id: number; x: number; y: number };
 
@@ -28,21 +30,44 @@ const FLOOR_NAMES = ["沙发", "板凳", "地板"];
 
 // ── Server ──
 
-type BlogRequest = BlogAction | { type: "ask"; post: FragmentEntry; modelId: string };
+type BlogRequest =
+  | BlogAction
+  | { type: "ask"; post: BlogPostLike; modelId: string }
+  | { type: "him-write"; topic: string; modelId: string };
+type BlogResult = { blog?: BlogState; writing?: boolean; error?: string };
 
-async function blogRequest(body: BlogRequest): Promise<{ blog?: BlogState; error?: string }> {
+async function blogRequest(body?: BlogRequest): Promise<BlogResult> {
   try {
-    const res = await apiFetch("/api/blog", {
+    const res = await apiFetch("/api/blog", body ? {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
-    });
+    } : { cache: "no-store" });
     const data = await res.json().catch(() => ({}));
     if (!res.ok || !data.ok) return { error: data.error || "没连上服务器，等会儿再试" };
-    return { blog: parseBlogState(data.blog) };
+    return { blog: parseBlogState(data.blog), writing: data.writing === true };
   } catch {
     return { error: "没连上服务器，等会儿再试" };
   }
+}
+
+// The newest of his posts she has opened his space to see, kept on this device
+// so the friend card can say NEW without the server tracking it.
+const HIS_SEEN_KEY = "iooi-blog-him-seen";
+
+function readHisSeen() {
+  if (typeof window === "undefined") return "";
+  try {
+    return window.localStorage.getItem(HIS_SEEN_KEY) || "";
+  } catch {
+    return "";
+  }
+}
+
+function markHisSeen(iso: string) {
+  try {
+    window.localStorage.setItem(HIS_SEEN_KEY, iso);
+  } catch {}
 }
 
 async function uploadFile(file: File) {
@@ -161,6 +186,8 @@ export function BlogView({ settings, fragments, setFragments, onBack }: {
   const [filter, setFilter] = useState<Filter>(null);
   const [toast, setToast] = useState("");
   const [sparkles, setSparkles] = useState<Sparkle[]>([]);
+  const [himWriting, setHimWriting] = useState(false);
+  const [hisSeen, setHisSeen] = useState(readHisSeen);
   const scrollRef = useRef<HTMLDivElement>(null);
   const clock = useClock();
   useSyncPlaylist(blog);
@@ -170,7 +197,33 @@ export function BlogView({ settings, fragments, setFragments, onBack }: {
   const herName = blog.profile.nickname || settings.userName || "我";
   const herAvatar = blog.profile.avatar || settings.userAvatar;
   const hisName = settings.aiName || CLAUDE_DEFAULT_NAME;
+  const hisAvatar = settings.aiAvatar;
+  const modelId = (MODELS.find((model) => model.id === settings.model) || MODELS[0]).apiId;
   const posts = useMemo(() => sortPosts(fragments.filter((post) => post.content.trim() || post.title?.trim())), [fragments]);
+  const hisPosts = useMemo(() => sortPosts(blog.him.posts), [blog.him.posts]);
+  const hisLatest = latestHisPost(blog);
+  const hisFresh = Boolean(hisLatest && hisLatest.createdAt > hisSeen);
+
+  // Opening his space counts as having seen what is there.
+  function seeHis(post: HisPost | undefined) {
+    if (!post || post.createdAt <= readHisSeen()) return;
+    markHisSeen(post.createdAt);
+    setHisSeen(post.createdAt);
+  }
+
+  // While he is writing (maybe started before she reopened the blog), check
+  // back now and then so the post shows up without a refresh.
+  useEffect(() => {
+    if (!himWriting) return;
+    const timer = window.setInterval(() => {
+      void blogRequest().then((result) => {
+        if (!result.blog) return;
+        setBlog(result.blog);
+        setHimWriting(Boolean(result.writing));
+      });
+    }, 8_000);
+    return () => window.clearInterval(timer);
+  }, [himWriting]);
 
   // Count the visit and fetch the blog behind a short LOADING ♥♥♥♥.
   useEffect(() => {
@@ -179,8 +232,10 @@ export function BlogView({ settings, fragments, setFragments, onBack }: {
     void blogRequest({ type: "visit" }).then((result) => {
       window.setTimeout(() => {
         if (!alive) return;
-        if (result.blog) setBlog(result.blog);
-        else setOffline(true);
+        if (result.blog) {
+          setBlog(result.blog);
+          setHimWriting(Boolean(result.writing));
+        } else setOffline(true);
         setLoading(false);
       }, Math.max(0, 900 - (Date.now() - started)));
     });
@@ -205,6 +260,7 @@ export function BlogView({ settings, fragments, setFragments, onBack }: {
   }
 
   function go(next: Screen) {
+    if (next.kind === "him" || next.kind === "him-post") seeHis(hisLatest);
     setScreen(next);
     setStartOpen(false);
     setPopup(null);
@@ -214,6 +270,31 @@ export function BlogView({ settings, fragments, setFragments, onBack }: {
   function openPost(id: string) {
     go({ kind: "post", id });
     void blogRequest({ type: "view", postId: id }).then((result) => { if (result.blog) setBlog(result.blog); });
+  }
+
+  function openHisPost(id: string) {
+    go({ kind: "him-post", id });
+    void blogRequest({ type: "view", postId: id }).then((result) => { if (result.blog) setBlog(result.blog); });
+  }
+
+  async function askHimToWrite(topic: string) {
+    setPopup(null);
+    setHimWriting(true);
+    const result = await blogRequest({ type: "him-write", topic, modelId });
+    if (result.blog) {
+      setBlog(result.blog);
+      setHimWriting(Boolean(result.writing));
+      const latest = latestHisPost(result.blog);
+      if (latest) {
+        go({ kind: "him-post", id: latest.id });
+        seeHis(latest);
+      }
+    } else {
+      // A 409 means a post was already on its way; keep waiting for it.
+      const already = (result.error || "").includes("正在写");
+      setHimWriting(already);
+      setToast(result.error || "他这篇没写成");
+    }
   }
 
   function writeNew() {
@@ -230,14 +311,18 @@ export function BlogView({ settings, fragments, setFragments, onBack }: {
     ? posts.filter((post) => (filter.kind === "day" ? blogDayKey(post.createdAt) : blogMonthKey(post.createdAt)) === filter.key)
     : posts;
   const currentPost = screen.kind === "post" ? posts.find((post) => post.id === screen.id) : undefined;
+  const currentHisPost = screen.kind === "him-post" ? hisPosts.find((post) => post.id === screen.id) : undefined;
+  const inHisSpace = screen.kind === "him" || screen.kind === "him-post";
   const taskTitle = screen.kind === "post" ? `${currentPost ? postTitle(currentPost) : "文章"}.txt`
+    : screen.kind === "him-post" ? `${currentHisPost ? currentHisPost.title : "日志"}.txt`
+    : screen.kind === "him" ? `${hisName}的空间`
     : screen.kind === "edit" ? "记事本" : screen.kind === "profile" ? "个人档案" : blog.profile.title;
 
   return (
     <div className="blog-overlay" onPointerDown={(event) => sparkle(event.clientX, event.clientY)}>
       <div className="blog-sky" aria-hidden="true"><i /><i /><i /><i /></div>
 
-      <div className="blog-scroll" ref={scrollRef}>
+      <div className={`blog-scroll${inHisSpace ? " is-him" : ""}`} ref={scrollRef}>
         {screen.kind === "home" && (
           <BlogHome
             blog={blog} posts={posts} shownPosts={shownPosts} filter={filter} offline={offline}
@@ -245,13 +330,42 @@ export function BlogView({ settings, fragments, setFragments, onBack }: {
             onClose={onBack} onOpenPost={openPost} onWrite={writeNew} onClearFilter={() => setFilter(null)}
             onEditProfile={() => go({ kind: "profile" })}
             player={<MediaPlayer blog={blog} onPlaylist={() => setPopup("playlist")} onError={setToast} />}
+            friend={<FriendCard name={hisName} avatar={hisAvatar} latest={hisLatest} fresh={hisFresh} onVisit={() => go({ kind: "him" })} />}
           />
         )}
 
+        {screen.kind === "him" && (
+          <HisSpacePage
+            blog={blog} posts={hisPosts} name={hisName} avatar={hisAvatar} writing={himWriting} offline={offline}
+            onBack={() => go({ kind: "home" })} onOpenPost={openHisPost} onAskWrite={() => setPopup("him-write")}
+          />
+        )}
+
+        {screen.kind === "him-post" && (currentHisPost ? (
+          <PostPage
+            post={currentHisPost} byHim blog={blog} herName={herName} herAvatar={herAvatar} hisName={hisName} hisAvatar={hisAvatar}
+            modelId={modelId}
+            onBack={() => go({ kind: "him" })}
+            onDelete={async () => {
+              if (!window.confirm("要删掉他这篇日志吗？下面的留言也会一起删掉，不能恢复。")) return;
+              go({ kind: "him" });
+              await run({ type: "him-post-delete", postId: currentHisPost.id });
+            }}
+            run={run}
+            onToast={setToast}
+            onUpdate={setBlog}
+          />
+        ) : (
+          <XpWindow title="找不到文件" icon="⚠" onClose={() => go({ kind: "him" })} className="blog-missing">
+            <p>这篇日志已经不在了。</p>
+            <button type="button" className="xp-button" onClick={() => go({ kind: "him" })}>确定</button>
+          </XpWindow>
+        ))}
+
         {screen.kind === "post" && (currentPost ? (
           <PostPage
-            post={currentPost} blog={blog} herName={herName} herAvatar={herAvatar} hisName={hisName} hisAvatar={settings.aiAvatar}
-            modelId={(MODELS.find((model) => model.id === settings.model) || MODELS[0]).apiId}
+            post={currentPost} blog={blog} herName={herName} herAvatar={herAvatar} hisName={hisName} hisAvatar={hisAvatar}
+            modelId={modelId}
             onBack={() => go({ kind: "home" })}
             onEdit={() => go({ kind: "edit", id: currentPost.id, createdAt: currentPost.createdAt })}
             onDelete={async () => {
@@ -303,6 +417,9 @@ export function BlogView({ settings, fragments, setFragments, onBack }: {
       {popup === "playlist" && (
         <PlaylistPopup blog={blog} offline={offline} onClose={() => setPopup(null)} run={run} onToast={setToast} />
       )}
+      {popup === "him-write" && (
+        <WritePopup name={hisName} onClose={() => setPopup(null)} onSubmit={(topic) => { void askHimToWrite(topic); }} />
+      )}
 
       {startOpen && (
         <>
@@ -317,6 +434,9 @@ export function BlogView({ settings, fragments, setFragments, onBack }: {
                 <button type="button" onClick={writeNew}><span aria-hidden="true">📝</span>写新文章</button>
                 <button type="button" onClick={() => { setFilter(null); go({ kind: "home" }); }}><span aria-hidden="true">🏠</span>博客首页</button>
                 <button type="button" onClick={() => go({ kind: "profile" })}><span aria-hidden="true">🪪</span>编辑档案</button>
+                <button type="button" onClick={() => go({ kind: "him" })}>
+                  <span aria-hidden="true">🏡</span>{hisName}的空间{hisFresh && <i className="blog-new">NEW</i>}
+                </button>
               </div>
               <div className="blog-start-right">
                 <button type="button" onClick={() => { setStartOpen(false); setPopup("calendar"); }}><span aria-hidden="true">📅</span>日历</button>
@@ -357,11 +477,11 @@ export function BlogView({ settings, fragments, setFragments, onBack }: {
 
 // ── Home ──
 
-function BlogHome({ blog, posts, shownPosts, filter, offline, herName, herAvatar, onClose, onOpenPost, onWrite, onClearFilter, onEditProfile, player }: {
+function BlogHome({ blog, posts, shownPosts, filter, offline, herName, herAvatar, onClose, onOpenPost, onWrite, onClearFilter, onEditProfile, player, friend }: {
   blog: BlogState; posts: FragmentEntry[]; shownPosts: FragmentEntry[]; filter: Filter; offline: boolean;
   herName: string; herAvatar: string;
   onClose: () => void; onOpenPost: (id: string) => void; onWrite: () => void; onClearFilter: () => void; onEditProfile: () => void;
-  player: ReactNode;
+  player: ReactNode; friend: ReactNode;
 }) {
   const commentCount = (id: string) => blog.comments.filter((comment) => comment.postId === id).length;
   return (
@@ -389,7 +509,7 @@ function BlogHome({ blog, posts, shownPosts, filter, offline, herName, herAvatar
           <div className="blog-profile-text">
             <b>{herName}</b>
             <p>{blog.profile.about || "这个人很懒，什么都没留下～"}</p>
-            <span className="blog-profile-stats">文章 {posts.length} · 留言 {blog.comments.length}</span>
+            <span className="blog-profile-stats">文章 {posts.length} · 留言 {blog.comments.filter((comment) => posts.some((post) => post.id === comment.postId)).length}</span>
           </div>
         </div>
         <div className="blog-counter">
@@ -399,6 +519,8 @@ function BlogHome({ blog, posts, shownPosts, filter, offline, herName, herAvatar
         </div>
         <span className="blog-sticker">love.exe</span>
       </XpWindow>
+
+      {friend}
 
       {player}
 
@@ -445,13 +567,119 @@ function BlogHome({ blog, posts, shownPosts, filter, offline, herName, herAvatar
   );
 }
 
-function PostMeta({ post }: { post: FragmentEntry }) {
+function PostMeta({ post }: { post: BlogPostLike }) {
   return (
     <p className="blog-post-meta">
       <time>{stamp(post.createdAt)}</time>
       {post.mood && <span>心情：{post.mood}</span>}
       {post.weather && <span>天气：{WEATHER_ICON[post.weather] || ""}{post.weather}</span>}
     </p>
+  );
+}
+
+// ── His space ──
+
+function FriendCard({ name, avatar, latest, fresh, onVisit }: {
+  name: string; avatar: string; latest?: HisPost; fresh: boolean; onVisit: () => void;
+}) {
+  return (
+    <XpWindow title="我的好友" icon="👥" className="blog-friend">
+      <button type="button" className="blog-friend-row" onClick={onVisit} aria-label={`去${name}的空间`}>
+        <Avatar src={avatar} />
+        <span className="blog-friend-text">
+          <b>{name}{fresh && <i className="blog-new">NEW</i>}</b>
+          <span>{latest ? `更新了日志《${latest.title}》` : "空间还空着，去叫他写一篇吧～"}</span>
+          {latest && <time>{stamp(latest.createdAt)}</time>}
+        </span>
+        <span className="blog-friend-go">串门 »</span>
+      </button>
+    </XpWindow>
+  );
+}
+
+function HisSpacePage({ blog, posts, name, avatar, writing, offline, onBack, onOpenPost, onAskWrite }: {
+  blog: BlogState; posts: HisPost[]; name: string; avatar: string; writing: boolean; offline: boolean;
+  onBack: () => void; onOpenPost: (id: string) => void; onAskWrite: () => void;
+}) {
+  const ids = new Set(posts.map((post) => post.id));
+  const commentCount = (id: string) => blog.comments.filter((comment) => comment.postId === id).length;
+  const received = blog.comments.filter((comment) => ids.has(comment.postId) && comment.author === "her").length;
+  const visits = posts.reduce((sum, post) => sum + (blog.views[post.id] || 0), 0);
+  return (
+    <>
+      <XpWindow title={`${name}的空间 - Internet Explorer`} icon="e" onClose={onBack} className="blog-banner">
+        <h1 className="blog-title">{name}的空间</h1>
+        {blog.him.motto && <p className="blog-motto">{blog.him.motto}</p>}
+        <Pixels rows={STAR} className="blog-banner-star blog-banner-star-a" />
+        <Pixels rows={STAR} className="blog-banner-star blog-banner-star-b" />
+      </XpWindow>
+
+      <XpWindow title="主人档案" icon="☺" className="blog-profile">
+        <div className="blog-profile-row">
+          <span className="blog-profile-avatar"><Avatar src={avatar} /></span>
+          <div className="blog-profile-text">
+            <b>{name}</b>
+            <p>这里是我自己的小空间，写给你一个人看。来了记得留言 ♥</p>
+            <span className="blog-profile-stats">日志 {posts.length} · 收到留言 {received} · 被看 {visits} 次</span>
+          </div>
+        </div>
+        <button type="button" className="blog-link blog-back" onClick={onBack}>« 回我的博客</button>
+      </XpWindow>
+
+      <div className="blog-section-head">
+        <h2>◆ {name}的日志 ◆</h2>
+        <button type="button" className="xp-button" disabled={writing || offline} onClick={onAskWrite}>✏ 叫他写一篇</button>
+      </div>
+
+      {writing && (
+        <XpWindow title="无标题 - 记事本" icon="🗒" className="blog-him-writing">
+          <p><b>{name}</b>正在写日志<span className="blog-dots"><i>.</i><i>.</i><i>.</i></span></p>
+          <p className="blog-muted">写一篇要一两分钟。你可以先关掉去忙，写好了会推送通知给你。</p>
+        </XpWindow>
+      )}
+
+      {posts.length === 0 && !writing ? (
+        <XpWindow title="提示" icon="ℹ" className="blog-empty">
+          <Pixels rows={HEART} className="blog-empty-heart" />
+          <p>他还一篇都没写呢～</p>
+          <button type="button" className="xp-button" disabled={offline} onClick={onAskWrite}>叫他写第一篇</button>
+        </XpWindow>
+      ) : posts.map((post) => (
+        <XpWindow key={post.id} title={`${post.title}.txt`} icon="📝" className="blog-post-card">
+          <button type="button" className="blog-post-open" onClick={() => onOpenPost(post.id)}>
+            <h3>{post.title}</h3>
+            <PostMeta post={{ ...post, updatedAt: post.createdAt }} />
+            <p className="blog-post-excerpt">{postExcerpt({ ...post, updatedAt: post.createdAt })}</p>
+          </button>
+          <div className="blog-post-foot">
+            <button type="button" className="blog-link" onClick={() => onOpenPost(post.id)}>阅读全文&gt;&gt;</button>
+            <span>阅读({blog.views[post.id] || 0}) | 评论({commentCount(post.id)})</span>
+          </div>
+        </XpWindow>
+      ))}
+    </>
+  );
+}
+
+function WritePopup({ name, onClose, onSubmit }: { name: string; onClose: () => void; onSubmit: (topic: string) => void }) {
+  const [topic, setTopic] = useState("");
+  return (
+    <div className="blog-popup-layer">
+      <button type="button" className="blog-popup-scrim" onClick={onClose} aria-label="关闭" />
+      <XpWindow title={`叫${name}写一篇`} icon="✏" onClose={onClose} className="blog-popup blog-write-ask">
+        <form onSubmit={(event) => { event.preventDefault(); onSubmit(topic.trim()); }}>
+          <label className="blog-field">
+            <span>想看他写什么？（可以不填，让他自己定）</span>
+            <input value={topic} maxLength={BLOG_LIMITS.topic} placeholder="比如：这周的我们" onChange={(event) => setTopic(event.target.value)} />
+          </label>
+          <p className="blog-muted">写一篇要一两分钟，写好了会推送给你。</p>
+          <div className="blog-dialog-buttons">
+            <button type="submit" className="xp-button">确定</button>
+            <button type="button" className="xp-button" onClick={onClose}>取消</button>
+          </div>
+        </form>
+      </XpWindow>
+    </div>
   );
 }
 
@@ -638,9 +866,10 @@ function PlaylistPopup({ blog, offline, onClose, run, onToast }: {
 
 // ── Post ──
 
-function PostPage({ post, blog, herName, herAvatar, hisName, hisAvatar, modelId, onBack, onEdit, onDelete, run, onToast, onUpdate }: {
-  post: FragmentEntry; blog: BlogState; herName: string; herAvatar: string; hisName: string; hisAvatar: string; modelId: string;
-  onBack: () => void; onEdit: () => void; onDelete: () => void;
+function PostPage({ post, byHim = false, blog, herName, herAvatar, hisName, hisAvatar, modelId, onBack, onEdit, onDelete, run, onToast, onUpdate }: {
+  post: FragmentEntry | HisPost; byHim?: boolean;
+  blog: BlogState; herName: string; herAvatar: string; hisName: string; hisAvatar: string; modelId: string;
+  onBack: () => void; onEdit?: () => void; onDelete: () => void;
   run: (body: BlogRequest) => Promise<boolean>; onToast: (text: string) => void; onUpdate: (blog: BlogState) => void;
 }) {
   const [draft, setDraft] = useState("");
@@ -649,6 +878,9 @@ function PostPage({ post, blog, herName, herAvatar, hisName, hisAvatar, modelId,
   const comments = blog.comments
     .filter((comment) => comment.postId === post.id)
     .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+  const shown: BlogPostLike = "updatedAt" in post ? post : { ...post, updatedAt: post.createdAt };
+  // On his own post he answers her, so there must be something of hers to answer.
+  const canAsk = !byHim || comments.some((comment) => comment.author === "her");
 
   async function send() {
     if (!draft.trim() || sending) return;
@@ -660,7 +892,7 @@ function PostPage({ post, blog, herName, herAvatar, hisName, hisAvatar, modelId,
   async function ask() {
     if (asking) return;
     setAsking(true);
-    const result = await blogRequest({ type: "ask", post, modelId });
+    const result = await blogRequest({ type: "ask", post: shown, modelId });
     setAsking(false);
     if (result.blog) onUpdate(result.blog);
     else onToast(result.error || "他这次没赶上");
@@ -668,23 +900,25 @@ function PostPage({ post, blog, herName, herAvatar, hisName, hisAvatar, modelId,
 
   return (
     <>
-      <XpWindow title={`${postTitle(post)}.txt - Internet Explorer`} icon="📝" onClose={onBack} className="blog-post-page">
-        <button type="button" className="blog-link blog-back" onClick={onBack}>« 返回首页</button>
-        <h1 className="blog-post-title">{postTitle(post)}</h1>
-        <PostMeta post={post} />
+      <XpWindow title={`${postTitle(shown)}.txt - Internet Explorer`} icon="📝" onClose={onBack} className="blog-post-page">
+        <button type="button" className="blog-link blog-back" onClick={onBack}>{byHim ? `« 回${hisName}的空间` : "« 返回首页"}</button>
+        <h1 className="blog-post-title">{postTitle(shown)}</h1>
+        {byHim && <p className="blog-post-author"><Avatar src={hisAvatar} />{hisName}</p>}
+        <PostMeta post={shown} />
         <div className="blog-post-content">{post.content}</div>
         <div className="blog-post-tools">
           <span>阅读({blog.views[post.id] || 0}) | 评论({comments.length})</span>
           <span>
-            <button type="button" className="blog-link" onClick={onEdit}>编辑</button>
-            {" | "}
+            {onEdit && <><button type="button" className="blog-link" onClick={onEdit}>编辑</button>{" | "}</>}
             <button type="button" className="blog-link" onClick={onDelete}>删除</button>
           </span>
         </div>
       </XpWindow>
 
       <XpWindow title={`留言板 (${comments.length})`} icon="💬" className="blog-guestbook">
-        {comments.length === 0 && !asking && <p className="blog-muted">还没有人来踩，快叫他来抢沙发～</p>}
+        {comments.length === 0 && !asking && (
+          <p className="blog-muted">{byHim ? "还没有人留言，快来抢沙发～" : "还没有人来踩，快叫他来抢沙发～"}</p>
+        )}
         <ol className="blog-comments">
           {comments.map((comment, index) => (
             <CommentItem key={comment.id} comment={comment} floor={index}
@@ -697,13 +931,16 @@ function PostPage({ post, blog, herName, herAvatar, hisName, hisAvatar, modelId,
           {asking && (
             <li className="blog-comment is-him is-waiting">
               <Avatar src={hisAvatar} />
-              <div><b>{hisName}</b><p>正在赶来踩踩<span className="blog-dots"><i>.</i><i>.</i><i>.</i></span></p></div>
+              <div><b>{hisName}</b><p>{byHim ? "正在回你" : "正在赶来踩踩"}<span className="blog-dots"><i>.</i><i>.</i><i>.</i></span></p></div>
             </li>
           )}
         </ol>
-        <button type="button" className="xp-button blog-ask" disabled={asking} onClick={() => { void ask(); }}>
-          <Pixels rows={HEART} className="blog-inline-heart" />{asking ? `${hisName}在路上了…` : `叫${hisName}来留言`}
-        </button>
+        {canAsk && (
+          <button type="button" className="xp-button blog-ask" disabled={asking} onClick={() => { void ask(); }}>
+            <Pixels rows={HEART} className="blog-inline-heart" />
+            {asking ? `${hisName}在路上了…` : byHim ? `叫${hisName}回你` : `叫${hisName}来留言`}
+          </button>
+        )}
         <div className="blog-compose">
           <textarea value={draft} maxLength={BLOG_LIMITS.comment} placeholder="说点什么吧～" aria-label="写留言"
             onChange={(event) => setDraft(event.target.value)} rows={3} />

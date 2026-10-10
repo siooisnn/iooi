@@ -1149,6 +1149,72 @@
   to { opacity: 1; }
 }
 
+/* ━━ His space ━━ */
+/* Same blog, his colors: the pink accents turn boy-blue while she visits. Her
+   own name in the guestbook stays pink so it is still clear who said what. */
+.blog-scroll.is-him {
+  --blog-pink: #2f7de1;
+  --blog-pink-soft: #cfe4ff;
+}
+
+.blog-scroll.is-him .blog-comment.is-her b { color: #ff5fa8; }
+.blog-scroll.is-him .blog-post-foot,
+.blog-scroll.is-him .blog-counter { border-color: #b9d8ff; }
+
+.blog-new {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 0 4px;
+  border-radius: 3px;
+  background: #ff2d55;
+  color: #fff;
+  font-family: Verdana, sans-serif;
+  font-size: 9px;
+  font-style: normal;
+  font-weight: 700;
+  line-height: 14px;
+  vertical-align: 2px;
+  animation: blogBlink 1s steps(1) infinite;
+}
+
+@keyframes blogBlink {
+  50% { opacity: 0.35; }
+}
+
+.blog-friend-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  text-align: left;
+}
+
+.blog-friend-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.blog-friend-text b { color: #1e5bd8; font-size: 14px; }
+.blog-friend-text span { overflow: hidden; color: #4b4470; font-size: 12.5px; text-overflow: ellipsis; white-space: nowrap; }
+.blog-friend-text time { color: #9a90ad; font-size: 11px; }
+.blog-friend-go { flex: none; color: #0033cc; font-size: 12px; text-decoration: underline; }
+
+.blog-him-writing .xp-body { background: #fff; }
+.blog-him-writing p { margin: 0; color: #2f2a4f; font-size: 14px; }
+.blog-him-writing p + p { margin-top: 6px; }
+.blog-him-writing b { color: #1e5bd8; }
+
+.blog-post-author {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 6px 0 0;
+  color: #1e5bd8;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.blog-post-author .blog-avatar { width: 22px; height: 22px; border-width: 1px; border-radius: 4px; }
+
+.blog-write-ask form { display: flex; flex-direction: column; gap: 10px; }
+.blog-write-ask .blog-muted { margin: 0; }
+
 @media (prefers-reduced-motion: reduce) {
   .blog-overlay *,
   .blog-overlay { animation-duration: 0.001s !important; animation-iteration-count: 1 !important; }
