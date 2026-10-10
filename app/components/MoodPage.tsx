@@ -5,6 +5,7 @@ import { DAILY_MOODS, moodMonthCells, shiftMoodMonth } from "../lib/daily-mood";
 import type { useDailyMood } from "../lib/use-daily-mood";
 import { PageBack } from "./PageBack";
 import { MoodGlyph } from "./RetroDesktop";
+import { MsnEmoticon } from "./MsnEmoticon";
 
 export function MoodPage({ mood, retro, onBack }: {
   mood: ReturnType<typeof useDailyMood>; retro?: boolean; onBack: () => void;
@@ -15,11 +16,14 @@ export function MoodPage({ mood, retro, onBack }: {
   const [custom, setCustom] = useState("");
   const cells = moodMonthCells(month);
   const selected = days[selectedDate];
+  // The XP window draws MSN emoticons; the gray page keeps the system emoji.
+  const face = (value: string, emoji: string) => retro ? <MsnEmoticon mood={value} /> : emoji;
   const content = (
     <div className="mood-page">
       <section className="mood-today" aria-label="今日心情">
+        {retro && <h3 className="mood-legend" aria-hidden="true">今日心情</h3>}
         <div className="mood-today-heading">
-          <span className="mood-today-face" aria-hidden="true">{current?.emoji || "🙂"}</span>
+          <span className="mood-today-face" aria-hidden="true">{face(current?.value || "", current?.emoji || "🙂")}</span>
           <div><p>{today.replaceAll("-", ".")}</p><h2>{current?.value || "今天是什么心情？"}</h2></div>
           <button type="button" className="mood-today-link" onClick={() => { setMonth(today.slice(0, 7)); setSelectedDate(today); }}>今天</button>
         </div>
@@ -29,7 +33,7 @@ export function MoodPage({ mood, retro, onBack }: {
             <button type="button" key={choice.value} disabled={saving} aria-pressed={current?.value === choice.value} onClick={() => {
               pick(choice.value); setSelectedDate(today); setMonth(today.slice(0, 7));
             }}>
-              <span aria-hidden="true">{choice.emoji}</span><span>{choice.value}</span>
+              <span aria-hidden="true">{face(choice.value, choice.emoji)}</span><span>{choice.value}</span>
             </button>
           ))}
         </div>
@@ -52,6 +56,7 @@ export function MoodPage({ mood, retro, onBack }: {
       </section>
 
       <section className="mood-calendar" aria-label="心情月历">
+        {retro && <h3 className="mood-legend" aria-hidden="true">心情月历</h3>}
         <header className="mood-month-heading">
           <button type="button" aria-label="上个月" onClick={() => setMonth(shiftMoodMonth(month, -1))}>‹</button>
           <h2>{Number(month.slice(0, 4))} 年 {Number(month.slice(5))} 月</h2>
@@ -64,11 +69,11 @@ export function MoodPage({ mood, retro, onBack }: {
               aria-label={`${date}${date === today ? " 今天" : ""} ${days[date]?.value || "未记录"}`}
               onClick={() => setSelectedDate(date)}>
               <span className="mood-day-number">{Number(date.slice(8))}</span>
-              <span className="mood-day-face" aria-hidden="true">{days[date]?.emoji || "·"}</span>
+              <span className="mood-day-face" aria-hidden="true">{days[date]?.value ? face(days[date].value, days[date].emoji) : "·"}</span>
             </button>
           ) : <span className="mood-day-blank" key={`empty-${index}`} />)}
         </div>
-        <p className="mood-calendar-caption" aria-live="polite">{selectedDate.replaceAll("-", ".")} · {selected?.value ? `${selected.emoji} ${selected.value}` : "这一天还没有记录"}</p>
+        <p className="mood-calendar-caption" aria-live="polite">{selectedDate.replaceAll("-", ".")} · {selected?.value ? <>{face(selected.value, selected.emoji)} {selected.value}</> : "这一天还没有记录"}</p>
       </section>
     </div>
   );

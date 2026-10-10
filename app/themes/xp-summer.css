@@ -1,21 +1,40 @@
-/* Summer as an XP Explorer window. All rules stay inside the retro screen. */
+/* ━━ Summer as an XP Explorer window ━━
+   The window frame here (.xp-summer-screen / -window / -titlebar / -close /
+   -address / -statusbar) is shared with the Control Panel and mood windows.
+   It follows the MSN buddy list and chat windows: black and neutral gray
+   text, the seven-stop title bar, a round-capped close cross, a dotted
+   focus box, solid blue selection and the Bliss hill on wide screens.
+   Every rule starts with :root[data-theme] .xp-summer-screen so it outranks
+   white-pink's flat reset. */
+
 :root[data-theme] .xp-summer-screen {
-  --text-primary: #182335;
-  --text-secondary: #48576a;
-  --text-light: #6a7482;
-  --accent: #245b9d;
-  --border-soft: #c4d1e2;
-  --theme-focus: #316ac5;
+  --text-primary: #000;
+  --text-secondary: #555;
+  --text-light: #888;
+  --theme-secondary: #444;
+  --theme-muted: #777;
+  --accent: #0046d5;
+  --border-soft: #d0d0bf;
+  --theme-focus: #000;
+  --xp-line: #7f9db9;
+  --xp-face: #ece9d8;
+  --xp-select: #316ac5;
   position: fixed;
   inset: 0;
   z-index: 340;
   display: flex;
   justify-content: center;
-  background: #0a5fe8;
-  color: var(--text-primary);
-  font-family: Tahoma, Verdana, "PingFang SC", "Microsoft YaHei", sans-serif;
+  background-color: #0a5fe8;
+  color: #000;
+  font-family: Tahoma, Verdana, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
   font-size: 13px;
   -webkit-tap-highlight-color: transparent;
+  animation: xpWindowIn 0.2s ease-out;
+}
+
+@keyframes xpWindowIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 :root[data-theme] .xp-summer-screen .xp-summer-window {
@@ -28,6 +47,27 @@
   background: #0831d9;
 }
 
+/* On a wide screen the window floats on the Bliss sky, like MSN. */
+@media (min-width: 481px) {
+  :root[data-theme] .xp-summer-screen {
+    align-items: center;
+    background-color: #3d86e8;
+    background-image:
+      radial-gradient(ellipse 100% 40% at 24% 102%, #8fd35c 0%, #67b63a 45%, #4f9f2a 70%, transparent 70.5%),
+      radial-gradient(ellipse 130% 34% at 88% 106%, #7fc64b 0%, #57a82f 55%, #3f8d22 70%, transparent 70.5%),
+      radial-gradient(ellipse 34% 7% at 72% 30%, rgba(255, 255, 255, 0.8), transparent 70%),
+      radial-gradient(ellipse 26% 5% at 20% 40%, rgba(255, 255, 255, 0.65), transparent 70%),
+      linear-gradient(180deg, #1b56c4 0%, #3478df 28%, #6aa8ee 52%, #a9d0f6 68%, #d8ecfc 78%);
+  }
+
+  :root[data-theme] .xp-summer-screen .xp-summer-window {
+    width: min(820px, calc(100% - 32px));
+    height: min(720px, calc(100dvh - 48px));
+    border-radius: 9px 9px 4px 4px;
+    box-shadow: 4px 6px 16px rgba(0, 20, 80, 0.4);
+  }
+}
+
 :root[data-theme] .xp-summer-screen .xp-summer-folder-icon {
   display: block;
   flex: none;
@@ -35,6 +75,7 @@
   height: 19px;
 }
 
+/* ━━ Title bar ━━ */
 :root[data-theme] .xp-summer-screen .xp-summer-titlebar {
   display: flex;
   flex: none;
@@ -43,99 +84,297 @@
   height: calc(32px + env(safe-area-inset-top));
   margin: 0 -3px;
   padding: env(safe-area-inset-top) max(6px, env(safe-area-inset-right)) 0 max(9px, env(safe-area-inset-left));
-  background: linear-gradient(180deg, #3c95ff, #0055e5 18%, #0a63f6 45%, #0b5ff0 82%, #0234b8) bottom / 100% 32px no-repeat, #0a5fe8;
+  background:
+    linear-gradient(180deg, #3c95ff 0%, #0a5fe8 9%, #0055e5 18%, #0a63f6 45%, #0b5ff0 82%, #0350d8 92%, #0234b8 100%)
+    bottom / 100% 32px no-repeat,
+    #0a5fe8;
   color: #fff;
+  text-shadow: 1px 1px 0 #0a1d5c;
+}
+
+@media (min-width: 481px) {
+  :root[data-theme] .xp-summer-screen .xp-summer-titlebar {
+    border-radius: 8px 8px 0 0;
+  }
+}
+
+/* The little app icon at the left of the title, 18px with a drop shadow. */
+:root[data-theme] .xp-summer-screen .xp-summer-titlebar > :is(.xp-summer-folder-icon, .xp-control-title-icon, .mood-title-icon) {
+  display: block;
+  flex: none;
+  width: 18px;
+  height: 18px;
+  filter: drop-shadow(0 1px 0 rgba(0, 0, 0, 0.3));
+}
+
+:root[data-theme] .xp-summer-screen .xp-summer-titlebar > :is(.xp-control-title-icon, .mood-title-icon) svg {
+  display: block;
+  width: 100%;
+  height: 100%;
 }
 
 :root[data-theme] .xp-summer-screen .xp-summer-titlebar h1 {
   flex: 1;
   min-width: 0;
+  margin: 0;
   overflow: hidden;
   color: #fff;
   font-size: 13.5px;
-  line-height: 32px;
   font-weight: 700;
+  line-height: 32px;
+  letter-spacing: 0;
   white-space: nowrap;
   text-overflow: ellipsis;
-  text-shadow: 1px 1px #0a1d5c;
 }
 
-:root[data-theme] .xp-summer-screen .xp-summer-controls { display: flex; gap: 2px; flex: none; }
+:root[data-theme] .xp-summer-screen .xp-summer-controls {
+  display: flex;
+  flex: none;
+  gap: 2px;
+}
 
 :root[data-theme] .xp-summer-screen .xp-summer-window-button {
   position: relative;
+  display: block;
   width: 23px;
   height: 23px;
+  margin: 0;
   padding: 0;
   border: 1px solid #fff;
   border-radius: 3px;
-  background: linear-gradient(180deg, #5d9bff, #2765ec 55%, #1a4fd0);
-  box-shadow: inset -1px -1px rgba(0, 0, 0, 0.18);
+  background-image: linear-gradient(180deg, #5d9bff 0%, #2765ec 55%, #1a4fd0 100%);
+  box-shadow: inset -1px -1px 0 rgba(0, 0, 0, 0.18);
 }
 
 :root[data-theme] .xp-summer-screen .xp-summer-min::after {
-  content: ""; position: absolute; left: 6px; bottom: 5px; width: 8px; height: 3px; background: #fff;
+  content: "";
+  position: absolute;
+  left: 6px;
+  bottom: 5px;
+  width: 8px;
+  height: 3px;
+  background: #fff;
 }
 
 :root[data-theme] .xp-summer-screen .xp-summer-max::after {
-  content: ""; position: absolute; inset: 5px; border: 1px solid #fff; border-top-width: 3px;
+  content: "";
+  position: absolute;
+  inset: 5px;
+  border: 1px solid #fff;
+  border-top-width: 3px;
 }
 
-:root[data-theme] .xp-summer-screen .xp-summer-close {
+:root[data-theme] .xp-summer-screen button.xp-summer-close {
   margin-left: 2px;
-  background: linear-gradient(180deg, #f39a7f, #e45a2f 50%, #c8381a);
+  background-image: linear-gradient(180deg, #f39a7f 0%, #e45a2f 50%, #c8381a 100%);
   cursor: pointer;
 }
 
-:root[data-theme] .xp-summer-screen .xp-summer-close::after { content: ""; position: absolute; inset: -5px -5px -5px -3px; }
-:root[data-theme] .xp-summer-screen .xp-summer-close svg { display: block; width: 11px; height: 11px; margin: auto; fill: none; stroke: #fff; stroke-width: 2; }
+/* A finger-sized hit area around the little red button. */
+:root[data-theme] .xp-summer-screen .xp-summer-close::after {
+  content: "";
+  position: absolute;
+  inset: -8px -6px -8px -8px;
+}
 
+:root[data-theme] .xp-summer-screen .xp-summer-close svg {
+  display: block;
+  width: 11px;
+  height: 11px;
+  margin: auto;
+  overflow: visible;
+  fill: none;
+  stroke: #fff;
+  stroke-width: 2.1;
+  stroke-linecap: round;
+}
+
+:root[data-theme] .xp-summer-screen .xp-summer-close:active {
+  filter: brightness(0.85);
+}
+
+/* ━━ Address bar: "地址" and a sunken white field ━━ */
 :root[data-theme] .xp-summer-screen .xp-summer-address {
   display: flex;
   flex: none;
   align-items: center;
-  gap: 8px;
-  min-height: 34px;
-  padding: 5px 10px;
+  gap: 6px;
+  padding: 4px 8px;
   border-bottom: 1px solid #aca899;
-  background: #ece9d8;
-  color: #555;
+  background: var(--xp-face);
+  color: #444;
   font-size: 12px;
 }
 
-:root[data-theme] .xp-summer-screen .xp-summer-address b { color: #222; font-weight: 400; }
-:root[data-theme] .xp-summer-screen .xp-summer-address-owner { min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+:root[data-theme] .xp-summer-screen .xp-summer-address-field {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+  height: 24px;
+  padding: 0 6px 0 3px;
+  border: 1px solid var(--xp-line);
+  background: #fff;
+  color: #000;
+}
 
+:root[data-theme] .xp-summer-screen .xp-summer-address-field :is(.xp-summer-folder-icon, .xp-control-title-icon) {
+  display: block;
+  flex: none;
+  width: 16px;
+  height: 16px;
+}
+
+:root[data-theme] .xp-summer-screen .xp-summer-address-field .xp-control-title-icon svg { display: block; width: 100%; height: 100%; }
+:root[data-theme] .xp-summer-screen .xp-summer-address b { flex: none; color: #000; font-weight: 400; }
+:root[data-theme] .xp-summer-screen .xp-summer-address-owner { min-width: 0; overflow: hidden; color: #555; white-space: nowrap; text-overflow: ellipsis; }
+
+/* ━━ Status bar: sunken panes on the window face ━━ */
+:root[data-theme] .xp-summer-screen .xp-summer-statusbar {
+  display: flex;
+  flex: none;
+  gap: 3px;
+  padding: 3px 3px calc(3px + env(safe-area-inset-bottom));
+  border-top: 1px solid #aca899;
+  background: var(--xp-face);
+  color: #000;
+  font-size: 11.5px;
+}
+
+:root[data-theme] .xp-summer-screen .xp-summer-statusbar span {
+  min-width: 0;
+  padding: 2px 7px;
+  overflow: hidden;
+  border: 1px solid;
+  border-color: #aca899 #fff #fff #aca899;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+:root[data-theme] .xp-summer-screen .xp-summer-statusbar span:last-child { flex: 1; }
+
+@media (min-width: 481px) {
+  :root[data-theme] .xp-summer-screen .xp-summer-statusbar { padding-bottom: 3px; }
+}
+
+/* ━━ Shared controls: XP push buttons, sunken fields, dotted focus ━━ */
+:root[data-theme] .xp-summer-screen :is(button, summary):focus-visible {
+  outline: 1px dotted #000;
+  outline-offset: -2px;
+}
+
+:root[data-theme] .xp-summer-screen .xp-btn,
+:root[data-theme] .xp-summer-screen :is(.summer-toolbar-actions, .summer-search, .summer-writer-actions, .summer-card-actions) button {
+  min-height: 30px;
+  padding: 3px 12px;
+  border: 1px solid #003c74;
+  border-radius: 3px;
+  background: linear-gradient(180deg, #fff 0%, #ecebe6 86%, #d6d0c5 100%);
+  color: #000;
+  box-shadow: none;
+  font: inherit;
+  font-size: 12.5px;
+  cursor: pointer;
+}
+
+/* The default button glows blue inside, like OK in an XP dialog. */
+:root[data-theme] .xp-summer-screen :is(.summer-toolbar-actions, .summer-writer-actions) .summer-primary-btn {
+  border-color: #003c74;
+  color: #000;
+  background: linear-gradient(180deg, #fff 0%, #ecebe6 86%, #d6d0c5 100%);
+  box-shadow: inset -1px 1px #cee7ff, inset 1px 2px #98b8ea, inset -2px 2px #bcd4f6, inset 1px -1px #89ade4, inset 2px -2px #89ade4;
+}
+
+@media (hover: hover) {
+  :root[data-theme] .xp-summer-screen .xp-btn:not(:disabled):hover,
+  :root[data-theme] .xp-summer-screen :is(.summer-toolbar-actions, .summer-search, .summer-writer-actions, .summer-card-actions) button:not(:disabled):hover {
+    box-shadow: inset -1px 1px #fff0cf, inset 1px 2px #fdd889, inset -2px 2px #fbc761, inset 2px -2px #e5a01a;
+  }
+}
+
+:root[data-theme] .xp-summer-screen .xp-btn:not(:disabled):active,
+:root[data-theme] .xp-summer-screen :is(.summer-toolbar-actions, .summer-search, .summer-writer-actions, .summer-card-actions) button:not(:disabled):active {
+  background: linear-gradient(180deg, #cdcac3 0%, #e3e3db 8%, #e5e5de 94%, #f2f2f1 100%);
+  box-shadow: none;
+}
+
+:root[data-theme] .xp-summer-screen .xp-btn:focus-visible,
+:root[data-theme] .xp-summer-screen :is(.summer-toolbar-actions, .summer-search, .summer-writer-actions, .summer-card-actions) button:focus-visible {
+  outline-offset: -4px;
+}
+
+:root[data-theme] .xp-summer-screen button:disabled { cursor: default; opacity: 1; color: #aca899; }
+
+:root[data-theme] .xp-summer-screen :is(input, textarea, select) {
+  min-width: 0;
+  border: 1px solid var(--xp-line);
+  border-radius: 0;
+  background: #fff;
+  color: #000;
+  box-shadow: none;
+  font-family: inherit;
+  font-size: 14px;
+}
+
+:root[data-theme] .xp-summer-screen :is(input, textarea, select):focus { outline: none; border-color: var(--xp-select); }
+
+:root[data-theme] .xp-summer-screen ::-webkit-scrollbar { width: 6px; }
+:root[data-theme] .xp-summer-screen ::-webkit-scrollbar-thumb { background: #c1d2ee; }
+
+/* ━━ Summer: Folders pane on the left ━━ */
 :root[data-theme] .xp-summer-screen .xp-summer-browser { display: flex; flex: 1; min-height: 0; background: #fff; }
-:root[data-theme] .xp-summer-screen .xp-summer-navigation { flex: 0 0 172px; overflow-y: auto; border-right: 1px solid #a8b9d0; background: linear-gradient(180deg, #f0f5ff, #dce7f7); }
+
+:root[data-theme] .xp-summer-screen .xp-summer-navigation {
+  flex: 0 0 172px;
+  overflow-y: auto;
+  border-right: 1px solid #aca899;
+  background: #fff;
+}
+
 :root[data-theme] .xp-summer-screen .xp-summer-mobile-directory { display: none; }
-:root[data-theme] .xp-summer-screen .xp-summer-tree { padding: 10px 7px; }
-:root[data-theme] .xp-summer-screen .xp-summer-tree h2 { padding: 5px 6px 10px; color: #1e4174; font-size: 13px; }
+:root[data-theme] .xp-summer-screen .xp-summer-tree { padding: 0 0 10px; }
+
+/* "文件夹 ×" bar, like the Folders pane header. */
+:root[data-theme] .xp-summer-screen .xp-summer-tree h2 {
+  margin: 0 0 4px;
+  padding: 5px 8px;
+  border-bottom: 1px solid #aca899;
+  background: linear-gradient(180deg, #fff 0%, var(--xp-face) 100%);
+  color: #000;
+  font-size: 12px;
+  font-weight: 400;
+}
 
 :root[data-theme] .xp-summer-screen .xp-summer-tree button {
   display: flex;
   align-items: center;
-  gap: 7px;
+  gap: 5px;
   width: 100%;
-  min-height: 43px;
-  padding: 5px 6px;
-  border: 1px solid transparent;
-  border-radius: 2px;
+  min-height: 40px;
+  margin: 0;
+  padding: 3px 6px;
+  border: 0;
+  border-radius: 0;
   background: transparent;
-  color: #182335;
+  color: #000;
   font: inherit;
   text-align: left;
   cursor: pointer;
 }
 
-:root[data-theme] .xp-summer-screen .xp-summer-tree .xp-summer-tree-folder { padding-left: 17px; }
-:root[data-theme] .xp-summer-screen .xp-summer-tree button[aria-current="page"] { border-color: #7da2ce; background: linear-gradient(180deg, #e8f1fd, #c4dbf7); }
-:root[data-theme] .xp-summer-screen .xp-summer-tree button:hover { background-color: #d9e8fd; }
-:root[data-theme] .xp-summer-screen .xp-summer-tree button span { min-width: 0; }
+:root[data-theme] .xp-summer-screen .xp-summer-tree .xp-summer-folder-icon { width: 18px; height: 16px; }
+:root[data-theme] .xp-summer-screen .xp-summer-tree .xp-summer-tree-folder { padding-left: 22px; }
+:root[data-theme] .xp-summer-screen .xp-summer-tree button > :is(b, span) { min-width: 0; padding: 1px 3px; }
 :root[data-theme] .xp-summer-screen .xp-summer-tree button b { display: block; font-weight: 400; }
-:root[data-theme] .xp-summer-screen .xp-summer-tree button small { display: block; margin-top: 2px; font-size: 10px; line-height: 1.4; color: #5a6b83; overflow-wrap: anywhere; }
-:root[data-theme] .xp-summer-screen .xp-summer-tree-note { margin: 20px 6px 0; color: #667a99; font-size: 11px; line-height: 1.8; }
+:root[data-theme] .xp-summer-screen .xp-summer-tree button small { display: block; margin-top: 1px; color: #777; font-size: 10.5px; line-height: 1.4; overflow-wrap: anywhere; }
 
+/* Selected folder: solid blue under white text, as in XP. */
+:root[data-theme] .xp-summer-screen .xp-summer-tree button[aria-current="page"] > :is(b, span) { background: var(--xp-select); color: #fff; }
+:root[data-theme] .xp-summer-screen .xp-summer-tree button[aria-current="page"] small { color: #fff; }
+:root[data-theme] .xp-summer-screen .xp-summer-tree-note { margin: 18px 8px 0; color: #888; font-size: 11px; line-height: 1.8; }
+
+/* ━━ Summer: the folder contents ━━ */
 :root[data-theme] .xp-summer-screen .xp-summer-content {
   display: flex;
   flex: 1;
@@ -147,90 +386,174 @@
   overflow-y: auto;
   overscroll-behavior: contain;
   background: #fff;
+  color: #000;
   -webkit-overflow-scrolling: touch;
 }
 
 :root[data-theme] .xp-summer-screen .xp-summer-content > * { flex-shrink: 0; }
-:root[data-theme] .xp-summer-screen .summer-native-toolbar { flex-wrap: wrap; padding: 0 0 10px; gap: 10px; border: 0; border-bottom: 1px solid #d6e1f0; border-radius: 0; background: #fff; box-shadow: none; }
-:root[data-theme] .xp-summer-screen .summer-native-toolbar h2 { font-size: 16px; color: #214e88; }
+:root[data-theme] .xp-summer-screen .summer-native-toolbar { flex-wrap: wrap; gap: 10px; padding: 0 0 10px; border: 0; border-bottom: 1px solid #d0d0bf; border-radius: 0; background: #fff; box-shadow: none; }
+:root[data-theme] .xp-summer-screen .summer-native-toolbar h2 { color: #000; font-size: 15px; font-weight: 700; }
 :root[data-theme] .xp-summer-screen .summer-toolbar-actions { flex-wrap: wrap; gap: 5px; }
-:root[data-theme] .xp-summer-screen .summer-layer-sub { color: #64758b; }
-
-:root[data-theme] .xp-summer-screen :is(.summer-toolbar-actions, .summer-search, .summer-writer-actions, .summer-card-actions) button {
-  min-height: 32px;
-  padding: 4px 12px;
-  border: 1px solid #7f9db9;
-  border-radius: 3px;
-  background: linear-gradient(180deg, #fff, #f0efe7);
-  color: #182335;
-  box-shadow: inset 0 1px #fff;
-  font: inherit;
-  cursor: pointer;
-}
-
-:root[data-theme] .xp-summer-screen :is(.summer-toolbar-actions, .summer-writer-actions) .summer-primary-btn { border-color: #346aa3; color: #174479; background: linear-gradient(180deg, #f6fbff, #d8e8fb); }
-:root[data-theme] .xp-summer-screen button:disabled { cursor: default; opacity: 0.55; }
-:root[data-theme] .xp-summer-screen :is(button, summary, select):focus-visible { outline: 2px solid #316ac5; outline-offset: 2px; }
-
-:root[data-theme] .xp-summer-screen :is(input, textarea, select) {
-  min-width: 0;
-  border: 1px solid #7f9db9;
-  border-radius: 0;
-  background: #fff;
-  color: #182335;
-  box-shadow: inset 1px 1px 2px rgba(0, 0, 0, 0.06);
-  font-family: inherit;
-  font-size: 14px;
-}
-
-:root[data-theme] .xp-summer-screen :is(input, textarea):focus { outline: 2px solid #316ac5; outline-offset: -1px; }
+:root[data-theme] .xp-summer-screen :is(.summer-layer-sub, .summer-kicker) { color: #555; }
 :root[data-theme] .xp-summer-screen .summer-search { grid-template-columns: minmax(0, 1fr) auto; }
-:root[data-theme] .xp-summer-screen .summer-layer-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
-:root[data-theme] .xp-summer-screen .summer-layer-card { display: flex; justify-content: flex-start; align-items: flex-start; gap: 9px; min-width: 0; padding: 12px 9px; border: 1px solid transparent; border-radius: 2px; background: #fff; box-shadow: none; text-align: left; }
-:root[data-theme] .xp-summer-screen .summer-layer-card:hover { border-color: #b5c9e8; background: #eef5ff; }
+
+/* Tiles view: big folder, name, gray caption. */
+:root[data-theme] .xp-summer-screen .summer-layer-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+:root[data-theme] .xp-summer-screen .summer-layer-card { display: flex; justify-content: flex-start; align-items: flex-start; gap: 9px; min-width: 0; padding: 10px 8px; border: 1px solid transparent; border-radius: 0; background: #fff; box-shadow: none; color: #000; text-align: left; }
+:root[data-theme] .xp-summer-screen .summer-layer-card:active { border-color: var(--xp-select); background: #e1e9f8; }
 :root[data-theme] .xp-summer-screen .summer-layer-card .xp-summer-folder-icon { width: 34px; height: 30px; }
 :root[data-theme] .xp-summer-screen .summer-layer-card > div { flex: 1; min-width: 0; }
-:root[data-theme] .xp-summer-screen .summer-layer-card h3 { font-size: 13px; line-height: 1.5; overflow-wrap: anywhere; }
-:root[data-theme] .xp-summer-screen .summer-layer-card p { margin-top: 2px; font-size: 11px; }
-:root[data-theme] .xp-summer-screen .summer-layer-card > span { flex: 0 1 auto; max-width: 45%; padding: 0; border: 0; border-radius: 0; background: none; color: #6a7482; font-size: 11px; line-height: 1.6; }
+:root[data-theme] .xp-summer-screen .summer-layer-card h3 { color: #000; font-size: 13px; font-weight: 400; line-height: 1.5; overflow-wrap: anywhere; }
+:root[data-theme] .xp-summer-screen .summer-layer-card p { margin-top: 1px; color: #777; font-size: 11px; }
+:root[data-theme] .xp-summer-screen .summer-layer-card > span { flex: 0 1 auto; max-width: 45%; padding: 0; border: 0; border-radius: 0; background: none; color: #777; font-size: 11px; line-height: 1.6; }
 
-:root[data-theme] .xp-summer-screen :is(.summer-writer, .summer-doc, .summer-memory-group, .summer-memory-card) { border: 1px solid #c4d1e2; border-radius: 3px; background: #fff; box-shadow: none; }
-:root[data-theme] .xp-summer-screen .summer-writer { background: #f6f8fc; }
-:root[data-theme] .xp-summer-screen :is(.summer-doc, .summer-memory-group) > summary { display: flex; align-items: center; gap: 7px; min-height: 40px; padding: 9px 12px; background: linear-gradient(180deg, #f3f7fd, #e3ecf9); color: #214e88; }
-:root[data-theme] .xp-summer-screen :is(.summer-doc, .summer-memory-group) > summary::before { content: "▸"; flex: none; font-size: 11px; }
-:root[data-theme] .xp-summer-screen :is(.summer-doc, .summer-memory-group)[open] > summary::before { content: "▾"; }
-:root[data-theme] .xp-summer-screen .summer-memory-group > summary span:first-of-type { flex: 1; }
-:root[data-theme] .xp-summer-screen .summer-memory-group-body { background: #f7f9fc; }
-:root[data-theme] .xp-summer-screen .summer-memory-card { padding: 12px; }
-:root[data-theme] .xp-summer-screen .summer-memory-card h4 { color: #214e88; }
-:root[data-theme] .xp-summer-screen .summer-memory-card :is(p, pre) { overflow-wrap: anywhere; }
-:root[data-theme] .xp-summer-screen .summer-card-meta { justify-content: flex-start; color: #64758b; }
-:root[data-theme] .xp-summer-screen .summer-card-actions { flex-wrap: wrap; }
-:root[data-theme] .xp-summer-screen .summer-card-content summary { color: #245b9d; }
-:root[data-theme] .xp-summer-screen .summer-doc-editor textarea { min-height: 300px; }
-:root[data-theme] .xp-summer-screen .summer-error { border: 1px solid #d3b76a; border-radius: 2px; background: #fff9de; color: #79571d; }
+/* Documents and memory groups: plain white boxes with XP tree expanders. */
+:root[data-theme] .xp-summer-screen :is(.summer-writer, .summer-doc, .summer-memory-group, .summer-memory-card) { border: 1px solid #d0d0bf; border-radius: 3px; background: #fff; box-shadow: none; color: #000; }
+:root[data-theme] .xp-summer-screen .summer-writer { background: var(--xp-face); }
 
-:root[data-theme] .xp-summer-screen .xp-summer-statusbar { display: flex; flex: none; gap: 12px; padding: 5px 9px calc(5px + env(safe-area-inset-bottom)); border-top: 1px solid #aca899; background: #ece9d8; color: #555; font-size: 11px; }
-:root[data-theme] .xp-summer-screen .xp-summer-statusbar span:first-child { padding-right: 12px; border-right: 1px solid #c6c3b6; }
-
-@media (min-width: 481px) {
-  :root[data-theme] .xp-summer-screen { align-items: center; background: linear-gradient(180deg, #1b56c4, #6aa8ee 65%, #a9d0f6); }
-  :root[data-theme] .xp-summer-screen .xp-summer-window { width: min(820px, calc(100% - 32px)); height: min(720px, calc(100dvh - 48px)); border-radius: 8px 8px 3px 3px; box-shadow: 4px 6px 16px rgba(0, 20, 80, 0.4); }
-  :root[data-theme] .xp-summer-screen .xp-summer-titlebar { border-radius: 8px 8px 0 0; }
-  :root[data-theme] .xp-summer-screen .xp-summer-statusbar { padding-bottom: 5px; }
+:root[data-theme] .xp-summer-screen :is(.summer-doc, .summer-memory-group) > summary {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 38px;
+  padding: 8px 10px;
+  background: linear-gradient(180deg, #fff 0%, #f3f2ea 100%);
+  color: #000;
+  list-style: none;
 }
+
+:root[data-theme] .xp-summer-screen :is(.summer-doc, .summer-memory-group) > summary::-webkit-details-marker { display: none; }
+
+:root[data-theme] .xp-summer-screen :is(.summer-doc, .summer-memory-group) > summary::before {
+  content: "+";
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 9px;
+  height: 9px;
+  border: 1px solid #919b9c;
+  background: linear-gradient(135deg, #fff 0%, #e2e0d6 100%);
+  color: #000;
+  font: 10px/1 Tahoma, Verdana, sans-serif;
+}
+
+:root[data-theme] .xp-summer-screen :is(.summer-doc, .summer-memory-group)[open] > summary::before { content: "−"; }
+:root[data-theme] .xp-summer-screen :is(.summer-doc, .summer-memory-group)[open] > summary { border-bottom: 1px solid #d0d0bf; }
+:root[data-theme] .xp-summer-screen .summer-memory-group > summary span:first-of-type { flex: 1; }
+:root[data-theme] .xp-summer-screen .summer-memory-group-body { background: #fff; }
+:root[data-theme] .xp-summer-screen .summer-memory-card { padding: 12px; }
+:root[data-theme] .xp-summer-screen .summer-memory-card h4 { color: #000; font-weight: 700; }
+:root[data-theme] .xp-summer-screen .summer-memory-card :is(p, pre) { color: #000; overflow-wrap: anywhere; }
+:root[data-theme] .xp-summer-screen .summer-card-meta { justify-content: flex-start; color: #777; }
+:root[data-theme] .xp-summer-screen .summer-card-actions { flex-wrap: wrap; }
+:root[data-theme] .xp-summer-screen .summer-card-content summary { color: #0046d5; }
+:root[data-theme] .xp-summer-screen .summer-doc-editor textarea { min-height: 300px; }
+:root[data-theme] .xp-summer-screen :is(.summer-empty, .diary-empty) { color: #777; }
+
+/* Errors read like the yellow XP info bar. */
+:root[data-theme] .xp-summer-screen .summer-error { border: 1px solid #aca899; border-radius: 0; background: #ffffe1; color: #000; }
 
 @media (max-width: 640px) {
   :root[data-theme] .xp-summer-screen .summer-layer-list { grid-template-columns: minmax(0, 1fr); }
 }
 
+/* ━━ Phones: the Folders pane folds behind an XP combo-box bar ━━ */
 @media (max-width: 480px) {
   :root[data-theme] .xp-summer-screen .xp-summer-browser { flex-direction: column; }
-  :root[data-theme] .xp-summer-screen .xp-summer-navigation { flex: none; overflow: visible; border-right: 0; border-bottom: 1px solid #a8b9d0; }
+  :root[data-theme] .xp-summer-screen .xp-summer-navigation { flex: none; overflow: visible; border-right: 0; border-bottom: 1px solid #aca899; background: var(--xp-face); }
   :root[data-theme] .xp-summer-screen .xp-summer-tree { display: none; }
-  :root[data-theme] .xp-summer-screen .xp-summer-mobile-directory { display: flex; align-items: center; gap: 8px; padding: 7px 10px; }
-  :root[data-theme] .xp-summer-screen .xp-summer-mobile-directory select { flex: 1; width: 0; min-height: 32px; padding: 4px; }
+
+  :root[data-theme] .xp-summer-screen .xp-summer-navigation[data-open] .xp-summer-tree {
+    display: block;
+    max-height: 55dvh;
+    margin: 0 8px 8px;
+    padding-bottom: 6px;
+    overflow-y: auto;
+    border: 1px solid var(--xp-line);
+    background: #fff;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  :root[data-theme] .xp-summer-screen .xp-summer-tree h2 { display: none; }
+  :root[data-theme] .xp-summer-screen .xp-summer-tree-note { display: none; }
   :root[data-theme] .xp-summer-screen .xp-summer-content { padding: 12px 10px; }
   :root[data-theme] .xp-summer-screen :is(input, textarea, select) { font-size: 16px; }
   :root[data-theme] .xp-summer-screen .summer-layer-card { min-height: 64px; align-items: center; }
+}
+
+/* The combo-box bar itself, shared by Summer and the Control Panel. It shows
+   on phones only: Summer below 480px, the Control Panel below 600px. */
+:root[data-theme] .xp-summer-screen button:is(.xp-summer-mobile-directory, .xp-control-mobile-directory) {
+    display: none;
+    flex: none;
+    align-items: center;
+    gap: 6px;
+    width: calc(100% - 16px);
+    height: 30px;
+    margin: 7px 8px;
+    padding: 0 0 0 5px;
+    border: 1px solid var(--xp-line);
+    border-radius: 0;
+    background: #fff;
+    color: #000;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+  }
+
+@media (max-width: 480px) {
+  :root[data-theme] .xp-summer-screen button.xp-summer-mobile-directory { display: flex; }
+}
+
+@media (max-width: 600px) {
+  :root[data-theme] .xp-summer-screen button.xp-control-mobile-directory { display: flex; }
+}
+
+  :root[data-theme] .xp-summer-screen :is(.xp-summer-mobile-directory, .xp-control-mobile-directory) :is(.xp-summer-folder-icon, .xp-control-title-icon) {
+    display: block;
+    flex: none;
+    width: 18px;
+    height: 16px;
+  }
+
+  :root[data-theme] .xp-summer-screen .xp-control-mobile-directory .xp-control-title-icon { width: 18px; height: 18px; }
+  :root[data-theme] .xp-summer-screen .xp-control-mobile-directory .xp-control-title-icon svg { display: block; width: 100%; height: 100%; }
+
+  :root[data-theme] .xp-summer-screen :is(.xp-summer-mobile-directory, .xp-control-mobile-directory) > span:not(:is(.xp-control-title-icon)) {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+
+  /* The blue drop-down button with its dark arrow. */
+  :root[data-theme] .xp-summer-screen :is(.xp-summer-mobile-directory, .xp-control-mobile-directory) > i {
+    position: relative;
+    flex: none;
+    align-self: stretch;
+    width: 22px;
+    margin: 1px;
+    border: 1px solid #bccef6;
+    border-radius: 2px;
+    background: linear-gradient(180deg, #e6eefc 0%, #c3d4f8 55%, #b1c7f6 100%);
+  }
+
+  :root[data-theme] .xp-summer-screen :is(.xp-summer-mobile-directory, .xp-control-mobile-directory) > i::after {
+    content: "";
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    border-left: 4px solid transparent;
+    border-right: 4px solid transparent;
+    border-top: 5px solid #4d6185;
+    transform: translate(-50%, -40%);
+  }
+
+  :root[data-theme] .xp-summer-screen :is(.xp-summer-mobile-directory, .xp-control-mobile-directory)[aria-expanded="true"] > i {
+    background: linear-gradient(180deg, #b1c7f6 0%, #c3d4f8 45%, #e6eefc 100%);
+  }
+
+@media (prefers-reduced-motion: reduce) {
+  :root[data-theme] .xp-summer-screen { animation: none; }
 }

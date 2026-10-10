@@ -77,6 +77,8 @@ export function SummerMemoryView({ assistantMode, retro = false }: { assistantMo
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [activeLayer, setActiveLayer] = useState<string | null>(null);
+  // Phones fold the XP folder tree behind one bar instead of a system <select>.
+  const [directoryOpen, setDirectoryOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [hits, setHits] = useState<Array<{ source?: string; score?: number; text?: string }>>([]);
   const [searching, setSearching] = useState(false);
@@ -542,29 +544,29 @@ export function SummerMemoryView({ assistantMode, retro = false }: { assistantMo
   function goToFolders() {
     setActiveLayer(null);
     setEditingItem(null);
+    setDirectoryOpen(false);
+  }
+
+  function pickFolder(layer: string) {
+    openLayer(layer);
+    setDirectoryOpen(false);
   }
 
   return (
     <div className="xp-summer-browser">
-      <nav className="xp-summer-navigation" aria-label="记忆目录">
-        <label className="xp-summer-mobile-directory">
+      <nav className="xp-summer-navigation" aria-label="记忆目录" data-open={directoryOpen || undefined}>
+        <button type="button" className="xp-summer-mobile-directory" aria-expanded={directoryOpen} aria-controls="xp-summer-tree" onClick={() => setDirectoryOpen((open) => !open)}>
           <SummerFolderIcon />
-          <span>目录</span>
-          <select aria-label="选择记忆目录" value={activeLayer || ""} onChange={(event) => {
-            if (event.target.value) openLayer(event.target.value);
-            else goToFolders();
-          }}>
-            <option value="">全部文件夹</option>
-            {layerOrder.map((layer) => <option key={layer} value={layer}>{SUMMER_FOLDERS[layer]} · {layerLabel(layer)}</option>)}
-          </select>
-        </label>
-        <div className="xp-summer-tree">
+          <span>{activeLayer ? `${SUMMER_FOLDERS[activeLayer]} · ${layerLabel(activeLayer)}` : "全部文件夹"}</span>
+          <i aria-hidden="true" />
+        </button>
+        <div className="xp-summer-tree" id="xp-summer-tree">
           <h2>文件夹</h2>
           <button type="button" className="xp-summer-tree-root" aria-current={!activeLayer ? "page" : undefined} onClick={goToFolders}>
             <SummerFolderIcon /><b>summer</b>
           </button>
           {layerOrder.map((layer) => (
-            <button type="button" key={layer} className="xp-summer-tree-folder" aria-current={activeLayer === layer ? "page" : undefined} onClick={() => openLayer(layer)}>
+            <button type="button" key={layer} className="xp-summer-tree-folder" aria-current={activeLayer === layer ? "page" : undefined} onClick={() => pickFolder(layer)}>
               <SummerFolderIcon />
               <span><b>{SUMMER_FOLDERS[layer]}</b><small>{loading ? "正在读取…" : counts[layer]}</small></span>
             </button>
@@ -769,7 +771,7 @@ export function SummerPageView({ assistantMode, assistantName, onBack, retro = f
               </button>
             </div>
           </header>
-          <div className="xp-summer-address"><span>地址</span><SummerFolderIcon /><b>summer</b><span className="xp-summer-address-owner">{assistantName}的记忆档案</span></div>
+          <div className="xp-summer-address"><span>地址</span><span className="xp-summer-address-field"><SummerFolderIcon /><b>summer</b><span className="xp-summer-address-owner">{assistantName}的记忆档案</span></span></div>
           <SummerMemoryView assistantMode={assistantMode} retro />
           <footer className="xp-summer-statusbar"><span>sea &amp; rain</span><span>记得的，都在这里。</span></footer>
         </section>

@@ -1,42 +1,205 @@
-/* The existing settings form inside an XP Control Panel window. */
-:root[data-theme] .xp-control-screen .xp-control-title-icon { display: block; flex: none; width: 20px; height: 20px; }
-:root[data-theme] .xp-control-screen .xp-control-title-icon svg { width: 100%; height: 100%; }
+/* ━━ The settings form inside an XP Control Panel window ━━
+   The frame comes from xp-summer.css. On the left the blue task pane with
+   white-headed task groups; on the right a white page of XP group boxes
+   with black text, sunken fields and beige push buttons. */
+
+/* ━━ Blue task pane ━━ */
 :root[data-theme] .xp-control-screen .xp-control-browser { display: flex; flex: 1; min-height: 0; background: #fff; }
-:root[data-theme] .xp-control-screen .xp-control-navigation { flex: 0 0 192px; min-height: 0; padding: 18px 10px; overflow-y: auto; border-right: 1px solid #7b98c4; background: linear-gradient(180deg, #7fa3e4, #5b7fc4); }
-:root[data-theme] .xp-control-screen .xp-control-nav-heading { display: flex; align-items: center; gap: 8px; margin: 0 4px 18px; color: #fff; }
-:root[data-theme] .xp-control-screen .xp-control-nav-heading svg { width: 32px; height: 32px; }
-:root[data-theme] .xp-control-screen .xp-control-nav-heading h2 { font-size: 16px; font-weight: 700; text-shadow: 1px 1px #34559a; }
-:root[data-theme] .xp-control-screen .xp-control-task-group { margin-bottom: 16px; overflow: hidden; border: 1px solid #fff; border-radius: 3px; }
-:root[data-theme] .xp-control-screen .xp-control-task-group h3 { padding: 8px 10px; background: linear-gradient(90deg, #fff, #c6d5f1); color: #214779; font-size: 12px; font-weight: 700; }
-:root[data-theme] .xp-control-screen .xp-control-task-group > div { padding: 5px; background: #d6dff5; }
-:root[data-theme] .xp-control-screen .xp-control-task-group button { display: flex; align-items: center; gap: 6px; width: 100%; min-height: 33px; padding: 5px; border: 0; background: transparent; color: #214779; font: inherit; font-size: 12px; text-align: left; cursor: pointer; }
-:root[data-theme] .xp-control-screen .xp-control-task-group button:hover { background: #bcd1ef; text-decoration: underline; }
-:root[data-theme] .xp-control-screen .xp-control-mobile-directory { display: none; }
-:root[data-theme] .xp-control-screen .settings-body { flex: 1; min-width: 0; min-height: 0; width: auto; height: auto; gap: 18px; padding: 18px; overflow-y: auto; scroll-padding-top: 18px; overscroll-behavior: contain; background: #fff; -webkit-overflow-scrolling: touch; }
-:root[data-theme] .xp-control-screen .settings-body > .settings-group { flex: none; min-width: 0; gap: 12px; padding: 16px; border: 1px solid #a8b9d0; border-radius: 3px; background: #f8faff; box-shadow: none; backdrop-filter: none; }
-:root[data-theme] .xp-control-screen .settings-group-title { padding-bottom: 8px; border-bottom: 1px solid #c9d8eb; color: #214779; font-size: 13px; letter-spacing: 0; }
-:root[data-theme] .xp-control-screen .settings-hint { color: #59697f; line-height: 1.7; overflow-wrap: anywhere; }
-:root[data-theme] .xp-control-screen :is(.settings-input, .avatar-list-input) { min-width: 0; border: 1px solid #7f9db9; border-radius: 0; background: #fff; color: #182335; box-shadow: inset 1px 1px #edf0f5; font-size: 16px; }
-:root[data-theme] .xp-control-screen .settings-input-full { width: 100%; }
+
+:root[data-theme] .xp-control-screen .xp-control-navigation {
+  flex: 0 0 192px;
+  min-height: 0;
+  padding: 14px 10px;
+  overflow-y: auto;
+  border-right: 1px solid #aca899;
+  background: linear-gradient(180deg, #7ba2e7 0%, #6375d6 100%);
+}
+
+:root[data-theme] .xp-control-screen .xp-control-nav-heading { display: flex; align-items: center; gap: 8px; margin: 0 4px 14px; color: #fff; }
+:root[data-theme] .xp-control-screen .xp-control-nav-heading svg { width: 32px; height: 32px; filter: drop-shadow(0 1px 0 rgba(0, 0, 0, 0.3)); }
+:root[data-theme] .xp-control-screen .xp-control-nav-heading h2 { margin: 0; color: #fff; font-size: 15px; font-weight: 700; text-shadow: 1px 1px 0 #34559a; }
+
+:root[data-theme] .xp-control-screen .xp-control-task-group { margin-bottom: 14px; overflow: hidden; border-radius: 3px 3px 0 0; }
+
+:root[data-theme] .xp-control-screen .xp-control-task-group h3 {
+  margin: 0;
+  padding: 6px 10px;
+  background: linear-gradient(90deg, #fff 0%, #c6d3f7 100%);
+  color: #215dc6;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+:root[data-theme] .xp-control-screen .xp-control-task-group > div { padding: 4px 6px 6px; border: 1px solid #fff; border-top: 0; background: #d6dff7; }
+
+:root[data-theme] .xp-control-screen .xp-control-task-group button {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  min-height: 32px;
+  margin: 0;
+  padding: 4px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: #215dc6;
+  font: inherit;
+  font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+}
+
+/* The little round blue arrow before each task. */
+:root[data-theme] .xp-control-screen .xp-control-task-group button > span[aria-hidden] {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #a9c8ff 0%, #3d78e0 60%, #1d4fb3 100%);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+:root[data-theme] .xp-control-screen .xp-control-task-group button:is(:hover, :active) { color: #428eff; text-decoration: underline; }
+
+/* ━━ The settings page ━━ */
+:root[data-theme] .xp-control-screen .settings-body {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  width: auto;
+  height: auto;
+  gap: 16px;
+  padding: 18px;
+  overflow-y: auto;
+  scroll-padding-top: 18px;
+  overscroll-behavior: contain;
+  background: #fff;
+  color: #000;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Each card is an XP group box: a thin beige frame, blue caption. */
+:root[data-theme] .xp-control-screen .settings-body > .settings-group {
+  flex: none;
+  min-width: 0;
+  gap: 10px;
+  padding: 12px 14px 14px;
+  border: 1px solid #d0d0bf;
+  border-radius: 4px;
+  background: #fff;
+  box-shadow: none;
+  backdrop-filter: none;
+  color: #000;
+}
+
+:root[data-theme] .xp-control-screen .settings-group-title { padding: 0; border: 0; color: #0046d5; font-size: 13px; font-weight: 400; letter-spacing: 0; }
+:root[data-theme] .xp-control-screen .settings-hint { color: #555; line-height: 1.7; overflow-wrap: anywhere; }
+:root[data-theme] .xp-control-screen .settings-label { color: #000; }
 :root[data-theme] .xp-control-screen .settings-row { flex-wrap: wrap; gap: 8px; }
-:root[data-theme] .xp-control-screen .settings-label { color: #48576a; }
+
+:root[data-theme] .xp-control-screen :is(.settings-input, .avatar-list-input) {
+  min-width: 0;
+  border: 1px solid #7f9db9;
+  border-radius: 0;
+  background: #fff;
+  color: #000;
+  box-shadow: none;
+  font-size: 16px;
+}
+
+:root[data-theme] .xp-control-screen :is(.settings-input, .avatar-list-input):focus { outline: none; border-color: #316ac5; }
+:root[data-theme] .xp-control-screen .settings-input-full { width: 100%; }
 :root[data-theme] .xp-control-screen .avatar-list { gap: 14px; }
 :root[data-theme] .xp-control-screen .avatar-list-row { min-width: 0; gap: 12px; }
 :root[data-theme] .xp-control-screen .avatar-list-name { flex: 1; min-width: 0; }
 :root[data-theme] .xp-control-screen .avatar-list-input { width: 100%; padding: 8px 28px 8px 8px; }
-:root[data-theme] .xp-control-screen .avatar-list-photo { border: 1px solid #7f9db9; border-radius: 3px; background: #fff; box-shadow: inset 0 0 0 2px #fff; }
+:root[data-theme] .xp-control-screen .avatar-list-pencil { color: #555; }
+
+/* The display picture frame from MSN. */
+:root[data-theme] .xp-control-screen .avatar-list-photo { padding: 2px; border: 1px solid #7f9db9; border-radius: 4px; background: #fff; box-shadow: 1px 1px 0 #fff inset, 1px 2px 3px rgba(0, 0, 0, 0.2); }
 :root[data-theme] .xp-control-screen :is(.avatar-upload-preview, .avatar-upload-placeholder) { border-radius: 2px; }
-:root[data-theme] .xp-control-screen :is(.model-option, .settings-danger-btn) { min-height: 32px; padding: 7px 12px; border: 1px solid #7f9db9; border-radius: 3px; background: linear-gradient(180deg, #fff, #ece9d8); color: #182335; box-shadow: inset -1px -1px #d0d0c8; font: inherit; font-size: 12px; cursor: pointer; }
-:root[data-theme] .xp-control-screen .model-option-active { border-color: #316ac5; background: linear-gradient(180deg, #edf5ff, #c4dbf7); color: #214779; }
-:root[data-theme] .xp-control-screen .model-option-dot { border-radius: 0; background: #a8b9d0; }
-:root[data-theme] .xp-control-screen .model-option-active .model-option-dot { background: #316ac5; }
-:root[data-theme] .xp-control-screen .chat-background-preview { max-width: 100%; border: 1px solid #7f9db9; border-radius: 2px; box-shadow: none; }
-:root[data-theme] .xp-control-screen :is(button, input, select):focus-visible { outline: 2px solid #316ac5; outline-offset: 2px; }
+
+/* XP push buttons. */
+:root[data-theme] .xp-control-screen :is(.model-option, .settings-danger-btn) {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 30px;
+  padding: 3px 12px;
+  border: 1px solid #003c74;
+  border-radius: 3px;
+  background: linear-gradient(180deg, #fff 0%, #ecebe6 86%, #d6d0c5 100%);
+  color: #000;
+  box-shadow: none;
+  font: inherit;
+  font-size: 12.5px;
+  cursor: pointer;
+}
+
+@media (hover: hover) {
+  :root[data-theme] .xp-control-screen :is(.model-option, .settings-danger-btn):not(:disabled):hover {
+    box-shadow: inset -1px 1px #fff0cf, inset 1px 2px #fdd889, inset -2px 2px #fbc761, inset 2px -2px #e5a01a;
+  }
+}
+
+:root[data-theme] .xp-control-screen :is(.model-option, .settings-danger-btn):not(:disabled):active {
+  background: linear-gradient(180deg, #cdcac3 0%, #e3e3db 8%, #e5e5de 94%, #f2f2f1 100%);
+  box-shadow: none;
+}
+
+:root[data-theme] .xp-control-screen :is(.model-option, .settings-danger-btn):focus-visible { outline: 1px dotted #000; outline-offset: -4px; }
+:root[data-theme] .xp-control-screen .model-option-active { border-color: #003c74; background: linear-gradient(180deg, #fff 0%, #ecebe6 86%, #d6d0c5 100%); color: #000; }
+
+/* The On/Off dot becomes an XP option button: sunken circle, green pip. */
+:root[data-theme] .xp-control-screen .model-option-dot {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 13px;
+  height: 13px;
+  border: 1px solid #1c5180;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #dcdcd7 0%, #fff 70%);
+}
+
+:root[data-theme] .xp-control-screen .model-option-active .model-option-dot { background: linear-gradient(135deg, #dcdcd7 0%, #fff 70%); }
+
+:root[data-theme] .xp-control-screen .model-option-active .model-option-dot::after {
+  content: "";
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #b8f08f 0%, #4fb52e 50%, #21811a 100%);
+}
+
+:root[data-theme] .xp-control-screen .chat-background-preview { max-width: 100%; border: 1px solid #7f9db9; border-radius: 0; box-shadow: none; }
+
+/* ━━ Phones: the task pane folds behind the combo-box bar ━━ */
+:root[data-theme] .xp-control-screen .xp-control-mobile-bar { display: none; }
 
 @media (max-width: 600px) {
+  :root[data-theme] .xp-control-screen .xp-control-mobile-bar { display: block; flex: none; border-bottom: 1px solid #aca899; background: #ece9d8; }
+  :root[data-theme] .xp-control-screen .xp-control-browser { flex-direction: column; }
   :root[data-theme] .xp-control-screen .xp-control-navigation { display: none; }
-  :root[data-theme] .xp-control-screen .xp-control-mobile-directory { display: block; flex: none; padding: 8px 10px; border-bottom: 1px solid #a8b9d0; background: #ece9d8; }
-  :root[data-theme] .xp-control-screen .xp-control-mobile-directory select { width: 100%; min-height: 34px; padding: 5px 8px; border: 1px solid #7f9db9; border-radius: 0; background: #fff; color: #182335; font: inherit; font-size: 16px; }
+
+  :root[data-theme] .xp-control-screen .xp-control-navigation[data-open] {
+    display: block;
+    flex: none;
+    max-height: 55dvh;
+    padding: 10px 8px 0;
+    border-right: 0;
+    border-bottom: 1px solid #aca899;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  :root[data-theme] .xp-control-screen .xp-control-nav-heading { display: none; }
+  :root[data-theme] .xp-control-screen .xp-control-task-group { margin-bottom: 10px; }
   :root[data-theme] .xp-control-screen .settings-body { padding: 10px; gap: 12px; scroll-padding-top: 10px; }
   :root[data-theme] .xp-control-screen .settings-body > .settings-group { padding: 12px; }
 }

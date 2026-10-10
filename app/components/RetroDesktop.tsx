@@ -56,6 +56,7 @@ export function MoodGlyph() {
     <svg viewBox="0 0 48 48" aria-hidden="true">
       <defs><radialGradient id={ref("smile")} cx="33%" cy="28%" r="75%"><stop stopColor="#fff9bd" /><stop offset=".55" stopColor="#ffe46b" /><stop offset="1" stopColor="#e5ac27" /></radialGradient></defs>
       <circle cx="24" cy="24" r="20" fill={paint("smile")} stroke="#996713" strokeWidth="1.4" />
+      <ellipse cx="17" cy="11.5" rx="7.5" ry="3.6" fill="#fff" opacity=".65" transform="rotate(-18 17 11.5)" />
       <ellipse cx="17" cy="18" rx="2" ry="3" fill="#5e4318" /><ellipse cx="31" cy="18" rx="2" ry="3" fill="#5e4318" />
       <path d="M14 28c2.5 6 6 8 10 8s7.5-2 10-8" fill="none" stroke="#5e4318" strokeWidth="2.5" strokeLinecap="round" />
     </svg>
@@ -289,8 +290,8 @@ export function RetroDesktop({ settings, onOpen, onExit, boot, onBooted }: {
             <DeskIcon label="blog" onClick={() => open("blog")}><BlogGlyph /></DeskIcon>
             <DeskIcon label="reading" onClick={() => open("reading")}><BookGlyph /></DeskIcon>
             <DeskIcon label="clawd" onClick={() => open("clawd")}><ClawdGlyph /></DeskIcon>
-            <DeskIcon label="回到 2026" onClick={shutDown}><PhoneGlyph /></DeskIcon>
             <DeskIcon label="mood" onClick={() => open("mood")}><MoodGlyph /></DeskIcon>
+            <DeskIcon label="回到 2026" onClick={shutDown}><PhoneGlyph /></DeskIcon>
           </div>
 
           <button type="button" className="xp-desk-gadget" onClick={() => open("moon")} aria-label="Moonbound love">

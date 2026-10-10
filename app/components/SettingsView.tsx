@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import { CacheStatusPanel } from "./CacheStatusPanel";
 import { ContextDebugPanel } from "./ContextDebugPanel";
 import { NotificationButton } from "./NotificationButton";
@@ -40,7 +40,10 @@ export function SettingsView({
   gptSession?: ChatSession;
 }) {
   const settingsRef = useRef<HTMLElement>(null);
+  // Phones fold the blue task pane behind one bar instead of a system <select>.
+  const [directoryOpen, setDirectoryOpen] = useState(false);
   function jumpTo(index: number) {
+    setDirectoryOpen(false);
     settingsRef.current?.children[index]?.scrollIntoView({ block: "start", behavior: "auto" });
   }
   function handleAvatarUpload(field: "aiAvatar" | "gptAvatar" | "userAvatar") {
@@ -217,15 +220,16 @@ export function SettingsView({
             <button type="button" className="xp-summer-window-button xp-summer-close" aria-label="关闭窗口，回到桌面" onClick={onBack}><svg viewBox="0 0 10 10" aria-hidden="true"><path d="M2 2l6 6M8 2l-6 6" /></svg></button>
           </div>
         </header>
-        <div className="xp-summer-address"><span>地址</span><b>我的电脑</b><span>›</span><b>控制面板</b></div>
-        <div className="xp-control-mobile-directory">
-          <select aria-label="跳转设置项目" defaultValue="" onChange={(event) => { if (event.target.value) jumpTo(Number(event.target.value)); }}>
-            <option value="">选择设置项目…</option>
-            {CONTROL_SECTIONS.map((group) => <optgroup key={group.title} label={group.title}>{group.items.map((item) => <option key={item.index} value={item.index}>{item.label}</option>)}</optgroup>)}
-          </select>
+        <div className="xp-summer-address"><span>地址</span><span className="xp-summer-address-field"><span className="xp-control-title-icon"><GearGlyph /></span><b>控制面板</b></span></div>
+        <div className="xp-control-mobile-bar">
+          <button type="button" className="xp-control-mobile-directory" aria-expanded={directoryOpen} aria-controls="xp-control-navigation" onClick={() => setDirectoryOpen((open) => !open)}>
+            <span className="xp-control-title-icon"><GearGlyph /></span>
+            <span>跳到设置项目</span>
+            <i aria-hidden="true" />
+          </button>
         </div>
         <div className="xp-control-browser">
-          <nav className="xp-control-navigation" aria-label="控制面板目录">
+          <nav className="xp-control-navigation" id="xp-control-navigation" aria-label="控制面板目录" data-open={directoryOpen || undefined}>
             <div className="xp-control-nav-heading"><GearGlyph /><h2>控制面板</h2></div>
             {CONTROL_SECTIONS.map((group) => (
               <section className="xp-control-task-group" key={group.title}>
