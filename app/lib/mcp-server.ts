@@ -8,6 +8,7 @@ import {
   commentFromHim, deleteHisComment, deleteHisPost, publishHisPost, readBlogDigest, readBlogPost, readBlogPostImages, setHisMotto,
 } from "@/app/lib/blog-tools";
 import type { BlogToolResult } from "@/app/lib/blog-tools";
+import type { McpAccess } from "@/app/lib/mcp-oauth";
 
 const PROTOCOL_VERSIONS = ["2025-06-18", "2025-03-26", "2024-11-05"];
 
@@ -83,6 +84,11 @@ const TOOLS = [
   },
 ];
 
+// The private chat gets these only: writing from chat goes through the reply
+// markers so she sees a card (and confirms Summer writes) instead of a silent
+// tool call.
+export const READONLY_TOOL_NAMES = new Set(["blog_read", "blog_read_post"]);
+
 type ToolContent = { type: "text"; text: string } | { type: "image"; data: string; mimeType: string };
 type ToolResult = { content: ToolContent[]; isError: boolean };
 
@@ -136,7 +142,7 @@ const ok = (id: unknown, result: unknown): RpcResponse => ({ jsonrpc: "2.0", id:
 const fail = (id: unknown, code: number, message: string): RpcResponse => ({ jsonrpc: "2.0", id: id ?? null, error: { code, message } });
 
 /** One JSON-RPC message. Null for notifications, which get no answer. */
-export async function handleRpc(raw: unknown): Promise<RpcResponse | null> {
+export async function handleRpc(raw: unknown, access: McpAccess = "full"): Promise<RpcResponse | null> {
   const req = (raw && typeof raw === "object" ? raw : {}) as RpcRequest;
   const method = typeof req.method === "string" ? req.method : "";
   const isNotification = !("id" in req) || req.id === undefined;
@@ -154,7 +160,7 @@ export async function handleRpc(raw: unknown): Promise<RpcResponse | null> {
       case "ping":
         return ok(req.id, {});
       case "tools/list":
-        return ok(req.id, { tools: TOOLS });
+        return ok(req.id, { tools: access === "read" ? TOOLS.filter((tool) => READONLY_TOOL_NAMES.has(tool.name)) : TOOLS });
       case "resources/list":
         return ok(req.id, { resources: [] });
       case "prompts/list":
@@ -162,6 +168,9 @@ export async function handleRpc(raw: unknown): Promise<RpcResponse | null> {
       case "tools/call": {
         const params = req.params || {};
         const args = params.arguments && typeof params.arguments === "object" ? params.arguments as Record<string, unknown> : {};
+        if (access === "read" && !READONLY_TOOL_NAMES.has(text(params.name))) {
+          return ok(req.id, reply("聊天里只能看博客；要发日志或留言，用回复里的卡片", true));
+        }
         return ok(req.id, await callTool(text(params.name), args));
       }
       default:

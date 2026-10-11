@@ -7,7 +7,7 @@
 // out codes without a login page; a code is worthless without the secret.
 // Nothing is open when nothing is configured.
 
-import { createHash, randomBytes, timingSafeEqual } from "crypto";
+import { createHash, createHmac, randomBytes, timingSafeEqual } from "crypto";
 import { readMcpAuthStore, withMcpAuthStore } from "@/app/lib/store";
 
 export const MCP_SCOPE = "iooi";
@@ -191,12 +191,30 @@ export async function exchangeToken(form: Record<string, string>, authorization:
 }
 
 /** Whether this request may call the MCP tools. */
-export function mcpAuthorized(request: Request) {
-  const header = request.headers.get("authorization") || "";
-  if (!header.startsWith("Bearer ")) return false;
-  const token = header.slice(7).trim();
-  if (!token) return false;
+export type McpAccess = "full" | "read";
+
+/**
+ * A read-only key for the private chat's own Claude Code. Derived from
+ * IOOI_MCP_TOKEN so every route bundle and restart agrees on it without
+ * storing another secret; it cannot be turned back into the full token.
+ */
+export function chatReadonlyMcpToken() {
   const fixed = mcpToken();
-  if (fixed && safeEqual(token, fixed)) return true;
-  return Boolean(lookup(token, "access"));
+  return fixed ? createHmac("sha256", fixed).update("iooi-chat-readonly-v1").digest("hex") : "";
+}
+
+export function mcpAccess(request: Request): McpAccess | null {
+  const header = request.headers.get("authorization") || "";
+  if (!header.startsWith("Bearer ")) return null;
+  const token = header.slice(7).trim();
+  if (!token) return null;
+  const fixed = mcpToken();
+  if (fixed && safeEqual(token, fixed)) return "full";
+  const readonly = chatReadonlyMcpToken();
+  if (readonly && safeEqual(token, readonly)) return "read";
+  return lookup(token, "access") ? "full" : null;
+}
+
+export function mcpAuthorized(request: Request) {
+  return mcpAccess(request) !== null;
 }

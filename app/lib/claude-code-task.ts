@@ -5,6 +5,7 @@ import { normalizeClaudeCodeModel, type ClaudeImageBlock } from "./claude-code";
 import { compactContext } from "./compact-context";
 import { contextText, estimateTokens, WORK_CONTEXT_BUDGET, type ContextMessage } from "./context-budget";
 import { codeTaskProgress } from "./code-task-progress";
+import { stripSpeakerPrefix } from "./reply-prefix";
 
 export type CodeProject = "iooi" | "summer";
 
@@ -179,7 +180,7 @@ export async function runClaudeCodeTask({ project, instruction, images = [], his
           return finish(new Error(describeFailure(data, code, stderr)));
         }
         if (!data?.result?.trim()) return finish(new Error("开发任务没有返回结果"));
-        finish(undefined, data.result.trim());
+        finish(undefined, stripSpeakerPrefix(data.result.trim()));
       });
       child.stdin.on("error", () => {});
       child.stdin.end(stdinPayload, "utf8");

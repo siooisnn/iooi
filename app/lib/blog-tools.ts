@@ -9,7 +9,7 @@ import { readStore } from "@/app/lib/store";
 import { BLOG_WEATHERS, hisPostsToday, parseBlogState, postExcerpt, postTitle } from "@/app/lib/blog";
 import type { BlogMarker } from "@/app/lib/blog-markers";
 import type { BlogCard } from "@/app/lib/app-types";
-import { blogDigest, blogPostText } from "@/app/lib/blog-digest";
+import { blogDigest, blogPostsAskedFor, blogPostText } from "@/app/lib/blog-digest";
 import { changeBlog, herPostsFrom, hisName } from "@/app/lib/blog-him";
 import { describePushResult, sendPushToAll } from "@/app/lib/push";
 import { loadUploadImages } from "@/app/lib/upload-images";
@@ -43,6 +43,19 @@ export function readBlogDigest(limits?: { herLimit?: number; hisLimit?: number }
 export function readBlogPost(postId: string) {
   const { blog, herPosts } = current();
   return blogPostText(blog, herPosts, postId);
+}
+
+/**
+ * The posts she points at in the private chat, in full with their comments,
+ * and the photos in hers. The overview only carries a short excerpt.
+ */
+export function readBlogPostsAskedFor(query: string) {
+  const { blog, herPosts } = current();
+  const ids = blogPostsAskedFor(blog, herPosts, query);
+  return {
+    texts: ids.map((id) => blogPostText(blog, herPosts, id)).filter((text): text is string => Boolean(text)),
+    images: loadUploadImages(ids.flatMap((id) => herPosts.find((post) => post.id === id)?.images || []).slice(0, 9)),
+  };
 }
 
 /** The photos in her post, ready to show him. Empty for his posts or a post without photos. */

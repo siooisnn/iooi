@@ -1,5 +1,5 @@
 import { randomUUID } from "crypto";
-import { MCP_SCOPE, mcpAuthorized, mcpConfigured, publicBase } from "@/app/lib/mcp-oauth";
+import { MCP_SCOPE, mcpAccess, mcpConfigured, publicBase } from "@/app/lib/mcp-oauth";
 import { handleRpc } from "@/app/lib/mcp-server";
 import type { RpcResponse } from "@/app/lib/mcp-server";
 
@@ -32,7 +32,8 @@ export async function POST(request: Request) {
   if (!mcpConfigured()) {
     return Response.json({ error: "iooi MCP 还没配置（缺 IOOI_MCP_TOKEN）" }, { status: 503 });
   }
-  if (!mcpAuthorized(request)) return unauthorized(request);
+  const access = mcpAccess(request);
+  if (!access) return unauthorized(request);
   let body: unknown;
   try {
     body = await request.json();
@@ -40,7 +41,7 @@ export async function POST(request: Request) {
     return sse([{ jsonrpc: "2.0", id: null, error: { code: -32700, message: `Parse error: ${error instanceof Error ? error.message : ""}` } }], request);
   }
   const batch = Array.isArray(body) ? body : [body];
-  const answers = (await Promise.all(batch.map(handleRpc))).filter((answer): answer is RpcResponse => answer !== null);
+  const answers = (await Promise.all(batch.map((message) => handleRpc(message, access)))).filter((answer): answer is RpcResponse => answer !== null);
   if (!answers.length) {
     return new Response(null, { status: 202, headers: { "mcp-session-id": request.headers.get("mcp-session-id") || randomUUID() } });
   }

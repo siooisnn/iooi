@@ -96,3 +96,28 @@ export function blogPostText(blog: BlogState, herPosts: DigestHerPost[], postId:
       : ["（还没人留言。）"]),
   ].join("\n");
 }
+
+const LATEST_ASK = /最新(的)?(一|那)?篇|最近(的)?(一|那)?篇|刚(刚)?(写|发|更)|新(写|发)的|最新(的)?(博客|日志)/;
+
+/**
+ * The posts she is pointing at in the chat, so he can read them whole
+ * instead of the 60-character excerpt in the overview: any post whose title
+ * she names, and her newest post when she says “最新一篇” and the like.
+ * Her posts first, at most `limit`.
+ */
+export function blogPostsAskedFor(blog: BlogState, herPosts: DigestHerPost[], query: string, limit = 2) {
+  const text = query.replace(/\s+/g, "");
+  if (!text) return [];
+  const hers = sortPosts(herPosts);
+  const his = sortPosts(blog.him.posts);
+  const ids: string[] = [];
+  const add = (id: string) => { if (!ids.includes(id)) ids.push(id); };
+  if (LATEST_ASK.test(text) && hers.length) add(hers[0].id);
+  const named = (title: string) => {
+    const clean = title.replace(/…$/, "").replace(/\s+/g, "");
+    return Array.from(clean).length >= 2 && text.includes(clean);
+  };
+  for (const post of hers) if (named(postTitle(post))) add(post.id);
+  for (const post of his) if (named(post.title)) add(post.id);
+  return ids.slice(0, limit);
+}

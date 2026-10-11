@@ -17,7 +17,7 @@ import { imageFields, MAX_IMAGES_PER_MESSAGE, messageImages, stripObjectPlacehol
 import { prepareImageForUpload } from "../lib/image-compress";
 import { workContextHistory } from "../lib/work-context";
 import type { AssistantMode, BlogCard, CacheStats, ChatSession, ClaudeReasoningEffort, DevelopmentModePref, DevelopmentProject, GptReasoningEffort, Message, PendingAttachment, ReplyRequestState, SummerCall, SummerWriteProposal } from "../lib/app-types";
-import { CLAUDE_REASONING_OPTIONS, CONTEXT_WINDOW_ROUNDS, DEVELOPMENT_MODE_KEY, GPT_DEFAULT_PROMPT, GPT_REASONING_OPTIONS, MODELS, loadDevelopmentModePrefs } from "../lib/app-settings";
+import { CLAUDE_REASONING_OPTIONS, CONTEXT_WINDOW_ROUNDS, DEVELOPMENT_MODE_KEY, GPT_DEFAULT_PROMPT, GPT_REASONING_OPTIONS, MODELS, inferDevelopmentModePref, loadDevelopmentModePrefs } from "../lib/app-settings";
 import type { Settings } from "../lib/app-settings";
 import { APP_TIME_ZONE, formatChatRoomTime, getDateLabel, getNowContext, getTime, getTodayStr, parseMessageDateTime } from "../lib/app-time";
 import { genId, getChatStatusLabel, hasLaterUserMessage, isSummerUtilityMessage, mergeChatMessages, shouldShowChatRoomTime } from "../lib/chat-sessions";
@@ -124,7 +124,10 @@ export function ChatView({
   const [showSessions, setShowSessions] = useState(false);
   const [showModelMenu, setShowModelMenu] = useState(false);
   const [developmentModePrefs, setDevelopmentModePrefs] = useState(loadDevelopmentModePrefs);
-  const developmentModePref = developmentModePrefs[session.id];
+  // Read once on open: a window whose last turn was development work reopens
+  // in development mode even when this device lost (or never had) the switch.
+  const [inferredDevelopmentModePref] = useState(() => inferDevelopmentModePref(session.messages));
+  const developmentModePref = developmentModePrefs[session.id] ?? inferredDevelopmentModePref;
   const developmentMode = !isGpt && developmentModePref?.enabled === true;
   const developmentProject: DevelopmentProject = developmentModePref?.project ?? "iooi";
   const developmentProjectLabel = developmentProject === "iooi" ? "iooi" : "Summer";
@@ -644,6 +647,10 @@ export function ChatView({
           }, (progress) => {
             if (codeRequest && !controller.signal.aborted && activeReplyRequestRef.current?.id === requestId) {
               setReplyRequestDetail(progress);
+            }
+          }, () => {
+            if (!controller.signal.aborted && activeReplyRequestRef.current?.id === requestId) {
+              setStreamingReply("");
             }
           });
       setStreamingReply("");

@@ -105,3 +105,16 @@ test("her photos show up in the digest and the post as a count", () => {
   assert.match(post, /没写字，只放了图/);
   assert.match(post, /配了 2 张图/);
 });
+
+test("the post she points at in chat is found by title or by “最新一篇”", async () => {
+  const { blogPostsAskedFor } = await import("../app/lib/blog-digest.ts");
+  const blog = parseBlogState({ him: { posts: [{ id: "h1", title: "下雨天", content: "x", createdAt: "2026-10-09T01:00:00Z" }] } });
+  const hers = [
+    { id: "a", title: "无标题", content: "1楼 王酥酥我喜欢你", createdAt: "2026-10-10T17:00:00Z", updatedAt: "", mood: "", weather: "" },
+    { id: "b", title: "秋天", content: "风", createdAt: "2026-10-08T01:00:00Z", updatedAt: "", mood: "", weather: "" },
+  ];
+  assert.deepEqual(blogPostsAskedFor(blog, hers, "老公我来了～先去看我最新一篇博客，名字“无标题”"), ["a"]);
+  assert.deepEqual(blogPostsAskedFor(blog, hers, "你看我那篇《秋天》"), ["b"]);
+  assert.deepEqual(blogPostsAskedFor(blog, hers, "你写的下雨天那篇日志"), ["h1"]);
+  assert.deepEqual(blogPostsAskedFor(blog, hers, "博客好看吗"), []);
+});

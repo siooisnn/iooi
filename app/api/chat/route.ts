@@ -11,7 +11,7 @@ import { createVisibleReplyStream } from "@/app/lib/visible-reply-stream";
 import { NUDGE_PROMPT, NUDGE_REPLY_TEXT, parseNudgeReply } from "@/app/lib/chat-nudge";
 import { isExplicitSummerWriteRequest } from "@/app/lib/summer-write-intent";
 import { asksForBlogPost, BLOG_CHAT_BRIDGE, mentionsBlog, parseBlogMarkers, stripBlogMarkers } from "@/app/lib/blog-markers";
-import { readBlogDigest, runBlogMarkers } from "@/app/lib/blog-tools";
+import { readBlogDigest, readBlogPostsAskedFor, runBlogMarkers } from "@/app/lib/blog-tools";
 import type { BlogCard } from "@/app/lib/app-types";
 import {
   findDuplicateSummerWrite,
@@ -1211,9 +1211,22 @@ export async function POST(request: Request) {
   summerMs = Date.now() - summerStartedAt;
 
   let blogNote = "";
+  let blogImages: ImageBlock[] = [];
   if (!skipPersist && mentionsBlog(query)) {
     try {
       blogNote = `【博客现状】\n${readBlogDigest()}`;
+    } catch {}
+    // The overview only has a short excerpt; the post she points at comes in full, photos too.
+    try {
+      const asked = readBlogPostsAskedFor(query);
+      if (asked.texts.length) {
+        blogNote = [
+          blogNote,
+          `【她说的那篇，全文和留言】\n${asked.texts.join("\n\n")}`,
+          asked.images.length ? `（这篇里的 ${asked.images.length} 张配图已经附在她这条消息里，按顺序。）` : "",
+        ].filter(Boolean).join("\n\n");
+        blogImages = asked.images;
+      }
     } catch {}
   }
 
@@ -1291,6 +1304,16 @@ ${combinedDynamicPrompt}
     }
   }
 
+  // Her blog photos ride on her newest message, ahead of its text, like any photo she sends.
+  if (blogImages.length && anthropicMessages.length > 0) {
+    const last = anthropicMessages[anthropicMessages.length - 1];
+    if (last.role === "user") {
+      last.content = typeof last.content === "string"
+        ? [...blogImages, { type: "text", text: last.content }]
+        : [...blogImages, ...last.content];
+    }
+  }
+
   if (nudgeEnabled) system.push({ type: "text", text: NUDGE_PROMPT });
 
   // --- Add cache_control to the last message before the new user message ---
@@ -1311,7 +1334,7 @@ ${combinedDynamicPrompt}
     }
   }
 
-  const executeChat = async (onTextDelta?: (text: string) => void) => {
+  const executeChat = async (onTextDelta?: (text: string) => void, onTextReset?: () => void) => {
     let timingModel = String(modelId || "claude-sonnet-5");
     let queueWaitMs = 0;
     let claudeDurationMs = 0;
@@ -1326,12 +1349,15 @@ ${combinedDynamicPrompt}
         modelId: requestedModel,
         reasoningEffort: thinking ? reasoningEffort : "low",
         webSearch: Boolean(webSearch),
+        // Private chat can go and read the blog / Summer itself (read-only).
+        chatTools: !skipPersist && !groupSessionId,
         currentUserText: String(groupUserText || latestUserText(requestMessages)),
         priority: "interactive",
         // In stream mode, closing the browser only stops viewing. The server
         // keeps generating and writes the completed reply to history.
         signal: onTextDelta ? undefined : request.signal,
         onTextDelta,
+        onTextReset,
       });
       claudeRoundTripMs = Date.now() - claudeStartedAt;
       queueWaitMs = data.queueWaitMs;
@@ -1490,7 +1516,7 @@ ${combinedDynamicPrompt}
   }
 
   const encoder = new TextEncoder();
-  const visibleReply = createVisibleReplyStream();
+  let visibleReply = createVisibleReplyStream();
   let connected = true;
   let streamController: ReadableStreamDefaultController<Uint8Array> | null = null;
   let heartbeatTimer: ReturnType<typeof setInterval> | null = null;
@@ -1528,6 +1554,10 @@ ${combinedDynamicPrompt}
   const job = executeChat((delta) => {
     const visible = visibleReply.push(delta);
     if (visible) emit({ type: "delta", text: visible });
+  }, () => {
+    // What streamed so far led into a tool call; the answer starts over.
+    visibleReply = createVisibleReplyStream();
+    emit({ type: "reset" });
   }).then((result) => {
     stopHeartbeat();
     visibleReply.finish();

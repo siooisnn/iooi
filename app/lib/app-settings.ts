@@ -146,3 +146,22 @@ export function loadDevelopmentModePrefs(): Record<string, DevelopmentModePref> 
   }
   return prefs;
 }
+
+/**
+ * The switch lives in this device's localStorage, so it is missing on another
+ * device, in Safari vs the home-screen app, or after the browser clears site
+ * data. Without a saved choice, follow the window's own last exchange: if it
+ * was a development turn, reopen in development mode on that project.
+ */
+export function inferDevelopmentModePref(
+  messages: Array<{ role: string; source?: string }>,
+): DevelopmentModePref | undefined {
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    const message = messages[index];
+    if (message.role !== "user" && message.role !== "assistant") continue;
+    if (message.source === "code_task_iooi") return { enabled: true, project: "iooi" };
+    if (message.source === "code_task_summer") return { enabled: true, project: "summer" };
+    return undefined;
+  }
+  return undefined;
+}

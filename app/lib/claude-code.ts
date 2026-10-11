@@ -1,6 +1,8 @@
 import { spawn } from "child_process";
 import { randomUUID } from "crypto";
 import { chown, unlink, writeFile } from "fs/promises";
+import { chatReadonlyMcpToken } from "./mcp-oauth";
+import { stripSpeakerPrefix } from "./reply-prefix";
 
 type ClaudeCodeMessage = {
   role: string;
@@ -278,6 +280,86 @@ function runQueued<T>(
   });
 }
 
+// Read-only tools the private chat may call on its own. Writing (posts,
+// comments, Summer memories) stays on the reply markers, which show her a
+// card and, for Summer, wait for her confirmation.
+export const CHAT_READ_TOOLS = [
+  "mcp__iooi__blog_read",
+  "mcp__iooi__blog_read_post",
+  "mcp__summer__search",
+  "mcp__summer__read",
+];
+
+// His user-scoped MCP servers load too. Take their write/side tools (and the
+// docs connector) out of the model's view instead of only refusing them.
+const CHAT_HIDDEN_TOOLS = [
+  "mcp__summer__edit",
+  "mcp__summer__daily_review",
+  "mcp__summer__wake",
+  "mcp__claude_ai_Claude_Docs",
+];
+
+const CHAT_TOOL_RULES = [
+  "## 你能自己去看的东西",
+  "这轮你可以调用只读工具：mcp__iooi__blog_read（博客目录）、mcp__iooi__blog_read_post（某篇日志全文、留言和配图）、mcp__summer__search / mcp__summer__read（翻 Summer 记忆）。",
+  "上下文里已经有的内容直接用，别为了确认再查一遍。只有她这条消息需要、而上下文里没有或只有摘要时才去看，比如她让你看某篇日志、问你记不记得某件事。普通聊天不要调用工具。",
+  "调用工具前不要先写“我去看看”之类的过渡句，她看不到中间过程，直接在看完之后回她。",
+  "这些工具只能看。要发日志、留言、改签名、记进 Summer，照旧用回复里的标记。",
+].join("\n");
+
+function chatMcpUrl() {
+  const configured = (process.env.IOOI_CHAT_MCP_URL || "").trim();
+  return configured || `http://127.0.0.1:${positiveInt(process.env.PORT, 3000)}/api/mcp`;
+}
+
+/**
+ * While tools are on, a reply can begin with a sentence that turns out to be
+ * the lead-in to a tool call. Hold the first characters of each model turn;
+ * a real answer passes the threshold and streams from there, a tool call
+ * drops the held text (or retracts it, if it had already gone out).
+ */
+export function createToolTurnTextGate({
+  onText,
+  onReset,
+  holdChars = 60,
+}: {
+  onText: (text: string) => void;
+  onReset?: () => void;
+  holdChars?: number;
+}) {
+  let held = "";
+  let released = false;
+  let shownSinceReset = false;
+  return {
+    text(delta: string) {
+      if (released) {
+        shownSinceReset = true;
+        onText(delta);
+        return;
+      }
+      held += delta;
+      if (held.length < holdChars) return;
+      released = true;
+      shownSinceReset = true;
+      onText(held);
+      held = "";
+    },
+    toolUse() {
+      held = "";
+      released = false;
+      if (shownSinceReset) onReset?.();
+      shownSinceReset = false;
+    },
+    /** A model turn ended without a tool call: whatever is held is the answer. */
+    turnEnd() {
+      if (!held) return;
+      shownSinceReset = true;
+      onText(held);
+      held = "";
+    },
+  };
+}
+
 export function isClaudeCodeEnabled() {
   return process.env.CLAUDE_CODE_ENABLED === "true";
 }
@@ -288,20 +370,26 @@ export async function runClaudeCodeChat({
   modelId,
   reasoningEffort,
   webSearch = false,
+  chatTools = false,
   currentUserText = "",
   priority = "interactive",
   signal,
   onTextDelta,
+  onTextReset,
 }: {
   systemPrompt: string;
   messages: ClaudeCodeMessage[];
   modelId: string;
   reasoningEffort?: string;
   webSearch?: boolean;
+  /** Let the private chat read the blog and Summer itself (read-only MCP). */
+  chatTools?: boolean;
   currentUserText?: string;
   priority?: ClaudeCodePriority;
   signal?: AbortSignal;
   onTextDelta?: (text: string) => void;
+  /** Tools on: text already shown was a lead-in to a tool call; clear it. */
+  onTextReset?: () => void;
 }): Promise<ClaudeCodeChatResult> {
   return runQueued(async (queueWaitMs) => {
     if (signal?.aborted) throw new DOMException("Request aborted", "AbortError");
@@ -312,9 +400,12 @@ export async function runClaudeCodeChat({
     const user = "claude-iooi";
     const uid = positiveInt(process.env.CLAUDE_CODE_UID, 1001);
     const gid = positiveInt(process.env.CLAUDE_CODE_GID, 1001);
+    const readonlyToken = chatTools ? chatReadonlyMcpToken() : "";
+    const usesChatTools = chatTools && Boolean(readonlyToken);
+    const usesTools = webSearch || usesChatTools;
     const timeoutMs = positiveInt(
-      webSearch ? process.env.CLAUDE_CODE_SEARCH_TIMEOUT_MS : process.env.CLAUDE_CODE_TIMEOUT_MS,
-      webSearch ? 180_000 : 120_000,
+      usesTools ? process.env.CLAUDE_CODE_SEARCH_TIMEOUT_MS : process.env.CLAUDE_CODE_TIMEOUT_MS,
+      usesTools ? 180_000 : 120_000,
     );
     const effort = ["low", "medium", "high", "xhigh", "max"].includes(String(reasoningEffort))
       ? String(reasoningEffort)
@@ -325,22 +416,31 @@ export async function runClaudeCodeChat({
     // Web search can contain several tool turns, so only stream ordinary/image
     // replies. Otherwise an intermediate pre-tool sentence can flash as if it
     // were part of the final answer.
+    // Read-only chat tools keep streaming, behind the lead-in gate below.
     const effectiveOnTextDelta = webSearch ? undefined : onTextDelta;
-    const usesStreamingOutput = usesImages || webSearch || Boolean(effectiveOnTextDelta);
+    const usesStreamingOutput = usesImages || usesTools || Boolean(effectiveOnTextDelta);
     const availableTools = webSearch ? "WebSearch,WebFetch" : "";
+    const allowedTools = [
+      ...(webSearch ? ["WebSearch", "WebFetch"] : []),
+      ...(usesChatTools ? CHAT_READ_TOOLS : []),
+    ].join(",");
+    const maxTurns = webSearch && usesChatTools ? 6 : usesChatTools ? 5 : webSearch ? 4 : 1;
     const args = [
       "-p",
       "--model", requestedModel,
       "--effort", effort,
       "--tools", availableTools,
-      "--max-turns", webSearch ? "4" : "1",
+      "--max-turns", String(maxTurns),
       "--no-session-persistence",
       "--output-format", usesStreamingOutput ? "stream-json" : "json",
     ];
     const transcript = renderTranscript(messages);
     const stdinPayload = usesImages ? renderStreamInput(messages) : transcript;
-    if (webSearch) {
-      args.push("--allowedTools", availableTools, "--permission-mode", "dontAsk");
+    if (usesTools) {
+      args.push("--allowedTools", allowedTools, "--permission-mode", "dontAsk");
+    }
+    if (usesChatTools) {
+      args.push("--disallowedTools", CHAT_HIDDEN_TOOLS.join(","));
     }
     if (usesImages) {
       args.push("--input-format", "stream-json");
@@ -351,7 +451,7 @@ export async function runClaudeCodeChat({
     if (effectiveOnTextDelta) {
       args.push("--include-partial-messages");
     }
-    const effectiveSystemPrompt = webSearch
+    const toolPrompt = webSearch
       ? [
           systemPrompt,
           "## Web search rules",
@@ -363,7 +463,9 @@ export async function runClaudeCodeChat({
           "Answer in the user's language. Put concise Markdown source links such as [source title](full URL) next to the claims they support; do not print bare long URLs.",
         ].filter(Boolean).join("\n\n")
       : systemPrompt;
+    const effectiveSystemPrompt = usesChatTools ? `${toolPrompt}\n\n${CHAT_TOOL_RULES}` : toolPrompt;
     const systemPromptFile = `${cwd}/.iooi-system-${randomUUID()}.txt`;
+    const mcpConfigFile = usesChatTools ? `${cwd}/.iooi-mcp-${randomUUID()}.json` : "";
     const childEnv: NodeJS.ProcessEnv = {
       NODE_ENV: process.env.NODE_ENV || "production",
       PATH: "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
@@ -374,11 +476,23 @@ export async function runClaudeCodeChat({
       NO_COLOR: "1",
     };
 
-    await writeFile(/* turbopackIgnore: true */ systemPromptFile, effectiveSystemPrompt, { encoding: "utf8", mode: 0o600 });
-    await chown(/* turbopackIgnore: true */ systemPromptFile, uid, gid);
-    args.push("--system-prompt-file", systemPromptFile);
-
     try {
+      await writeFile(/* turbopackIgnore: true */ systemPromptFile, effectiveSystemPrompt, { encoding: "utf8", mode: 0o600 });
+      await chown(/* turbopackIgnore: true */ systemPromptFile, uid, gid);
+      args.push("--system-prompt-file", systemPromptFile);
+      if (usesChatTools) {
+        // The read-only key goes through a private file, never the command line.
+        // Summer comes from his user-scoped MCP config as usual.
+        const mcpConfig = {
+          mcpServers: {
+            iooi: { type: "http", url: chatMcpUrl(), headers: { Authorization: `Bearer ${readonlyToken}` } },
+          },
+        };
+        await writeFile(/* turbopackIgnore: true */ mcpConfigFile, JSON.stringify(mcpConfig), { encoding: "utf8", mode: 0o600 });
+        await chown(/* turbopackIgnore: true */ mcpConfigFile, uid, gid);
+        args.push("--mcp-config", mcpConfigFile);
+      }
+
       return await new Promise<ClaudeCodeChatResult>((resolve, reject) => {
         const child = spawn(/* turbopackIgnore: true */ binary, args, {
           cwd,
@@ -391,6 +505,25 @@ export async function runClaudeCodeChat({
         let stderr = "";
         let stdoutLineBuffer = "";
         let settled = false;
+        const safeDelta = (text: string) => {
+          try {
+            effectiveOnTextDelta?.(text);
+          } catch {
+            // A closed browser stream must never terminate the Claude job.
+          }
+        };
+        const gate = usesChatTools
+          ? createToolTurnTextGate({
+              onText: safeDelta,
+              onReset: () => {
+                try {
+                  onTextReset?.();
+                } catch {
+                  // Same as above: the viewer going away is not a job failure.
+                }
+              },
+            })
+          : null;
 
         const emitPartialLines = (chunk: string, flush = false) => {
           if (!effectiveOnTextDelta) return;
@@ -404,9 +537,19 @@ export async function runClaudeCodeChat({
                 type?: unknown;
                 event?: {
                   type?: unknown;
-                  delta?: { type?: unknown; text?: unknown };
+                  delta?: { type?: unknown; text?: unknown; stop_reason?: unknown };
+                  content_block?: { type?: unknown };
                 };
               };
+              if (gate && value.type === "stream_event") {
+                const block = value.event?.content_block?.type;
+                if (value.event?.type === "content_block_start" && (block === "tool_use" || block === "server_tool_use")) {
+                  gate.toolUse();
+                } else if (value.event?.type === "message_delta"
+                  && value.event.delta?.stop_reason && value.event.delta.stop_reason !== "tool_use") {
+                  gate.turnEnd();
+                }
+              }
               const delta = value.type === "stream_event"
                 && value.event?.type === "content_block_delta"
                 && value.event.delta?.type === "text_delta"
@@ -414,11 +557,8 @@ export async function runClaudeCodeChat({
                 ? value.event.delta.text
                 : "";
               if (delta) {
-                try {
-                  effectiveOnTextDelta(delta);
-                } catch {
-                  // A closed browser stream must never terminate the Claude job.
-                }
+                if (gate) gate.text(delta);
+                else safeDelta(delta);
               }
             } catch {
               // The final parser below remains authoritative for malformed lines.
@@ -452,7 +592,8 @@ export async function runClaudeCodeChat({
         child.stdout.on("data", (chunk: string) => {
           stdout += chunk;
           emitPartialLines(chunk);
-          if (stdout.length > (webSearch ? 4_000_000 : 2_000_000)) terminate(new Error("Claude Code 返回内容过大"));
+          // Blog photos come back inside tool results, so tool turns get room.
+          if (stdout.length > (usesChatTools ? 16_000_000 : webSearch ? 4_000_000 : 2_000_000)) terminate(new Error("Claude Code 返回内容过大"));
         });
         child.stderr.on("data", (chunk: string) => {
           stderr = (stderr + chunk).slice(-8_000);
@@ -477,7 +618,7 @@ export async function runClaudeCodeChat({
             clearTimeout(timeout);
             signal?.removeEventListener("abort", abort);
             resolve({
-              reply: data.result.trim(),
+              reply: stripSpeakerPrefix(data.result.trim()),
               durationMs: data.duration_ms || 0,
               queueWaitMs,
               model,
@@ -499,6 +640,7 @@ export async function runClaudeCodeChat({
       });
     } finally {
       await unlink(/* turbopackIgnore: true */ systemPromptFile).catch(() => {});
+      if (mcpConfigFile) await unlink(/* turbopackIgnore: true */ mcpConfigFile).catch(() => {});
     }
   }, priority);
 }
