@@ -84,4 +84,5 @@ test("native work compaction events and tool progress are visible", () => {
   assert.deepEqual(codeTaskProgress({ type: "system", subtype: "status", status: "compacting" }), ["正在压缩上下文…"]);
   assert.match(codeTaskProgress({ type: "system", subtype: "compact_boundary" })[0], /压缩完成/);
   assert.deepEqual(codeTaskProgress({ type: "assistant", message: { content: [{ type: "text" }, { type: "tool_use", name: "Edit" }] } }), ["正在修改代码…"]);
+  assert.deepEqual(codeTaskProgress({ type: "assistant", message: { content: [{ type: "tool_use", name: "WebSearch" }, { type: "tool_use", name: "WebFetch" }] } }), ["正在上网查资料…", "正在上网查资料…"]);
 });
