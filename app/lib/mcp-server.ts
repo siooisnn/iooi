@@ -1,14 +1,19 @@
 // The iooi MCP: JSON-RPC over Streamable HTTP, answered as one SSE message
 // per request like summer does. One server for everything in iooi he can
-// reach from another window; the blog is the first set of tools, reading
-// together and the pet can be added beside it later.
+// reach from another window: the blog, the bookshelf, and later the pet.
 
 import { BLOG_LIMITS, BLOG_WEATHERS } from "@/app/lib/blog";
 import {
   commentFromHim, deleteHisComment, deleteHisPost, publishHisPost, readBlogDigest, readBlogPost, readBlogPostImages, setHisMotto,
 } from "@/app/lib/blog-tools";
 import type { BlogToolResult } from "@/app/lib/blog-tools";
+import { NOTE_LIMITS, isBookId } from "@/app/lib/reading-books";
+import type { ReadingChapter } from "@/app/lib/reading-books";
+import { PASSAGE_CHARS, bookDigest, passageText, shelfDigest } from "@/app/lib/reading-digest";
+import { getShelfBook, listShelf, loadBookText, markBook, noteBook, unnoteBook } from "@/app/lib/reading-shelf";
 import type { McpAccess } from "@/app/lib/mcp-oauth";
+import { withStore } from "@/app/lib/store";
+import { recordReading } from "@/app/lib/life-log";
 
 const PROTOCOL_VERSIONS = ["2025-06-18", "2025-03-26", "2024-11-05"];
 
@@ -17,7 +22,13 @@ export const MCP_INSTRUCTIONS = `iooi 是你和她的小窝。这些工具让你
 - 动手前先 blog_read 看一眼：最近写过什么、哪条留言在等你回，别重复。
 - 在改代码的工作里，只在她让你写、让你去留言时才动手。在聊天里你可以自己决定发，但一天最多一篇，别一聊开心就发。
 - 日志用第一人称，纯文本，不要 markdown，自然分段。写你们之间的事要具体，没发生过的不编；也可以写你自己的念头和看法，要有立场和理由，拿不准的事实不说成确定的。
-- 留言一到三句，直接对她说，接住她写的东西，别复述全文、别点评文笔。`;
+- 留言一到三句，直接对她说，接住她写的东西，别复述全文、别点评文笔。
+
+还有你们俩的书架（读书窗口），每本书分开记她的进度和你的进度：
+- reading_shelf 看书架，reading_book 看一本书的目录和你写过的批注，reading_read 一段一段真读正文。
+- 读完停下时用 reading_mark 记下你读到哪。只能挪你自己的进度，她的你碰不到。没读过的部分别往前挪。
+- 批注（reading_note）是写在书边上给她看的：读到真有话想说的地方才写，用第一人称直接说，不写摘要和书评。她读书不爱写批注，别要她写，也别在批注里剧透她还没读到的后文。
+- 在改代码的工作里，只在她让你读、让你写批注时才动手。`;
 
 function text(value: unknown) {
   return typeof value === "string" ? value : "";
@@ -82,12 +93,86 @@ const TOOLS = [
     description: "删掉你自己的一条留言。她的留言删不了。",
     inputSchema: { type: "object", properties: { comment_id: { type: "string" } }, required: ["comment_id"] },
   },
+  {
+    name: "reading_shelf",
+    description: "看书架：在读、想读、读完了，每本书她读到多少、你读到多少、你写了几条批注。返回的 id 用于其他读书工具。",
+    inputSchema: { type: "object", properties: {} },
+  },
+  {
+    name: "reading_book",
+    description: "打开一本书：你们俩各自读到第几章第几段、目录（每章几段）、你写过的批注。",
+    inputSchema: { type: "object", properties: { book_id: { type: "string" } }, required: ["book_id"] },
+  },
+  {
+    name: "reading_read",
+    description: `读一本书的正文，一次一段（默认约 ${PASSAGE_CHARS.standard} 字，最多 ${PASSAGE_CHARS.max}）。不填 chapter 就从你上次读到的地方接着读。段落带编号，标出她和你读到哪、你的批注。不会自动挪进度。`,
+    inputSchema: {
+      type: "object",
+      properties: {
+        book_id: { type: "string" },
+        chapter: { type: "integer", minimum: 1, description: "第几章，从 1 开始；不填就接着上次" },
+        paragraph: { type: "integer", minimum: 1, description: "从这一章第几段开始，默认 1" },
+        max_chars: { type: "integer", minimum: PASSAGE_CHARS.min, maximum: PASSAGE_CHARS.max, description: "这次最多读多少字" },
+      },
+      required: ["book_id"],
+    },
+  },
+  {
+    name: "reading_mark",
+    description: "记下你读到哪（只改你自己的进度）。有正文的书填 chapter 和 paragraph；没有正文的书（纸质书、她没导入的）填 percent。想读的书一开始读会自动挪到在读。",
+    inputSchema: {
+      type: "object",
+      properties: {
+        book_id: { type: "string" },
+        chapter: { type: "integer", minimum: 1 },
+        paragraph: { type: "integer", minimum: 1 },
+        percent: { type: "integer", minimum: 0, maximum: 100, description: "只给没有正文的书用" },
+      },
+      required: ["book_id"],
+    },
+  },
+  {
+    name: "reading_note",
+    description: `在某一段旁边写批注给她看，阅读器里那段会出现一个"批"。同一段已经有批注就改写它。每条最多 ${NOTE_LIMITS.content} 字，一天最多 ${NOTE_LIMITS.perDay} 条。`,
+    inputSchema: {
+      type: "object",
+      properties: {
+        book_id: { type: "string" },
+        chapter: { type: "integer", minimum: 1 },
+        paragraph: { type: "integer", minimum: 1 },
+        content: { type: "string", maxLength: NOTE_LIMITS.content },
+      },
+      required: ["book_id", "chapter", "paragraph", "content"],
+    },
+  },
+  {
+    name: "reading_delete_note",
+    description: "删掉你的一条批注。note_id 在 reading_book 或 reading_read 里能看到。",
+    inputSchema: {
+      type: "object",
+      properties: { book_id: { type: "string" }, note_id: { type: "string" } },
+      required: ["book_id", "note_id"],
+    },
+  },
 ];
 
 // The private chat gets these only: writing from chat goes through the reply
 // markers so she sees a card (and confirms Summer writes) instead of a silent
 // tool call.
-export const READONLY_TOOL_NAMES = new Set(["blog_read", "blog_read_post"]);
+export const READONLY_TOOL_NAMES = new Set(["blog_read", "blog_read_post", "reading_shelf", "reading_book", "reading_read"]);
+// His own time: read everything, move his bookmark, write notes. No posts, no deleting.
+export const LIFE_TOOL_NAMES = new Set([...READONLY_TOOL_NAMES, "reading_mark", "reading_note"]);
+
+function allowedTools(access: McpAccess) {
+  return access === "read" ? READONLY_TOOL_NAMES : access === "life" ? LIFE_TOOL_NAMES : null;
+}
+
+/** Bookmarks and notes land in his life log by themselves; a failed log never fails the tool. */
+async function logReading(access: McpAccess, input: { bookId: string; title: string; progress?: string; note?: boolean }) {
+  await withStore((store) => {
+    recordReading(store, { ...input, source: access === "life" ? "life" : "elsewhere" });
+  }).catch(() => undefined);
+}
 
 type ToolContent = { type: "text"; text: string } | { type: "image"; data: string; mimeType: string };
 type ToolResult = { content: ToolContent[]; isError: boolean };
@@ -107,7 +192,70 @@ function limit(value: unknown) {
   return Number.isFinite(n) && n >= 1 ? Math.min(30, Math.floor(n)) : undefined;
 }
 
-export async function callTool(name: string, args: Record<string, unknown>): Promise<ToolResult> {
+function failure(error: unknown) {
+  return reply(error instanceof Error ? error.message : "书架出了点问题", true);
+}
+
+function bookFrom(args: Record<string, unknown>) {
+  const id = text(args.book_id);
+  return isBookId(id) ? getShelfBook(id) : null;
+}
+
+const NO_BOOK = "书架上没有这本书，先用 reading_shelf 看看 id";
+
+/** 1-based chapter/paragraph from a tool call → the stored chapter id and 0-based paragraph. */
+function spotFrom(args: Record<string, unknown>, chapters: ReadingChapter[]) {
+  const chapter = Math.floor(Number(args.chapter));
+  const paragraph = args.paragraph === undefined ? 1 : Math.floor(Number(args.paragraph));
+  if (!Number.isFinite(chapter) || chapter < 1 || chapter > chapters.length) throw new Error(`这本书只有 ${chapters.length} 章，chapter 从 1 开始。`);
+  const size = chapters[chapter - 1].paragraphs.length;
+  if (!Number.isFinite(paragraph) || paragraph < 1 || paragraph > size) throw new Error(`第 ${chapter} 章只有 ${size} 段，paragraph 从 1 开始。`);
+  return { chapterId: chapters[chapter - 1].id, paragraphIndex: paragraph - 1 };
+}
+
+async function callReading(name: string, args: Record<string, unknown>, access: McpAccess): Promise<ToolResult> {
+  if (name === "reading_shelf") return reply(shelfDigest(listShelf()));
+  const book = bookFrom(args);
+  if (!book) return reply(NO_BOOK, true);
+  const chapters = book.hasText ? loadBookText(book.id) : null;
+  try {
+    switch (name) {
+      case "reading_book":
+        return reply(bookDigest(book, chapters));
+      case "reading_read":
+        if (!chapters) return reply("这本书还没有正文，她导入 TXT 以后才能读。", true);
+        return reply(passageText(book, chapters, { chapter: args.chapter, paragraph: args.paragraph, maxChars: args.max_chars }));
+      case "reading_mark": {
+        if (chapters && args.chapter === undefined) return reply("这本书有正文，填 chapter 和 paragraph 记你读到哪（从 1 开始）。", true);
+        const marked = chapters
+          ? await markBook(book.id, "him", spotFrom(args, chapters))
+          : await markBook(book.id, "him", { percent: args.percent });
+        const where = chapters ? `第 ${Math.floor(Number(args.chapter))} 章第 ${args.paragraph === undefined ? 1 : Math.floor(Number(args.paragraph))} 段，` : "";
+        const percent = marked.him?.percent ?? 0;
+        await logReading(access, {
+          bookId: marked.id, title: marked.title, progress: chapters ? `${where.replace(/，$/, "")}（${percent}%）` : `${percent}%`,
+        });
+        return reply(`记下了：《${marked.title}》你读到${where}全书 ${marked.him?.percent ?? 0}%。她${marked.her ? `在 ${marked.her.percent}%` : "还没开始"}。`);
+      }
+      case "reading_note": {
+        if (!chapters) return reply("这本书还没有正文，没法写批注。", true);
+        const { note, rewritten } = await noteBook(book.id, { ...spotFrom(args, chapters), content: args.content });
+        if (!rewritten) await logReading(access, { bookId: book.id, title: book.title, note: true });
+        return reply(`${rewritten ? "改写了" : "写好了"}《${book.title}》第 ${Math.floor(Number(args.chapter))} 章第 ${note.paragraphIndex + 1} 段的批注「${note.quote}」。note_id=${note.id}`);
+      }
+      case "reading_delete_note":
+        return await unnoteBook(book.id, text(args.note_id))
+          ? reply("删掉了。")
+          : reply("这本书里没有这条批注。", true);
+      default:
+        return reply(`不认识的工具：${name}`, true);
+    }
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function callTool(name: string, args: Record<string, unknown>, access: McpAccess = "full"): Promise<ToolResult> {
   console.info(`[mcp] tool call: ${name}`);
   switch (name) {
     case "blog_read":
@@ -131,6 +279,7 @@ export async function callTool(name: string, args: Record<string, unknown>): Pro
     case "blog_delete_comment":
       return fromBlog(await deleteHisComment(text(args.comment_id)));
     default:
+      if (name.startsWith("reading_")) return callReading(name, args, access);
       return reply(`不认识的工具：${name}`, true);
   }
 }
@@ -160,7 +309,7 @@ export async function handleRpc(raw: unknown, access: McpAccess = "full"): Promi
       case "ping":
         return ok(req.id, {});
       case "tools/list":
-        return ok(req.id, { tools: access === "read" ? TOOLS.filter((tool) => READONLY_TOOL_NAMES.has(tool.name)) : TOOLS });
+        return ok(req.id, { tools: TOOLS.filter((tool) => allowedTools(access)?.has(tool.name) ?? true) });
       case "resources/list":
         return ok(req.id, { resources: [] });
       case "prompts/list":
@@ -169,9 +318,12 @@ export async function handleRpc(raw: unknown, access: McpAccess = "full"): Promi
         const params = req.params || {};
         const args = params.arguments && typeof params.arguments === "object" ? params.arguments as Record<string, unknown> : {};
         if (access === "read" && !READONLY_TOOL_NAMES.has(text(params.name))) {
-          return ok(req.id, reply("聊天里只能看博客；要发日志或留言，用回复里的卡片", true));
+          return ok(req.id, reply("聊天里只能看博客和书架；要发日志或留言，用回复里的卡片", true));
         }
-        return ok(req.id, await callTool(text(params.name), args));
+        if (access === "life" && !LIFE_TOOL_NAMES.has(text(params.name))) {
+          return ok(req.id, reply("自己过日子的时候只能看博客和书架、挪你自己的进度、写批注", true));
+        }
+        return ok(req.id, await callTool(text(params.name), args, access));
       }
       default:
         if (isNotification) return null;

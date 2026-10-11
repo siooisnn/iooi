@@ -3315,6 +3315,26 @@ body {
   line-height: 1.4;
   color: var(--text-light);
 }
+.hb-log-links {
+  margin: 6px 0 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.hb-log-links a {
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--accent);
+  overflow-wrap: anywhere;
+}
+.hb-log-links span {
+  display: block;
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--text-light);
+}
 
 .composer-usage-circle {
   width: 44px; height: 44px; flex: 0 0 44px; border-radius: 50%;

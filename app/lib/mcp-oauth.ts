@@ -190,8 +190,11 @@ export async function exchangeToken(form: Record<string, string>, authorization:
   return { status: 400, body: { error: "unsupported_grant_type" } };
 }
 
-/** Whether this request may call the MCP tools. */
-export type McpAccess = "full" | "read";
+/**
+ * Whether this request may call the MCP tools: everything, read only (the
+ * private chat), or his own time (read, move his bookmark, write notes).
+ */
+export type McpAccess = "full" | "read" | "life";
 
 /**
  * A read-only key for the private chat's own Claude Code. Derived from
@@ -203,6 +206,12 @@ export function chatReadonlyMcpToken() {
   return fixed ? createHmac("sha256", fixed).update("iooi-chat-readonly-v1").digest("hex") : "";
 }
 
+/** The key for his own time (life-beat.ts). Derived the same way as the chat's. */
+export function lifeMcpToken() {
+  const fixed = mcpToken();
+  return fixed ? createHmac("sha256", fixed).update("iooi-life-v1").digest("hex") : "";
+}
+
 export function mcpAccess(request: Request): McpAccess | null {
   const header = request.headers.get("authorization") || "";
   if (!header.startsWith("Bearer ")) return null;
@@ -212,6 +221,8 @@ export function mcpAccess(request: Request): McpAccess | null {
   if (fixed && safeEqual(token, fixed)) return "full";
   const readonly = chatReadonlyMcpToken();
   if (readonly && safeEqual(token, readonly)) return "read";
+  const life = lifeMcpToken();
+  if (life && safeEqual(token, life)) return "life";
   return lookup(token, "access") ? "full" : null;
 }
 

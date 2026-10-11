@@ -35,6 +35,12 @@ export type Settings = {
   // On the same heartbeat, he sometimes writes in his blog space and drops by
   // to comment on hers, unasked. Off unless she turns it on.
   blogAutonomy?: boolean;
+  // His own time: once a morning, afternoon and evening at most, he reads on
+  // the shelf or wanders online. Off unless she turns it on.
+  lifeAutonomy?: boolean;
+  // Push when he has read / surfed. On unless turned off (only matters with lifeAutonomy).
+  lifePushRead?: boolean;
+  lifePushSurf?: boolean;
   city: string;
 };
 

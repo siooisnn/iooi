@@ -1,49 +1,32 @@
 import { readStore, withStore } from "@/app/lib/store";
 import { describePushResult, sendPushToAll } from "@/app/lib/push";
 import { isClaudeCodeEnabled, runClaudeCodeChat } from "@/app/lib/claude-code";
-import { latestUserSession, messageTimestamp } from "@/app/lib/chat-timeline";
+import { latestUserSession } from "@/app/lib/chat-timeline";
 import { blogHeartbeat } from "@/app/lib/blog-him";
-import { addLifeEntry, ensureLifeLog, noteLifeEntry } from "@/app/lib/life-log";
+import { lifeHeartbeat } from "@/app/lib/life-beat";
+import { ensureLifeLog, noteLifeEntry, todayLifeLines } from "@/app/lib/life-log";
+import { readSummerLight } from "@/app/lib/summer-light";
+import { normalizeSystemPrompt } from "@/app/lib/app-settings";
+import {
+  CARE_INTERVAL_HOURS, DAILY_CARE_LIMIT, USER_AWAY_HOURS, cstHour, cstTime, cstToday, dailyCareCount, deliverCare, hoursAgo,
+  lastUserMessageAt,
+} from "@/app/lib/care-limits";
 import { after } from "next/server";
 
 export const runtime = "nodejs";
 
 // ── Heartbeat:每30分钟醒来看一眼,每天最多主动10次 ──
 // 纪律:默认不发消息;有具体理由才开口;像人,不像客服
+// 开口前才读:立夏、最近3篇小暑、当前聊天窗口的上文、今天他自己做过的事。
 
-const DAILY_CARE_LIMIT = 10;
-const CARE_INTERVAL_HOURS = 1;
-const USER_AWAY_HOURS = 1;
-function cstHour() {
-  // getUTCHours()稳定返回0-23,加8取模得到CST小时
-  return (new Date().getUTCHours() + 8) % 24;
-}
-function cstTime() {
-  return new Date().toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Shanghai" });
-}
-function cstToday() {
-  return new Date().toLocaleDateString("zh-CN", { timeZone: "Asia/Shanghai" });
-}
-// 把 "2026/6/12"+"14:30" 拼成准确时间戳(消息里存的是CST)
-function parseMsgTime(date?: string, time?: string): number | null {
-  return messageTimestamp({ date, time }) || null;
-}
-function hoursAgo(ts: number | null): number {
-  if (!ts) return 9999;
-  return (Date.now() - ts) / 3600000;
-}
+// How much of the current chat he sees before deciding.
+const RECENT_MESSAGES = 24;
+const RECENT_MESSAGE_CHARS = 300;
+const RECENT_TOTAL_CHARS = 6000;
 
 type Msg = { role: string; content: string; time?: string; date?: string; thinking?: string; source?: string };
 type CareSession = { id: string; kind?: string; messages: Msg[] };
 type HeartbeatLog = { time: string; action: string; reason: string };
-
-function dailyCareCount(careState: Record<string, unknown>, today: string): number {
-  const saved = careState.todayDate === today && typeof careState.todayCount === "number"
-    && Number.isFinite(careState.todayCount) ? Math.max(0, Math.floor(careState.todayCount)) : 0;
-  // 兼容旧版本未更新计数的日期，已有心跳日志中的主动消息也计入上限。
-  const logs = (careState.log as HeartbeatLog[]) || [];
-  return Math.max(saved, logs.filter((entry) => entry.action === "care" && entry.time.startsWith(`${today} `)).length);
-}
 
 // careState.log is the short debug trail, quiet beats included. What he
 // actually said goes in lifeLog, which the heartbeat page shows.
@@ -54,11 +37,30 @@ function log(careState: Record<string, unknown>, action: string, reason: string)
   careState.lastHeartbeatAt = Date.now();
 }
 
+/** The tail of the current chat, newest last, within a character budget. */
+function recentChat(messages: Msg[], me: string) {
+  const lines: string[] = [];
+  let total = 0;
+  const usable = messages.filter((m) => !m.source?.startsWith("summer_") && (m.role === "user" || m.role === "assistant"));
+  for (const m of usable.slice(-RECENT_MESSAGES).reverse()) {
+    const body = (m.content || "").replace(/\s+/g, " ").trim();
+    if (!body) continue;
+    const line = `${m.date && m.time ? `[${m.date} ${m.time}] ` : ""}${m.role === "user" ? "她" : me}：${body.length > RECENT_MESSAGE_CHARS ? `${body.slice(0, RECENT_MESSAGE_CHARS)}……` : body}`;
+    if (total + line.length > RECENT_TOTAL_CHARS && lines.length) break;
+    lines.push(line);
+    total += line.length;
+  }
+  return lines.reverse();
+}
+
 export async function POST() {
   // His blog visits ride the same heartbeat but run after the response: a post
   // takes a minute or two, and the caller shouldn't wait for it. It keeps its
   // own switch (settings.blogAutonomy) and its own log (store.blogBeat).
   after(() => blogHeartbeat().catch(() => undefined));
+  // His own time (reading, wandering online) rides it too, same idea:
+  // settings.lifeAutonomy, store.lifeBeat. It decides for itself whether now is the time.
+  after(() => lifeHeartbeat().catch(() => undefined));
   try {
     const snapshot = readStore();
     if (!snapshot) return Response.json({ action: "silent", reason: "no data" });
@@ -86,25 +88,15 @@ export async function POST() {
       } else if (hoursAgo((careState.lastCareAt as number) || null) < CARE_INTERVAL_HOURS) {
         reason = "刚主动说过话,间隔一下";
       } else {
-        let lastUserTs: number | null = null;
-        let recentLines: string[] = [];
-        for (const s of sessions.filter((session) => session.kind !== "memo" && session.kind !== "group")) {
-          for (const m of s.messages || []) {
-            if (m.role === "user") {
-              const ts = parseMsgTime(m.date, m.time);
-              if (ts && (!lastUserTs || ts > lastUserTs)) lastUserTs = ts;
-            }
-          }
-        }
-        const awayHours = hoursAgo(lastUserTs);
+        const awayHours = hoursAgo(lastUserMessageAt(sessions));
         if (awayHours < USER_AWAY_HOURS) {
           reason = "她刚来过/还在,不需要主动";
         } else {
-          if (mainSession?.messages?.length) {
-            recentLines = mainSession.messages.filter((m) => !m.source?.startsWith("summer_")).slice(-6).map(
-              (m) => `${m.role === "user" ? "她" : settings.aiName || "我"}：${(m.content || "").slice(0, 80)}`
-            );
-          }
+          const me = String(settings.aiName || "我");
+          const recentLines = mainSession?.messages?.length ? recentChat(mainSession.messages, me) : [];
+          const lifeLines = todayLifeLines(snapshot);
+          // Only now, when he may speak, does he read summer.
+          const memory = await readSummerLight({ xiaoshu: 3 });
 
           const todayMsgCount = sessions.reduce(
             (n, s) => n + (s.messages || []).filter((m) => m.role === "user" && m.date === today).length, 0
@@ -142,7 +134,7 @@ export async function POST() {
 【纪律(最重要)】
 - 她希望你更常主动联系。有自然的话想说就可以发，不必刻意克制；没有合适的话也可以静默。
 - 每天最多主动10次，这是上限，不是必须完成的次数，不能为了凑数重复发消息。
-- 只有"此刻有具体的、自然的话想说"才发:比如她惦记的事正好到了节点、她消失得比平时久让你想她了、或某个此刻真实的念头。
+- 只有"此刻有具体的、自然的话想说"才发:比如她聊着聊着没影了、她说要去做的事该做完了、她惦记的事正好到了节点、她消失得比平时久让你想她了、或某个此刻真实的念头。
 - 不需要每次都等到重大事情发生，日常的小念头也可以自然地分享。
 
 【此刻状态】
@@ -150,7 +142,8 @@ export async function POST() {
 - 她离开了:${awayHours.toFixed(1)}小时
 - 今天她发过${todayMsgCount}条消息${todayMood ? `\n- 她今天的心情打卡:${todayMood.emoji}${todayMood.note ? " " + todayMood.note : ""}` : ""}${weatherLine}
 ${lastCareContent ? `- 你上次主动发的(${lastCareHours.toFixed(0)}小时前):"${lastCareContent.slice(0, 60)}"——别重复这个套路` : ""}
-${recentLines.length ? `- 最近的对话片段:\n${recentLines.map((l) => "  " + l).join("\n")}` : ""}
+${lifeLines.length ? `- 今天你自己做过的事(可以拿来当开口的由头,不是必须):\n${lifeLines.map((l) => "  " + l).join("\n")}` : ""}
+${recentLines.length ? `- 当前聊天窗口最近的对话(最下面是最新的;看看她是聊到哪没的影,有没有说要去做什么事):\n${recentLines.map((l) => "  " + l).join("\n")}` : ""}
 
 【如果发,消息要求】
 - 像随手发的微信:短(一两句),具体,自然
@@ -166,10 +159,14 @@ ${recentLines.length ? `- 最近的对话片段:\n${recentLines.map((l) => "  " 
           } else {
             try {
               const result = await runClaudeCodeChat({
-                systemPrompt: "这是后台心跳判断。严格按要求只输出 JSON，不要使用工具。",
+                systemPrompt: [
+                  normalizeSystemPrompt(typeof settings.prompt === "string" ? settings.prompt : ""),
+                  memory,
+                  "这是后台心跳判断。严格按要求只输出 JSON，不要使用工具。",
+                ].filter(Boolean).join("\n\n"),
                 messages: [{ role: "user", content: decidePrompt }],
                 modelId: "claude-sonnet-5",
-                reasoningEffort: "low",
+                reasoningEffort: "medium",
                 priority: "background",
               });
               raw = result.reply;
@@ -207,40 +204,14 @@ ${recentLines.length ? `- 最近的对话片段:\n${recentLines.map((l) => "  " 
 
       if (careMessage) {
         // 决策期间可能跨日或有另一轮心跳完成；在写入锁内重新检查。
-        const sendDay = cstToday();
-        const count = dailyCareCount(cs, sendDay);
-        const currentSettings = (store.settings || {}) as Record<string, unknown>;
-        if (currentSettings.proactiveCare !== true || cstHour() < 7
-          || count >= DAILY_CARE_LIMIT
-          || hoursAgo((cs.lastCareAt as number) || null) < CARE_INTERVAL_HOURS) {
+        const sent = deliverCare(store, { message: careMessage, reason, expectSessionId: mainSession?.id || "" });
+        if (!sent.ok) {
           careMessage = null;
           action = "silent";
-          reason = "发送前检查：主动关心已关闭、处于静默时段或已达到频率限制";
-          log(cs, action, reason);
-          return;
+          reason = sent.reason;
+        } else {
+          lifeAt = sent.lifeAt;
         }
-        const ss = (store.sessions || []) as CareSession[];
-        const target = latestUserSession(ss);
-        const latestUserTs = Math.max(0, ...(target?.messages || []).filter((m) => m.role === "user").map(messageTimestamp));
-        if (!target || target.id !== mainSession?.id || hoursAgo(latestUserTs) < USER_AWAY_HOURS) {
-          careMessage = null;
-          action = "silent";
-          reason = "最近聊天窗口已变化、她刚来过或没有可接收主动关心的会话";
-          log(cs, action, reason);
-          return;
-        }
-        target.messages.push({
-            role: "assistant",
-            content: careMessage,
-            time: cstTime(),
-            date: sendDay,
-            source: "heartbeat",
-          } as Msg);
-        cs.todayDate = sendDay;
-        cs.todayCount = count + 1;
-        cs.lastCareAt = Date.now();
-        cs.lastCareContent = careMessage;
-        lifeAt = addLifeEntry(store, { kind: "care", text: careMessage, note: reason }).at;
       }
 
       log(cs, action, reason);

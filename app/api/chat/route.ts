@@ -13,6 +13,7 @@ import { isExplicitSummerWriteRequest } from "@/app/lib/summer-write-intent";
 import { asksForBlogPost, BLOG_CHAT_BRIDGE, mentionsBlog, parseBlogMarkers, stripBlogMarkers } from "@/app/lib/blog-markers";
 import { readBlogDigest, readBlogPostsAskedFor, runBlogMarkers } from "@/app/lib/blog-tools";
 import type { BlogCard } from "@/app/lib/app-types";
+import { todayLifeLines } from "@/app/lib/life-log";
 import {
   findDuplicateSummerWrite,
   filterDuplicateSummerWrites,
@@ -1230,8 +1231,19 @@ export async function POST(request: Request) {
     } catch {}
   }
 
+  // A few lines of what he did on his own today (read, surfed, wrote), so he
+  // can bring it up. Titles and lines only; the details are behind his tools.
+  let lifeNote = "";
+  if (!skipPersist && !groupSessionId) {
+    try {
+      const lines = todayLifeLines(readStore());
+      if (lines.length) lifeNote = `【今天你自己做过的事（她不在时你自己过的日子；聊到了可以自然提起，不用刻意汇报；细节用工具去看）】\n${lines.join("\n")}`;
+    } catch {}
+  }
+
   const combinedDynamicPrompt = [
     dynamicPrompt,
+    lifeNote,
     summerNotice,
     directSummerWriteRequested
       ? summerState

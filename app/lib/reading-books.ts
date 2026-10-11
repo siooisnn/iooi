@@ -314,3 +314,60 @@ export function removeShelfBook(store: Record<string, unknown>, id: string): boo
   store.books = next;
   return next.length !== books.length;
 }
+
+// ── His notes in the margin. One note per paragraph: writing on a paragraph
+// that already has one rewrites it, since the reader shows one 批 per spot.
+
+export const NOTE_LIMITS = { content: 500, quote: 60, perDay: 12, perBook: 1000 } as const;
+
+/** The CST calendar day of an epoch ms, "2026-10-11". */
+export function readingDay(ms: number): string {
+  return new Date(ms + 8 * 3600_000).toISOString().slice(0, 10);
+}
+
+/** Notes he wrote today across the whole shelf (rewrites count once more). */
+export function notesToday(books: ShelfBook[], now = Date.now()): number {
+  const today = readingDay(now);
+  return books.reduce((sum, book) => sum + book.notes.filter((note) => readingDay(note.at) === today).length, 0);
+}
+
+function quoteOf(paragraph: string) {
+  const flat = paragraph.replace(/\s+/g, " ").trim();
+  return flat.length > NOTE_LIMITS.quote ? `${flat.slice(0, NOTE_LIMITS.quote)}…` : flat;
+}
+
+export type NoteInput = { chapterId: string; paragraphIndex: number; content: unknown };
+
+export function noteShelfBook(
+  store: Record<string, unknown>, id: string, input: NoteInput,
+  chapters: ReadingChapter[], now = Date.now(),
+): { book: ShelfBook; note: ReadingNote; rewritten: boolean } {
+  const { books, book } = findBook(store, id);
+  const chapter = chapters.find((item) => item.id === input.chapterId);
+  if (!chapter) throw new Error("书里没有这一章。");
+  const paragraphIndex = Math.floor(input.paragraphIndex);
+  if (!Number.isFinite(paragraphIndex) || paragraphIndex < 0 || paragraphIndex >= chapter.paragraphs.length) {
+    throw new Error(`这一章只有 ${chapter.paragraphs.length} 段。`);
+  }
+  const content = typeof input.content === "string" ? input.content.replace(/[ \t]+/g, " ").replace(/\n{3,}/g, "\n\n").trim() : "";
+  if (!content) throw new Error("批注是空的。");
+  if (content.length > NOTE_LIMITS.content) throw new Error(`批注最多 ${NOTE_LIMITS.content} 个字。`);
+  if (notesToday(books, now) >= NOTE_LIMITS.perDay) throw new Error(`今天已经写了 ${NOTE_LIMITS.perDay} 条批注，明天再写吧。`);
+  const existing = book.notes.find((note) => note.chapterId === chapter.id && note.paragraphIndex === paragraphIndex);
+  if (!existing && book.notes.length >= NOTE_LIMITS.perBook) throw new Error("这本书的批注太多了。");
+  const note: ReadingNote = {
+    id: existing?.id || crypto.randomUUID(),
+    chapterId: chapter.id, paragraphIndex,
+    quote: quoteOf(chapter.paragraphs[paragraphIndex]),
+    content, at: now,
+  };
+  book.notes = [note, ...book.notes.filter((item) => item !== existing)];
+  return { book, note, rewritten: !!existing };
+}
+
+export function unnoteShelfBook(store: Record<string, unknown>, id: string, noteId: string): boolean {
+  const { book } = findBook(store, id);
+  const before = book.notes.length;
+  book.notes = book.notes.filter((note) => note.id !== noteId);
+  return book.notes.length !== before;
+}

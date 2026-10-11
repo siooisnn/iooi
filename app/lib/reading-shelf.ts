@@ -5,8 +5,8 @@ import { existsSync, readFileSync, renameSync, unlinkSync, writeFileSync } from 
 import { join } from "path";
 import { DATA_DIR_PATH, readReadingStore, withReadingStore } from "./store";
 import {
-  addShelfBook, attachShelfText, editShelfBook, isBookId, markShelfBook, readShelf, removeShelfBook,
-  type BookEdit, type MarkInput, type NewBook, type ReadingChapter, type ReadingWho, type ShelfBook,
+  addShelfBook, attachShelfText, editShelfBook, isBookId, markShelfBook, noteShelfBook, readShelf, removeShelfBook, unnoteShelfBook,
+  type BookEdit, type MarkInput, type NewBook, type NoteInput, type ReadingChapter, type ReadingWho, type ShelfBook,
 } from "./reading-books";
 
 function textFile(id: string) {
@@ -70,6 +70,17 @@ export function markBook(id: string, who: ReadingWho, input: MarkInput): Promise
   const chapters = typeof input.chapterId === "string" ? loadBookText(id) : null;
   if (typeof input.chapterId === "string" && !chapters) throw new Error("这本书的正文找不到了。");
   return withReadingStore((store) => markShelfBook(store, id, who, input, chapters));
+}
+
+/** His note on one paragraph. */
+export function noteBook(id: string, input: NoteInput) {
+  const chapters = loadBookText(id);
+  if (!chapters) throw new Error("这本书还没有正文，没法写批注。");
+  return withReadingStore((store) => noteShelfBook(store, id, input, chapters));
+}
+
+export function unnoteBook(id: string, noteId: string): Promise<boolean> {
+  return withReadingStore((store) => unnoteShelfBook(store, id, noteId));
 }
 
 export async function deleteBook(id: string): Promise<boolean> {

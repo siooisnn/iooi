@@ -1,7 +1,7 @@
 import { spawn } from "child_process";
 import { randomUUID } from "crypto";
 import { chown, unlink, writeFile } from "fs/promises";
-import { chatReadonlyMcpToken } from "./mcp-oauth";
+import { chatReadonlyMcpToken, lifeMcpToken } from "./mcp-oauth";
 import { stripSpeakerPrefix } from "./reply-prefix";
 
 type ClaudeCodeMessage = {
@@ -286,6 +286,9 @@ function runQueued<T>(
 export const CHAT_READ_TOOLS = [
   "mcp__iooi__blog_read",
   "mcp__iooi__blog_read_post",
+  "mcp__iooi__reading_shelf",
+  "mcp__iooi__reading_book",
+  "mcp__iooi__reading_read",
   "mcp__summer__search",
   "mcp__summer__read",
 ];
@@ -301,11 +304,27 @@ const CHAT_HIDDEN_TOOLS = [
 
 const CHAT_TOOL_RULES = [
   "## 你能自己去看的东西",
-  "这轮你可以调用只读工具：mcp__iooi__blog_read（博客目录）、mcp__iooi__blog_read_post（某篇日志全文、留言和配图）、mcp__summer__search / mcp__summer__read（翻 Summer 记忆）。",
-  "上下文里已经有的内容直接用，别为了确认再查一遍。只有她这条消息需要、而上下文里没有或只有摘要时才去看，比如她让你看某篇日志、问你记不记得某件事。普通聊天不要调用工具。",
+  "这轮你可以调用只读工具：mcp__iooi__blog_read（博客目录）、mcp__iooi__blog_read_post（某篇日志全文、留言和配图）、mcp__iooi__reading_shelf / mcp__iooi__reading_book / mcp__iooi__reading_read（书架、一本书的进度目录和你的批注、正文）、mcp__summer__search / mcp__summer__read（翻 Summer 记忆）。",
+  "上下文里已经有的内容直接用，别为了确认再查一遍。只有她这条消息需要、而上下文里没有或只有摘要时才去看，比如她让你看某篇日志、问你读到哪了、问你记不记得某件事。普通聊天不要调用工具。",
   "调用工具前不要先写“我去看看”之类的过渡句，她看不到中间过程，直接在看完之后回她。",
-  "这些工具只能看。要发日志、留言、改签名、记进 Summer，照旧用回复里的标记。",
+  "这些工具只能看。要发日志、留言、改签名、记进 Summer，照旧用回复里的标记。聊天里挪不了读书进度、写不了批注。",
 ].join("\n");
+
+// His own time (life-beat.ts): the bookshelf with his bookmark and notes,
+// Summer to look things up, and the web. Nothing that posts or deletes.
+export const LIFE_TOOLS = [
+  "mcp__iooi__blog_read",
+  "mcp__iooi__blog_read_post",
+  "mcp__iooi__reading_shelf",
+  "mcp__iooi__reading_book",
+  "mcp__iooi__reading_read",
+  "mcp__iooi__reading_mark",
+  "mcp__iooi__reading_note",
+  "mcp__summer__search",
+  "mcp__summer__read",
+  "WebSearch",
+  "WebFetch",
+];
 
 function chatMcpUrl() {
   const configured = (process.env.IOOI_CHAT_MCP_URL || "").trim();
@@ -372,6 +391,7 @@ export async function runClaudeCodeChat({
   webSearch = false,
   chatTools = false,
   currentUserText = "",
+  lifeTools = false,
   priority = "interactive",
   signal,
   onTextDelta,
@@ -385,13 +405,19 @@ export async function runClaudeCodeChat({
   /** Let the private chat read the blog and Summer itself (read-only MCP). */
   chatTools?: boolean;
   currentUserText?: string;
+  /**
+   * His own time: LIFE_TOOLS with the life key, several turns, a long timeout.
+   * Runs beside the shared queue (one at a time, see life-beat.ts) so a long
+   * read never makes her chat wait.
+   */
+  lifeTools?: boolean;
   priority?: ClaudeCodePriority;
   signal?: AbortSignal;
   onTextDelta?: (text: string) => void;
   /** Tools on: text already shown was a lead-in to a tool call; clear it. */
   onTextReset?: () => void;
 }): Promise<ClaudeCodeChatResult> {
-  return runQueued(async (queueWaitMs) => {
+  const task = async (queueWaitMs: number): Promise<ClaudeCodeChatResult> => {
     if (signal?.aborted) throw new DOMException("Request aborted", "AbortError");
 
     const binary = "/home/claude-iooi/.local/bin/claude";
@@ -400,13 +426,20 @@ export async function runClaudeCodeChat({
     const user = "claude-iooi";
     const uid = positiveInt(process.env.CLAUDE_CODE_UID, 1001);
     const gid = positiveInt(process.env.CLAUDE_CODE_GID, 1001);
-    const readonlyToken = chatTools ? chatReadonlyMcpToken() : "";
-    const usesChatTools = chatTools && Boolean(readonlyToken);
-    const usesTools = webSearch || usesChatTools;
-    const timeoutMs = positiveInt(
-      usesTools ? process.env.CLAUDE_CODE_SEARCH_TIMEOUT_MS : process.env.CLAUDE_CODE_TIMEOUT_MS,
-      usesTools ? 180_000 : 120_000,
-    );
+    const lifeToken = lifeTools ? lifeMcpToken() : "";
+    if (lifeTools && !lifeToken) throw new Error("iooi MCP 还没配置，过不了自己的日子");
+    const usesLifeTools = lifeTools;
+    const readonlyToken = chatTools && !usesLifeTools ? chatReadonlyMcpToken() : "";
+    const usesChatTools = chatTools && !usesLifeTools && Boolean(readonlyToken);
+    const usesMcp = usesChatTools || usesLifeTools;
+    const mcpKey = usesLifeTools ? lifeToken : readonlyToken;
+    const usesTools = webSearch || usesMcp;
+    const timeoutMs = usesLifeTools
+      ? positiveInt(process.env.CLAUDE_CODE_LIFE_TIMEOUT_MS, 600_000)
+      : positiveInt(
+        usesTools ? process.env.CLAUDE_CODE_SEARCH_TIMEOUT_MS : process.env.CLAUDE_CODE_TIMEOUT_MS,
+        usesTools ? 180_000 : 120_000,
+      );
     const effort = ["low", "medium", "high", "xhigh", "max"].includes(String(reasoningEffort))
       ? String(reasoningEffort)
       : "high";
@@ -417,14 +450,17 @@ export async function runClaudeCodeChat({
     // replies. Otherwise an intermediate pre-tool sentence can flash as if it
     // were part of the final answer.
     // Read-only chat tools keep streaming, behind the lead-in gate below.
-    const effectiveOnTextDelta = webSearch ? undefined : onTextDelta;
+    const effectiveOnTextDelta = webSearch || usesLifeTools ? undefined : onTextDelta;
     const usesStreamingOutput = usesImages || usesTools || Boolean(effectiveOnTextDelta);
-    const availableTools = webSearch ? "WebSearch,WebFetch" : "";
-    const allowedTools = [
-      ...(webSearch ? ["WebSearch", "WebFetch"] : []),
-      ...(usesChatTools ? CHAT_READ_TOOLS : []),
-    ].join(",");
-    const maxTurns = webSearch && usesChatTools ? 6 : usesChatTools ? 5 : webSearch ? 4 : 1;
+    const availableTools = webSearch || usesLifeTools ? "WebSearch,WebFetch" : "";
+    const allowedTools = usesLifeTools
+      ? LIFE_TOOLS.join(",")
+      : [
+        ...(webSearch ? ["WebSearch", "WebFetch"] : []),
+        ...(usesChatTools ? CHAT_READ_TOOLS : []),
+      ].join(",");
+    const maxTurns = usesLifeTools ? positiveInt(process.env.CLAUDE_CODE_LIFE_MAX_TURNS, 30)
+      : webSearch && usesChatTools ? 6 : usesChatTools ? 5 : webSearch ? 4 : 1;
     const args = [
       "-p",
       "--model", requestedModel,
@@ -439,7 +475,7 @@ export async function runClaudeCodeChat({
     if (usesTools) {
       args.push("--allowedTools", allowedTools, "--permission-mode", "dontAsk");
     }
-    if (usesChatTools) {
+    if (usesMcp) {
       args.push("--disallowedTools", CHAT_HIDDEN_TOOLS.join(","));
     }
     if (usesImages) {
@@ -451,7 +487,7 @@ export async function runClaudeCodeChat({
     if (effectiveOnTextDelta) {
       args.push("--include-partial-messages");
     }
-    const toolPrompt = webSearch
+    const toolPrompt = webSearch && !usesLifeTools
       ? [
           systemPrompt,
           "## Web search rules",
@@ -465,7 +501,7 @@ export async function runClaudeCodeChat({
       : systemPrompt;
     const effectiveSystemPrompt = usesChatTools ? `${toolPrompt}\n\n${CHAT_TOOL_RULES}` : toolPrompt;
     const systemPromptFile = `${cwd}/.iooi-system-${randomUUID()}.txt`;
-    const mcpConfigFile = usesChatTools ? `${cwd}/.iooi-mcp-${randomUUID()}.json` : "";
+    const mcpConfigFile = usesMcp ? `${cwd}/.iooi-mcp-${randomUUID()}.json` : "";
     const childEnv: NodeJS.ProcessEnv = {
       NODE_ENV: process.env.NODE_ENV || "production",
       PATH: "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
@@ -480,12 +516,12 @@ export async function runClaudeCodeChat({
       await writeFile(/* turbopackIgnore: true */ systemPromptFile, effectiveSystemPrompt, { encoding: "utf8", mode: 0o600 });
       await chown(/* turbopackIgnore: true */ systemPromptFile, uid, gid);
       args.push("--system-prompt-file", systemPromptFile);
-      if (usesChatTools) {
-        // The read-only key goes through a private file, never the command line.
+      if (usesMcp) {
+        // The key goes through a private file, never the command line.
         // Summer comes from his user-scoped MCP config as usual.
         const mcpConfig = {
           mcpServers: {
-            iooi: { type: "http", url: chatMcpUrl(), headers: { Authorization: `Bearer ${readonlyToken}` } },
+            iooi: { type: "http", url: chatMcpUrl(), headers: { Authorization: `Bearer ${mcpKey}` } },
           },
         };
         await writeFile(/* turbopackIgnore: true */ mcpConfigFile, JSON.stringify(mcpConfig), { encoding: "utf8", mode: 0o600 });
@@ -593,7 +629,7 @@ export async function runClaudeCodeChat({
           stdout += chunk;
           emitPartialLines(chunk);
           // Blog photos come back inside tool results, so tool turns get room.
-          if (stdout.length > (usesChatTools ? 16_000_000 : webSearch ? 4_000_000 : 2_000_000)) terminate(new Error("Claude Code 返回内容过大"));
+          if (stdout.length > (usesMcp ? 16_000_000 : webSearch ? 4_000_000 : 2_000_000)) terminate(new Error("Claude Code 返回内容过大"));
         });
         child.stderr.on("data", (chunk: string) => {
           stderr = (stderr + chunk).slice(-8_000);
@@ -623,7 +659,7 @@ export async function runClaudeCodeChat({
               queueWaitMs,
               model,
               webSearchUsed: (usage.server_tool_use?.web_search_requests || 0) > 0
-                || (webSearch && streamUsedWebSearch(stdout)),
+                || ((webSearch || usesLifeTools) && streamUsedWebSearch(stdout)),
               usage: {
                 input_tokens: usage.input_tokens || 0,
                 cache_creation_input_tokens: usage.cache_creation_input_tokens || 0,
@@ -642,5 +678,6 @@ export async function runClaudeCodeChat({
       await unlink(/* turbopackIgnore: true */ systemPromptFile).catch(() => {});
       if (mcpConfigFile) await unlink(/* turbopackIgnore: true */ mcpConfigFile).catch(() => {});
     }
-  }, priority);
+  };
+  return lifeTools ? task(0) : runQueued(task, priority);
 }
