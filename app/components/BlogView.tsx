@@ -194,11 +194,42 @@ export function BlogView({ settings, fragments, setFragments, onBack, initialScr
   const [himWriting, setHimWriting] = useState(false);
   const [hisSeen, setHisSeen] = useState(readHisSeen);
   const [viewer, setViewer] = useState<Viewer>(null);
+  const overlayRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const clock = useClock();
   useSyncPlaylist(blog);
   // The song plays on through every screen of the blog and stops when it closes.
   useEffect(() => stopBlogMusic, []);
+
+  // iOS keeps the layout viewport tall while the keyboard pans and shrinks
+  // the visible viewport. Keep the notepad and its scroller inside that area.
+  const editing = screen.kind === "edit";
+  useEffect(() => {
+    if (!editing || !overlayRef.current) return;
+    const overlay = overlayRef.current;
+    const viewport = window.visualViewport;
+    let frame = 0;
+    const update = () => {
+      overlay.style.setProperty("--blog-viewport-height", `${viewport?.height ?? window.innerHeight}px`);
+      overlay.style.setProperty("--blog-viewport-top", `${viewport?.offsetTop ?? 0}px`);
+    };
+    const schedule = () => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(update);
+    };
+    update();
+    viewport?.addEventListener("resize", schedule);
+    viewport?.addEventListener("scroll", schedule);
+    window.addEventListener("resize", schedule);
+    return () => {
+      cancelAnimationFrame(frame);
+      viewport?.removeEventListener("resize", schedule);
+      viewport?.removeEventListener("scroll", schedule);
+      window.removeEventListener("resize", schedule);
+      overlay.style.removeProperty("--blog-viewport-height");
+      overlay.style.removeProperty("--blog-viewport-top");
+    };
+  }, [editing]);
 
   const herName = blog.profile.nickname || settings.userName || "我";
   const herAvatar = blog.profile.avatar || settings.userAvatar;
@@ -339,7 +370,8 @@ export function BlogView({ settings, fragments, setFragments, onBack, initialScr
     : screen.kind === "edit" ? "记事本" : screen.kind === "profile" ? "个人档案" : blog.profile.title;
 
   return (
-    <div className="blog-overlay" onPointerDown={(event) => sparkle(event.clientX, event.clientY)}>
+    <div className="blog-overlay" ref={overlayRef} data-editing={editing || undefined}
+      onPointerDown={(event) => sparkle(event.clientX, event.clientY)}>
       <SkyClouds />
 
       <div className={`blog-scroll${inHisSpace ? " is-him" : ""}`} ref={scrollRef}>

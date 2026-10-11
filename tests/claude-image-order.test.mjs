@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { renderStreamInput } from "../app/lib/claude-code.ts";
+import "./helpers/resolve-typescript.mjs";
+
+const { renderStreamInput } = await import("../app/lib/claude-code.ts");
 
 test("an earlier image stays before the current user text in Claude input", () => {
   const image = { type: "image", source: { type: "base64", media_type: "image/png", data: "abcd" } };

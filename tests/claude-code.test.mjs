@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { streamUsedWebSearch } from "../app/lib/claude-code.ts";
+import "./helpers/resolve-typescript.mjs";
+
+const { streamUsedWebSearch } = await import("../app/lib/claude-code.ts");
 
 test("Claude search use follows actual subscription tool calls", () => {
   const searchEvent = JSON.stringify({

@@ -94,7 +94,7 @@ export function RetroBuddyList({
   onDelete: (session: ChatSession) => void;
   onClose: () => void;
 }) {
-  const [closed, setClosed] = useState<Record<string, boolean>>({});
+  const [closed, setClosed] = useState<Record<string, boolean>>({ groups: true });
   const [menuFor, setMenuFor] = useState<string | null>(null);
   const { days, ready } = useTogether(startDate);
   const ticked = contacts.find((contact) => contact.mode === assistantMode);
