@@ -2,8 +2,9 @@
 
 import { useState, useEffect } from "react";
 import type { ReactNode } from "react";
-import { MoonEarthMini, MoonLetter } from "./MoonLetter";
+import { MoonLetter } from "./MoonLetter";
 import { SkyClouds } from "./SkyClouds";
+import { SkyChrome } from "./ThemeProvider";
 import { CLAUDE_DEFAULT_NAME } from "../lib/app-settings";
 import type { Settings } from "../lib/app-settings";
 import {
@@ -87,7 +88,7 @@ export function HomeView({ settings, onOpen, onRetro }: { settings: Settings; on
       className={`home-body phone-home${settings.homeBackground ? " phone-home-wallpaper" : ""}`}
       style={settings.homeBackground ? { backgroundImage: `url("${settings.homeBackground}")` } : undefined}
     >
-      {!settings.homeBackground && <SkyClouds />}
+      {!settings.homeBackground && <><SkyClouds /><SkyChrome /></>}
       {isAnniversary && <Petals />}
 
       <div className="phone-grid">
@@ -113,21 +114,11 @@ export function HomeView({ settings, onOpen, onRetro }: { settings: Settings; on
           <span className="phone-widget-label">As time goes by</span>
         </div>
 
-        <div className="phone-widget phone-widget-small">
-          <button type="button" className="phone-glass phone-moon-tile" onClick={() => onOpen("moon")} aria-label="Moonbound love">
-            <MoonEarthMini />
-          </button>
-          <span className="phone-widget-label">Moonbound love</span>
-        </div>
-
         <div className="phone-app-grid">
           <AppTile label="chat" onClick={() => onOpen("chat")}><IconLineChat /></AppTile>
           <AppTile label="heartbeat" onClick={() => onOpen("heartbeat")}><IconLineHeart /></AppTile>
           <AppTile label="blog" onClick={() => onOpen("blog")}><IconLineBlog /></AppTile>
           <AppTile label="reading" onClick={() => onOpen("reading")}><IconLineBook /></AppTile>
-        </div>
-
-        <div className="phone-app-grid phone-app-row">
           <AppTile label="retro" onClick={onRetro}><IconLineRetro /></AppTile>
           <AppTile label="clawd" onClick={() => onOpen("clawd")}><IconLineClawd /></AppTile>
           <AppTile label="mood" onClick={() => onOpen("mood")}><IconLineMood /></AppTile>

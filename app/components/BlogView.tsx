@@ -9,6 +9,7 @@ import { apiFetch } from "../lib/client-api";
 import { genId } from "../lib/chat-sessions";
 import { prepareImageForUpload } from "../lib/image-compress";
 import { SkyClouds } from "./SkyClouds";
+import { paintBrowserChrome, SkyChrome } from "./ThemeProvider";
 import {
   BLOG_LIMITS, BLOG_MOODS, BLOG_TIME_ZONE, BLOG_WEATHERS, blogArchive, blogDayKey, blogMonthKey, calendarWeeks,
   latestHisPost, monthLabel, parseBlogState, postExcerpt, postHasBody, postImages, postTitle, shiftMonth, songTitleFromFile, sortPosts,
@@ -293,6 +294,12 @@ export function BlogView({ settings, fragments, setFragments, onBack, initialScr
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // The LOADING screen is pink; keep iOS from painting a sky-blue band above it.
+  useEffect(() => {
+    if (!loading) return;
+    return paintBrowserChrome("#fff0f7");
+  }, [loading]);
+
   useEffect(() => {
     if (!toast) return;
     const timer = window.setTimeout(() => setToast(""), 2600);
@@ -373,6 +380,7 @@ export function BlogView({ settings, fragments, setFragments, onBack, initialScr
     <div className="blog-overlay" ref={overlayRef} data-editing={editing || undefined}
       onPointerDown={(event) => sparkle(event.clientX, event.clientY)}>
       <SkyClouds />
+      <SkyChrome />
 
       <div className={`blog-scroll${inHisSpace ? " is-him" : ""}`} ref={scrollRef}>
         {screen.kind === "home" && (

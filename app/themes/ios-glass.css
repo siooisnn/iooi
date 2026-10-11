@@ -119,8 +119,7 @@
   background: var(--liquid-glass-bg);
 }
 
-:root[data-theme="white-pink"] .phone-home .phone-couple-card,
-:root[data-theme="white-pink"] .phone-home .phone-moon-tile {
+:root[data-theme="white-pink"] .phone-home .phone-couple-card {
   border-radius: 6.6cqw;
 }
 
@@ -180,7 +179,7 @@
 }
 
 /* Visible keyboard focus for the desktop's icon-only controls. */
-:root[data-theme="white-pink"] .phone-home :is(.phone-app, .phone-dock-app, .phone-moon-tile):focus-visible {
+:root[data-theme="white-pink"] .phone-home :is(.phone-app, .phone-dock-app):focus-visible {
   outline: 2px solid #686868;
   outline-offset: 5px;
   border-radius: 18px;

@@ -8,7 +8,7 @@
    - the dock is ~12pt in from each side, ~92pt tall, ~34pt corner, and
      sits just above the bottom edge.
    Top: 酥酥 and her joined by a heartbeat line ("As time goes by").
-   Middle: the moon and earth ("Moonbound love") and four apps.
+   Middle: the apps, four to a row like iOS.
    Bottom: the dock. Everything floats as frosted glass over a soft grey
    wallpaper; black, white and grey only, photos keep their colour.
    Rules start with :root[data-theme] so they outrank white-pink's reset of
@@ -66,7 +66,7 @@
   backdrop-filter: blur(24px) saturate(1.6);
 }
 
-/* ── Grid: medium widget on top, small widget + 2×2 apps below ── */
+/* ── Grid: medium widget on top, apps in rows of four below ── */
 :root[data-theme] .phone-home .phone-grid {
   position: relative;
   z-index: 2;
@@ -86,7 +86,6 @@
 }
 
 :root[data-theme] .phone-home .phone-widget-medium { grid-column: 1 / -1; }
-:root[data-theme] .phone-home .phone-widget-small { grid-column: 1 / span 2; }
 
 :root[data-theme] .phone-home .phone-widget-label,
 :root[data-theme] .phone-home .phone-app-label {
@@ -203,21 +202,13 @@
   font-size: 10px;
 }
 
-/* ── Moonbound love ── */
-:root[data-theme] .phone-home .phone-moon-tile {
-  aspect-ratio: 1;
-  padding: 2cqw;
-  overflow: hidden;
-  border-radius: 5.6cqw;
-}
-
-/* ── Apps: icon tops line up with the widget, labels with its name ── */
+/* ── Apps: the same four columns as the widget, filled left to right ── */
 :root[data-theme] .phone-home .phone-app-grid {
-  grid-column: 3 / span 2;
+  grid-column: 1 / -1;
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  align-content: space-between;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   column-gap: 5.6cqw;
+  row-gap: 5.6cqw;
 }
 
 :root[data-theme] .phone-home .phone-app {
@@ -252,7 +243,6 @@
   height: 48%;
 }
 
-:root[data-theme] .phone-home .phone-moon-tile:active,
 :root[data-theme] .phone-home .phone-app:active .phone-app-icon,
 :root[data-theme] .phone-home .phone-dock-app:active {
   transform: scale(0.95);

@@ -1,11 +1,5 @@
 /* clawd: one terracotta crab-ish friend on the grayscale page. */
 
-/* Desktop: retro sits under blog and clawd right under reading (last
-   column), leaving the wallpaper's left side clear. */
-:root[data-theme] .phone-home .phone-app-grid.phone-app-row > .phone-app:nth-child(2) {
-  grid-column: 2;
-}
-
 :root[data-theme] .clawd-room {
   --clawd: #d77757;
   --clawd-dark: #2b2b2b;

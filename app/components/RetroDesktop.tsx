@@ -5,6 +5,7 @@ import type { ReactNode } from "react";
 import { MoonEarthPixel } from "./MoonEarthPixel";
 import { TaskbarClawd } from "./TaskbarClawd";
 import { SkyClouds } from "./SkyClouds";
+import { SkyChrome } from "./ThemeProvider";
 import { HEARTBEAT_LINE, Petals, useTogether } from "./HomeView";
 import type { HomeApp } from "./HomeView";
 import { CLAUDE_DEFAULT_NAME } from "../lib/app-settings";
@@ -250,7 +251,7 @@ export function RetroDesktop({ settings, onOpen, onExit, boot, onBooted }: {
       className={`xp-desktop${settings.homeBackground ? " xp-desktop-photo" : ""}`}
       style={settings.homeBackground ? { backgroundImage: `url("${settings.homeBackground}")` } : undefined}
     >
-      {!settings.homeBackground && <SkyClouds />}
+      {!settings.homeBackground && <><SkyClouds /><SkyChrome /></>}
       {isAnniversary && <Petals />}
 
       <div className="xp-desk-area">

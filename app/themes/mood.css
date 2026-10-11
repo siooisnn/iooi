@@ -124,5 +124,3 @@
   :root[data-theme] .mood-page :is(.mood-today, .mood-calendar) { padding: 14px 10px; }
   :root[data-theme] .mood-screen :is(.mood-today, .mood-calendar) { padding: 16px 8px 10px; }
 }
-
-:root[data-theme] .phone-home .phone-app-row { row-gap: 5.6cqw; }

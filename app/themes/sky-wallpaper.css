@@ -5,9 +5,6 @@
     linear-gradient(180deg, #5cbcff 0%, #9bdcff 45%, #c9ecff 78%, #ffe1f0 100%);
 }
 
-:root[data-theme],
-:root[data-theme] body { background-color: #5cbcff; }
-
 :root[data-theme] .app-bg[data-wallpaper="sky"],
 :root[data-theme] .xp-buddy-screen,
 :root[data-theme] .xp-summer-screen {
@@ -50,26 +47,6 @@
 @keyframes iooiSkyCloud {
   from { translate: 0 0; }
   to { translate: 180vw 0; }
-}
-
-/* Paint just the system status area above opaque page windows. Keep a
-   full-height canvas inside the clip so its gradient matches the desktop. */
-:root[data-theme] .iooi-status-sky {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: env(safe-area-inset-top);
-  z-index: 350;
-  overflow: hidden;
-  pointer-events: none;
-}
-
-:root[data-theme] .iooi-status-sky-canvas {
-  position: absolute;
-  inset: 0 0 auto;
-  height: 100vh;
-  background: var(--iooi-sky-background);
 }
 
 @media (prefers-reduced-motion: reduce) {
