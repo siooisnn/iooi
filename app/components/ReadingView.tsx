@@ -1,28 +1,71 @@
 "use client";
 
-import { useEffect, useId, useRef, useState } from "react";
-import type { ReactNode } from "react";
-import NextImage from "next/image";
-import { PageBack } from "./PageBack";
-import { IconLineBook } from "./NavIcons";
-import type { Settings } from "../lib/app-settings";
-import { createReadingDemo, parseReadingText, readingProgress, MAX_READING_BYTES } from "../lib/reading-books";
-import type { ReadingAnnotation, ReadingBook, ReadingCompanion } from "../lib/reading-books";
-import { loadReadingLibrary, saveReadingBook } from "../lib/reading-library";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
+import type { CSSProperties, ReactNode } from "react";
+import { BookGlyph } from "./RetroDesktop";
+import { CLAUDE_DEFAULT_NAME, type Settings } from "../lib/app-settings";
+import { apiFetch } from "../lib/client-api";
+import {
+  MAX_READING_BYTES, READING_SHELVES, SHELF_LABEL, paceLine, percentAt,
+  type ReadingChapter, type ReadingMark, type ReadingNote, type ReadingShelf, type ReadingWho, type ShelfBook,
+} from "../lib/reading-books";
+import { LEGACY_MOVED_KEY, loadLegacyBooks } from "../lib/reading-library";
 
-function CompanionAvatar({ settings, companion }: { settings: Settings; companion: ReadingCompanion }) {
-  const image = companion === "claude" ? settings.aiAvatar : settings.gptAvatar;
-  const name = companionName(settings, companion);
-  return <span className="reading-avatar">{image
-    ? <NextImage src={image} width={28} height={28} alt="" unoptimized />
-    : <span>{name.slice(0, 1)}</span>}</span>;
+type Reply = { ok: boolean; error?: string; book?: ShelfBook; books?: ShelfBook[]; chapters?: ReadingChapter[] | null };
+
+async function readingApi(init: RequestInit & { query?: string } = {}): Promise<Reply> {
+  const { query, ...rest } = init;
+  let response: Response;
+  try {
+    response = await apiFetch(`/api/reading${query ? `?${query}` : ""}`, rest);
+  } catch {
+    throw new Error("连不上书房，看看网络再试。");
+  }
+  const data = await response.json().catch(() => null) as Reply | null;
+  if (!response.ok || !data?.ok) throw new Error(data?.error || "书房出了点问题，请稍后再试。");
+  return data;
 }
 
-function companionName(settings: Settings, companion: ReadingCompanion) {
-  return companion === "claude" ? settings.aiName || "酥酥" : settings.gptName || "郁郁";
+function postReading(body: Record<string, unknown>) {
+  return readingApi({ method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
 }
 
-function ReadingDialog({ title, children, onClose }: { title: string; children: ReactNode; onClose: () => void }) {
+function putReadingText(file: File, params: Record<string, string>) {
+  return readingApi({ method: "PUT", query: new URLSearchParams(params).toString(),
+    headers: { "Content-Type": "application/octet-stream" }, body: file });
+}
+
+function checkTxt(file: File) {
+  if (!/\.txt$/i.test(file.name)) throw new Error("这一版先支持 TXT。");
+  if (file.size > MAX_READING_BYTES) throw new Error("TXT 暂时最多支持 10MB。");
+}
+
+const COVER_COLORS = ["#c0392b", "#2e6bc6", "#2f8f4e", "#8e44ad", "#d35400", "#16a085", "#b03a73", "#7f6a3a"];
+function coverColor(title: string) {
+  let hash = 0;
+  for (const char of title) hash = (hash * 31 + char.charCodeAt(0)) >>> 0;
+  return COVER_COLORS[hash % COVER_COLORS.length];
+}
+
+function Cover({ title, large = false }: { title: string; large?: boolean }) {
+  return <span className={`rd-cover${large ? " rd-cover-large" : ""}`} style={{ "--rd-cover": coverColor(title) } as CSSProperties} aria-hidden="true">
+    <span>{title}</span>
+  </span>;
+}
+
+/** An XP progress bar: pink blocks for her, blue for him. */
+function Progress({ who, label, mark }: { who: ReadingWho; label: string; mark: ReadingMark | null }) {
+  const percent = mark?.percent ?? 0;
+  return <div className={`rd-progress rd-progress-${who}`}>
+    <span className="rd-progress-name">{label}</span>
+    <span className="rd-progress-bar" role="progressbar" aria-label={`${label}的进度`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={percent}>
+      <i style={{ width: `${percent}%` }} />
+    </span>
+    <span className="rd-progress-value">{mark ? `${percent}%` : "未开始"}</span>
+  </div>;
+}
+
+function XpDialog({ title, children, onClose }: { title: string; children: ReactNode; onClose: () => void }) {
   const ref = useRef<HTMLDialogElement>(null);
   const titleId = useId();
   useEffect(() => {
@@ -30,53 +73,167 @@ function ReadingDialog({ title, children, onClose }: { title: string; children: 
     dialog?.showModal();
     return () => { dialog?.close(); };
   }, []);
-  return <dialog className="reading-dialog" ref={ref} aria-labelledby={titleId}
-    onCancel={(event) => { event.preventDefault(); onClose(); }}
-    onClick={(event) => { if (event.target === event.currentTarget) onClose(); }}>
-    <div className="reading-dialog-inner">
-      <div className="reading-section-head"><h2 id={titleId}>{title}</h2>
-        <button type="button" className="reading-icon-button" onClick={onClose} aria-label="关闭">×</button>
-      </div>
-      {children}
-    </div>
+  return <dialog className="rd-dialog" ref={ref} aria-labelledby={titleId}
+    onCancel={(event) => { event.preventDefault(); onClose(); }}>
+    <header className="rd-dialog-title"><h2 id={titleId}>{title}</h2>
+      <button type="button" className="rd-dialog-close" onClick={onClose} aria-label="关闭"><svg viewBox="0 0 10 10" aria-hidden="true"><path d="M2 2l6 6M8 2l-6 6" /></svg></button>
+    </header>
+    <div className="rd-dialog-body">{children}</div>
   </dialog>;
 }
 
-function CompanionPicker({ settings, value, onChange }: { settings: Settings; value: ReadingCompanion; onChange: (value: ReadingCompanion) => void }) {
-  return <div className="reading-companions" role="group" aria-label="陪读的人">
-    {(["claude", "gpt"] as const).map((companion) => <button type="button" key={companion}
-      className={`reading-companion${value === companion ? " is-selected" : ""}`}
-      aria-pressed={value === companion} onClick={() => onChange(companion)}>
-      <CompanionAvatar settings={settings} companion={companion} />
-      <span>{companionName(settings, companion)}</span>
-      {value === companion && <span className="reading-selected-mark" aria-hidden="true">✓</span>}
-    </button>)}
+type BookForm = { title: string; author: string; shelf: ReadingShelf; wantedBy: ReadingWho; blurb: string; file: File | null };
+
+function BookFormDialog({ initial, hisName, isNew, onClose, onSubmit }: {
+  initial: BookForm; hisName: string; isNew: boolean;
+  onClose: () => void; onSubmit: (form: BookForm) => Promise<void>;
+}) {
+  const [form, setForm] = useState(initial);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const fileRef = useRef<HTMLInputElement>(null);
+  const set = (patch: Partial<BookForm>) => setForm((current) => ({ ...current, ...patch }));
+  return <XpDialog title={isNew ? "添加一本书" : "书的属性"} onClose={onClose}>
+    <form className="rd-form" onSubmit={async (event) => {
+      event.preventDefault();
+      if (busy || !form.title.trim()) return;
+      setBusy(true); setError("");
+      try { await onSubmit(form); }
+      catch (failure) { setError(failure instanceof Error ? failure.message : "没能保存，请再试一次。"); setBusy(false); }
+    }}>
+      <label><span>书名</span><input value={form.title} maxLength={120} required onChange={(event) => set({ title: event.target.value })} /></label>
+      <label><span>作者</span><input value={form.author} maxLength={80} placeholder="可以不填" onChange={(event) => set({ author: event.target.value })} /></label>
+      <fieldset className="rd-radio-row"><legend>放在</legend>
+        {READING_SHELVES.map((shelf) => <label key={shelf}><input type="radio" name="rd-shelf" checked={form.shelf === shelf} onChange={() => set({ shelf })} />{SHELF_LABEL[shelf]}</label>)}
+      </fieldset>
+      {form.shelf === "want" && <fieldset className="rd-radio-row"><legend>谁想读</legend>
+        <label><input type="radio" name="rd-who" checked={form.wantedBy === "her"} onChange={() => set({ wantedBy: "her" })} />你</label>
+        <label><input type="radio" name="rd-who" checked={form.wantedBy === "him"} onChange={() => set({ wantedBy: "him" })} />{hisName}</label>
+      </fieldset>}
+      <label><span>一句话</span><input value={form.blurb} maxLength={200} placeholder="为什么想读，或者随便写点" onChange={(event) => set({ blurb: event.target.value })} /></label>
+      {isNew && <div className="rd-file-row"><span>正文</span>
+        <button type="button" className="rd-button" onClick={() => fileRef.current?.click()}>选择 TXT…</button>
+        <small>{form.file ? form.file.name : "可以先不放，之后再导入"}</small>
+        <input type="file" accept=".txt,text/plain" hidden ref={fileRef} onChange={(event) => {
+          const file = event.target.files?.[0] || null; event.target.value = "";
+          if (!file) return;
+          try { checkTxt(file); setError(""); set({ file, title: form.title || file.name.replace(/\.txt$/i, "").trim() }); }
+          catch (failure) { setError((failure as Error).message); }
+        }} />
+      </div>}
+      {error && <p className="rd-error" role="alert">{error}</p>}
+      <div className="rd-dialog-buttons">
+        <button type="submit" className="rd-button rd-button-default" disabled={busy || !form.title.trim()}>{busy ? "正在保存…" : "确定"}</button>
+        <button type="button" className="rd-button" onClick={onClose}>取消</button>
+      </div>
+    </form>
+  </XpDialog>;
+}
+
+function bookForm(book?: ShelfBook, shelf: ReadingShelf = "reading"): BookForm {
+  return { title: book?.title || "", author: book?.author || "", shelf: book?.shelf || shelf,
+    wantedBy: book?.wantedBy || "her", blurb: book?.blurb || "", file: null };
+}
+
+function ShelfList({ books, shelf, hisName, onOpen }: { books: ShelfBook[]; shelf: ReadingShelf; hisName: string; onOpen: (id: string) => void }) {
+  const items = books.filter((book) => book.shelf === shelf);
+  if (!items.length) return <div className="rd-empty">
+    <BookGlyph />
+    <p>{shelf === "reading" ? "还没有在读的书。" : shelf === "want" ? "想读什么，先记在这里。" : "读完的书会放在这里。"}</p>
+    <small>{shelf === "reading" ? "点上面的「添加」，记个书名，或者导入一本 TXT。" : shelf === "want" ? "你想读的，他想读的，都可以放。" : "读完了就把书挪过来。"}</small>
+  </div>;
+  return <ul className="rd-list">
+    {items.map((book) => <li key={book.id}>
+      <button type="button" className="rd-row" onClick={() => onOpen(book.id)}>
+        <Cover title={book.title} />
+        <span className="rd-row-main">
+          <strong>{book.title}</strong>
+          {book.author && <span className="rd-row-author">{book.author}</span>}
+          {shelf === "want" ? <>
+            {book.wantedBy && <span className="rd-tag">{book.wantedBy === "her" ? "你想读" : `${hisName}想读`}</span>}
+            {book.blurb && <span className="rd-row-blurb">{book.blurb}</span>}
+          </> : <>
+            <Progress who="her" label="你" mark={book.her} />
+            <Progress who="him" label={hisName} mark={book.him} />
+          </>}
+        </span>
+      </button>
+    </li>)}
+  </ul>;
+}
+
+function BookPage({ book, hisName, onRead, onEdit, onDelete, onMark, onText, busy }: {
+  book: ShelfBook; hisName: string; busy: boolean;
+  onRead: () => void; onEdit: () => void; onDelete: () => void;
+  onMark: (percent: number) => void; onText: (file: File) => void;
+}) {
+  const [percent, setPercent] = useState(book.her?.percent ?? 0);
+  const fileRef = useRef<HTMLInputElement>(null);
+  const notes = [...book.notes].sort((a, b) => b.at - a.at);
+  return <div className="rd-book">
+    <section className="rd-book-head">
+      <Cover title={book.title} large />
+      <div>
+        <h2>{book.title}</h2>
+        {book.author && <p>{book.author}</p>}
+        <p className="rd-muted">{SHELF_LABEL[book.shelf]}{book.hasText ? ` · TXT · ${book.chapterCount} 章` : " · 没有正文"}</p>
+        {book.shelf === "want" && book.wantedBy && <span className="rd-tag">{book.wantedBy === "her" ? "你想读" : `${hisName}想读`}</span>}
+        {book.blurb && <p className="rd-blurb">{book.blurb}</p>}
+      </div>
+    </section>
+
+    <fieldset className="rd-group"><legend>我们读到哪了</legend>
+      <Progress who="her" label="你" mark={book.her} />
+      <Progress who="him" label={hisName} mark={book.him} />
+      <p className="rd-pace">{paceLine(book, hisName)}</p>
+      {!book.hasText && <form className="rd-manual" onSubmit={(event) => { event.preventDefault(); onMark(percent); }}>
+        <label htmlFor={`rd-manual-${book.id}`}>纸质书或者在别处读的，自己拖一下：</label>
+        <div>
+          <input id={`rd-manual-${book.id}`} type="range" min={0} max={100} value={percent} onChange={(event) => setPercent(Number(event.target.value))} />
+          <output>{percent}%</output>
+          <button type="submit" className="rd-button" disabled={busy || percent === (book.her?.percent ?? -1)}>记下</button>
+        </div>
+      </form>}
+    </fieldset>
+
+    <fieldset className="rd-group"><legend>{hisName}的批注{notes.length ? ` (${notes.length})` : ""}</legend>
+      {notes.length ? <ul className="rd-notes">{notes.map((note) => <li key={note.id}>
+        {note.quote && <blockquote>{note.quote}</blockquote>}<p>{note.content}</p>
+      </li>)}</ul> : <p className="rd-muted">他还没留下批注。读到想跟你说的地方，他会写在这里。</p>}
+    </fieldset>
+
+    <div className="rd-book-actions">
+      {book.hasText
+        ? <button type="button" className="rd-button rd-button-default" onClick={onRead}>{book.her ? "继续阅读" : "开始阅读"}</button>
+        : <button type="button" className="rd-button rd-button-default" disabled={busy} onClick={() => fileRef.current?.click()}>{busy ? "正在导入…" : "导入正文 TXT"}</button>}
+      <button type="button" className="rd-button" onClick={onEdit}>属性…</button>
+      {book.hasText && <button type="button" className="rd-button" disabled={busy} onClick={() => fileRef.current?.click()}>换正文</button>}
+      <button type="button" className="rd-button" disabled={busy} onClick={onDelete}>删除</button>
+      <input type="file" accept=".txt,text/plain" hidden ref={fileRef} onChange={(event) => {
+        const file = event.target.files?.[0]; event.target.value = "";
+        if (file) onText(file);
+      }} />
+    </div>
   </div>;
 }
 
-function BookCover({ book, large = false }: { book: ReadingBook; large?: boolean }) {
-  return <span className={`reading-cover${large ? " reading-cover-large" : ""}`} aria-hidden="true">
-    <IconLineBook size={large ? 30 : 22} />
-    <span>{book.title}</span><small>{book.isDemo ? "书房示例" : "iooi reading"}</small>
-  </span>;
-}
-
-function ReadingReader({ book, settings, onPosition, onBack }: {
-  book: ReadingBook; settings: Settings;
+function Reader({ book, chapters, hisName, onPosition, onClose }: {
+  book: ShelfBook; chapters: ReadingChapter[]; hisName: string;
   onPosition: (chapterId: string, paragraphIndex: number) => void;
-  onBack: () => void;
+  onClose: () => void;
 }) {
-  const [chapterId, setChapterId] = useState(() => book.chapters.some((chapter) => chapter.id === book.position.chapterId)
-    ? book.position.chapterId : book.chapters[0].id);
-  const [fontSize, setFontSize] = useState(18);
+  const start = book.her?.chapterId && chapters.some((chapter) => chapter.id === book.her?.chapterId) ? book.her : null;
+  const [chapterId, setChapterId] = useState(start?.chapterId || chapters[0].id);
+  const [fontSize, setFontSize] = useState(17);
   const [tocOpen, setTocOpen] = useState(false);
-  const [annotation, setAnnotation] = useState<ReadingAnnotation | "empty" | null>(null);
+  const [note, setNote] = useState<ReadingNote | null>(null);
   const scrollRef = useRef<HTMLElement>(null);
   const positionCallback = useRef(onPosition);
-  const resumePosition = useRef(book.position);
-  const chapterIndex = book.chapters.findIndex((chapter) => chapter.id === chapterId);
-  const chapter = book.chapters[chapterIndex];
-  const name = companionName(settings, book.companion);
+  const resume = useRef({ chapterId: start?.chapterId || chapters[0].id, paragraphIndex: start?.paragraphIndex || 0 });
+  const chapterIndex = chapters.findIndex((chapter) => chapter.id === chapterId);
+  const chapter = chapters[chapterIndex];
+  const hisSpot = book.him?.chapterId === chapterId ? book.him.paragraphIndex ?? -1 : -1;
+  const [herSpot, setHerSpot] = useState(book.her?.percent ?? 0);
 
   useEffect(() => { positionCallback.current = onPosition; }, [onPosition]);
   useEffect(() => {
@@ -88,20 +245,23 @@ function ReadingReader({ book, settings, onPosition, onBack }: {
         const index = Number((entry.target as HTMLElement).dataset.paragraph);
         if (entry.isIntersecting) visible.add(index); else visible.delete(index);
       }
-      if (visible.size) positionCallback.current(chapterId, Math.min(...visible));
+      if (!visible.size) return;
+      const index = Math.min(...visible);
+      positionCallback.current(chapterId, index);
+      setHerSpot(percentAt(chapters, chapterId, index));
     }, { root: scroll, threshold: 0 });
     const frame = requestAnimationFrame(() => {
-      const position = resumePosition.current;
+      const position = resume.current;
       const index = position.chapterId === chapterId ? position.paragraphIndex : 0;
       const target = scroll.querySelector<HTMLElement>(`[data-paragraph="${index}"]`);
-      scroll.scrollTop = index > 0 && target ? Math.max(0, target.offsetTop - 16) : 0;
+      scroll.scrollTop = index > 0 && target ? Math.max(0, target.offsetTop - 12) : 0;
       scroll.querySelectorAll("[data-paragraph]").forEach((paragraph) => observer.observe(paragraph));
     });
     return () => { cancelAnimationFrame(frame); observer.disconnect(); };
-  }, [book.id, chapterId]);
+  }, [chapters, chapterId]);
 
   function openChapter(id: string) {
-    resumePosition.current = { chapterId: id, paragraphIndex: 0 };
+    resume.current = { chapterId: id, paragraphIndex: 0 };
     setChapterId(id);
     positionCallback.current(id, 0);
     setTocOpen(false);
@@ -113,198 +273,238 @@ function ReadingReader({ book, settings, onPosition, onBack }: {
     const anchor = scroll ? Array.from(scroll.querySelectorAll<HTMLElement>("[data-paragraph]"))
       .find((paragraph) => paragraph.getBoundingClientRect().bottom > top + 1) : undefined;
     const offset = scroll && anchor ? scroll.scrollTop - anchor.offsetTop : 0;
-    setFontSize((size) => size >= 22 ? 16 : size + 2);
+    setFontSize((size) => size >= 21 ? 15 : size + 2);
     requestAnimationFrame(() => {
       if (scroll?.isConnected && anchor) scroll.scrollTop = Math.max(0, anchor.offsetTop + offset);
     });
   }
 
-  return <>
-    <header className="reading-reader-head">
-      <button type="button" className="reading-text-button" onClick={onBack}>书架</button>
-      <div><strong>{book.title}</strong><span>{book.isDemo ? "示例正文与示例批注" : `${name}陪你读`}</span></div>
-      <button type="button" className="reading-icon-button" aria-label={`调整字号，当前 ${fontSize}`} onClick={changeFontSize}>Aa</button>
-    </header>
-    <div className="reading-reader-tools">
-      <button type="button" className="reading-text-button" onClick={() => setTocOpen(true)}>目录 · {chapterIndex + 1}/{book.chapters.length}</button>
-      <button type="button" className="reading-notes-button" onClick={() => setAnnotation("empty")}>
-        <CompanionAvatar settings={settings} companion={book.companion} />
-        {book.isDemo ? "示例批注" : "他的批注"}
-      </button>
+  return <div className="rd-reader">
+    <div className="rd-toolbar">
+      <button type="button" className="rd-tool" onClick={onClose}>‹ 返回</button>
+      <button type="button" className="rd-tool" onClick={() => setTocOpen(true)}>目录 {chapterIndex + 1}/{chapters.length}</button>
+      <button type="button" className="rd-tool" onClick={changeFontSize} aria-label={`调整字号，当前 ${fontSize}`}>Aa</button>
     </div>
-    <article ref={scrollRef} className="reading-text" style={{ fontSize }} aria-label="书籍正文">
+    <article ref={scrollRef} className="rd-paper" style={{ fontSize }} aria-label="书籍正文">
       <h1>{chapter.title}</h1>
       {chapter.paragraphs.map((paragraph, index) => {
-        const note = book.annotations.find((item) => item.chapterId === chapter.id && item.paragraphIndex === index && paragraph.includes(item.quote));
-        return <div className={`reading-paragraph${note ? " has-annotation" : ""}`} key={`${chapter.id}-${index}`} data-paragraph={index}>
+        const mark = book.notes.find((item) => item.chapterId === chapter.id && item.paragraphIndex === index);
+        return <div className={`rd-paragraph${mark ? " has-note" : ""}`} key={`${chapter.id}-${index}`} data-paragraph={index}>
+          {index === hisSpot && <span className="rd-his-spot">{hisName}读到这里</span>}
           <p>{paragraph}</p>
-          {note && <button type="button" className="reading-annotation-mark" onClick={() => setAnnotation(note)} aria-label={`查看${name}对这段的${book.isDemo ? "示例" : ""}批注`}>
-            <CompanionAvatar settings={settings} companion={book.companion} />
-          </button>}
+          {mark && <button type="button" className="rd-note-mark" onClick={() => setNote(mark)} aria-label={`看${hisName}在这段的批注`}>批</button>}
         </div>;
       })}
-      <p className="reading-chapter-end">{chapterIndex === book.chapters.length - 1 ? "这一册，到这里读完了。" : "这一章，到这里。"}</p>
+      <p className="rd-chapter-end">{chapterIndex === chapters.length - 1 ? "这一册，到这里读完了。" : "这一章，到这里。"}</p>
+      <div className="rd-chapter-nav">
+        <button type="button" className="rd-button" disabled={chapterIndex === 0} onClick={() => openChapter(chapters[chapterIndex - 1].id)}>上一章</button>
+        <button type="button" className="rd-button" disabled={chapterIndex === chapters.length - 1} onClick={() => openChapter(chapters[chapterIndex + 1].id)}>下一章</button>
+      </div>
     </article>
-    <footer className="reading-reader-footer">
-      <button type="button" className="reading-text-button" disabled={chapterIndex === 0} onClick={() => openChapter(book.chapters[chapterIndex - 1].id)}>上一章</button>
-      <span>{readingProgress(book)}%</span>
-      <button type="button" className="reading-text-button" disabled={chapterIndex === book.chapters.length - 1} onClick={() => openChapter(book.chapters[chapterIndex + 1].id)}>下一章</button>
-    </footer>
-    {tocOpen && <ReadingDialog title="目录" onClose={() => setTocOpen(false)}>
-      <div className="reading-toc">{book.chapters.map((item, index) => <button type="button" key={item.id}
+    <div className="rd-reader-status" aria-live="off">你 {herSpot}% · {hisName} {book.him ? `${book.him.percent}%` : "还没开始"}</div>
+    {tocOpen && <XpDialog title="目录" onClose={() => setTocOpen(false)}>
+      <div className="rd-toc">{chapters.map((item, index) => <button type="button" key={item.id}
         aria-current={item.id === chapterId ? "location" : undefined} onClick={() => openChapter(item.id)}>
         <span>{String(index + 1).padStart(2, "0")}</span>{item.title}
+        {book.him?.chapterId === item.id && <em>{hisName}在这</em>}
       </button>)}</div>
-    </ReadingDialog>}
-    {annotation && <ReadingDialog title={book.isDemo ? "示例批注" : `${name}留下的话`} onClose={() => setAnnotation(null)}>
-      {annotation === "empty" ? <div className="reading-note-empty">
-        <CompanionAvatar settings={settings} companion={book.companion} />
-        <p>{book.isDemo ? "正文旁的小头像，就是批注入口。" : "他还没有留下批注。"}</p>
-        <span>{book.isDemo ? "示例只展示布局，批注并非一次真实的 AI 预读。" : "AI 预读尚未开放。你的书和阅读进度会先保存好。"}</span>
-      </div> : <div className="reading-note">
-        <div className="reading-note-person"><CompanionAvatar settings={settings} companion={book.companion} /><span>{name}{book.isDemo ? " · 布局示例" : ""}</span></div>
-        <blockquote>{annotation.quote}</blockquote><p>{annotation.content}</p>
-      </div>}
-    </ReadingDialog>}
-  </>;
+    </XpDialog>}
+    {note && <XpDialog title={`${hisName}的批注`} onClose={() => setNote(null)}>
+      <div className="rd-note-view">{note.quote && <blockquote>{note.quote}</blockquote>}<p>{note.content}</p></div>
+      <div className="rd-dialog-buttons"><button type="button" className="rd-button rd-button-default" onClick={() => setNote(null)}>确定</button></div>
+    </XpDialog>}
+  </div>;
 }
 
 export function ReadingView({ settings, onBack }: { settings: Settings; onBack: () => void }) {
-  const [books, setBooks] = useState<ReadingBook[]>([]);
+  const hisName = settings.aiName || CLAUDE_DEFAULT_NAME;
+  const [books, setBooks] = useState<ShelfBook[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState("");
+  const [shelf, setShelf] = useState<ReadingShelf>("reading");
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [reading, setReading] = useState(false);
-  const [draft, setDraft] = useState<ReadingBook | null>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
-  const latestProgress = useRef<ReadingBook | null>(null);
+  const [reader, setReader] = useState<{ id: string; chapters: ReadingChapter[] } | null>(null);
+  const [form, setForm] = useState<{ book?: ShelfBook } | null>(null);
+  const pending = useRef<{ id: string; chapterId: string; paragraphIndex: number } | null>(null);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const book = books.find((item) => item.id === selectedId);
+  const book = books.find((item) => item.id === selectedId) || null;
+
+  const applyBook = useCallback((next: ShelfBook) => {
+    setBooks((items) => items.some((item) => item.id === next.id) ? items.map((item) => item.id === next.id ? next : item) : [next, ...items]);
+  }, []);
 
   useEffect(() => {
     let disposed = false;
-    loadReadingLibrary().then((items) => { if (!disposed) setBooks(items); })
-      .catch((error: Error) => { if (!disposed) setNotice(error.message); })
-      .finally(() => { if (!disposed) setLoading(false); });
+    async function load() {
+      try {
+        const data = await readingApi();
+        if (disposed) return;
+        let shelfBooks = data.books || [];
+        setBooks(shelfBooks);
+        if (shelfBooks.some((item) => item.shelf === "reading")) setShelf("reading");
+        else if (shelfBooks.some((item) => item.shelf === "want")) setShelf("want");
+        // Books from the old on-device shelf move to the server once.
+        if (localStorage.getItem(LEGACY_MOVED_KEY)) return;
+        const legacy = await loadLegacyBooks().catch(() => []);
+        let moved = 0;
+        const skipped: string[] = [];
+        for (const old of legacy) {
+          const body = JSON.stringify({ action: "legacy", id: old.id, title: old.title, chapters: old.chapters,
+            position: old.position, read: old.lastReadAt > 0, createdAt: old.createdAt });
+          if (body.length > 9_500_000) { skipped.push(old.title); continue; }
+          try {
+            const reply = await readingApi({ method: "POST", headers: { "Content-Type": "application/json" }, body });
+            shelfBooks = reply.books || shelfBooks;
+            moved += 1;
+          } catch { skipped.push(old.title); }
+        }
+        if (disposed) return;
+        if (legacy.length) {
+          setBooks(shelfBooks);
+          if (moved) setShelf("reading");
+          setNotice([moved ? `手机里的 ${moved} 本书搬到书架上了。` : "", skipped.length ? `《${skipped.join("》《")}》没搬成，重新导入一次吧。` : ""].join(""));
+        }
+        if (!skipped.length || moved) localStorage.setItem(LEGACY_MOVED_KEY, String(Date.now()));
+      } catch (error) {
+        if (!disposed) setNotice((error as Error).message);
+      } finally {
+        if (!disposed) setLoading(false);
+      }
+    }
+    void load();
     return () => { disposed = true; };
   }, []);
 
+  const flushPosition = useCallback(async () => {
+    if (saveTimer.current) { clearTimeout(saveTimer.current); saveTimer.current = null; }
+    const spot = pending.current;
+    pending.current = null;
+    if (!spot) return;
+    try {
+      const reply = await postReading({ action: "mark", id: spot.id, chapterId: spot.chapterId, paragraphIndex: spot.paragraphIndex });
+      if (reply.book) applyBook(reply.book);
+    } catch (error) { setNotice(`进度没存上：${(error as Error).message}`); }
+  }, [applyBook]);
+
   useEffect(() => {
-    function flush() {
-      if (saveTimer.current) clearTimeout(saveTimer.current);
-      if (latestProgress.current) void saveReadingBook(latestProgress.current).catch((error: Error) => setNotice(error.message));
-    }
-    function hidden() { if (document.visibilityState === "hidden") flush(); }
+    function hidden() { if (document.visibilityState === "hidden") void flushPosition(); }
     document.addEventListener("visibilitychange", hidden);
-    return () => { document.removeEventListener("visibilitychange", hidden); flush(); };
-  }, []);
+    return () => { document.removeEventListener("visibilitychange", hidden); void flushPosition(); };
+  }, [flushPosition]);
 
-  async function persist(next: ReadingBook): Promise<boolean> {
-    try {
-      await saveReadingBook(next);
-      setBooks((items) => [next, ...items.filter((item) => item.id !== next.id)]);
-      setNotice("");
-      return true;
-    } catch (error) { setNotice(error instanceof Error ? error.message : "保存失败，请稍后重试。"); return false; }
-  }
+  const recordPosition = useCallback((chapterId: string, paragraphIndex: number) => {
+    if (!reader) return;
+    const current = books.find((item) => item.id === reader.id)?.her;
+    if (!pending.current && current?.chapterId === chapterId && current.paragraphIndex === paragraphIndex) return;
+    pending.current = { id: reader.id, chapterId, paragraphIndex };
+    if (saveTimer.current) clearTimeout(saveTimer.current);
+    saveTimer.current = setTimeout(() => { void flushPosition(); }, 1500);
+  }, [reader, books, flushPosition]);
 
-  async function importFile(file?: File) {
-    if (!file) return;
-    if (!/\.txt$/i.test(file.name)) { setNotice("这一版先支持 TXT，EPUB 阅读会随后接入。"); return; }
-    if (file.size > MAX_READING_BYTES) { setNotice("TXT 暂时最多支持 10MB。"); return; }
+  async function run(task: () => Promise<void>) {
     setBusy(true);
-    try {
-      const chapters = parseReadingText(new Uint8Array(await file.arrayBuffer()));
-      setDraft({ id: crypto.randomUUID(), title: file.name.replace(/\.txt$/i, "").trim() || "未命名的书",
-        companion: "claude", chapters, annotations: [], position: { chapterId: chapters[0].id, paragraphIndex: 0 },
-        preRead: { status: "not-started", completedChapters: 0 }, createdAt: Date.now(), lastReadAt: 0, isDemo: false });
-      setNotice("");
-    } catch (error) { setNotice(error instanceof Error ? error.message : "没能读出这本书，请重试。"); }
+    try { await task(); setNotice(""); }
+    catch (error) { setNotice((error as Error).message); }
     finally { setBusy(false); }
   }
 
-  function recordPosition(chapterId: string, paragraphIndex: number) {
-    if (!book) return;
-    if (book.lastReadAt && book.position.chapterId === chapterId && book.position.paragraphIndex === paragraphIndex) return;
-    const next = { ...book, position: { chapterId, paragraphIndex }, lastReadAt: Date.now() };
-    latestProgress.current = next;
-    setBooks((items) => items.map((item) => item.id === next.id ? next : item));
-    if (saveTimer.current) clearTimeout(saveTimer.current);
-    saveTimer.current = setTimeout(() => { void saveReadingBook(next).catch((error: Error) => setNotice(error.message)); }, 500);
+  async function openReader(target: ShelfBook) {
+    await run(async () => {
+      const data = await readingApi({ query: `book=${encodeURIComponent(target.id)}` });
+      if (!data.chapters?.length) throw new Error("这本书的正文找不到了，重新导入一下吧。");
+      if (data.book) applyBook(data.book);
+      setReader({ id: target.id, chapters: data.chapters });
+    });
   }
 
-  async function leaveReader() {
-    if (saveTimer.current) clearTimeout(saveTimer.current);
-    if (latestProgress.current && !(await persist(latestProgress.current))) return;
-    latestProgress.current = null;
-    setReading(false);
-    setSelectedId(null);
+  async function closeReader() {
+    await flushPosition();
+    setReader(null);
   }
 
-  async function openDemo() {
-    const demo = books.find((item) => item.id === "reading-demo-claude") || createReadingDemo("claude");
-    if (await persist(demo)) setSelectedId(demo.id);
+  async function saveForm(values: BookForm) {
+    const fields = { title: values.title.trim(), author: values.author.trim(), shelf: values.shelf,
+      wantedBy: values.shelf === "want" ? values.wantedBy : "", blurb: values.blurb.trim() };
+    const editing = form?.book;
+    const reply = editing ? await postReading({ action: "edit", id: editing.id, ...fields })
+      : values.file ? await putReadingText(values.file, fields)
+      : await postReading({ action: "add", ...fields });
+    if (reply.books) setBooks(reply.books);
+    if (reply.book) { setShelf(reply.book.shelf); if (!editing) setSelectedId(reply.book.id); }
+    setForm(null);
+    setNotice("");
   }
 
-  return <>
-    <section key={book ? `${reading ? "reader" : "book"}-${book.id}` : "shelf"}
-      className={`diary-body reading-body reading-room${book && reading ? " reading-reader" : ""}`}>
-      {notice && !draft && <div className="reading-notice" role="alert"><span>{notice}</span>
+  const reading = reader ? books.find((item) => item.id === reader.id) : null;
+  const counts = Object.fromEntries(READING_SHELVES.map((key) => [key, books.filter((item) => item.shelf === key).length])) as Record<ReadingShelf, number>;
+  const title = reading ? reading.title : book ? book.title : "我们的书房";
+
+  return <div className="xp-summer-screen rd-screen">
+    <section className="xp-summer-window" aria-label="reading">
+      <header className="xp-summer-titlebar">
+        <span className="rd-title-icon"><BookGlyph /></span><h1>{title} - reading</h1>
+        <div className="xp-summer-controls">
+          <i className="xp-summer-window-button xp-summer-min" aria-hidden="true" />
+          <i className="xp-summer-window-button xp-summer-max" aria-hidden="true" />
+          <button type="button" className="xp-summer-window-button xp-summer-close" aria-label="关闭窗口，回到桌面"
+            onClick={async () => { await flushPosition(); onBack(); }}><svg viewBox="0 0 10 10" aria-hidden="true"><path d="M2 2l6 6M8 2l-6 6" /></svg></button>
+        </div>
+      </header>
+
+      {notice && <div className="rd-notice" role="alert"><span>{notice}</span>
         <button type="button" onClick={() => setNotice("")} aria-label="关闭提示">×</button></div>}
-      {book && reading ? <ReadingReader book={book} settings={settings} onPosition={recordPosition} onBack={() => { void leaveReader(); }} />
-        : book ? <>
-          <button type="button" className="reading-text-button reading-back-link" onClick={() => setSelectedId(null)}>‹ 回到书架</button>
-          <div className="reading-book-hero"><BookCover book={book} large />
-            <h1>{book.title}</h1><p>{book.isDemo ? "书房示例" : "TXT"} · {book.chapters.length} 章</p></div>
-          <div className="reading-card"><h2>陪你读的人</h2>
-            <CompanionPicker settings={settings} value={book.companion} onChange={(companion) => { void persist({ ...book, companion }); }} />
+
+      {reading && reader ? <Reader key={reading.id} book={reading} chapters={reader.chapters} hisName={hisName}
+        onPosition={recordPosition} onClose={() => { void closeReader(); }} />
+        : <>
+          <div className="rd-toolbar">
+            {book ? <button type="button" className="rd-tool" onClick={() => setSelectedId(null)}>‹ 书架</button>
+              : <button type="button" className="rd-tool" disabled={loading} onClick={() => setForm({})}><span aria-hidden="true">＋</span> 添加</button>}
+            <span className="rd-toolbar-note">{book ? SHELF_LABEL[book.shelf] : `${books.length} 本书`}</span>
           </div>
-          <div className="reading-card reading-pre-read">
-            <div className="reading-section-head"><h2>{book.isDemo ? "批注布局示例" : "等他留下批注"}</h2>
-              <span className="reading-badge">{book.isDemo ? "示例" : "尚未开放"}</span></div>
-            <p>{book.isDemo ? "这本短书和批注用于展示阅读布局，并非真实的 AI 预读结果。" : "AI 预读与批注正在准备。你可以先保存书、阅读正文，之后再看他留下的话。"}</p>
-            <progress max={book.chapters.length} value={book.preRead.completedChapters} aria-label={book.isDemo ? "示例预读进度" : "AI 预读进度"} />
-            <span className="reading-small">{book.isDemo ? "2 章 · 2 条示例批注" : `预读 ${book.preRead.completedChapters}/${book.chapters.length} 章`}</span>
+          <div className="rd-content">
+            {book ? <BookPage key={book.id} book={book} hisName={hisName} busy={busy}
+              onRead={() => { void openReader(book); }}
+              onEdit={() => setForm({ book })}
+              onDelete={() => {
+                if (!window.confirm(`把《${book.title}》从书架上拿下来？进度和批注会一起删掉。`)) return;
+                void run(async () => {
+                  const reply = await postReading({ action: "delete", id: book.id });
+                  if (reply.books) setBooks(reply.books);
+                  setSelectedId(null);
+                });
+              }}
+              onMark={(percent) => { void run(async () => {
+                const reply = await postReading({ action: "mark", id: book.id, percent });
+                if (reply.book) applyBook(reply.book);
+              }); }}
+              onText={(file) => { void run(async () => {
+                checkTxt(file);
+                if (book.hasText && !window.confirm("换一份正文的话，书里的批注会清掉，进度只留百分比。要换吗？")) return;
+                const reply = await putReadingText(file, { book: book.id });
+                if (reply.books) setBooks(reply.books);
+              }); }}
+            />
+              : <>
+                <div className="rd-tabs" role="tablist" aria-label="书架">
+                  {READING_SHELVES.map((key) => <button type="button" role="tab" key={key} aria-selected={shelf === key}
+                    onClick={() => setShelf(key)}>{SHELF_LABEL[key]}{counts[key] ? ` (${counts[key]})` : ""}</button>)}
+                </div>
+                <div className="rd-tab-panel" role="tabpanel">
+                  {loading ? <p className="rd-muted rd-loading" role="status">正在打开书架…</p>
+                    : <ShelfList books={books} shelf={shelf} hisName={hisName} onOpen={setSelectedId} />}
+                </div>
+              </>}
           </div>
-          <button type="button" className="reading-primary" onClick={() => setReading(true)}>{book.lastReadAt ? "继续阅读" : "开始阅读"}</button>
-          <p className="reading-local-note">正文与进度保存在这台设备。暂不跨设备同步。</p>
-        </> : <>
-          <header className="reading-shelf-head"><div><span className="reading-eyebrow">reading</span><h1>我们的书房</h1></div>
-            <button type="button" className="reading-add" disabled={busy || loading} onClick={() => inputRef.current?.click()} aria-label="导入书籍">＋</button></header>
-          <p className="reading-intro">他先读，留下想对你说的话。你慢慢看。</p>
-          {loading ? <p className="reading-local-note" role="status">正在打开书架…</p> : books.length ? <div className="reading-shelf">
-            {books.map((item) => <button type="button" key={item.id} className="reading-book-card" onClick={() => setSelectedId(item.id)}>
-              <BookCover book={item} /><span className="reading-book-info"><strong>{item.title}</strong>
-                <span className="reading-small">{item.isDemo ? "示例" : "TXT"} · {item.chapters.length} 章</span>
-                <span className="reading-book-person"><CompanionAvatar settings={settings} companion={item.companion} />{companionName(settings, item.companion)}陪你读</span>
-                <span className="reading-small">{item.lastReadAt ? `读到 ${readingProgress(item)}%` : item.isDemo ? "看看批注会出现在哪里" : "已加入书架 · 等待陪读"}</span>
-              </span><span className="reading-card-arrow" aria-hidden="true">›</span>
-            </button>)}
-          </div> : <div className="reading-card reading-empty-state"><IconLineBook size={40} /><h2>把一本书留在这里</h2>
-            <p>先导入一本 TXT，选一个陪你读的人。</p>
-            <button type="button" className="reading-primary" disabled={busy} onClick={() => inputRef.current?.click()}>{busy ? "正在打开…" : "导入第一本书"}</button>
-          </div>}
-          {!loading && <button type="button" className="reading-demo-link" onClick={() => { void openDemo(); }}>看看书房示例 ↗</button>}
-          <p className="reading-local-note">支持 TXT，最多 10MB。书籍保存在这台设备。</p>
         </>}
-      <input type="file" accept=".txt,text/plain" hidden ref={inputRef} onChange={(event) => {
-        const file = event.target.files?.[0]; event.target.value = ""; void importFile(file);
-      }} />
+
+      <footer className="xp-summer-statusbar">
+        <span>{busy ? "请稍候…" : "就绪"}</span>
+        <span>{reading ? `正在读《${reading.title}》` : counts.reading ? `在读 ${counts.reading} 本 · 想读 ${counts.want} 本 · 读完 ${counts.done} 本` : "一本书可以读很久。"}</span>
+      </footer>
     </section>
-    <PageBack onBack={book && reading ? () => { void leaveReader(); } : book ? () => setSelectedId(null) : onBack}
-      label={book ? "返回书架" : "返回桌面"} />
-    {draft && <ReadingDialog title="放进我们的书房" onClose={() => setDraft(null)}>
-      {notice && <p className="reading-notice" role="alert">{notice}</p>}
-      <label className="reading-input-label">书名<input className="reading-title-input" value={draft.title} maxLength={120} onChange={(event) => setDraft({ ...draft, title: event.target.value })} /></label>
-      <p className="reading-small">选一个陪你读的人</p>
-      <CompanionPicker settings={settings} value={draft.companion} onChange={(companion) => setDraft({ ...draft, companion })} />
-      <p className="reading-local-note">正文已识别，共 {draft.chapters.length} 章。AI 预读尚未开放。</p>
-      <button type="button" className="reading-primary" disabled={busy || !draft.title.trim()} onClick={async () => {
-        setBusy(true);
-        if (await persist({ ...draft, title: draft.title.trim() })) { setSelectedId(draft.id); setDraft(null); }
-        setBusy(false);
-      }}>{busy ? "正在保存…" : "加入书架"}</button>
-    </ReadingDialog>}
-  </>;
+    {form && <BookFormDialog initial={bookForm(form.book, shelf)} hisName={hisName} isNew={!form.book}
+      onClose={() => setForm(null)} onSubmit={saveForm} />}
+  </div>;
 }

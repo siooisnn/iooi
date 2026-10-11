@@ -1,106 +1,167 @@
-/* A quiet bookshelf and paper-like reader inside the grayscale shell. */
-:root[data-theme] .reading-room {
-  gap: 18px;
-  color: #303030;
+/* ━━ reading: our bookshelf as an XP window ━━
+   The frame (.xp-summer-screen / -window / -titlebar / -statusbar) comes from
+   xp-summer.css. Inside: a toolbar, a tab control for 在读 / 想读 / 读完了, a
+   white list view, group boxes on the beige face, and a paper reader.
+   Her progress is pink blocks, his is blue. */
+
+:root[data-theme] .rd-screen .rd-title-icon { display: block; flex: none; width: 18px; height: 18px; filter: drop-shadow(0 1px 0 rgba(0, 0, 0, 0.3)); }
+:root[data-theme] .rd-screen .rd-title-icon svg { display: block; width: 100%; height: 100%; }
+:root[data-theme] .rd-screen :is(h1, h2, p, ul, blockquote, fieldset) { margin: 0; }
+:root[data-theme] .rd-screen button { font: inherit; color: inherit; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+:root[data-theme] .rd-screen button:disabled { cursor: default; }
+:root[data-theme] .rd-screen :is(button, input):focus-visible { outline: 1px dotted #000; outline-offset: -3px; }
+:root[data-theme] .rd-screen .rd-muted { color: #555; font-size: 12px; line-height: 1.6; }
+
+/* ━━ A yellow balloon for notices ━━ */
+:root[data-theme] .rd-screen .rd-notice { display: flex; flex: none; align-items: flex-start; gap: 8px; padding: 6px 8px; border-bottom: 1px solid #aca899; background: #ffffe1; color: #000; font-size: 12px; line-height: 1.6; }
+:root[data-theme] .rd-screen .rd-notice > span { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+:root[data-theme] .rd-screen .rd-notice > button { flex: none; padding: 0 4px; border: 0; background: transparent; font-size: 15px; line-height: 1.3; }
+
+/* ━━ Toolbar ━━ */
+:root[data-theme] .rd-screen .rd-toolbar { display: flex; flex: none; align-items: center; gap: 2px; min-height: 34px; padding: 2px 6px; border-bottom: 1px solid #aca899; background: var(--xp-face); }
+:root[data-theme] .rd-screen .rd-tool { display: inline-flex; align-items: center; gap: 4px; min-height: 28px; padding: 2px 9px; border: 1px solid transparent; border-radius: 3px; background: transparent; color: #000; font-size: 12.5px; white-space: nowrap; }
+:root[data-theme] .rd-screen .rd-tool > span { color: #2f8f4e; font-size: 15px; font-weight: 700; line-height: 1; }
+:root[data-theme] .rd-screen .rd-tool:disabled { color: #aca899; }
+:root[data-theme] .rd-screen .rd-tool:not(:disabled):active { border-color: #aca899 #fff #fff #aca899; background: #e3e0d0; }
+@media (hover: hover) {
+  :root[data-theme] .rd-screen .rd-tool:not(:disabled):hover { border-color: #fff #aca899 #aca899 #fff; }
+}
+:root[data-theme] .rd-screen .rd-toolbar-note { margin-left: auto; padding-right: 4px; color: #555; font-size: 12px; white-space: nowrap; }
+
+/* ━━ XP push buttons ━━ */
+:root[data-theme] .rd-screen .rd-button {
+  min-width: 72px;
+  min-height: 28px;
+  padding: 3px 12px;
+  border: 1px solid #003c74;
+  border-radius: 3px;
+  background: linear-gradient(180deg, #fff 0%, #ecebe6 86%, #d6d0c5 100%);
+  color: #000;
+  font-size: 12.5px;
+  white-space: nowrap;
+}
+:root[data-theme] .rd-screen .rd-button-default { box-shadow: inset -1px 1px #cee7ff, inset 1px 2px #98b8ea, inset -2px 2px #bcd4f6, inset 1px -1px #89ade4, inset 2px -2px #89ade4; }
+:root[data-theme] .rd-screen .rd-button:disabled { border-color: #c9c7ba; color: #aca899; box-shadow: none; }
+:root[data-theme] .rd-screen .rd-button:not(:disabled):active { background: linear-gradient(180deg, #cdcac3 0%, #e3e3db 8%, #e5e5de 94%, #f2f2f1 100%); box-shadow: none; }
+@media (hover: hover) {
+  :root[data-theme] .rd-screen .rd-button:not(:disabled):hover { box-shadow: inset -1px 1px #fff0cf, inset 1px 2px #fdd889, inset -2px 2px #fbc761, inset 2px -2px #e5a01a; }
 }
 
-:root[data-theme] .reading-room :is(h1, h2, p) { margin: 0; }
-:root[data-theme] .reading-room h1 { font-size: 25px; font-weight: 600; line-height: 1.35; }
-:root[data-theme] .reading-room h2,
-:root[data-theme] .reading-dialog h2 { font-size: 16px; font-weight: 600; line-height: 1.5; margin: 0; }
-:root[data-theme] .reading-room button,
-:root[data-theme] .reading-dialog button { font: inherit; cursor: pointer; -webkit-tap-highlight-color: transparent; }
-:root[data-theme] :is(.reading-room, .reading-dialog) button:disabled { opacity: 0.4; cursor: default; }
-:root[data-theme] :is(.reading-room, .reading-dialog) button:focus-visible { outline: 2px solid #686868; outline-offset: 3px; }
+/* ━━ The window face ━━ */
+:root[data-theme] .rd-screen .rd-content { display: flex; flex: 1; flex-direction: column; min-height: 0; padding: 10px; overflow-y: auto; overscroll-behavior: contain; background: var(--xp-face); color: #000; -webkit-overflow-scrolling: touch; }
 
-:root[data-theme] .reading-shelf-head,
-:root[data-theme] .reading-section-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-:root[data-theme] .reading-eyebrow { display: block; margin-bottom: 5px; color: #808080; font-size: 12px; letter-spacing: 1.8px; }
-:root[data-theme] .reading-intro { color: #777; font-size: 13px; line-height: 1.7; }
-:root[data-theme] .reading-room .reading-add { width: 40px; height: 40px; padding: 0; flex: 0 0 40px; border: 0.5px solid #fff; border-radius: 50%; background: var(--liquid-glass-bg); color: #454545; font-size: 26px; box-shadow: var(--ios-card-shadow); }
+/* Tab control. The picked tab is white, a little taller, with an orange top line. */
+:root[data-theme] .rd-screen .rd-tabs { display: flex; flex: none; gap: 1px; padding-left: 4px; }
+:root[data-theme] .rd-screen .rd-tabs > button { position: relative; top: 1px; min-height: 28px; padding: 3px 12px; border: 1px solid #919b9c; border-bottom: 0; border-radius: 3px 3px 0 0; background: linear-gradient(180deg, #fff, #ecebe6); color: #000; font-size: 12.5px; }
+:root[data-theme] .rd-screen .rd-tabs > button[aria-selected="true"] { z-index: 1; margin-top: -2px; min-height: 31px; border-top: 3px solid #ffc83c; background: #fcfcfe; }
+:root[data-theme] .rd-screen .rd-tab-panel { flex: 1; min-height: 160px; padding: 6px; border: 1px solid #919b9c; background: #fcfcfe; }
+:root[data-theme] .rd-screen .rd-loading { padding: 18px 8px; }
 
-:root[data-theme] .reading-card,
-:root[data-theme] .reading-room .reading-book-card { padding: 18px; border: 0.5px solid rgba(255,255,255,0.85); border-radius: 22px; background: var(--ios-card-bg, #fff); box-shadow: var(--ios-card-shadow); }
-:root[data-theme] .reading-card { display: flex; flex-direction: column; gap: 14px; flex-shrink: 0; }
-:root[data-theme] .reading-empty-state { align-items: center; gap: 16px; padding: 38px 22px 26px; text-align: center; }
-:root[data-theme] .reading-empty-state > svg { color: #707070; margin-bottom: 6px; }
-:root[data-theme] .reading-empty-state > p { font-size: 13px; color: #777; line-height: 1.8; }
-:root[data-theme] :is(.reading-room, .reading-dialog) .reading-primary { display: block; width: 100%; padding: 13px 16px; border: 0; border-radius: 15px; color: #fff; background: #565656; font-size: 14px; font-weight: 500; text-align: center; }
-:root[data-theme] .reading-room :is(.reading-demo-link, .reading-text-button),
-:root[data-theme] .reading-dialog .reading-text-button { padding: 5px 0; border: 0; background: transparent; color: #646464; font-size: 13px; }
-:root[data-theme] .reading-demo-link { align-self: center; }
-:root[data-theme] .reading-back-link { align-self: flex-start; }
-:root[data-theme] .reading-local-note { color: #888; font-size: 11px; line-height: 1.7; text-align: center; }
-:root[data-theme] .reading-small { color: #858585; font-size: 12px; line-height: 1.6; }
+/* ━━ Book list ━━ */
+:root[data-theme] .rd-screen .rd-list { display: flex; flex-direction: column; padding: 0; list-style: none; }
+:root[data-theme] .rd-screen .rd-row { display: flex; align-items: flex-start; gap: 12px; width: 100%; padding: 9px 6px; border: 1px solid transparent; background: transparent; text-align: left; }
+:root[data-theme] .rd-screen .rd-list > li + li { border-top: 1px solid #eceae0; }
+:root[data-theme] .rd-screen .rd-row:active { border-color: #316ac5; background: #e1e9f8; }
+@media (hover: hover) {
+  :root[data-theme] .rd-screen .rd-row:hover { border-color: #316ac5; background: #e1e9f8; }
+}
+:root[data-theme] .rd-screen .rd-row-main { display: flex; flex: 1; flex-direction: column; gap: 4px; min-width: 0; }
+:root[data-theme] .rd-screen .rd-row-main > strong { font-size: 14px; line-height: 1.4; overflow-wrap: anywhere; }
+:root[data-theme] .rd-screen .rd-row-author { margin-top: -3px; color: #555; font-size: 12px; }
+:root[data-theme] .rd-screen .rd-row-blurb { color: #333; font-size: 12px; line-height: 1.6; overflow-wrap: anywhere; }
+:root[data-theme] .rd-screen .rd-tag { align-self: flex-start; padding: 0 6px; border: 1px solid #c2b8e6; border-radius: 2px; background: #f1edff; color: #4b3b8f; font-size: 11px; line-height: 18px; }
+:root[data-theme] .rd-screen .rd-empty { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 28px 12px; color: #000; text-align: center; }
+:root[data-theme] .rd-screen .rd-empty > svg { width: 44px; height: 44px; margin-bottom: 6px; opacity: 0.85; }
+:root[data-theme] .rd-screen .rd-empty > p { font-size: 13px; }
+:root[data-theme] .rd-screen .rd-empty > small { color: #555; font-size: 12px; line-height: 1.6; }
 
-:root[data-theme] .reading-shelf { display: flex; flex-direction: column; gap: 12px; }
-:root[data-theme] .reading-room .reading-book-card { display: flex; align-items: center; gap: 16px; width: 100%; min-width: 0; padding: 16px; text-align: left; color: #303030; }
-:root[data-theme] .reading-cover { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; flex: 0 0 70px; width: 70px; min-height: 100px; padding: 12px 8px; border-radius: 4px 10px 10px 4px; border-left: 3px solid rgba(0,0,0,0.08); background: linear-gradient(145deg,#f1f1f1,#d8d8d8); box-shadow: 2px 3px 9px rgba(0,0,0,0.06); text-align: center; color: #555; }
-:root[data-theme] .reading-cover > span { font-size: 10px; line-height: 1.5; overflow-wrap: anywhere; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; overflow: hidden; }
-:root[data-theme] .reading-cover > small { font-size: 7px; color: #888; }
-:root[data-theme] .reading-book-info { display: flex; flex-direction: column; gap: 6px; flex: 1 1 auto; min-width: 0; }
-:root[data-theme] .reading-book-info > strong { font-size: 15px; line-height: 1.5; overflow-wrap: anywhere; }
-:root[data-theme] .reading-book-person { display: flex; align-items: center; gap: 7px; font-size: 12px; color: #666; }
-:root[data-theme] .reading-card-arrow { color: #9a9a9a; font-size: 22px; flex-shrink: 0; }
-:root[data-theme] .reading-avatar { display: inline-flex; align-items: center; justify-content: center; flex: 0 0 26px; width: 26px; height: 26px; border-radius: 50%; overflow: hidden; background: #dedede; color: #777; font-size: 11px; }
-:root[data-theme] .reading-avatar img { width: 100%; height: 100%; object-fit: cover; }
+/* A book spine-ish cover in the book's own colour. */
+:root[data-theme] .rd-screen .rd-cover { display: flex; flex: none; align-items: center; justify-content: center; width: 42px; height: 58px; padding: 4px 3px 4px 6px; border: 1px solid rgba(0, 0, 0, 0.45); border-radius: 1px 3px 3px 1px; background: linear-gradient(90deg, rgba(0, 0, 0, 0.28) 0 4px, rgba(255, 255, 255, 0.18) 4px 5px, transparent 5px), linear-gradient(160deg, rgba(255, 255, 255, 0.25), transparent 55%), var(--rd-cover, #c0392b); box-shadow: 1px 2px 3px rgba(0, 0, 0, 0.25); color: #fff; text-shadow: 0 1px 0 rgba(0, 0, 0, 0.35); }
+:root[data-theme] .rd-screen .rd-cover > span { display: -webkit-box; overflow: hidden; font-size: 9px; line-height: 1.3; text-align: center; overflow-wrap: anywhere; -webkit-box-orient: vertical; -webkit-line-clamp: 4; }
+:root[data-theme] .rd-screen .rd-cover-large { width: 76px; height: 104px; padding: 8px 6px 8px 10px; }
+:root[data-theme] .rd-screen .rd-cover-large > span { font-size: 12px; -webkit-line-clamp: 5; }
 
-:root[data-theme] .reading-book-hero { display: flex; flex-direction: column; align-items: center; gap: 14px; padding: 8px 10px 4px; text-align: center; }
-:root[data-theme] .reading-cover-large { width: 116px; min-height: 158px; flex-basis: auto; gap: 14px; padding: 20px 12px; }
-:root[data-theme] .reading-cover-large > span { font-size: 15px; }
-:root[data-theme] .reading-cover-large > small { font-size: 9px; }
-:root[data-theme] .reading-book-hero > h1 { font-size: 22px; overflow-wrap: anywhere; }
-:root[data-theme] .reading-book-hero > p { color: #888; font-size: 12px; }
-:root[data-theme] .reading-companions { display: flex; gap: 8px; }
-:root[data-theme] :is(.reading-room, .reading-dialog) .reading-companion { display: flex; align-items: center; gap: 7px; min-width: 0; flex: 1; padding: 10px; border: 1px solid #e5e5e5; border-radius: 14px; background: #f7f7f7; color: #777; font-size: 13px; text-align: left; }
-:root[data-theme] :is(.reading-room, .reading-dialog) .reading-companion.is-selected { border-color: #b8b8b8; background: #eee; color: #333; }
-:root[data-theme] .reading-companion > span:not(.reading-avatar) { overflow-wrap: anywhere; }
-:root[data-theme] .reading-selected-mark { margin-left: auto; font-size: 11px; }
-:root[data-theme] .reading-badge { flex-shrink: 0; padding: 4px 8px; border-radius: 999px; background: #eee; color: #888; font-size: 10px; }
-:root[data-theme] .reading-pre-read > p { color: #777; font-size: 13px; line-height: 1.8; }
-:root[data-theme] .reading-pre-read progress { width: 100%; height: 4px; border: 0; border-radius: 99px; overflow: hidden; background: #e6e6e6; accent-color: #858585; }
-:root[data-theme] .reading-pre-read progress::-webkit-progress-bar { background: #e6e6e6; }
-:root[data-theme] .reading-pre-read progress::-webkit-progress-value { background: #858585; }
-:root[data-theme] .reading-notice { display: flex; align-items: center; gap: 12px; padding: 12px; border-radius: 12px; background: #fff; border: 1px solid #d7d7d7; color: #555; font-size: 12px; line-height: 1.7; flex-shrink: 0; }
-:root[data-theme] .reading-notice > button { margin-left: auto; padding: 2px 6px; border: 0; background: transparent; color: inherit; }
+/* ━━ Progress: name, a sunken bar of blocks, the number ━━ */
+:root[data-theme] .rd-screen .rd-progress { display: grid; grid-template-columns: 4.2em minmax(0, 1fr) 46px; align-items: center; gap: 7px; font-size: 12px; }
+:root[data-theme] .rd-screen .rd-progress-name { max-width: 6em; overflow: hidden; color: #000; white-space: nowrap; text-overflow: ellipsis; }
+:root[data-theme] .rd-screen .rd-progress-bar { display: block; height: 13px; padding: 1px; overflow: hidden; border: 1px solid #686868; border-radius: 3px; background: #fff; box-shadow: inset 1px 1px 1px rgba(0, 0, 0, 0.15); }
+:root[data-theme] .rd-screen .rd-progress-bar > i { display: block; height: 100%; background: repeating-linear-gradient(90deg, var(--rd-block) 0 6px, transparent 6px 8px); }
+:root[data-theme] .rd-screen .rd-progress-her .rd-progress-bar > i { background: repeating-linear-gradient(90deg, #ff6fae 0 6px, transparent 6px 8px); }
+:root[data-theme] .rd-screen .rd-progress-him .rd-progress-bar > i { background: repeating-linear-gradient(90deg, #3c7fe0 0 6px, transparent 6px 8px); }
+:root[data-theme] .rd-screen .rd-progress-value { color: #333; font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
 
-/* Reading keeps its own scroller; the shell's floating back stays reachable. */
-:root[data-theme] .app-bg[data-fullscreen-shell="true"] > .chat-container > .reading-room.reading-reader { padding-top: max(20px, var(--float-top)); padding-bottom: max(4px, env(safe-area-inset-bottom)); overflow: hidden; gap: 0; background: #f8f8f8; }
-:root[data-theme] .app-bg[data-fullscreen-shell="true"] > .chat-container > .reading-room.reading-reader::after { display: none; }
-:root[data-theme] .reading-reader-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-shrink: 0; padding: 0 0 14px; }
-:root[data-theme] .reading-reader-head > div { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 5px; }
-:root[data-theme] .reading-reader-head strong { font-size: 14px; font-weight: 500; max-width: 100%; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
-:root[data-theme] .reading-reader-head span { color: #999; font-size: 10px; }
-:root[data-theme] :is(.reading-room, .reading-dialog) .reading-icon-button { padding: 5px; border: 0; background: transparent; color: #555; font-size: 17px; }
-:root[data-theme] .reading-reader-tools { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-shrink: 0; padding: 7px 0 12px; border-bottom: 0.5px solid #ddd; }
-:root[data-theme] .reading-room .reading-notes-button { display: flex; align-items: center; gap: 6px; padding: 4px 8px; border: 0; border-radius: 999px; background: #eaeaea; color: #777; font-size: 11px; }
-:root[data-theme] .reading-notes-button .reading-avatar { width: 20px; height: 20px; flex-basis: 20px; }
-:root[data-theme] .reading-text { position: relative; flex: 1 1 auto; min-height: 0; padding: 24px 1px 32px; overflow-y: auto; overscroll-behavior: contain; overflow-anchor: none; scroll-behavior: auto; scrollbar-width: thin; font-family: "Songti SC", "Noto Serif CJK SC", "STSong", serif; line-height: 2; color: #343434; }
-:root[data-theme] .reading-text > h1 { font-family: inherit; font-size: 1.15em; margin-bottom: 30px; text-align: center; font-weight: 500; }
-:root[data-theme] .reading-paragraph { position: relative; margin-bottom: 1.2em; overflow-wrap: anywhere; }
-:root[data-theme] .reading-paragraph.has-annotation { padding-right: 34px; }
-:root[data-theme] .reading-paragraph > p { text-indent: 2em; }
-:root[data-theme] .reading-room .reading-annotation-mark { position: absolute; right: 0; top: 4px; display: flex; padding: 2px; border: 0.5px solid #fff; border-radius: 50%; background: #ececec; box-shadow: 0 2px 6px rgba(0,0,0,0.06); }
-:root[data-theme] .reading-text .reading-chapter-end { color: #999; text-align: center; font-family: inherit; font-size: 11px; margin-top: 32px; }
-:root[data-theme] .reading-reader-footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 56px; flex-shrink: 0; padding: 10px 72px 10px 0; border-top: 0.5px solid #ddd; }
-:root[data-theme] .reading-reader-footer > span { color: #999; font-size: 10px; }
+/* ━━ One book ━━ */
+:root[data-theme] .rd-screen .rd-book { display: flex; flex-direction: column; gap: 14px; }
+:root[data-theme] .rd-screen .rd-book-head { display: flex; align-items: flex-start; gap: 14px; padding: 4px 2px; }
+:root[data-theme] .rd-screen .rd-book-head > div { display: flex; flex: 1; flex-direction: column; gap: 4px; min-width: 0; }
+:root[data-theme] .rd-screen .rd-book-head h2 { font-size: 16px; font-weight: 700; line-height: 1.4; overflow-wrap: anywhere; }
+:root[data-theme] .rd-screen .rd-book-head p { font-size: 12.5px; overflow-wrap: anywhere; }
+:root[data-theme] .rd-screen .rd-blurb { margin-top: 2px; padding: 5px 8px; border: 1px solid #d0d0bf; background: #fff; line-height: 1.6; }
 
-:root[data-theme] .reading-dialog { position: fixed; width: min(440px, calc(100% - 28px)); max-height: min(75dvh, 650px); margin: auto; padding: 0; border: 0.5px solid #fff; border-radius: 24px; background: #f8f8f8; color: #333; box-shadow: 0 12px 50px rgba(0,0,0,0.15); }
-:root[data-theme] .reading-dialog::backdrop { background: rgba(0,0,0,0.18); backdrop-filter: blur(4px); }
-:root[data-theme] .reading-dialog-inner { display: flex; flex-direction: column; gap: 18px; padding: 22px; }
-:root[data-theme] .reading-input-label { display: flex; flex-direction: column; gap: 8px; font-size: 12px; color: #777; }
-:root[data-theme] .reading-title-input { width: 100%; min-width: 0; padding: 11px 12px; border: 1px solid #ddd; border-radius: 12px; background: #fff; color: #333; font: inherit; font-size: 16px; }
-:root[data-theme] .reading-toc { display: flex; flex-direction: column; gap: 6px; }
-:root[data-theme] .reading-dialog .reading-toc > button { display: flex; align-items: baseline; gap: 12px; padding: 12px; border: 0; border-radius: 12px; background: transparent; color: #666; text-align: left; font-size: 14px; overflow-wrap: anywhere; }
-:root[data-theme] .reading-toc > button > span { flex: 0 0 22px; font-size: 11px; color: #aaa; }
-:root[data-theme] .reading-dialog .reading-toc > button[aria-current] { background: #e9e9e9; color: #333; }
-:root[data-theme] .reading-note-empty { display: flex; flex-direction: column; align-items: center; gap: 14px; padding: 14px 0; text-align: center; }
-:root[data-theme] .reading-note-empty > p { font-size: 14px; margin: 0; }
-:root[data-theme] .reading-note-empty > span:last-child { font-size: 12px; color: #999; line-height: 1.8; }
-:root[data-theme] .reading-note-person { display: flex; align-items: center; gap: 8px; color: #888; font-size: 12px; }
-:root[data-theme] .reading-note blockquote { margin: 18px 0; padding: 10px 14px; border-left: 2px solid #ccc; color: #888; background: #eee; font-size: 13px; line-height: 1.8; }
-:root[data-theme] .reading-note > p { margin: 0; font-size: 15px; line-height: 1.9; }
+/* Group boxes with the caption on the frame. */
+:root[data-theme] .rd-screen .rd-group { display: flex; flex-direction: column; gap: 8px; min-width: 0; padding: 10px 10px 12px; border: 1px solid #d0d0bf; border-radius: 4px; }
+:root[data-theme] .rd-screen .rd-group > legend { padding: 0 4px; color: #0046d5; font-size: 12px; }
+:root[data-theme] .rd-screen .rd-pace { color: #333; font-size: 12px; }
+:root[data-theme] .rd-screen .rd-manual { display: flex; flex-direction: column; gap: 4px; padding-top: 6px; border-top: 1px dotted #c9c7ba; font-size: 12px; }
+:root[data-theme] .rd-screen .rd-manual > div { display: flex; align-items: center; gap: 8px; }
+:root[data-theme] .rd-screen .rd-manual input[type="range"] { flex: 1; min-width: 0; accent-color: #ff5fa8; }
+:root[data-theme] .rd-screen .rd-manual output { width: 36px; text-align: right; font-variant-numeric: tabular-nums; }
+:root[data-theme] .rd-screen .rd-manual .rd-button { min-width: 0; }
+:root[data-theme] .rd-screen .rd-notes { display: flex; flex-direction: column; gap: 8px; padding: 0; list-style: none; }
+:root[data-theme] .rd-screen .rd-notes > li { padding: 7px 9px; border: 1px solid #d0d0bf; background: #fff; }
+:root[data-theme] :is(.rd-screen .rd-notes, .rd-screen .rd-note-view) blockquote { margin-bottom: 5px; padding-left: 8px; border-left: 3px solid #9fb8e0; color: #555; font-family: "Songti SC", "Noto Serif CJK SC", "STSong", serif; font-size: 12.5px; line-height: 1.7; }
+:root[data-theme] :is(.rd-screen .rd-notes, .rd-screen .rd-note-view) p { font-size: 13px; line-height: 1.7; overflow-wrap: anywhere; }
+:root[data-theme] .rd-screen .rd-book-actions { display: flex; flex-wrap: wrap; gap: 6px; padding-bottom: 4px; }
 
-@media (prefers-reduced-motion: reduce) {
-  :root[data-theme] .reading-room * { scroll-behavior: auto; }
+/* ━━ The reader: a sheet of paper inside the window ━━ */
+:root[data-theme] .rd-screen .rd-reader { display: flex; flex: 1; flex-direction: column; min-height: 0; background: var(--xp-face); }
+:root[data-theme] .rd-screen .rd-paper { position: relative; flex: 1; min-height: 0; margin: 6px; padding: 22px 18px 28px; overflow-y: auto; overscroll-behavior: contain; overflow-anchor: none; border: 1px solid; border-color: #aca899 #fff #fff #aca899; background: #fffdf6; color: #2b2b2b; font-family: "Songti SC", "Noto Serif CJK SC", "STSong", serif; line-height: 1.95; -webkit-overflow-scrolling: touch; }
+:root[data-theme] .rd-screen .rd-paper > h1 { margin-bottom: 24px; font-family: inherit; font-size: 1.12em; font-weight: 600; text-align: center; }
+:root[data-theme] .rd-screen .rd-paragraph { position: relative; margin-bottom: 1.1em; overflow-wrap: anywhere; }
+:root[data-theme] .rd-screen .rd-paragraph.has-note { padding-right: 30px; }
+:root[data-theme] .rd-screen .rd-paragraph > p { text-indent: 2em; }
+:root[data-theme] .rd-screen .rd-note-mark { position: absolute; top: 5px; right: 0; width: 22px; height: 22px; padding: 0; border: 1px solid #3c7fe0; border-radius: 2px; background: #e1e9f8; color: #0046d5; font-family: Tahoma, "PingFang SC", sans-serif; font-size: 11px; line-height: 20px; }
+:root[data-theme] .rd-screen .rd-his-spot { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; color: #2e6bc6; font-family: Tahoma, "PingFang SC", sans-serif; font-size: 11px; line-height: 1.4; }
+:root[data-theme] .rd-screen .rd-his-spot::before,
+:root[data-theme] .rd-screen .rd-his-spot::after { content: ""; flex: 1; border-top: 1px dashed #9fb8e0; }
+:root[data-theme] .rd-screen .rd-chapter-end { margin-top: 28px; color: #888; font-family: Tahoma, "PingFang SC", sans-serif; font-size: 11px; text-align: center; }
+:root[data-theme] .rd-screen .rd-chapter-nav { display: flex; justify-content: space-between; gap: 10px; margin-top: 14px; font-family: Tahoma, "PingFang SC", sans-serif; }
+:root[data-theme] .rd-screen .rd-reader-status { flex: none; padding: 0 9px 5px; color: #333; font-size: 11.5px; }
+
+/* ━━ Dialogs: a small XP window over everything ━━ */
+:root[data-theme] .rd-screen .rd-dialog { width: min(400px, calc(100% - 24px)); max-height: min(80dvh, 620px); margin: auto; padding: 0 3px 3px; overflow: hidden; border: 0; border-radius: 8px 8px 3px 3px; background: #0831d9; color: #000; box-shadow: 4px 6px 18px rgba(0, 20, 80, 0.45); font-family: Tahoma, Verdana, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif; font-size: 13px; }
+:root[data-theme] .rd-screen .rd-dialog[open] { display: flex; flex-direction: column; }
+:root[data-theme] .rd-screen .rd-dialog::backdrop { background: rgba(0, 0, 0, 0.2); }
+:root[data-theme] .rd-screen .rd-dialog-title { display: flex; flex: none; align-items: center; gap: 6px; height: 30px; margin: 0 -3px; padding: 0 5px 0 9px; border-radius: 7px 7px 0 0; background: linear-gradient(180deg, #3c95ff 0%, #0a5fe8 9%, #0055e5 18%, #0a63f6 45%, #0b5ff0 82%, #0350d8 92%, #0234b8 100%); color: #fff; text-shadow: 1px 1px 0 #0a1d5c; }
+:root[data-theme] .rd-screen .rd-dialog-title h2 { flex: 1; min-width: 0; overflow: hidden; color: #fff; font-size: 13px; font-weight: 700; white-space: nowrap; text-overflow: ellipsis; }
+:root[data-theme] .rd-screen .rd-dialog-close { position: relative; display: grid; place-items: center; width: 22px; height: 22px; padding: 0; border: 1px solid #fff; border-radius: 3px; background: linear-gradient(180deg, #f39a7f 0%, #e45a2f 50%, #c8381a 100%); }
+:root[data-theme] .rd-screen .rd-dialog-close::after { content: ""; position: absolute; inset: -8px; }
+:root[data-theme] .rd-screen .rd-dialog-close svg { width: 10px; height: 10px; overflow: visible; fill: none; stroke: #fff; stroke-width: 2.1; stroke-linecap: round; }
+:root[data-theme] .rd-screen .rd-dialog-body { display: flex; flex-direction: column; gap: 12px; min-height: 0; padding: 12px; overflow-y: auto; background: #ece9d8; }
+:root[data-theme] .rd-screen .rd-dialog-buttons { display: flex; justify-content: flex-end; gap: 6px; padding-top: 2px; }
+
+:root[data-theme] .rd-screen .rd-form { display: flex; flex-direction: column; gap: 10px; }
+:root[data-theme] .rd-screen .rd-form > label,
+:root[data-theme] .rd-screen .rd-file-row { display: grid; grid-template-columns: 4em minmax(0, 1fr); align-items: center; gap: 6px; font-size: 12.5px; }
+:root[data-theme] .rd-screen .rd-form input:not([type]) { width: 100%; min-width: 0; padding: 4px 5px; border: 1px solid #7f9db9; border-radius: 0; background: #fff; color: #000; font: inherit; font-size: 16px; }
+:root[data-theme] .rd-screen .rd-form input:not([type]):focus { outline: none; border-color: #316ac5; }
+:root[data-theme] .rd-screen .rd-radio-row { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 14px; padding: 0; border: 0; font-size: 12.5px; }
+:root[data-theme] .rd-screen .rd-radio-row > legend { float: left; width: 4em; margin-right: 6px; padding: 0; }
+:root[data-theme] .rd-screen .rd-radio-row > label { display: inline-flex; align-items: center; gap: 4px; min-height: 26px; }
+:root[data-theme] .rd-screen .rd-radio-row input { margin: 0; accent-color: #316ac5; }
+:root[data-theme] .rd-screen .rd-file-row { grid-template-columns: 4em auto minmax(0, 1fr); }
+:root[data-theme] .rd-screen .rd-file-row small { overflow: hidden; color: #555; font-size: 11.5px; white-space: nowrap; text-overflow: ellipsis; }
+:root[data-theme] .rd-screen .rd-error { padding: 5px 8px; border: 1px solid #aca899; background: #ffffe1; font-size: 12px; line-height: 1.6; }
+
+:root[data-theme] .rd-screen .rd-toc { display: flex; flex-direction: column; border: 1px solid #7f9db9; background: #fff; }
+:root[data-theme] .rd-screen .rd-toc > button { display: flex; align-items: baseline; gap: 8px; padding: 7px 8px; border: 0; background: transparent; font-size: 13px; text-align: left; overflow-wrap: anywhere; }
+:root[data-theme] .rd-screen .rd-toc > button > span { flex: 0 0 22px; color: #888; font-size: 11px; }
+:root[data-theme] .rd-screen .rd-toc > button > em { margin-left: auto; flex: none; color: #2e6bc6; font-size: 11px; font-style: normal; }
+:root[data-theme] .rd-screen .rd-toc > button[aria-current] { background: #316ac5; color: #fff; }
+:root[data-theme] .rd-screen .rd-toc > button[aria-current] > :is(span, em) { color: #fff; }
+:root[data-theme] .rd-screen .rd-note-view { padding: 10px; border: 1px solid #d0d0bf; background: #fff; }
+
+@media (max-width: 480px) {
+  :root[data-theme] .rd-screen .rd-content { padding: 8px; }
+  :root[data-theme] .rd-screen .rd-paper { margin: 4px; padding: 18px 14px 24px; }
 }

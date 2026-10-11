@@ -12,6 +12,7 @@ import type { BlogAction, BlogState, HisDraft, HisPost } from "@/app/lib/blog";
 import { describePushResult, sendPushToAll } from "@/app/lib/push";
 import { isClaudeCodeEnabled, normalizeClaudeCodeModel, runClaudeCodeChat } from "@/app/lib/claude-code";
 import { CLAUDE_DEFAULT_NAME, MODELS, normalizeSystemPrompt } from "@/app/lib/app-settings";
+import { addLifeEntry, ensureLifeLog } from "@/app/lib/life-log";
 
 // One post at a time. Kept on globalThis so the blog route and the heartbeat
 // route see the same desk even if they are bundled apart. "auto" never shows
@@ -243,6 +244,7 @@ export async function commentAsHim({ postId, sent, modelId, auto = false, signal
   }
   if (!text) return { kind: "failed", error: "他想了半天没写出来，再叫他一次吧", status: 502 };
 
+  const title = ownPost ? ownPost.title : postTitle({ id: postId, content, createdAt: post.createdAt, updatedAt: post.createdAt, title: post.title, images: imageUrls });
   const saved = await withStore((current): BlogState | { error: string } | null => {
     const state = parseBlogState(current.blog);
     if (auto) {
@@ -250,14 +252,22 @@ export async function commentAsHim({ postId, sent, modelId, auto = false, signal
       if ((thread[thread.length - 1]?.id || "") !== lastBefore) return null;
     }
     const next = applyBlogAction(state, { type: "comment", postId, content: text, author: "him" }, { now: new Date(), id: newId("comment") });
-    if (!("error" in next)) current.blog = next;
+    if (!("error" in next)) {
+      current.blog = next;
+      // Only what he did unasked goes in his own log.
+      if (auto) {
+        addLifeEntry(current, {
+          kind: "comment",
+          text: `${ownPost ? `在自己的《${title}》下回了她` : `去她的《${title}》下留了言`}：${text}`,
+        });
+      }
+    }
     return next;
   });
   if (!saved) return { kind: "skipped", reason: "他想好的时候，这条留言下面已经有新回复了" };
   if ("error" in saved) return { kind: "failed", error: saved.error, status: 400 };
 
   if (auto) {
-    const title = ownPost ? ownPost.title : postTitle({ id: postId, content, createdAt: post.createdAt, updatedAt: post.createdAt, title: post.title, images: imageUrls });
     try {
       const push = await sendPushToAll({
         title: ownPost ? `${me}回了你的留言` : `${me}来踩了你的博客`,
@@ -386,9 +396,15 @@ function parseBeat(raw: unknown): Beat {
   };
 }
 
-/** Changes `blogBeat`, a server-only key the page never syncs back. */
-async function updateBeat(fn: (beat: Beat) => void, entry?: { action: string; reason: string }) {
+/**
+ * Changes `blogBeat`, a server-only key the page never syncs back. Its log is
+ * the short debug trail, quiet beats included; what he actually did also goes
+ * in `lifeLog`, which she sees.
+ */
+async function updateBeat(fn: (beat: Beat) => void, entry?: { action: string; reason: string }, life?: string) {
   await withStore((store) => {
+    ensureLifeLog(store);
+    if (life) addLifeEntry(store, { kind: "post", text: life });
     const beat = parseBeat(store.blogBeat);
     fn(beat);
     if (entry) {
@@ -451,6 +467,7 @@ export async function blogHeartbeat(): Promise<{ action: string; reason: string 
   const entry = result.kind === "done"
     ? { action: "post", reason: "自己写了一篇" }
     : { action: "silent", reason: result.kind === "skipped" ? `今天不写：${result.reason}` : `没写成：${result.error}` };
-  await updateBeat(() => {}, entry);
+  const written = result.kind === "done" ? latestHisPost(result.blog) : undefined;
+  await updateBeat(() => {}, entry, written ? `在自己空间写了一篇《${written.title}》` : undefined);
   return entry;
 }

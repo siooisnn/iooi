@@ -16,6 +16,7 @@ import { HomeView, MoonPage } from "./components/HomeView";
 import type { HomeApp } from "./components/HomeView";
 import { RetroDesktop } from "./components/RetroDesktop";
 import { HeartbeatView } from "./components/AppPages";
+import { readLifeLog, type LifeEntry } from "./lib/life-log";
 import { ReadingView } from "./components/ReadingView";
 import { ClawdView } from "./components/ClawdView";
 import { BlogView } from "./components/BlogView";
@@ -87,7 +88,7 @@ export default function Home() {
   const [groupActiveSessionId, setGroupActiveSessionId] = useState("group-main");
   const [moods, setMoods] = useState<Mood[]>([]);
   const [fragments, setFragments] = useState<FragmentEntry[]>([]);
-  const [heartbeatLog, setHeartbeatLog] = useState<Array<{ time: string; action: string; reason: string }>>([]);
+  const [heartbeatLog, setHeartbeatLog] = useState<LifeEntry[]>([]);
   const [aiMood, setAiMood] = useState<{ emoji: string; ts: number }>(() =>
     loadLocalRaw<{ emoji: string; ts: number }>("iooi-ai-mood", { emoji: "", ts: 0 })
   );
@@ -137,7 +138,7 @@ export default function Home() {
           loadLocalRaw<FragmentEntry[]>("iooi-fragments", []),
           Array.isArray(serverData.fragments) ? serverData.fragments : [],
         ));
-        setHeartbeatLog(serverData.careState?.log || []);
+        setHeartbeatLog(readLifeLog(serverData));
         setAiMood(serverData.aiMood || loadLocalRaw<{ emoji: string; ts: number }>("iooi-ai-mood", { emoji: "", ts: 0 }));
         setLastCache(serverData.lastCache || loadLocalRaw<CacheStats | null>("iooi-last-cache", null));
       } else {
@@ -311,6 +312,7 @@ export default function Home() {
             if (Array.isArray(server.fragments)) {
               setFragments((local) => mergeFragments(local, server.fragments));
             }
+            setHeartbeatLog(readLifeLog(server));
           })
           .catch(() => {});
         apiFetch("/api/gpt/sync")

@@ -3,6 +3,7 @@ import { describePushResult, sendPushToAll } from "@/app/lib/push";
 import { isClaudeCodeEnabled, runClaudeCodeChat } from "@/app/lib/claude-code";
 import { latestUserSession, messageTimestamp } from "@/app/lib/chat-timeline";
 import { blogHeartbeat } from "@/app/lib/blog-him";
+import { addLifeEntry, ensureLifeLog, noteLifeEntry } from "@/app/lib/life-log";
 import { after } from "next/server";
 
 export const runtime = "nodejs";
@@ -44,6 +45,8 @@ function dailyCareCount(careState: Record<string, unknown>, today: string): numb
   return Math.max(saved, logs.filter((entry) => entry.action === "care" && entry.time.startsWith(`${today} `)).length);
 }
 
+// careState.log is the short debug trail, quiet beats included. What he
+// actually said goes in lifeLog, which the heartbeat page shows.
 function log(careState: Record<string, unknown>, action: string, reason: string) {
   const logs: HeartbeatLog[] = (careState.log as HeartbeatLog[]) || [];
   logs.unshift({ time: `${cstToday()} ${cstTime()}`, action, reason });
@@ -70,6 +73,7 @@ export async function POST() {
     let action = "silent";
     let reason = "";
     let careMessage: string | null = null;
+    let lifeAt = 0;
 
     if (settings.proactiveCare !== true) {
       reason = "主动关心已关闭";
@@ -196,6 +200,8 @@ ${recentLines.length ? `- 最近的对话片段:\n${recentLines.map((l) => "  " 
     }
 
     await withStore((store) => {
+      // Copy past actions over before quiet beats push them out of careState.log.
+      ensureLifeLog(store);
       const cs: Record<string, unknown> = (store.careState as Record<string, unknown>) || {};
       store.careState = cs;
 
@@ -234,6 +240,7 @@ ${recentLines.length ? `- 最近的对话片段:\n${recentLines.map((l) => "  " 
         cs.todayCount = count + 1;
         cs.lastCareAt = Date.now();
         cs.lastCareContent = careMessage;
+        lifeAt = addLifeEntry(store, { kind: "care", text: careMessage, note: reason }).at;
       }
 
       log(cs, action, reason);
@@ -256,6 +263,7 @@ ${recentLines.length ? `- 最近的对话片段:\n${recentLines.map((l) => "  " 
         const cs = (store.careState as Record<string, unknown>) || {};
         const entry = ((cs.log as HeartbeatLog[]) || []).find((item) => item.action === "care");
         if (entry && !entry.reason.includes(" · 推送")) entry.reason = `${entry.reason} · ${pushSummary}`;
+        if (lifeAt && pushSummary) noteLifeEntry(store, lifeAt, "care", pushSummary);
       }).catch(() => {});
     }
 

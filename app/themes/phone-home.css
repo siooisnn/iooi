@@ -288,15 +288,6 @@
   background: #f4f4f4;
 }
 
-.reading-body .reading-empty {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 10px;
-  margin: auto;
-  color: var(--text-light);
-  font-size: 13px;
-}
 
 /* Contacts: a tick after whoever's windows the chat list shows, level with
    the name and right against the card's edge. */

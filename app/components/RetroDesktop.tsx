@@ -95,7 +95,7 @@ function BlogGlyph() {
 }
 
 /** reading: an open book on a red cover. */
-function BookGlyph() {
+export function BookGlyph() {
   return (
     <svg viewBox="0 0 48 48" aria-hidden="true">
       <path d="M2.5 14v29c7-2.6 14.5-2.6 21.5 0 7-2.6 14.5-2.6 21.5 0V14z" fill="#c0392b" stroke="#6e1b12" strokeWidth="1.4" />

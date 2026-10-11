@@ -1,26 +1,55 @@
-export type ReadingCompanion = "claude" | "gpt";
+// Our bookshelf: shared types and pure helpers. No imports, so the page, the
+// server and node tests can all load it.
+
 export type ReadingChapter = { id: string; title: string; paragraphs: string[] };
-export type ReadingAnnotation = {
+
+/** 在读 / 想读 / 读完了 */
+export type ReadingShelf = "reading" | "want" | "done";
+/** Whose progress or wish: her, or him (the AI). */
+export type ReadingWho = "her" | "him";
+
+/** Where one of us is in a book. Books without text only keep a percent. */
+export type ReadingMark = {
+  percent: number;
+  chapterId?: string;
+  paragraphIndex?: number;
+  updatedAt: number;
+};
+
+/** His notes in the margin. She reads them; she doesn't have to write any. */
+export type ReadingNote = {
   id: string;
   chapterId: string;
   paragraphIndex: number;
   quote: string;
   content: string;
-};
-export type ReadingBook = {
-  id: string;
-  title: string;
-  companion: ReadingCompanion;
-  chapters: ReadingChapter[];
-  annotations: ReadingAnnotation[];
-  position: { chapterId: string; paragraphIndex: number };
-  preRead: { status: "not-started" | "reading" | "completed" | "failed"; completedChapters: number };
-  createdAt: number;
-  lastReadAt: number;
-  isDemo: boolean;
+  at: number;
 };
 
+export type ShelfBook = {
+  id: string;
+  title: string;
+  author: string;
+  shelf: ReadingShelf;
+  /** Who put it on 想读. */
+  wantedBy?: ReadingWho;
+  /** A line about why: "她说想看" / "听说很好哭". */
+  blurb: string;
+  /** Whether a TXT is attached and can be opened in the reader. */
+  hasText: boolean;
+  chapterCount: number;
+  her: ReadingMark | null;
+  him: ReadingMark | null;
+  notes: ReadingNote[];
+  createdAt: number;
+  updatedAt: number;
+};
+
+export const READING_SHELVES: readonly ReadingShelf[] = ["reading", "want", "done"];
+export const SHELF_LABEL: Record<ReadingShelf, string> = { reading: "在读", want: "想读", done: "读完了" };
 export const MAX_READING_BYTES = 10 * 1024 * 1024;
+export const MAX_SHELF_BOOKS = 300;
+
 const CHAPTER_HEADING = /^(?:第[零〇一二三四五六七八九十百千万两\d]+[章回卷节部篇].*|chapter\s+\S+.*|序章|序言|前言|楔子|后记|尾声|引子)$/i;
 
 export function parseReadingText(bytes: Uint8Array): ReadingChapter[] {
@@ -32,7 +61,7 @@ export function parseReadingText(bytes: Uint8Array): ReadingChapter[] {
     try { text = new TextDecoder("gb18030", { fatal: true }).decode(bytes); }
     catch { throw new Error("没能读出文字，请将文件另存为 UTF-8 格式的 TXT。"); }
   }
-  text = text.replace(/^\uFEFF/, "").replace(/\r\n?/g, "\n");
+  text = text.replace(/^﻿/, "").replace(/\r\n?/g, "\n");
   if (text.includes("\0")) throw new Error("这个文件不像 TXT 正文，请检查后重新导入。");
   const chapters: ReadingChapter[] = [];
   let title = "正文";
@@ -64,37 +93,224 @@ export function parseReadingText(bytes: Uint8Array): ReadingChapter[] {
   return chapters;
 }
 
-export function readingProgress(book: ReadingBook): number {
-  const total = book.chapters.reduce((sum, chapter) => sum + chapter.paragraphs.length, 0);
-  const chapterIndex = book.chapters.findIndex((chapter) => chapter.id === book.position.chapterId);
-  if (chapterIndex < 0 || !book.lastReadAt) return 0;
-  const before = book.chapters.slice(0, chapterIndex).reduce((sum, chapter) => sum + chapter.paragraphs.length, 0);
-  const paragraph = Math.max(0, Math.min(book.position.paragraphIndex, book.chapters[chapterIndex].paragraphs.length - 1));
+/** Checks chapters that came from outside (an old on-device book). */
+export function validChapters(value: unknown): ReadingChapter[] | null {
+  if (!Array.isArray(value) || !value.length || value.length > 20_000) return null;
+  const chapters: ReadingChapter[] = [];
+  for (const item of value) {
+    if (!item || typeof item !== "object") return null;
+    const { id, title, paragraphs } = item as Record<string, unknown>;
+    if (typeof id !== "string" || !id || typeof title !== "string" || !Array.isArray(paragraphs) || !paragraphs.length) return null;
+    if (!paragraphs.every((paragraph) => typeof paragraph === "string")) return null;
+    chapters.push({ id: id.slice(0, 40), title: title.slice(0, 120), paragraphs: paragraphs as string[] });
+  }
+  return chapters;
+}
+
+/** 0–100 for a spot in the text; the last paragraph counts as finished. */
+export function percentAt(chapters: ReadingChapter[], chapterId: string, paragraphIndex: number): number {
+  const total = chapters.reduce((sum, chapter) => sum + chapter.paragraphs.length, 0);
+  const chapterIndex = chapters.findIndex((chapter) => chapter.id === chapterId);
+  if (chapterIndex < 0 || total <= 0) return 0;
+  const before = chapters.slice(0, chapterIndex).reduce((sum, chapter) => sum + chapter.paragraphs.length, 0);
+  const paragraph = Math.max(0, Math.min(Math.floor(paragraphIndex) || 0, chapters[chapterIndex].paragraphs.length - 1));
   return total <= 1 ? 100 : Math.round((before + paragraph) / (total - 1) * 100);
 }
 
-export function createReadingDemo(companion: ReadingCompanion): ReadingBook {
-  const chapters: ReadingChapter[] = [
-    { id: "demo-1", title: "第一章 窗边", paragraphs: [
-      "傍晚的雨落在窗沿。她把书翻开，纸页在灯下泛着柔和的白。",
-      "桌上放着两只杯子，其中一只还冒着热气。没有人催她读快一点。",
-      "她停在一句话前，忽然觉得，慢慢读也是一种抵达。",
-      "窗外的街灯亮了。她给书折上书签，决定明天继续。",
-    ] },
-    { id: "demo-2", title: "第二章 明天", paragraphs: [
-      "第二天，阳光把昨夜的雨留在了叶尖。",
-      "她翻到昨天停下的地方，故事还在那里等她。",
-      "有些陪伴很安静，却能让一个普通的下午变得长久。",
-    ] },
-  ];
+export function clampPercent(value: unknown): number | null {
+  const number = typeof value === "number" ? value : typeof value === "string" ? Number(value) : NaN;
+  return Number.isFinite(number) ? Math.max(0, Math.min(100, Math.round(number))) : null;
+}
+
+/**
+ * One line comparing the two marks, for nagging each other.
+ * The page talks to her as 你; `hisName` is his name.
+ */
+export function paceLine(book: Pick<ShelfBook, "her" | "him" | "shelf">, hisName: string): string {
+  const her = book.her?.percent ?? 0;
+  const him = book.him?.percent ?? 0;
+  if (book.shelf === "want") return "还没开始读";
+  if (her >= 100 && him >= 100) return "我们都读完了";
+  if (!book.her && !book.him) return "我们都还没翻开";
+  const gap = Math.abs(her - him);
+  if (gap < 3) return "我们差不多读到一个地方";
+  return her > him ? `你领先${hisName} ${gap}%，催他快点读` : `${hisName}领先你 ${gap}%，等你追上来`;
+}
+
+/** Order inside a shelf: whatever either of us touched last comes first. */
+export function lastTouched(book: ShelfBook): number {
+  return Math.max(book.updatedAt, book.her?.updatedAt || 0, book.him?.updatedAt || 0);
+}
+
+// ── Shelf operations on a store object (`{ books: [...] }`), used inside
+// withReadingStore. The text itself lives elsewhere; these only see chapters
+// when a caller passes them in.
+
+const SHELF_SET = new Set<string>(READING_SHELVES);
+const BOOK_ID = /^[A-Za-z0-9-]{1,64}$/;
+
+export function isBookId(value: unknown): value is string {
+  return typeof value === "string" && BOOK_ID.test(value);
+}
+
+function cleanText(value: unknown, max: number): string {
+  return typeof value === "string" ? value.replace(/\s+/g, " ").trim().slice(0, max) : "";
+}
+
+function cleanMark(value: unknown): ReadingMark | null {
+  if (!value || typeof value !== "object") return null;
+  const mark = value as Record<string, unknown>;
+  const percent = clampPercent(mark.percent);
+  if (percent === null || typeof mark.updatedAt !== "number") return null;
   return {
-    id: `reading-demo-${companion}`, title: "窗边的两只杯子", companion, chapters,
-    annotations: [{ id: "demo-note-1", chapterId: "demo-1", paragraphIndex: 1,
-      quote: "没有人催她读快一点。", content: "我喜欢这句。你可以停一会儿，也可以明天再读，我会在这里等你。" },
-    { id: "demo-note-2", chapterId: "demo-2", paragraphIndex: 1,
-      quote: "故事还在那里等她。", content: "书签留住了页码，我们留住了这个下午。" }],
-    position: { chapterId: "demo-1", paragraphIndex: 0 },
-    preRead: { status: "completed", completedChapters: 2 },
-    createdAt: Date.now(), lastReadAt: 0, isDemo: true,
+    percent,
+    ...(typeof mark.chapterId === "string" ? { chapterId: mark.chapterId } : {}),
+    ...(typeof mark.paragraphIndex === "number" ? { paragraphIndex: Math.max(0, Math.floor(mark.paragraphIndex)) } : {}),
+    updatedAt: mark.updatedAt,
   };
+}
+
+function cleanBook(value: unknown): ShelfBook | null {
+  if (!value || typeof value !== "object") return null;
+  const book = value as Record<string, unknown>;
+  if (!isBookId(book.id) || typeof book.title !== "string" || !SHELF_SET.has(book.shelf as string)) return null;
+  return {
+    id: book.id,
+    title: book.title,
+    author: typeof book.author === "string" ? book.author : "",
+    shelf: book.shelf as ReadingShelf,
+    ...(book.wantedBy === "her" || book.wantedBy === "him" ? { wantedBy: book.wantedBy } : {}),
+    blurb: typeof book.blurb === "string" ? book.blurb : "",
+    hasText: book.hasText === true,
+    chapterCount: typeof book.chapterCount === "number" ? book.chapterCount : 0,
+    her: cleanMark(book.her),
+    him: cleanMark(book.him),
+    notes: Array.isArray(book.notes) ? book.notes.filter((note): note is ReadingNote =>
+      !!note && typeof note.id === "string" && typeof note.content === "string" && typeof note.chapterId === "string") : [],
+    createdAt: typeof book.createdAt === "number" ? book.createdAt : 0,
+    updatedAt: typeof book.updatedAt === "number" ? book.updatedAt : 0,
+  };
+}
+
+/** Every book, most recently touched first. */
+export function readShelf(store: Record<string, unknown> | null | undefined): ShelfBook[] {
+  const books = Array.isArray(store?.books) ? store.books : [];
+  return books.map(cleanBook).filter((book): book is ShelfBook => !!book)
+    .sort((a, b) => lastTouched(b) - lastTouched(a));
+}
+
+function findBook(store: Record<string, unknown>, id: string) {
+  const books = readShelf(store);
+  store.books = books;
+  const book = books.find((item) => item.id === id);
+  if (!book) throw new Error("书架上没有这本书了，刷新看看。");
+  return { books, book };
+}
+
+export type NewBook = {
+  id?: string;
+  title: unknown;
+  author?: unknown;
+  shelf?: unknown;
+  blurb?: unknown;
+  wantedBy?: unknown;
+  chapters?: ReadingChapter[] | null;
+  createdAt?: number;
+};
+
+export function addShelfBook(store: Record<string, unknown>, input: NewBook, now = Date.now()): ShelfBook {
+  const books = readShelf(store);
+  if (books.length >= MAX_SHELF_BOOKS) throw new Error(`书架最多放 ${MAX_SHELF_BOOKS} 本，先删掉几本吧。`);
+  const title = cleanText(input.title, 120);
+  if (!title) throw new Error("写一个书名吧。");
+  const id = input.id && isBookId(input.id) ? input.id : crypto.randomUUID();
+  if (books.some((book) => book.id === id)) throw new Error("这本书已经在书架上了。");
+  const shelf = SHELF_SET.has(input.shelf as string) ? input.shelf as ReadingShelf : input.chapters ? "reading" : "want";
+  const book: ShelfBook = {
+    id, title,
+    author: cleanText(input.author, 80),
+    shelf,
+    ...(shelf === "want" && (input.wantedBy === "her" || input.wantedBy === "him") ? { wantedBy: input.wantedBy } : {}),
+    blurb: cleanText(input.blurb, 200),
+    hasText: !!input.chapters?.length,
+    chapterCount: input.chapters?.length || 0,
+    her: null, him: null, notes: [],
+    createdAt: input.createdAt || now, updatedAt: now,
+  };
+  store.books = [book, ...books];
+  return book;
+}
+
+export type BookEdit = { title?: unknown; author?: unknown; shelf?: unknown; blurb?: unknown; wantedBy?: unknown };
+
+export function editShelfBook(store: Record<string, unknown>, id: string, edit: BookEdit, now = Date.now()): ShelfBook {
+  const { book } = findBook(store, id);
+  if (edit.title !== undefined) {
+    const title = cleanText(edit.title, 120);
+    if (!title) throw new Error("书名不能是空的。");
+    book.title = title;
+  }
+  if (edit.author !== undefined) book.author = cleanText(edit.author, 80);
+  if (edit.blurb !== undefined) book.blurb = cleanText(edit.blurb, 200);
+  if (edit.shelf !== undefined) {
+    if (!SHELF_SET.has(edit.shelf as string)) throw new Error("没有这一格书架。");
+    book.shelf = edit.shelf as ReadingShelf;
+  }
+  if (edit.wantedBy !== undefined) {
+    if (edit.wantedBy === "her" || edit.wantedBy === "him") book.wantedBy = edit.wantedBy;
+    else delete book.wantedBy;
+  }
+  book.updatedAt = now;
+  return book;
+}
+
+/** Text arrived for a book that was only a title (or replaces the old text). */
+export function attachShelfText(store: Record<string, unknown>, id: string, chapters: ReadingChapter[], now = Date.now()): ShelfBook {
+  const { book } = findBook(store, id);
+  const changed = book.hasText;
+  book.hasText = true;
+  book.chapterCount = chapters.length;
+  // Old paragraph spots don't mean anything in a new text; keep the percent only.
+  for (const who of ["her", "him"] as const) {
+    const mark = book[who];
+    if (mark && (changed || mark.chapterId)) book[who] = { percent: mark.percent, updatedAt: mark.updatedAt };
+  }
+  if (changed) book.notes = [];
+  book.updatedAt = now;
+  return book;
+}
+
+export type MarkInput = { chapterId?: unknown; paragraphIndex?: unknown; percent?: unknown };
+
+/**
+ * Moves one of us to a spot. With text, a chapter + paragraph (percent is
+ * worked out); without, a plain percent. Starting a 想读 book moves it to 在读.
+ */
+export function markShelfBook(
+  store: Record<string, unknown>, id: string, who: ReadingWho, input: MarkInput,
+  chapters: ReadingChapter[] | null, now = Date.now(),
+): ShelfBook {
+  const { book } = findBook(store, id);
+  let mark: ReadingMark;
+  if (chapters && typeof input.chapterId === "string") {
+    const chapter = chapters.find((item) => item.id === input.chapterId);
+    if (!chapter) throw new Error("书里没有这一章。");
+    const raw = typeof input.paragraphIndex === "number" ? input.paragraphIndex : 0;
+    const paragraphIndex = Math.max(0, Math.min(Math.floor(raw) || 0, chapter.paragraphs.length - 1));
+    mark = { percent: percentAt(chapters, chapter.id, paragraphIndex), chapterId: chapter.id, paragraphIndex, updatedAt: now };
+  } else {
+    const percent = clampPercent(input.percent);
+    if (percent === null) throw new Error("进度要是 0 到 100 的数字。");
+    mark = { percent, updatedAt: now };
+  }
+  book[who] = mark;
+  if (book.shelf === "want" && (mark.percent > 0 || mark.chapterId)) book.shelf = "reading";
+  return book;
+}
+
+export function removeShelfBook(store: Record<string, unknown>, id: string): boolean {
+  const books = readShelf(store);
+  const next = books.filter((book) => book.id !== id);
+  store.books = next;
+  return next.length !== books.length;
 }
