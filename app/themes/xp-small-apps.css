@@ -1,0 +1,134 @@
+/* ━━ Small XP apps: heartbeat and internet ━━
+   Both are .xp-summer-screen windows (frame from xp-summer.css) that also
+   carry .rd-screen, so the toolbar, tabs, buttons, dialogs and empty states
+   come from reading-room.css. Only what's their own lives here. */
+
+/* ━━ heartbeat: his own doings, a day at a time ━━ */
+:root[data-theme] .hb-screen .rd-tabs { overflow-x: auto; padding-top: 3px; scrollbar-width: none; }
+:root[data-theme] .hb-screen .rd-tabs::-webkit-scrollbar { display: none; }
+:root[data-theme] .hb-screen .rd-tabs > button { flex: none; padding: 3px 10px; }
+:root[data-theme] .hb-screen .hb-panel { display: flex; flex-direction: column; gap: 14px; padding: 8px; }
+:root[data-theme] .hb-screen .rd-empty > svg { width: 40px; height: 40px; }
+
+:root[data-theme] .hb-screen .hb-day { display: flex; flex-direction: column; gap: 4px; }
+:root[data-theme] .hb-screen .hb-day-head { display: flex; align-items: baseline; gap: 8px; margin: 0; padding: 0 2px 3px; border-bottom: 1px solid #d6dff7; color: #0046d5; font-size: 12.5px; font-weight: 700; }
+:root[data-theme] .hb-screen .hb-day-head small { color: #777; font-size: 11px; font-weight: 400; }
+:root[data-theme] .hb-screen .hb-entries { display: flex; flex-direction: column; margin: 0; padding: 0; list-style: none; }
+:root[data-theme] .hb-screen .hb-entry { display: grid; grid-template-columns: 38px 46px minmax(0, 1fr); align-items: start; gap: 6px; padding: 7px 2px; }
+:root[data-theme] .hb-screen .hb-entry + .hb-entry { border-top: 1px dotted #d0d0bf; }
+:root[data-theme] .hb-screen .hb-clock { padding-top: 1px; color: #555; font-size: 11.5px; font-variant-numeric: tabular-nums; }
+:root[data-theme] .hb-screen .hb-badge { justify-self: start; padding: 0 5px; border: 1px solid var(--hb-line); border-radius: 2px; background: var(--hb-fill); color: var(--hb-ink); font-size: 11px; line-height: 17px; white-space: nowrap; }
+:root[data-theme] .hb-screen .hb-kind-care { --hb-line: #f3a6c6; --hb-fill: #ffeef6; --hb-ink: #c2185b; }
+:root[data-theme] .hb-screen :is(.hb-kind-comment, .hb-kind-post) { --hb-line: #f1c27d; --hb-fill: #fff6e2; --hb-ink: #9a5d00; }
+:root[data-theme] .hb-screen .hb-kind-read { --hb-line: #e3a79c; --hb-fill: #fdf0ed; --hb-ink: #a3301f; }
+:root[data-theme] .hb-screen .hb-kind-surf { --hb-line: #9fc0ef; --hb-fill: #eaf2ff; --hb-ink: #1f56b8; }
+:root[data-theme] .hb-screen .hb-main { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+:root[data-theme] .hb-screen .hb-text { font-size: 13px; line-height: 1.6; white-space: pre-wrap; overflow-wrap: anywhere; }
+:root[data-theme] .hb-screen .hb-note { color: #666; font-size: 11.5px; line-height: 1.5; overflow-wrap: anywhere; }
+:root[data-theme] .hb-screen .hb-links { display: flex; flex-direction: column; gap: 4px; margin: 0; padding: 5px 7px; border: 1px solid #d0d0bf; background: #fff; list-style: none; }
+:root[data-theme] .hb-screen .hb-links a { color: #0000cc; font-size: 12px; line-height: 1.45; text-decoration: underline; overflow-wrap: anywhere; }
+:root[data-theme] .hb-screen .hb-links a:visited { color: #551a8b; }
+:root[data-theme] .hb-screen .hb-links span { display: block; color: #666; font-size: 11px; line-height: 1.45; }
+:root[data-theme] .hb-screen .hb-open { align-self: flex-start; padding: 0; border: 0; background: none; color: #0046d5; font-size: 12px; text-decoration: underline; }
+
+/* ━━ internet: our forum in Internet Explorer ━━ */
+:root[data-theme] .sf-screen .sf-toolbar { overflow-x: auto; scrollbar-width: none; }
+:root[data-theme] .sf-screen .sf-toolbar::-webkit-scrollbar { display: none; }
+:root[data-theme] .sf-screen .sf-toolbar .rd-tool { flex: none; gap: 3px; padding: 2px 7px; font-size: 12.5px; }
+:root[data-theme] .sf-screen .sf-toolbar .rd-tool > i { color: #2f8f4e; font-size: 14px; font-style: normal; line-height: 1; }
+:root[data-theme] .sf-screen .sf-toolbar .sf-back > i { display: grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #b7f0a2, #3fae2a 60%, #237a17); color: #fff; font-size: 9px; }
+:root[data-theme] .sf-screen .sf-toolbar .sf-back:disabled > i { filter: grayscale(1); opacity: 0.55; }
+:root[data-theme] .sf-screen .sf-toolbar .sf-star { color: #e8a500; }
+:root[data-theme] .sf-screen .sf-toolbar .rd-tool[aria-pressed="true"] { border-color: #aca899 #fff #fff #aca899; background: #e3e0d0; }
+:root[data-theme] .sf-screen .sf-url { overflow: hidden; color: #000; white-space: nowrap; text-overflow: ellipsis; }
+:root[data-theme] .sf-screen .sf-status-done { display: inline-flex; align-items: center; gap: 4px; }
+:root[data-theme] .sf-screen .sf-status-done .rd-title-icon { width: 14px; height: 14px; filter: none; }
+:root[data-theme] .sf-screen .sf-status-done,
+:root[data-theme] .sf-screen .xp-summer-statusbar span:last-child { padding-left: 7px; }
+
+/* The page itself: white, 2007 web. */
+:root[data-theme] .sf-screen .sf-page { flex: 1; min-height: 0; padding: 0 0 18px; overflow-y: auto; overscroll-behavior: contain; background: #fff; color: #000; font-family: "宋体", SimSun, Tahoma, "PingFang SC", sans-serif; font-size: 13px; -webkit-overflow-scrolling: touch; }
+:root[data-theme] .sf-screen .sf-page .rd-loading { padding: 18px 12px; }
+:root[data-theme] .sf-screen .sf-empty { padding: 36px 16px; }
+:root[data-theme] .sf-screen .sf-empty > svg { width: 44px; height: 44px; }
+:root[data-theme] .sf-screen .sf-empty .rd-button { margin-top: 8px; }
+:root[data-theme] .sf-screen .sf-link-button { padding: 0; border: 0; background: none; color: #0000cc; font-size: 12px; text-decoration: underline; }
+:root[data-theme] .sf-screen .sf-link-button:disabled { color: #999; }
+:root[data-theme] .sf-screen .sf-name { font-weight: 700; }
+:root[data-theme] .sf-screen .sf-name-her { color: #d6337f; }
+:root[data-theme] .sf-screen .sf-name-him { color: #1f56b8; }
+
+:root[data-theme] .sf-screen .sf-banner { display: flex; flex-direction: column; gap: 3px; padding: 14px 14px 12px; border-bottom: 3px solid #f7b500; background: linear-gradient(180deg, #4f8fe8 0%, #2a63c9 100%); color: #fff; }
+:root[data-theme] .sf-screen .sf-banner strong { font-family: Tahoma, "PingFang SC", sans-serif; font-size: 20px; letter-spacing: 1px; text-shadow: 1px 1px 0 #13408f; }
+:root[data-theme] .sf-screen .sf-banner span { color: #dfeaff; font-size: 12px; }
+
+/* Thread list, 贴吧 style: the reply count in a box on the left. */
+:root[data-theme] .sf-screen .sf-threads { margin: 0; padding: 0 10px; list-style: none; }
+:root[data-theme] .sf-screen .sf-threads > li { border-bottom: 1px dashed #d6dbe6; }
+:root[data-theme] .sf-screen .sf-thread-row { display: flex; align-items: flex-start; gap: 10px; width: 100%; padding: 10px 2px; border: 0; background: none; text-align: left; }
+:root[data-theme] .sf-screen .sf-count { flex: none; min-width: 34px; padding: 3px 4px; border: 1px solid #c9d6ef; background: #f2f6ff; color: #2a63c9; font-family: Tahoma, sans-serif; font-size: 12px; text-align: center; }
+:root[data-theme] .sf-screen .sf-thread-main { display: flex; flex: 1; flex-direction: column; gap: 3px; min-width: 0; }
+:root[data-theme] .sf-screen .sf-thread-main > strong { color: #0000cc; font-size: 14px; font-weight: 400; line-height: 1.45; text-decoration: underline; overflow-wrap: anywhere; }
+:root[data-theme] .sf-screen .sf-thread-row:active .sf-thread-main > strong { color: #cc0000; }
+@media (hover: hover) {
+  :root[data-theme] .sf-screen .sf-thread-row:hover .sf-thread-main > strong { color: #cc0000; }
+}
+:root[data-theme] .sf-screen .sf-new { margin-left: 5px; padding: 0 3px; background: #ff3030; color: #fff; font-family: Verdana, sans-serif; font-size: 9px; font-style: normal; font-weight: 700; text-decoration: none; vertical-align: 2px; animation: sfBlink 1.2s steps(2, start) infinite; }
+@keyframes sfBlink { to { visibility: hidden; } }
+@media (prefers-reduced-motion: reduce) { :root[data-theme] .sf-screen .sf-new { animation: none; } }
+:root[data-theme] .sf-screen .sf-thread-snippet { overflow: hidden; color: #555; font-size: 12px; white-space: nowrap; text-overflow: ellipsis; }
+:root[data-theme] .sf-screen .sf-thread-meta { display: flex; flex-wrap: wrap; gap: 2px 10px; color: #777; font-size: 11.5px; }
+:root[data-theme] .sf-screen .sf-thread-meta .sf-name { font-weight: 400; }
+:root[data-theme] .sf-screen .sf-thread-host { color: #2f8f4e; }
+
+/* One thread, floor by floor. */
+:root[data-theme] .sf-screen .sf-thread { display: flex; flex-direction: column; }
+:root[data-theme] .sf-screen .sf-thread-title { margin: 0; padding: 12px 12px 4px; font-size: 17px; line-height: 1.4; overflow-wrap: anywhere; }
+:root[data-theme] .sf-screen .sf-thread-sub { padding: 0 12px 10px; border-bottom: 2px solid #2a63c9; color: #666; font-size: 12px; }
+:root[data-theme] .sf-screen .sf-floors { margin: 0; padding: 0; list-style: none; }
+:root[data-theme] .sf-screen .sf-floor { border-bottom: 1px solid #e3e8f2; }
+:root[data-theme] .sf-screen .sf-floor-head { display: flex; align-items: center; gap: 7px; padding: 8px 12px 4px; font-size: 12.5px; }
+:root[data-theme] .sf-screen .sf-avatar { display: grid; flex: none; place-items: center; width: 30px; height: 30px; overflow: hidden; padding: 1px; border: 1px solid #b7c3d9; background: #fff; }
+:root[data-theme] .sf-screen .sf-avatar img { display: block; width: 100%; height: 100%; object-fit: cover; }
+:root[data-theme] .sf-screen .sf-avatar > span { color: #fff; font-size: 14px; }
+:root[data-theme] .sf-screen .sf-avatar-her > span { display: grid; place-items: center; width: 100%; height: 100%; background: #ff8fbe; }
+:root[data-theme] .sf-screen .sf-avatar-him > span { display: grid; place-items: center; width: 100%; height: 100%; background: #6f9fe6; }
+:root[data-theme] .sf-screen .sf-op { padding: 0 4px; border: 1px solid #f1c27d; background: #fff6e2; color: #9a5d00; font-size: 10.5px; line-height: 15px; }
+:root[data-theme] .sf-screen .sf-floor-no { margin-left: auto; color: #999; font-family: Tahoma, sans-serif; font-size: 11.5px; }
+:root[data-theme] .sf-screen .sf-floor-body { display: flex; flex-direction: column; gap: 8px; padding: 4px 12px 6px 49px; }
+:root[data-theme] .sf-screen .sf-floor-body > p { font-size: 14px; line-height: 1.75; white-space: pre-wrap; overflow-wrap: anywhere; }
+:root[data-theme] .sf-screen .sf-floor-foot { display: flex; justify-content: flex-end; gap: 12px; padding: 0 12px 8px; color: #999; font-size: 11.5px; }
+:root[data-theme] .sf-screen .sf-floor-foot .sf-link-button { color: #999; font-size: 11.5px; }
+
+:root[data-theme] .sf-screen .sf-links { display: flex; flex-direction: column; gap: 8px; margin: 0; padding: 8px 10px; border: 1px dashed #9fb8e0; background: #f7faff; list-style: none; }
+:root[data-theme] .sf-screen .sf-links a { color: #0000cc; font-size: 13.5px; line-height: 1.45; text-decoration: underline; overflow-wrap: anywhere; }
+:root[data-theme] .sf-screen .sf-links a:visited { color: #551a8b; }
+:root[data-theme] .sf-screen .sf-links small { display: block; color: #2f8f4e; font-size: 11px; }
+:root[data-theme] .sf-screen .sf-links p { color: #555; font-size: 12px; line-height: 1.6; overflow-wrap: anywhere; }
+
+:root[data-theme] .sf-screen .sf-reply { display: flex; flex-direction: column; gap: 6px; margin: 14px 12px 0; padding: 10px; border: 1px solid #c9d6ef; background: #f2f6ff; }
+:root[data-theme] .sf-screen .sf-reply h3 { margin: 0; color: #2a63c9; font-size: 13px; }
+:root[data-theme] .sf-screen :is(.sf-reply, .sf-form) textarea { width: 100%; min-width: 0; padding: 5px; border: 1px solid #7f9db9; border-radius: 0; background: #fff; color: #000; font: inherit; font-size: 14px; line-height: 1.6; resize: vertical; }
+:root[data-theme] .sf-screen :is(.sf-reply, .sf-form) textarea:focus { outline: none; border-color: #316ac5; }
+:root[data-theme] .sf-screen .sf-reply > div { display: flex; align-items: center; gap: 10px; }
+:root[data-theme] .sf-screen .sf-reply small { color: #777; font-size: 11px; }
+:root[data-theme] .sf-screen .sf-form > label { display: grid; grid-template-columns: 3.6em minmax(0, 1fr); align-items: start; gap: 6px; font-size: 12.5px; }
+:root[data-theme] .sf-screen .sf-form > label > span { padding-top: 5px; }
+
+/* 收藏夹: the favourites pane, as a page. */
+:root[data-theme] .sf-screen .sf-favorites { display: flex; flex-direction: column; }
+:root[data-theme] .sf-screen .sf-favorites h2 { display: flex; align-items: baseline; gap: 8px; margin: 0; padding: 10px 12px 8px; border-bottom: 2px solid #f7b500; font-size: 15px; }
+:root[data-theme] .sf-screen .sf-favorites h2 small { color: #777; font-size: 11.5px; font-weight: 400; }
+:root[data-theme] .sf-screen .sf-favorites ul { margin: 0; padding: 0 12px; list-style: none; }
+:root[data-theme] .sf-screen .sf-favorites li { display: flex; gap: 8px; padding: 9px 0; border-bottom: 1px dashed #d6dbe6; }
+:root[data-theme] .sf-screen .sf-fav-icon { flex: none; width: 16px; height: 16px; margin-top: 2px; }
+:root[data-theme] .sf-screen .sf-fav-icon svg { display: block; width: 100%; height: 100%; }
+:root[data-theme] .sf-screen .sf-fav-main { display: flex; flex: 1; flex-direction: column; align-items: flex-start; gap: 3px; min-width: 0; }
+:root[data-theme] .sf-screen .sf-fav-main a { color: #0000cc; font-size: 13.5px; line-height: 1.45; text-decoration: underline; overflow-wrap: anywhere; }
+:root[data-theme] .sf-screen .sf-fav-main a:visited { color: #551a8b; }
+:root[data-theme] .sf-screen .sf-fav-main small { color: #777; font-size: 11px; }
+:root[data-theme] .sf-screen .sf-fav-main p { color: #444; font-size: 12px; line-height: 1.6; overflow-wrap: anywhere; }
+
+@media (max-width: 480px) {
+  :root[data-theme] .sf-screen .sf-floor-body { padding-left: 12px; }
+}

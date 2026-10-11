@@ -147,7 +147,7 @@
 }
 
 :root[data-theme="white-pink"] .app-bg :is(.chat-list-home, .diary-body, .settings-body) :is(
-  .chat-list-profile, .chat-list-card, .hb-log-item, .settings-group,
+  .chat-list-profile, .chat-list-card, .settings-group,
   .summer-native-toolbar, .summer-writer, .summer-doc,
   .summer-memory-group, .summer-memory-card, .summer-layer-card) {
   border: 0.5px solid rgba(255, 255, 255, 0.8);

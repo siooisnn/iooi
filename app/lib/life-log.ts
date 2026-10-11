@@ -19,13 +19,13 @@ export type LifeEntry = {
   text: string;
   /** Why, or how it went (push result). Optional. */
   note?: string;
-  /** read: the book id, so one sitting stays one line. */
+  /** read: the book id, so one sitting stays one line. surf: the forum thread it became. */
   ref?: string;
   /** read: where he got to, e.g. "第 2 章第 5 段（35%）". */
   progress?: string;
   /** read: notes he wrote in this sitting. */
   notes?: number;
-  /** read: "life" on his own time, "elsewhere" from another window (claude.ai, work mode). */
+  /** read / surf: "life" on his own time, "elsewhere" from another window (claude.ai, work mode). */
   source?: "life" | "elsewhere";
   /** read: epoch ms of the latest mark or note in this sitting. */
   lastAt?: number;
@@ -94,7 +94,7 @@ export function ensureLifeLog(store: Record<string, unknown>) {
 /** Call inside withStore. Returns the stored entry. */
 export function addLifeEntry(
   store: Record<string, unknown>,
-  entry: { kind: LifeKind; text: string; note?: string; links?: LifeLink[] },
+  entry: { kind: LifeKind; text: string; note?: string; links?: LifeLink[]; ref?: string; source?: "life" | "elsewhere" },
   now = new Date(),
 ): LifeEntry {
   const saved: LifeEntry = {
@@ -104,6 +104,8 @@ export function addLifeEntry(
     text: entry.text.trim(),
     ...(entry.note?.trim() ? { note: entry.note.trim() } : {}),
     ...(entry.links?.length ? { links: entry.links } : {}),
+    ...(entry.ref ? { ref: entry.ref } : {}),
+    ...(entry.source ? { source: entry.source } : {}),
   };
   store.lifeLog = [saved, ...readLifeLog(store)].slice(0, LIFE_LOG_LIMIT);
   return saved;

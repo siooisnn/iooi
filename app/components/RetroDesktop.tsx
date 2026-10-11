@@ -67,7 +67,7 @@ export function MoodGlyph() {
 }
 
 /** heartbeat: a glossy red heart with a white trace through it. */
-function HeartGlyph() {
+export function HeartGlyph() {
   const { ref, paint } = useIds();
   return (
     <svg viewBox="0 0 48 48" aria-hidden="true">
@@ -102,6 +102,26 @@ export function BookGlyph() {
       <path d="M5 11c6.5-2.4 13-2 19 1.5V40c-6-3.4-12.5-3.8-19-1.5z" fill="#fff" stroke="#7c6a4c" strokeWidth="1.2" />
       <path d="M43 11c-6.5-2.4-13-2-19 1.5V40c6-3.4 12.5-3.8 19-1.5z" fill="#f6f1e2" stroke="#7c6a4c" strokeWidth="1.2" />
       <path d="M9 17c3.6-1 7.3-.8 11 .7M9 22c3.6-1 7.3-.8 11 .7M9 27c3.6-1 7.3-.8 11 .7M28 17.7c3.7-1.5 7.4-1.7 11-.7M28 22.7c3.7-1.5 7.4-1.7 11-.7" stroke="#a9b6cc" strokeWidth="1.3" fill="none" />
+    </svg>
+  );
+}
+
+/** internet: the old blue "e" with its gold orbit, Internet Explorer style. */
+export function IeGlyph() {
+  const { ref, paint } = useIds();
+  return (
+    <svg viewBox="0 0 48 48" aria-hidden="true">
+      <defs>
+        <radialGradient id={ref("e")} gradientUnits="userSpaceOnUse" cx="19" cy="17" r="24"><stop stopColor="#bfe6ff" /><stop offset=".5" stopColor="#3d93e8" /><stop offset="1" stopColor="#13509f" /></radialGradient>
+        <linearGradient id={ref("ring")} x1="0" x2="1"><stop stopColor="#fff2a8" /><stop offset=".5" stopColor="#f7b500" /><stop offset="1" stopColor="#c97a00" /></linearGradient>
+      </defs>
+      <ellipse cx="24" cy="26" rx="21.5" ry="8.5" fill="none" stroke="#9a5d00" strokeWidth="4.6" transform="rotate(-32 24 26)" />
+      <ellipse cx="24" cy="26" rx="21.5" ry="8.5" fill="none" stroke={paint("ring")} strokeWidth="2.8" transform="rotate(-32 24 26)" />
+      <path d="M13.5 27h22c0-7-4.8-11.8-11-11.8s-11 5.1-11 11.8 4.8 11.8 11.1 11.8c4 0 7-1.7 8.9-4.6"
+        fill="none" stroke="#0d3f80" strokeWidth="9" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M13.5 27h22c0-7-4.8-11.8-11-11.8s-11 5.1-11 11.8 4.8 11.8 11.1 11.8c4 0 7-1.7 8.9-4.6"
+        fill="none" stroke={paint("e")} strokeWidth="6.4" strokeLinecap="round" strokeLinejoin="round" />
+      <ellipse cx="20" cy="15.5" rx="4.5" ry="1.8" fill="#fff" opacity=".55" transform="rotate(-20 20 15.5)" />
     </svg>
   );
 }
@@ -293,6 +313,7 @@ export function RetroDesktop({ settings, onOpen, onExit, boot, onBooted }: {
             <DeskIcon label="heartbeat" onClick={() => open("heartbeat")}><HeartGlyph /></DeskIcon>
             <DeskIcon label="blog" onClick={() => open("blog")}><BlogGlyph /></DeskIcon>
             <DeskIcon label="reading" onClick={() => open("reading")}><BookGlyph /></DeskIcon>
+            <DeskIcon label="internet" onClick={() => open("surf")}><IeGlyph /></DeskIcon>
             <DeskIcon label="clawd" onClick={() => open("clawd")}><ClawdGlyph /></DeskIcon>
             <DeskIcon label="mood" onClick={() => open("mood")}><MoodGlyph /></DeskIcon>
             <DeskIcon label="回到 2026" onClick={shutDown}><PhoneGlyph /></DeskIcon>
@@ -318,6 +339,7 @@ export function RetroDesktop({ settings, onOpen, onExit, boot, onBooted }: {
                 <MenuItem icon={<ChatGlyph />} label="chat" note="和他说说话" onClick={() => open("chat")} />
                 <MenuItem icon={<BlogGlyph />} label="blog" note="我的小博客" onClick={() => open("blog")} />
                 <MenuItem icon={<BookGlyph />} label="reading" onClick={() => open("reading")} />
+                <MenuItem icon={<IeGlyph />} label="internet" note="我们俩的小论坛" onClick={() => open("surf")} />
                 <MenuItem icon={<MoodGlyph />} label="mood" note="今天是什么心情" onClick={() => open("mood")} />
                 <MenuItem icon={<HeartGlyph />} label="heartbeat" onClick={() => open("heartbeat")} />
               </div>

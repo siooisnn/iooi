@@ -2,6 +2,8 @@ import { spawn } from "child_process";
 import { randomUUID } from "crypto";
 import { chown, unlink, writeFile } from "fs/promises";
 import { chatReadonlyMcpToken, lifeMcpToken } from "./mcp-oauth";
+import { lifeToolNames } from "./life-plan";
+import type { LifeKinds } from "./life-plan";
 import { stripSpeakerPrefix } from "./reply-prefix";
 
 type ClaudeCodeMessage = {
@@ -289,6 +291,8 @@ export const CHAT_READ_TOOLS = [
   "mcp__iooi__reading_shelf",
   "mcp__iooi__reading_book",
   "mcp__iooi__reading_read",
+  "mcp__iooi__surf_board",
+  "mcp__iooi__surf_thread",
   "mcp__summer__search",
   "mcp__summer__read",
 ];
@@ -304,27 +308,11 @@ const CHAT_HIDDEN_TOOLS = [
 
 const CHAT_TOOL_RULES = [
   "## 你能自己去看的东西",
-  "这轮你可以调用只读工具：mcp__iooi__blog_read（博客目录）、mcp__iooi__blog_read_post（某篇日志全文、留言和配图）、mcp__iooi__reading_shelf / mcp__iooi__reading_book / mcp__iooi__reading_read（书架、一本书的进度目录和你的批注、正文）、mcp__summer__search / mcp__summer__read（翻 Summer 记忆）。",
+  "这轮你可以调用只读工具：mcp__iooi__blog_read（博客目录）、mcp__iooi__blog_read_post（某篇日志全文、留言和配图）、mcp__iooi__reading_shelf / mcp__iooi__reading_book / mcp__iooi__reading_read（书架、一本书的进度目录和你的批注、正文）、mcp__iooi__surf_board / mcp__iooi__surf_thread（你们俩的小论坛：帖子列表、一个帖子的全部楼层）、mcp__summer__search / mcp__summer__read（翻 Summer 记忆）。",
   "上下文里已经有的内容直接用，别为了确认再查一遍。只有她这条消息需要、而上下文里没有或只有摘要时才去看，比如她让你看某篇日志、问你读到哪了、问你记不记得某件事。普通聊天不要调用工具。",
   "调用工具前不要先写“我去看看”之类的过渡句，她看不到中间过程，直接在看完之后回她。",
-  "这些工具只能看。要发日志、留言、改签名、记进 Summer，照旧用回复里的标记。聊天里挪不了读书进度、写不了批注。",
+  "这些工具只能看。要发日志、留言、改签名、记进 Summer，照旧用回复里的标记。聊天里挪不了读书进度、写不了批注，也发不了帖、回不了帖。",
 ].join("\n");
-
-// His own time (life-beat.ts): the bookshelf with his bookmark and notes,
-// Summer to look things up, and the web. Nothing that posts or deletes.
-export const LIFE_TOOLS = [
-  "mcp__iooi__blog_read",
-  "mcp__iooi__blog_read_post",
-  "mcp__iooi__reading_shelf",
-  "mcp__iooi__reading_book",
-  "mcp__iooi__reading_read",
-  "mcp__iooi__reading_mark",
-  "mcp__iooi__reading_note",
-  "mcp__summer__search",
-  "mcp__summer__read",
-  "WebSearch",
-  "WebFetch",
-];
 
 function chatMcpUrl() {
   const configured = (process.env.IOOI_CHAT_MCP_URL || "").trim();
@@ -392,6 +380,7 @@ export async function runClaudeCodeChat({
   chatTools = false,
   currentUserText = "",
   lifeTools = false,
+  lifeKinds = { read: true, surf: true },
   priority = "interactive",
   signal,
   onTextDelta,
@@ -406,11 +395,13 @@ export async function runClaudeCodeChat({
   chatTools?: boolean;
   currentUserText?: string;
   /**
-   * His own time: LIFE_TOOLS with the life key, several turns, a long timeout.
+   * His own time: lifeToolNames(lifeKinds) with the life key, several turns, a long timeout.
    * Runs beside the shared queue (one at a time, see life-beat.ts) so a long
    * read never makes her chat wait.
    */
   lifeTools?: boolean;
+  /** Which of his own-time tools she switched on (life-plan.ts lifeToolNames). */
+  lifeKinds?: LifeKinds;
   priority?: ClaudeCodePriority;
   signal?: AbortSignal;
   onTextDelta?: (text: string) => void;
@@ -452,9 +443,9 @@ export async function runClaudeCodeChat({
     // Read-only chat tools keep streaming, behind the lead-in gate below.
     const effectiveOnTextDelta = webSearch || usesLifeTools ? undefined : onTextDelta;
     const usesStreamingOutput = usesImages || usesTools || Boolean(effectiveOnTextDelta);
-    const availableTools = webSearch || usesLifeTools ? "WebSearch,WebFetch" : "";
+    const availableTools = webSearch || (usesLifeTools && lifeKinds.surf) ? "WebSearch,WebFetch" : "";
     const allowedTools = usesLifeTools
-      ? LIFE_TOOLS.join(",")
+      ? lifeToolNames(lifeKinds).join(",")
       : [
         ...(webSearch ? ["WebSearch", "WebFetch"] : []),
         ...(usesChatTools ? CHAT_READ_TOOLS : []),

@@ -51,6 +51,8 @@ const contextStore = createJsonStore("context-snapshots.json", true);
 const mcpAuthStore = createJsonStore("mcp-oauth.json", true);
 // The bookshelf without the book text; each text is its own file (reading-shelf.ts).
 const readingStore = createJsonStore("reading.json");
+// Our little forum (the surf app): his finds online, her replies.
+const surfStore = createJsonStore("surf.json");
 
 export const readStore = mainStore.read;
 export const withStore = mainStore.write;
@@ -64,4 +66,6 @@ export const readMcpAuthStore = mcpAuthStore.read;
 export const withMcpAuthStore = mcpAuthStore.write;
 export const readReadingStore = readingStore.read;
 export const withReadingStore = readingStore.write;
+export const readSurfStore = surfStore.read;
+export const withSurfStore = surfStore.write;
 export const DATA_DIR_PATH = DATA_DIR;

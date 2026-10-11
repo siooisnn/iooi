@@ -18,6 +18,7 @@ import { RetroDesktop } from "./components/RetroDesktop";
 import { HeartbeatView } from "./components/AppPages";
 import { readLifeLog, type LifeEntry } from "./lib/life-log";
 import { ReadingView } from "./components/ReadingView";
+import { SurfView } from "./components/SurfView";
 import { ClawdView } from "./components/ClawdView";
 import { BlogView } from "./components/BlogView";
 import { PageBack } from "./components/PageBack";
@@ -54,7 +55,8 @@ export default function Home() {
     webSearch: false,
     proactiveCare: false,
     blogAutonomy: false,
-    lifeAutonomy: false,
+    lifeRead: false,
+    lifeSurf: false,
     city: "",
   };
 
@@ -62,6 +64,8 @@ export default function Home() {
   const [tab, setTab] = useState<"home" | HomeApp>("home");
   // A blog card tapped in the chat: which post to open, and back goes to the chat.
   const [blogTarget, setBlogTarget] = useState<BlogTarget | null>(null);
+  // A forum thread opened from the heartbeat log: back goes to the log.
+  const [surfTarget, setSurfTarget] = useState<string | null>(null);
   useThemePage(
     tab === "home" || tab === "moon" || tab === "blog" ? "home"
       : tab === "chat" ? "chat"
@@ -525,12 +529,14 @@ export default function Home() {
 
   function openApp(app: HomeApp) {
     setBlogTarget(null);
+    setSurfTarget(null);
     setTab(app);
     if (app === "chat") setChatView("list");
   }
 
   function goHome() {
     setBlogTarget(null);
+    setSurfTarget(null);
     setTab("home");
   }
 
@@ -726,7 +732,8 @@ export default function Home() {
             onBack={() => setChatView("list")}
           />
         )}
-        {tab === "heartbeat" && <HeartbeatView log={heartbeatLog} onBack={goHome} />}
+        {tab === "heartbeat" && <HeartbeatView log={heartbeatLog} onBack={goHome}
+          onOpenThread={(id) => { setSurfTarget(id); setTab("surf"); }} />}
         {tab === "blog" && <BlogView
           key={blogTarget ? `${blogTarget.kind}-${blogTarget.id}` : "blog"}
           settings={settings}
@@ -736,6 +743,8 @@ export default function Home() {
           initialScreen={blogTarget || undefined}
         />}
         {tab === "reading" && <ReadingView settings={settings} onBack={goHome} />}
+        {tab === "surf" && <SurfView key={surfTarget || "surf"} settings={settings} initialThread={surfTarget}
+          onBack={surfTarget ? () => { setSurfTarget(null); setTab("heartbeat"); } : goHome} />}
         {tab === "clawd" && <ClawdView onBack={goHome} />}
         {tab === "mood" && <MoodPage mood={dailyMood} retro={settings.retroDesktop} onBack={goHome} />}
         {(tab === "summer-claude" || tab === "summer-gpt") && (

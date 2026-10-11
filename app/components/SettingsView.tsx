@@ -144,32 +144,40 @@ export function SettingsView({
             <span className="model-option-dot" />
             {settings.blogAutonomy ? "On" : "Off"}
           </button>
-          <p className="settings-hint" style={{ marginTop: 6 }}>His own time: once a morning, afternoon and evening at most (9:00–23:00), {aiName} reads a bit on the shelf or wanders online. It waits while you are chatting. If he finds something he wants to show you right away, it comes to the chat when Proactive Care is on.</p>
+          <p className="settings-hint" style={{ marginTop: 6 }}>His own time: once a morning, afternoon and evening at most (9:00–23:00), {aiName} picks one thing to do among those switched on below. It waits while you are chatting.</p>
+          <p className="settings-hint" style={{ marginTop: 6 }}>Reading: he reads a bit on the shelf, moves his bookmark and may leave a note.</p>
           <button
-            className={`model-option ${settings.lifeAutonomy ? "model-option-active" : ""}`}
-            onClick={() => updateSettings({ lifeAutonomy: !settings.lifeAutonomy })}
+            className={`model-option ${settings.lifeRead ? "model-option-active" : ""}`}
+            onClick={() => updateSettings({ lifeRead: !settings.lifeRead })}
           >
             <span className="model-option-dot" />
-            {settings.lifeAutonomy ? "On" : "Off"}
+            {settings.lifeRead ? "On" : "Off"}
           </button>
-          {settings.lifeAutonomy && (
-            <>
-              <p className="settings-hint" style={{ marginTop: 6 }}>Push when he reads / when he goes online.</p>
-              <button
-                className={`model-option ${settings.lifePushRead !== false ? "model-option-active" : ""}`}
-                onClick={() => updateSettings({ lifePushRead: settings.lifePushRead === false })}
-              >
-                <span className="model-option-dot" />
-                Reading {settings.lifePushRead !== false ? "On" : "Off"}
-              </button>
-              <button
-                className={`model-option ${settings.lifePushSurf !== false ? "model-option-active" : ""}`}
-                onClick={() => updateSettings({ lifePushSurf: settings.lifePushSurf === false })}
-              >
-                <span className="model-option-dot" />
-                Surfing {settings.lifePushSurf !== false ? "On" : "Off"}
-              </button>
-            </>
+          {settings.lifeRead && (
+            <button
+              className={`model-option ${settings.lifePushRead !== false ? "model-option-active" : ""}`}
+              onClick={() => updateSettings({ lifePushRead: settings.lifePushRead === false })}
+            >
+              <span className="model-option-dot" />
+              Push {settings.lifePushRead !== false ? "On" : "Off"}
+            </button>
+          )}
+          <p className="settings-hint" style={{ marginTop: 6 }}>Surfing: he wanders online. If he finds something he wants to show you right away, it comes to the chat when Proactive Care is on.</p>
+          <button
+            className={`model-option ${settings.lifeSurf ? "model-option-active" : ""}`}
+            onClick={() => updateSettings({ lifeSurf: !settings.lifeSurf })}
+          >
+            <span className="model-option-dot" />
+            {settings.lifeSurf ? "On" : "Off"}
+          </button>
+          {settings.lifeSurf && (
+            <button
+              className={`model-option ${settings.lifePushSurf !== false ? "model-option-active" : ""}`}
+              onClick={() => updateSettings({ lifePushSurf: settings.lifePushSurf === false })}
+            >
+              <span className="model-option-dot" />
+              Push {settings.lifePushSurf !== false ? "On" : "Off"}
+            </button>
           )}
         </div>
 

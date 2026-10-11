@@ -61,6 +61,16 @@ export function IconLineRetro(props: LineIconProps) {
   );
 }
 
+/** internet: a globe, for the little forum. */
+export function IconLineGlobe(props: LineIconProps) {
+  return (
+    <LineIcon {...props}>
+      <circle cx="12" cy="12" r="8.5" />
+      <path d="M3.5 12h17M12 3.5c2.3 2.4 3.4 5.2 3.4 8.5s-1.1 6.1-3.4 8.5M12 3.5C9.7 5.9 8.6 8.7 8.6 12s1.1 6.1 3.4 8.5" />
+    </LineIcon>
+  );
+}
+
 export function IconLineMood(props: LineIconProps) {
   return <LineIcon {...props}><circle cx="12" cy="12" r="8.5" /><path d="M8.5 13.5c.7 2 2 3 3.5 3s2.8-1 3.5-3M9 8.7v1.1M15 8.7v1.1" /></LineIcon>;
 }

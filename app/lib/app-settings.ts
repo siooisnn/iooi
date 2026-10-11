@@ -36,9 +36,11 @@ export type Settings = {
   // to comment on hers, unasked. Off unless she turns it on.
   blogAutonomy?: boolean;
   // His own time: once a morning, afternoon and evening at most, he reads on
-  // the shelf or wanders online. Off unless she turns it on.
-  lifeAutonomy?: boolean;
-  // Push when he has read / surfed. On unless turned off (only matters with lifeAutonomy).
+  // the shelf or wanders online. Each has its own switch, off unless she
+  // turns it on; with only one on, that's the only thing he can do.
+  lifeRead?: boolean;
+  lifeSurf?: boolean;
+  // Push when he has read / surfed. On unless turned off (only matters with lifeRead / lifeSurf).
   lifePushRead?: boolean;
   lifePushSurf?: boolean;
   city: string;

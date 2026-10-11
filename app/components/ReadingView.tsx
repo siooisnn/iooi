@@ -1,8 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useId, useRef, useState } from "react";
-import type { CSSProperties, ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import type { CSSProperties } from "react";
 import { BookGlyph } from "./RetroDesktop";
+import { XpDialog } from "./XpDialog";
 import { CLAUDE_DEFAULT_NAME, type Settings } from "../lib/app-settings";
 import { apiFetch } from "../lib/client-api";
 import {
@@ -63,23 +64,6 @@ function Progress({ who, label, mark }: { who: ReadingWho; label: string; mark: 
     </span>
     <span className="rd-progress-value">{mark ? `${percent}%` : "未开始"}</span>
   </div>;
-}
-
-function XpDialog({ title, children, onClose }: { title: string; children: ReactNode; onClose: () => void }) {
-  const ref = useRef<HTMLDialogElement>(null);
-  const titleId = useId();
-  useEffect(() => {
-    const dialog = ref.current;
-    dialog?.showModal();
-    return () => { dialog?.close(); };
-  }, []);
-  return <dialog className="rd-dialog" ref={ref} aria-labelledby={titleId}
-    onCancel={(event) => { event.preventDefault(); onClose(); }}>
-    <header className="rd-dialog-title"><h2 id={titleId}>{title}</h2>
-      <button type="button" className="rd-dialog-close" onClick={onClose} aria-label="关闭"><svg viewBox="0 0 10 10" aria-hidden="true"><path d="M2 2l6 6M8 2l-6 6" /></svg></button>
-    </header>
-    <div className="rd-dialog-body">{children}</div>
-  </dialog>;
 }
 
 type BookForm = { title: string; author: string; shelf: ReadingShelf; wantedBy: ReadingWho; blurb: string; file: File | null };

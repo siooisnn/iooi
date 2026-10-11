@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { LIFE_CHATTING_MS, LIFE_TAIL_MS, parseLifeBeat, parseLifeOutcome, planLife, segmentAt } from '../app/lib/life-plan.ts';
+import { LIFE_CHATTING_MS, LIFE_TAIL_MS, allowedOutcome, lifeKinds, lifeToolNames, parseLifeBeat, parseLifeOutcome, planLife, segmentAt } from '../app/lib/life-plan.ts';
 
 // CST = UTC+8.
 const at = (hhmm, day = '2026-10-11') => Date.parse(`${day}T${hhmm}:00+08:00`);
@@ -71,7 +71,12 @@ test('stored state is read defensively', () => {
 
 test('his closing JSON is parsed with fences and words around it', () => {
   const read = parseLifeOutcome('读完了。\n```json\n{"did":"read","line":"读到第二章，  停在一句话上"}\n```');
-  assert.deepEqual(read, { did: 'read', line: '读到第二章， 停在一句话上', links: [], share: '', reason: '' });
+  assert.deepEqual(read, { did: 'read', line: '读到第二章， 停在一句话上', links: [], title: '', post: '', share: '', reason: '' });
+
+  const thread = parseLifeOutcome(JSON.stringify({ did: 'surf', line: 'x', title: '  一个  标题 ', post: '第一段\r\n\n\n\n第二段' }));
+  assert.equal(thread.title, '一个 标题');
+  assert.equal(thread.post, '第一段\n\n第二段');
+  assert.equal(parseLifeOutcome('{"did":"read","title":"t","post":"p"}').post, '');
 
   const surf = parseLifeOutcome(JSON.stringify({
     did: 'surf', line: '逛了逛', share: '你看这个', links: [
@@ -94,4 +99,38 @@ test('his closing JSON is parsed with fences and words around it', () => {
   assert.equal(parseLifeOutcome('{"did":"nap","reason":"困"}').did, 'none');
   assert.equal(parseLifeOutcome('没有 JSON'), null);
   assert.equal(parseLifeOutcome('{"did": broken'), null);
+});
+
+test('reading and surfing each have their own switch, both off by default', () => {
+  assert.deepEqual(lifeKinds({}), { read: false, surf: false });
+  assert.deepEqual(lifeKinds({ lifeRead: true }), { read: true, surf: false });
+  assert.deepEqual(lifeKinds({ lifeSurf: true, lifeRead: 'yes' }), { read: false, surf: true });
+});
+
+test('his own time only gets the tools for what is switched on', () => {
+  const readOnly = lifeToolNames({ read: true, surf: false });
+  assert.ok(readOnly.includes('mcp__iooi__reading_mark'));
+  assert.ok(!readOnly.includes('WebSearch') && !readOnly.includes('WebFetch'));
+  const surfOnly = lifeToolNames({ read: false, surf: true });
+  assert.ok(surfOnly.includes('WebSearch') && surfOnly.includes('WebFetch'));
+  assert.ok(!surfOnly.some((name) => name.startsWith('mcp__iooi__reading_')));
+  assert.ok(surfOnly.includes('mcp__iooi__surf_board') && surfOnly.includes('mcp__iooi__surf_reply'));
+  assert.ok(!readOnly.some((name) => name.startsWith('mcp__iooi__surf_')));
+  assert.ok(!lifeToolNames({ read: true, surf: true }).includes('mcp__iooi__surf_post'));
+  for (const names of [readOnly, surfOnly, lifeToolNames({ read: true, surf: true })]) {
+    assert.ok(names.includes('mcp__summer__read'));
+    assert.ok(!names.some((name) => /blog_(write|comment|delete)|summer__edit/.test(name)));
+  }
+});
+
+test('an outcome for something switched off counts as nothing done', () => {
+  const surf = parseLifeOutcome('{"did":"surf","line":"逛了逛","links":[{"title":"a","url":"https://a.example"}],"share":"看这个"}');
+  const dropped = allowedOutcome(surf, { read: true, surf: false });
+  assert.equal(dropped.did, 'none');
+  assert.equal(dropped.share, '');
+  assert.deepEqual(dropped.links, []);
+  assert.equal(allowedOutcome(surf, { read: false, surf: true }), surf);
+  const read = parseLifeOutcome('{"did":"read","line":"读了两段"}');
+  assert.equal(allowedOutcome(read, { read: false, surf: true }).did, 'none');
+  assert.equal(allowedOutcome(null, { read: true, surf: true }), null);
 });

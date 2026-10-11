@@ -274,10 +274,7 @@
    Every page is the one gray with white cards on it and no outlines: the
    gray-white step alone sets a card apart. Cards nested inside a white card
    (summer's grouped entries) take a pale gray fill instead. */
-.heartbeat-body { gap: 12px; }
-
 :root[data-theme] :is(.diary-body, .settings-body, .chat-list-home) :is(
-  .hb-log-item,
   .summer-native-toolbar, .summer-writer, .summer-doc, .summer-memory-group,
   .summer-memory-card, .summer-layer-card, .settings-group) {
   border: 0;

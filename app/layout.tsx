@@ -11,6 +11,7 @@ import "./themes/xp-desktop.css";
 import "./themes/xp-chat.css";
 import "./themes/xp-buddy.css";
 import "./themes/xp-summer.css";
+import "./themes/xp-small-apps.css";
 import "./themes/mood.css";
 import "./themes/xp-control.css";
 import "./themes/cute.css";

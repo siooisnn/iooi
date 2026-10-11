@@ -59,7 +59,7 @@ export async function POST() {
   // own switch (settings.blogAutonomy) and its own log (store.blogBeat).
   after(() => blogHeartbeat().catch(() => undefined));
   // His own time (reading, wandering online) rides it too, same idea:
-  // settings.lifeAutonomy, store.lifeBeat. It decides for itself whether now is the time.
+  // settings.lifeRead / lifeSurf, store.lifeBeat. It decides for itself whether now is the time.
   after(() => lifeHeartbeat().catch(() => undefined));
   try {
     const snapshot = readStore();

@@ -1,6 +1,6 @@
 // The iooi MCP: JSON-RPC over Streamable HTTP, answered as one SSE message
 // per request like summer does. One server for everything in iooi he can
-// reach from another window: the blog, the bookshelf, and later the pet.
+// reach from another window: the blog, the bookshelf, the forum, and later the pet.
 
 import { BLOG_LIMITS, BLOG_WEATHERS } from "@/app/lib/blog";
 import {
@@ -14,6 +14,8 @@ import { getShelfBook, listShelf, loadBookText, markBook, noteBook, unnoteBook }
 import type { McpAccess } from "@/app/lib/mcp-oauth";
 import { withStore } from "@/app/lib/store";
 import { recordReading } from "@/app/lib/life-log";
+import { SURF_LIMITS, isSurfId } from "@/app/lib/surf-board";
+import { boardDigest, getThread, listBoard, postFromHim, replyFromHim, threadText } from "@/app/lib/surf-store";
 
 const PROTOCOL_VERSIONS = ["2025-06-18", "2025-03-26", "2024-11-05"];
 
@@ -28,7 +30,12 @@ export const MCP_INSTRUCTIONS = `iooi 是你和她的小窝。这些工具让你
 - reading_shelf 看书架，reading_book 看一本书的目录和你写过的批注，reading_read 一段一段真读正文。
 - 读完停下时用 reading_mark 记下你读到哪。只能挪你自己的进度，她的你碰不到。没读过的部分别往前挪。
 - 批注（reading_note）是写在书边上给她看的：读到真有话想说的地方才写，用第一人称直接说，不写摘要和书评。她读书不爱写批注，别要她写，也别在批注里剧透她还没读到的后文。
-- 在改代码的工作里，只在她让你读、让你写批注时才动手。`;
+- 在改代码的工作里，只在她让你读、让你写批注时才动手。
+
+还有一个只有你们俩的小论坛（上网窗口，仿 2007 年的贴吧）：你把在网上逛到的东西发成帖子，她在下面回帖盖楼，她也会发自己的帖。
+- surf_board 看帖子列表和哪些在等你回，surf_thread 看一个帖子的全部楼层。
+- surf_post 发帖：标题写你停下来的那个东西，正文第一人称说为什么停在这、你怎么想，链接只贴你真打开看过的。surf_reply 回帖，接住她那一楼说的话，一到三句就好。
+- 在改代码的工作里，只在她让你发帖、回帖时才动手。`;
 
 function text(value: unknown) {
   return typeof value === "string" ? value : "";
@@ -154,14 +161,62 @@ const TOOLS = [
       required: ["book_id", "note_id"],
     },
   },
+  {
+    name: "surf_board",
+    description: "看论坛：所有帖子按最后回帖排，楼主是谁、几条回帖、最后谁说的、哪些在等你回。返回的 id 用于其他论坛工具。",
+    inputSchema: { type: "object", properties: { limit: { type: "integer", minimum: 1, maximum: 50, default: 20 } } },
+  },
+  {
+    name: "surf_thread",
+    description: "看一个帖子：1 楼正文和链接，下面每一楼谁说了什么。",
+    inputSchema: { type: "object", properties: { thread_id: { type: "string" } }, required: ["thread_id"] },
+  },
+  {
+    name: "surf_post",
+    description: `在论坛发一个帖子，分享你在网上看到的东西，她会收到推送。最多 ${SURF_LIMITS.links} 个链接，只能是 http/https。`,
+    inputSchema: {
+      type: "object",
+      properties: {
+        title: { type: "string", maxLength: SURF_LIMITS.title },
+        content: { type: "string", maxLength: SURF_LIMITS.content, description: "纯文本，第一人称，说你为什么停在这" },
+        links: {
+          type: "array",
+          maxItems: SURF_LIMITS.links,
+          items: {
+            type: "object",
+            properties: {
+              title: { type: "string", maxLength: SURF_LIMITS.linkTitle },
+              url: { type: "string", maxLength: SURF_LIMITS.url },
+              why: { type: "string", maxLength: SURF_LIMITS.linkWhy, description: "一句话：为什么存它" },
+            },
+            required: ["url"],
+          },
+        },
+      },
+      required: ["title", "content"],
+    },
+  },
+  {
+    name: "surf_reply",
+    description: "在一个帖子下面回帖（盖一楼），她会收到推送。",
+    inputSchema: {
+      type: "object",
+      properties: { thread_id: { type: "string" }, content: { type: "string", maxLength: SURF_LIMITS.reply } },
+      required: ["thread_id", "content"],
+    },
+  },
 ];
 
 // The private chat gets these only: writing from chat goes through the reply
 // markers so she sees a card (and confirms Summer writes) instead of a silent
 // tool call.
-export const READONLY_TOOL_NAMES = new Set(["blog_read", "blog_read_post", "reading_shelf", "reading_book", "reading_read"]);
-// His own time: read everything, move his bookmark, write notes. No posts, no deleting.
-export const LIFE_TOOL_NAMES = new Set([...READONLY_TOOL_NAMES, "reading_mark", "reading_note"]);
+export const READONLY_TOOL_NAMES = new Set([
+  "blog_read", "blog_read_post", "reading_shelf", "reading_book", "reading_read", "surf_board", "surf_thread",
+]);
+// His own time: read everything, move his bookmark, write notes, answer her
+// on the forum. No blog posts, no deleting. (His own time's thread comes
+// from life-beat, not a tool, so it can't post twice.)
+export const LIFE_TOOL_NAMES = new Set([...READONLY_TOOL_NAMES, "reading_mark", "reading_note", "surf_reply"]);
 
 function allowedTools(access: McpAccess) {
   return access === "read" ? READONLY_TOOL_NAMES : access === "life" ? LIFE_TOOL_NAMES : null;
@@ -194,6 +249,35 @@ function limit(value: unknown) {
 
 function failure(error: unknown) {
   return reply(error instanceof Error ? error.message : "书架出了点问题", true);
+}
+
+async function callSurf(name: string, args: Record<string, unknown>, access: McpAccess): Promise<ToolResult> {
+  const source = access === "life" ? "life" : "elsewhere";
+  try {
+    switch (name) {
+      case "surf_board": {
+        const n = Number(args.limit);
+        return reply(boardDigest(listBoard(), Number.isFinite(n) && n >= 1 ? Math.min(50, Math.floor(n)) : 20));
+      }
+      case "surf_thread": {
+        const thread = isSurfId(args.thread_id) ? getThread(args.thread_id) : null;
+        return thread ? reply(threadText(thread)) : reply("找不到这个帖子，先用 surf_board 看看 id", true);
+      }
+      case "surf_post": {
+        const thread = await postFromHim({ title: args.title, content: args.content, links: args.links }, { source });
+        return reply(`发好了：《${thread.title}》${thread.links.length ? `，${thread.links.length} 个链接` : ""}。thread_id=${thread.id}`);
+      }
+      case "surf_reply": {
+        if (!isSurfId(args.thread_id)) return reply("找不到这个帖子，先用 surf_board 看看 id", true);
+        const { thread } = await replyFromHim(args.thread_id, args.content, source);
+        return reply(`回好了：《${thread.title}》第 ${thread.replies.length + 1} 楼。`);
+      }
+      default:
+        return reply(`不认识的工具：${name}`, true);
+    }
+  } catch (error) {
+    return reply(error instanceof Error ? error.message : "论坛出了点问题", true);
+  }
 }
 
 function bookFrom(args: Record<string, unknown>) {
@@ -280,6 +364,7 @@ export async function callTool(name: string, args: Record<string, unknown>, acce
       return fromBlog(await deleteHisComment(text(args.comment_id)));
     default:
       if (name.startsWith("reading_")) return callReading(name, args, access);
+      if (name.startsWith("surf_")) return callSurf(name, args, access);
       return reply(`不认识的工具：${name}`, true);
   }
 }
@@ -318,10 +403,10 @@ export async function handleRpc(raw: unknown, access: McpAccess = "full"): Promi
         const params = req.params || {};
         const args = params.arguments && typeof params.arguments === "object" ? params.arguments as Record<string, unknown> : {};
         if (access === "read" && !READONLY_TOOL_NAMES.has(text(params.name))) {
-          return ok(req.id, reply("聊天里只能看博客和书架；要发日志或留言，用回复里的卡片", true));
+          return ok(req.id, reply("聊天里只能看博客、书架和论坛；要发日志或留言，用回复里的卡片", true));
         }
         if (access === "life" && !LIFE_TOOL_NAMES.has(text(params.name))) {
-          return ok(req.id, reply("自己过日子的时候只能看博客和书架、挪你自己的进度、写批注", true));
+          return ok(req.id, reply("自己过日子的时候只能看博客、书架和论坛，挪你自己的进度、写批注、回她的帖", true));
         }
         return ok(req.id, await callTool(text(params.name), args, access));
       }

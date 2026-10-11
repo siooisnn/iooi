@@ -94,6 +94,9 @@ export type LifeOutcome = {
   did: "read" | "surf" | "none";
   line: string;
   links: LifeLinkOut[];
+  /** surf: the forum thread his find becomes. Empty title falls back to the first link. */
+  title: string;
+  post: string;
   share: string;
   reason: string;
 };
@@ -127,7 +130,45 @@ export function parseLifeOutcome(raw: string): LifeOutcome | null {
     did,
     line: str(value.line, 200),
     links: did === "surf" ? links : [],
+    title: did === "surf" ? str(value.title, 80) : "",
+    post: did === "surf" && typeof value.post === "string" ? value.post.replace(/\r\n?/g, "\n").replace(/\n{3,}/g, "\n\n").trim().slice(0, 2000) : "",
     share: did === "surf" ? str(value.share, 300) : "",
     reason: str(value.reason, 200),
   };
+}
+
+/** Which of his own-time things she has switched on. Both off unless turned on. */
+export type LifeKinds = { read: boolean; surf: boolean };
+
+export function lifeKinds(settings: Record<string, unknown>): LifeKinds {
+  return { read: settings.lifeRead === true, surf: settings.lifeSurf === true };
+}
+
+const LIFE_BASE_TOOLS = ["mcp__iooi__blog_read", "mcp__iooi__blog_read_post", "mcp__summer__search", "mcp__summer__read"];
+const LIFE_READ_TOOLS = [
+  "mcp__iooi__reading_shelf",
+  "mcp__iooi__reading_book",
+  "mcp__iooi__reading_read",
+  "mcp__iooi__reading_mark",
+  "mcp__iooi__reading_note",
+];
+// The forum: see what's there (no repeats) and answer her floors.
+const LIFE_SURF_TOOLS = ["WebSearch", "WebFetch", "mcp__iooi__surf_board", "mcp__iooi__surf_thread", "mcp__iooi__surf_reply"];
+
+/**
+ * His own time only gets the tools for what she switched on: no shelf when
+ * reading is off, no web or forum when surfing is off. Nothing that deletes;
+ * the one thread a go may post comes from his outcome, not a tool.
+ */
+export function lifeToolNames(kinds: LifeKinds) {
+  return [...LIFE_BASE_TOOLS, ...(kinds.read ? LIFE_READ_TOOLS : []), ...(kinds.surf ? LIFE_SURF_TOOLS : [])];
+}
+
+/** Drop whatever he reports doing that she has switched off. */
+export function allowedOutcome(outcome: LifeOutcome | null, kinds: LifeKinds): LifeOutcome | null {
+  if (!outcome) return null;
+  if ((outcome.did === "read" && !kinds.read) || (outcome.did === "surf" && !kinds.surf)) {
+    return { did: "none", line: "", links: [], title: "", post: "", share: "", reason: "做了没打开的事" };
+  }
+  return outcome;
 }
