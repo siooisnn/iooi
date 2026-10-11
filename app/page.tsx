@@ -548,7 +548,7 @@ export default function Home() {
     return (
       <main className="app-bg">
         <div className="lock-screen">
-          <img src="/icon-iooi-192.png" alt="" className="lock-icon" />
+          <img src="/icon-love-letter-192.png" alt="" className="lock-icon" />
           <p className="lock-title">这是我们的小窗</p>
           <p className="lock-sub">输入钥匙进门</p>
           <input
