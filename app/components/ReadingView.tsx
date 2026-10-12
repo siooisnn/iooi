@@ -318,14 +318,14 @@ function Reader({ book, chapters, hisName, onPosition, onClose }: {
   </div>;
 }
 
-export function ReadingView({ settings, onBack }: { settings: Settings; onBack: () => void }) {
+export function ReadingView({ settings, onBack, initialBook }: { settings: Settings; onBack: () => void; initialBook?: string }) {
   const hisName = settings.aiName || CLAUDE_DEFAULT_NAME;
   const [books, setBooks] = useState<ShelfBook[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState("");
   const [shelf, setShelf] = useState<ReadingShelf>("reading");
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(initialBook || null);
   const [reader, setReader] = useState<{ id: string; chapters: ReadingChapter[] } | null>(null);
   const [form, setForm] = useState<{ book?: ShelfBook } | null>(null);
   const pending = useRef<{ id: string; chapterId: string; paragraphIndex: number } | null>(null);

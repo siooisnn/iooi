@@ -20,6 +20,8 @@ import { readLifeLog, type LifeEntry } from "./lib/life-log";
 import { ReadingView } from "./components/ReadingView";
 import { SurfView } from "./components/SurfView";
 import { WardrobeView } from "./components/WardrobeView";
+import { SusuPhoneView } from "./components/SusuPhoneView";
+import type { PhoneTarget } from "./lib/susu-phone";
 import { ClawdView } from "./components/ClawdView";
 import { BlogView } from "./components/BlogView";
 import { PageBack } from "./components/PageBack";
@@ -67,6 +69,9 @@ export default function Home() {
   const [blogTarget, setBlogTarget] = useState<BlogTarget | null>(null);
   // A forum thread opened from the heartbeat log: back goes to the log.
   const [surfTarget, setSurfTarget] = useState<string | null>(null);
+  const [readingTarget, setReadingTarget] = useState<string | undefined>(undefined);
+  const [phoneReturn, setPhoneReturn] = useState(false);
+  const [blogOrigin, setBlogOrigin] = useState<"chat" | "phone" | null>(null);
   useThemePage(
     tab === "home" || tab === "moon" || tab === "blog" ? "home"
       : tab === "chat" ? "chat"
@@ -529,6 +534,9 @@ export default function Home() {
   if (!mounted && !needKey) return <main className="app-bg"><div className="chat-container" /></main>;
 
   function openApp(app: HomeApp) {
+    setPhoneReturn(false);
+    setReadingTarget(undefined);
+    setBlogOrigin(null);
     setBlogTarget(null);
     setSurfTarget(null);
     setTab(app);
@@ -538,17 +546,32 @@ export default function Home() {
   function goHome() {
     setBlogTarget(null);
     setSurfTarget(null);
-    setTab("home");
+    setReadingTarget(undefined);
+    setBlogOrigin(null);
+    setTab(phoneReturn ? "susu-phone" : "home");
+    setPhoneReturn(false);
+  }
+
+  function openPhoneTarget(target: PhoneTarget) {
+    setPhoneReturn(true);
+    setReadingTarget(target.app === "reading" ? target.id : undefined);
+    setSurfTarget(target.app === "surf" ? target.id || null : null);
+    setBlogTarget(target.app === "blog" && target.id ? { kind: "him-post", id: target.id } : null);
+    setBlogOrigin(target.app === "blog" ? "phone" : null);
+    setTab(target.app);
+    if (target.app === "chat") setChatView("list");
   }
 
   function openBlogFromChat(target: BlogTarget) {
+    setBlogOrigin("chat");
     setBlogTarget(target);
     setTab("blog");
   }
 
   function leaveBlog() {
-    if (blogTarget) {
+    if (blogOrigin === "chat") {
       setBlogTarget(null);
+      setBlogOrigin(null);
       setTab("chat");
     } else goHome();
   }
@@ -735,6 +758,7 @@ export default function Home() {
         )}
         {tab === "heartbeat" && <HeartbeatView log={heartbeatLog} onBack={goHome}
           onOpenThread={(id) => { setSurfTarget(id); setTab("surf"); }} />}
+        {tab === "susu-phone" && <SusuPhoneView onBack={goHome} onOpen={openPhoneTarget} />}
         {tab === "blog" && <BlogView
           key={blogTarget ? `${blogTarget.kind}-${blogTarget.id}` : "blog"}
           settings={settings}
@@ -742,10 +766,11 @@ export default function Home() {
           setFragments={setFragments}
           onBack={leaveBlog}
           initialScreen={blogTarget || undefined}
+          returnToCaller={blogOrigin === "phone"}
         />}
-        {tab === "reading" && <ReadingView settings={settings} onBack={goHome} />}
+        {tab === "reading" && <ReadingView key={readingTarget || "reading"} settings={settings} initialBook={readingTarget} onBack={goHome} />}
         {tab === "surf" && <SurfView key={surfTarget || "surf"} settings={settings} initialThread={surfTarget}
-          onBack={surfTarget ? () => { setSurfTarget(null); setTab("heartbeat"); } : goHome} />}
+          onBack={surfTarget && !phoneReturn ? () => { setSurfTarget(null); setTab("heartbeat"); } : goHome} />}
         {tab === "wardrobe" && <WardrobeView settings={settings} onBack={goHome} />}
         {tab === "clawd" && <ClawdView onBack={goHome} />}
         {tab === "mood" && <MoodPage mood={dailyMood} retro={settings.retroDesktop} onBack={goHome} />}

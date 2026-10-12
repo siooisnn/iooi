@@ -175,13 +175,15 @@ function useClock() {
 
 // ── Page ──
 
-export function BlogView({ settings, fragments, setFragments, onBack, initialScreen }: {
+export function BlogView({ settings, fragments, setFragments, onBack, initialScreen, returnToCaller = false }: {
   settings: Settings;
   fragments: FragmentEntry[];
   setFragments: React.Dispatch<React.SetStateAction<FragmentEntry[]>>;
   onBack: () => void;
   /** Opened from a card in the chat: start on that post. */
   initialScreen?: { kind: "post" | "him-post"; id: string };
+  /** A phone shortcut closes back to the phone; normal blog/chat paths keep their history. */
+  returnToCaller?: boolean;
 }) {
   const [blog, setBlog] = useState<BlogState>(() => parseBlogState(null));
   const [loading, setLoading] = useState(true);
@@ -405,7 +407,7 @@ export function BlogView({ settings, fragments, setFragments, onBack, initialScr
           <PostPage
             post={currentHisPost} byHim blog={blog} herName={herName} herAvatar={herAvatar} hisName={hisName} hisAvatar={hisAvatar}
             modelId={modelId}
-            onBack={() => go({ kind: "him" })}
+            onBack={returnToCaller && currentHisPost.id === initialScreen?.id ? onBack : () => go({ kind: "him" })}
             onDelete={async () => {
               if (!window.confirm("要删掉他这篇日志吗？下面的留言也会一起删掉，不能恢复。")) return;
               go({ kind: "him" });

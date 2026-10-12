@@ -55,6 +55,9 @@ const readingStore = createJsonStore("reading.json");
 const surfStore = createJsonStore("surf.json");
 // Her wardrobe: original photos, notes and the selected outfit.
 const wardrobeStore = createJsonStore("wardrobe.json");
+// Susu's phone stores decoration only. Notes and albums are reserved for later;
+// no second bookshelf, forum, blog, signature or heartbeat log lives here.
+const phoneSettingsStore = createJsonStore("phone_settings.json");
 
 export const readStore = mainStore.read;
 export const withStore = mainStore.write;
@@ -72,4 +75,6 @@ export const readSurfStore = surfStore.read;
 export const withSurfStore = surfStore.write;
 export const readWardrobeStore = wardrobeStore.read;
 export const withWardrobeStore = wardrobeStore.write;
+export const readPhoneSettingsStore = phoneSettingsStore.read;
+export const withPhoneSettingsStore = phoneSettingsStore.write;
 export const DATA_DIR_PATH = DATA_DIR;

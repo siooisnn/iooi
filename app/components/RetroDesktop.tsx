@@ -169,7 +169,7 @@ function ClawdGlyph() {
 }
 
 /** Back to 2026: a little iPhone showing the gray glass desktop. */
-function PhoneGlyph() {
+export function PhoneGlyph() {
   const { ref, paint } = useIds();
   return (
     <svg viewBox="0 0 48 48" aria-hidden="true">
@@ -342,7 +342,7 @@ export function RetroDesktop({ settings, onOpen, onExit, boot, onBooted }: {
             <DeskIcon label="clawd" onClick={() => open("clawd")}><ClawdGlyph /></DeskIcon>
             <DeskIcon label="mood" onClick={() => open("mood")}><MoodGlyph /></DeskIcon>
             <DeskIcon label="wardrobe" onClick={() => open("wardrobe")}><WardrobeGlyph /></DeskIcon>
-            <DeskIcon label="回到 2026" onClick={shutDown}><PhoneGlyph /></DeskIcon>
+            <DeskIcon label="susu’s phone" onClick={() => open("susu-phone")}><PhoneGlyph /></DeskIcon>
           </div>
 
           <button type="button" className="xp-desk-gadget" onClick={() => open("moon")} aria-label="Moonbound love">
@@ -369,6 +369,7 @@ export function RetroDesktop({ settings, onOpen, onExit, boot, onBooted }: {
                 <MenuItem icon={<MoodGlyph />} label="mood" note="今天是什么心情" onClick={() => open("mood")} />
                 <MenuItem icon={<WardrobeGlyph />} label="wardrobe" note="今天穿什么" onClick={() => open("wardrobe")} />
                 <MenuItem icon={<HeartGlyph />} label="heartbeat" onClick={() => open("heartbeat")} />
+                <MenuItem icon={<PhoneGlyph />} label="susu’s phone" onClick={() => open("susu-phone")} />
               </div>
               <div className="xp-desk-menu-right">
                 <MenuItem icon={<GearGlyph />} label="控制面板" onClick={() => open("settings")} />

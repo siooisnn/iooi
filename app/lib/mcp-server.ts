@@ -18,6 +18,8 @@ import { SURF_LIMITS, isSurfId } from "@/app/lib/surf-board";
 import { boardDigest, getThread, listBoard, postFromHim, replyFromHim, threadText } from "@/app/lib/surf-store";
 import { WARDROBE_CATEGORIES, isWardrobeId } from "@/app/lib/wardrobe";
 import { findWardrobeItem, tryOnView, wardrobeDigest, wardrobeItemView } from "@/app/lib/wardrobe-store";
+import { readPhone, changePhoneDecoration } from "@/app/lib/phone-store";
+import { PHONE_APPS, PHONE_WALLPAPERS } from "@/app/lib/susu-phone";
 
 const PROTOCOL_VERSIONS = ["2025-06-18", "2025-03-26", "2024-11-05"];
 
@@ -41,13 +43,36 @@ export const MCP_INSTRUCTIONS = `iooi 是你和她的小窝。这些工具让你
 
 还有她的衣柜（衣柜窗口）：她把真实的衣服照片放进来，在搭配板上组合上衣、外套、下装和鞋子。这几个工具只能看，不会改她的衣柜：
 - wardrobe_list 看衣柜（上衣、外套、裤子、裙子、鞋子）和当前搭配；wardrobe_item 看一件的原照片和备注；wardrobe_try 一起看几件的原照片和备注，讨论怎么搭（只是预览）。
-- 她问怎么搭、该不该买、哪件好久没穿时再去翻，说具体是哪几件、为什么；没有照片时根据备注交流，不要猜衣服的样子。`;
+- 她问怎么搭、该不该买、哪件好久没穿时再去翻，说具体是哪几件、为什么；没有照片时根据备注交流，不要猜衣服的样子。
+
+还有你的 susu’s phone，她打开只能看：
+- phone_read 看你自己的手机：壁纸、图标和挂件，今天做的事、在读的书、最近的帖子和日志。
+- phone_decorate 换内置壁纸、排底部图标、开关挂件。签名直接用博客的同一个字段，仍用 blog_set_motto 改。
+- 今天的记录由原来的心跳、阅读和论坛自动带过来，不要另写一份。便签和相册还没开放。`;
 
 function text(value: unknown) {
   return typeof value === "string" ? value : "";
 }
 
 const TOOLS = [
+  {
+    name: "phone_read",
+    description: "看自己的 susu’s phone：装饰布局、酥酥今天的时间线、在读进度、最近的论坛帖子和博客日志，以及与博客共享的签名。不返回正文、不修改数据。",
+    inputSchema: { type: "object", properties: {}, additionalProperties: false },
+  },
+  {
+    name: "phone_decorate",
+    description: "布置自己的小手机：换内置壁纸、调整四个 dock 图标从左到右的位置、开关三个内容卡片或猫/月亮/云。只写 phone_settings，不改阅读进度、帖子、日志、签名或她的衣柜。",
+    inputSchema: {
+      type: "object", additionalProperties: false, minProperties: 1,
+      properties: {
+        wallpaper: { type: "string", enum: [...PHONE_WALLPAPERS] },
+        icon_order: { type: "array", items: { type: "string", enum: [...PHONE_APPS] }, minItems: 4, maxItems: 4, uniqueItems: true },
+        widgets: { type: "object", additionalProperties: false, properties: { today: { type: "boolean" }, collection: { type: "boolean" }, signature: { type: "boolean" } } },
+        ornaments: { type: "object", additionalProperties: false, properties: { cat: { type: "boolean" }, moon: { type: "boolean" }, clouds: { type: "boolean" } } },
+      },
+    },
+  },
   {
     name: "blog_read",
     description: "看博客现在的样子：你的空间签名和日志列表、她最近的日志（带摘要），以及哪些留言在等你回。返回的 id 用于其他工具。",
@@ -240,6 +265,7 @@ const TOOLS = [
 export const READONLY_TOOL_NAMES = new Set([
   "blog_read", "blog_read_post", "reading_shelf", "reading_book", "reading_read", "surf_board", "surf_thread",
   "wardrobe_list", "wardrobe_item", "wardrobe_try",
+  "phone_read",
 ]);
 // His own time: read everything, move his bookmark, write notes, answer her
 // on the forum. No blog posts, no deleting. (His own time's thread comes
@@ -395,6 +421,13 @@ async function callReading(name: string, args: Record<string, unknown>, access: 
 export async function callTool(name: string, args: Record<string, unknown>, access: McpAccess = "full"): Promise<ToolResult> {
   console.info(`[mcp] tool call: ${name}`);
   switch (name) {
+    case "phone_read":
+      return reply(JSON.stringify(readPhone(), null, 2));
+    case "phone_decorate": {
+      if (access !== "full") return reply("布置手机需要完整的 MCP 连接；这个连接只能看手机。", true);
+      try { return reply(JSON.stringify({ message: "手机布置好了。", settings: await changePhoneDecoration(args) }, null, 2)); }
+      catch (error) { return failure(error); }
+    }
     case "blog_read":
       return reply(readBlogDigest({ herLimit: limit(args.her_limit), hisLimit: limit(args.his_limit) }));
     case "blog_read_post": {
@@ -457,10 +490,10 @@ export async function handleRpc(raw: unknown, access: McpAccess = "full"): Promi
         const params = req.params || {};
         const args = params.arguments && typeof params.arguments === "object" ? params.arguments as Record<string, unknown> : {};
         if (access === "read" && !READONLY_TOOL_NAMES.has(text(params.name))) {
-          return ok(req.id, reply("聊天里只能看博客、书架、论坛和衣柜；要发日志或留言，用回复里的卡片", true));
+          return ok(req.id, reply("聊天里只能看博客、书架、论坛、衣柜和手机；要发日志或留言，用回复里的卡片", true));
         }
         if (access === "life" && !LIFE_TOOL_NAMES.has(text(params.name))) {
-          return ok(req.id, reply("自己过日子的时候只能看博客、书架、论坛和衣柜，挪你自己的进度、写批注、回她的帖", true));
+          return ok(req.id, reply("自己过日子的时候只能看博客、书架、论坛、衣柜和手机，挪你自己的进度、写批注、回她的帖", true));
         }
         return ok(req.id, await callTool(text(params.name), args, access));
       }

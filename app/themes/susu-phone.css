@@ -1,0 +1,69 @@
+/* XP stays on the outside. Inside is a quiet, modern phone under a blue sky. */
+:root[data-theme] .sp-screen .sp-stage { flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; padding: 18px 20px; overflow: auto; background: #ece9d8; }
+:root[data-theme] .sp-screen .sp-device { flex: none; width: min(354px, 100%); height: min(670px, calc(100dvh - 125px)); min-height: 320px; padding: 7px; border: 1px solid #414956; border-radius: 40px; background: #111723; box-shadow: 0 16px 28px #14264035, inset 0 0 0 2px #080d16, inset 0 0 0 3px #445064; }
+:root[data-theme] .sp-screen .sp-display { --sp-top: #15274f; --sp-bottom: #36527e; position: relative; isolation: isolate; display: flex; flex-direction: column; height: 100%; min-height: 0; overflow: hidden; border-radius: 32px; color: #f1f5ff; background: radial-gradient(ellipse at 90% 5%, #839bc029, transparent 45%), linear-gradient(165deg, var(--sp-top), #213963 48%, var(--sp-bottom)); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif; }
+:root[data-theme] .sp-screen .sp-display[data-wallpaper="moon-mist"] { --sp-top: #313456; --sp-bottom: #686080; background: radial-gradient(ellipse at 95% 5%, #ccd3f036, transparent 48%), linear-gradient(160deg, var(--sp-top), #484b71 50%, var(--sp-bottom)); }
+:root[data-theme] .sp-screen .sp-display[data-wallpaper="deep-sea"] { --sp-top: #102936; --sp-bottom: #2d6577; background: radial-gradient(ellipse at 90% 5%, #88c0bb29, transparent 45%), linear-gradient(165deg, var(--sp-top), #214754 48%, var(--sp-bottom)); }
+:root[data-theme] .sp-screen .sp-clouds { position: absolute; inset: 0; z-index: -1; pointer-events: none; overflow: hidden; }
+:root[data-theme] .sp-screen .sp-clouds i { position: absolute; width: 170px; height: 44px; border-radius: 50%; background: radial-gradient(ellipse, #d7e8ff30, transparent 70%); filter: blur(5px); transform: rotate(-12deg); }
+:root[data-theme] .sp-screen .sp-clouds i:nth-child(1) { top: 75px; left: -40px; }
+:root[data-theme] .sp-screen .sp-clouds i:nth-child(2) { top: 144px; right: -50px; width: 230px; }
+:root[data-theme] .sp-screen .sp-clouds i:nth-child(3) { bottom: 170px; left: -20px; width: 230px; opacity: .65; }
+:root[data-theme] .sp-screen .sp-moon { position: absolute; z-index: -1; top: 79px; right: 29px; width: 27px; height: 27px; border-radius: 50%; box-shadow: 7px 5px 0 0 #e2ebfe; transform: rotate(-22deg); filter: drop-shadow(0 0 10px #dce9ff35); }
+:root[data-theme] .sp-screen .sp-statusbar { flex: none; position: relative; display: flex; justify-content: space-between; align-items: center; height: 40px; padding: 6px 21px 0; font-size: 11px; font-weight: 600; color: #f1f5ff; }
+:root[data-theme] .sp-screen .sp-island { position: absolute; left: 50%; top: 8px; width: 86px; height: 22px; transform: translateX(-50%); border-radius: 30px; background: #0b111b; }
+:root[data-theme] .sp-screen .sp-status-icons { width: 37px; height: 14px; }
+:root[data-theme] .sp-screen .sp-status-icons svg { width: 100%; height: 100%; fill: none; stroke: currentColor; stroke-width: 1.4; stroke-linecap: round; }
+:root[data-theme] .sp-screen .sp-heading { flex: none; position: relative; padding: 19px 22px 10px; }
+:root[data-theme] .sp-screen .sp-heading > small { color: #c6d5eb; font-size: 8px; font-weight: 500; letter-spacing: 2.2px; }
+:root[data-theme] .sp-screen .sp-heading h2 { margin: 8px 0 7px; color: #f4f6ff; font-size: 22px; font-weight: 400; letter-spacing: 1px; }
+:root[data-theme] .sp-screen .sp-heading > span { color: #bdcbe2; font-size: 10px; }
+:root[data-theme] .sp-screen .sp-heading > button { position: absolute; right: 18px; bottom: 15px; width: 30px; height: 30px; padding: 0; border: 0; border-radius: 50%; color: #d7e5fa; background: #ffffff08; font-size: 21px; }
+:root[data-theme] .sp-screen .sp-scroll { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 26px 16px 12px; scrollbar-width: thin; scrollbar-color: #ffffff35 transparent; -webkit-overflow-scrolling: touch; }
+:root[data-theme] .sp-screen .sp-card { position: relative; margin: 0 0 14px; padding: 16px; border: 1px solid #d9e8ff28; border-radius: 20px; background: #d8e5ff12; box-shadow: 0 5px 12px #0617320c, inset 0 1px 0 #ffffff0a; backdrop-filter: blur(14px); }
+:root[data-theme] .sp-screen .sp-card > header { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 0 0 14px; }
+:root[data-theme] .sp-screen .sp-card h2 { margin: 0; color: #edf3ff; font-size: 13px; font-weight: 600; }
+:root[data-theme] .sp-screen .sp-card > header > span { color: #b6c9e6; font-size: 9px; }
+:root[data-theme] .sp-screen .sp-cat { position: absolute; top: -24px; right: 14px; width: 83px; height: 39px; overflow: visible; }
+:root[data-theme] .sp-screen .sp-timeline { display: flex; flex-direction: column; gap: 14px; margin: 0; padding: 0; list-style: none; }
+:root[data-theme] .sp-screen .sp-timeline > li { position: relative; display: grid; grid-template-columns: 35px minmax(0, 1fr); gap: 10px; line-height: 1.65; }
+:root[data-theme] .sp-screen .sp-timeline > li::before { position: absolute; top: 7px; left: 39px; width: 3px; height: 3px; border-radius: 50%; background: #b8cfef; content: ""; }
+:root[data-theme] .sp-screen .sp-timeline time { color: #b7cce9; font-size: 10px; font-variant-numeric: tabular-nums; }
+:root[data-theme] .sp-screen .sp-timeline p, :root[data-theme] .sp-screen .sp-activity { margin: 0; padding: 0; border: 0; color: #e8f0ff; background: transparent; font: inherit; font-size: 11px; text-align: left; overflow-wrap: anywhere; }
+:root[data-theme] .sp-screen .sp-activity > span { color: #b8cee9; }
+:root[data-theme] .sp-screen .sp-links { display: flex; flex-wrap: wrap; gap: 5px 10px; margin-top: 4px; }
+:root[data-theme] .sp-screen .sp-links a { max-width: 100%; color: #b9d8ff; font-size: 10px; text-decoration: none; overflow-wrap: anywhere; }
+:root[data-theme] .sp-screen .sp-collection-group + .sp-collection-group { margin-top: 12px; padding-top: 12px; border-top: 1px solid #ffffff16; }
+:root[data-theme] .sp-screen .sp-collection-group h3 { display: flex; align-items: center; gap: 6px; margin: 0 0 5px; color: #c0d2ed; font-size: 10px; font-weight: 400; }
+:root[data-theme] .sp-screen .sp-item { display: flex; justify-content: space-between; align-items: center; gap: 10px; width: 100%; padding: 7px 0; border: 0; background: transparent; color: #f0f4ff; text-align: left; }
+:root[data-theme] .sp-screen .sp-item > span:first-child { flex: 1; min-width: 0; }
+:root[data-theme] .sp-screen .sp-item b { display: block; overflow: hidden; color: #edf3ff; font-size: 11px; font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
+:root[data-theme] .sp-screen .sp-item small { display: block; margin-top: 4px; color: #b8cbe5; font-size: 9px; }
+:root[data-theme] .sp-screen .sp-chevron { flex: none; color: #a9c1e1; font-size: 20px; }
+:root[data-theme] .sp-screen .sp-progress { display: block; width: 95%; height: 3px; margin-top: 7px; overflow: hidden; border-radius: 4px; background: #ffffff14; }
+:root[data-theme] .sp-screen .sp-progress i { display: block; height: 100%; border-radius: inherit; background: #b8cee9; }
+:root[data-theme] .sp-screen .sp-signature { padding-right: 37px; }
+:root[data-theme] .sp-screen .sp-signature small { color: #b6cbe6; font-size: 9px; letter-spacing: 1px; }
+:root[data-theme] .sp-screen .sp-signature p { margin: 8px 0 0; color: #ecf3ff; font-size: 12px; line-height: 1.8; overflow-wrap: anywhere; }
+:root[data-theme] .sp-screen .sp-signature > span { position: absolute; right: 16px; top: 25px; color: #c5d8f5; font-size: 20px; }
+:root[data-theme] .sp-screen .sp-empty { margin: 0; color: #b6c9e4; font-size: 10px; line-height: 1.8; }
+:root[data-theme] .sp-screen .sp-owner { margin: 2px 0 0; color: #b8cae2; font-size: 8px; text-align: center; letter-spacing: .8px; }
+:root[data-theme] .sp-screen .sp-loading, :root[data-theme] .sp-screen .sp-error { margin: 6px 0 14px; padding: 14px; border-radius: 16px; background: #ffffff12; color: #dae6f9; font-size: 11px; line-height: 1.8; }
+:root[data-theme] .sp-screen .sp-error button { margin-left: 8px; padding: 0; border: 0; background: none; color: #d9e8ff; text-decoration: underline; }
+:root[data-theme] .sp-screen .sp-dock { flex: none; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin: 6px 15px 0; padding: 11px 10px 9px; border: 1px solid #ffffff2a; border-radius: 23px; background: #dae6ff15; backdrop-filter: blur(16px); }
+:root[data-theme] .sp-screen .sp-dock button { display: flex; flex-direction: column; align-items: center; gap: 6px; min-width: 0; padding: 0; border: 0; background: transparent; color: #f0f5ff; }
+:root[data-theme] .sp-screen .sp-dock button > span { display: flex; align-items: center; justify-content: center; width: 38px; height: 38px; border: 1px solid #f3f7ff65; border-radius: 14px; background: #ffffff05; }
+:root[data-theme] .sp-screen .sp-dock small { color: #e2ecfb; font-size: 9px; }
+:root[data-theme] .sp-screen .sp-home-indicator { flex: none; width: 90px; height: 3px; margin: 9px auto 7px; border-radius: 3px; background: #e0eafa; }
+:root[data-theme] .sp-screen :is(.sp-item, .sp-activity, .sp-dock button, .sp-heading > button):active { opacity: .65; }
+:root[data-theme] .sp-screen :is(button, a):focus-visible { outline: 2px solid #d4e5ff; outline-offset: 3px; }
+@media (min-width: 481px) {
+  :root[data-theme] .sp-screen .xp-summer-window { width: min(454px, calc(100% - 32px)); height: min(790px, calc(100dvh - 32px)); }
+}
+@media (max-width: 480px) {
+  :root[data-theme] .sp-screen .sp-stage { padding: 10px 13px; }
+  :root[data-theme] .sp-screen .sp-device { height: 100%; max-height: 740px; }
+}
+@media (max-height: 500px) and (min-width: 481px) {
+  :root[data-theme] .sp-screen .sp-stage { align-items: flex-start; }
+}

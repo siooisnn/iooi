@@ -286,6 +286,7 @@ function runQueued<T>(
 // comments, Summer memories) stays on the reply markers, which show her a
 // card and, for Summer, wait for her confirmation.
 export const CHAT_READ_TOOLS = [
+  "mcp__iooi__phone_read",
   "mcp__iooi__blog_read",
   "mcp__iooi__blog_read_post",
   "mcp__iooi__reading_shelf",
@@ -311,6 +312,7 @@ const CHAT_HIDDEN_TOOLS = [
 
 const CHAT_TOOL_RULES = [
   "## 你能自己去看的东西",
+  "mcp__iooi__phone_read 可以看看你自己的小手机、今天的生活记录和最近的阅读、帖子、日志；手机签名与博客共用。",
   "这轮你可以调用只读工具：mcp__iooi__blog_read（博客目录）、mcp__iooi__blog_read_post（某篇日志全文、留言和配图）、mcp__iooi__reading_shelf / mcp__iooi__reading_book / mcp__iooi__reading_read（书架、一本书的进度目录和你的批注、正文）、mcp__iooi__surf_board / mcp__iooi__surf_thread（你们俩的小论坛：帖子列表、一个帖子的全部楼层）、mcp__iooi__wardrobe_list / mcp__iooi__wardrobe_item / mcp__iooi__wardrobe_try（她的衣柜：衣服列表、一件的原照片和备注、一起看几件真实衣服的搭配）、mcp__summer__search / mcp__summer__read（翻 Summer 记忆）。",
   "上下文里已经有的内容直接用，别为了确认再查一遍。只有她这条消息需要、而上下文里没有或只有摘要时才去看，比如她让你看某篇日志、问你读到哪了、问你记不记得某件事、问你这件衣服怎么搭。普通聊天不要调用工具。",
   "调用工具前不要先写“我去看看”之类的过渡句，她看不到中间过程，直接在看完之后回她。",
