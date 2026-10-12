@@ -35,7 +35,7 @@ export type ShelfBook = {
   wantedBy?: ReadingWho;
   /** A line about why: "她说想看" / "听说很好哭". */
   blurb: string;
-  /** Whether a TXT is attached and can be opened in the reader. */
+  /** Whether text (from a TXT or EPUB) is attached and can be opened in the reader. */
   hasText: boolean;
   chapterCount: number;
   her: ReadingMark | null;
@@ -51,6 +51,30 @@ export const MAX_READING_BYTES = 10 * 1024 * 1024;
 export const MAX_SHELF_BOOKS = 300;
 
 const CHAPTER_HEADING = /^(?:第[零〇一二三四五六七八九十百千万两\d]+[章回卷节部篇].*|chapter\s+\S+.*|序章|序言|前言|楔子|后记|尾声|引子)$/i;
+const CHAPTER_SIZE = 240;
+
+/** A short line that reads like "第三章 …" / "Chapter 3" / "楔子". */
+export function isChapterHeading(line: string): boolean {
+  return line.length <= 60 && CHAPTER_HEADING.test(line);
+}
+
+/**
+ * Numbers the sections as chapters, dropping empty ones and cutting very long
+ * ones so each rendered chapter stays bounded.
+ */
+export function boundChapters(sections: { title: string; paragraphs: string[] }[]): ReadingChapter[] {
+  const chapters: ReadingChapter[] = [];
+  for (const { title, paragraphs } of sections) {
+    for (let offset = 0; offset < paragraphs.length; offset += CHAPTER_SIZE) {
+      chapters.push({
+        id: `chapter-${chapters.length + 1}`,
+        title: offset === 0 ? title : `${title} · 续 ${Math.floor(offset / CHAPTER_SIZE)}`,
+        paragraphs: paragraphs.slice(offset, offset + CHAPTER_SIZE),
+      });
+    }
+  }
+  return chapters;
+}
 
 export function parseReadingText(bytes: Uint8Array): ReadingChapter[] {
   if (bytes.byteLength > MAX_READING_BYTES) throw new Error("这本书太大了，TXT 暂时最多支持 10MB。");
@@ -63,32 +87,14 @@ export function parseReadingText(bytes: Uint8Array): ReadingChapter[] {
   }
   text = text.replace(/^﻿/, "").replace(/\r\n?/g, "\n");
   if (text.includes("\0")) throw new Error("这个文件不像 TXT 正文，请检查后重新导入。");
-  const chapters: ReadingChapter[] = [];
-  let title = "正文";
-  let paragraphs: string[] = [];
-  function finish() {
-    if (!paragraphs.length) return;
-    // Bound each rendered chapter even when a TXT has no chapter headings.
-    for (let offset = 0; offset < paragraphs.length; offset += 240) {
-      chapters.push({
-        id: `chapter-${chapters.length + 1}`,
-        title: offset === 0 ? title : `${title} · 续 ${Math.floor(offset / 240)}`,
-        paragraphs: paragraphs.slice(offset, offset + 240),
-      });
-    }
-    paragraphs = [];
-  }
+  const sections = [{ title: "正文", paragraphs: [] as string[] }];
   for (const line of text.split("\n")) {
     const content = line.trim();
     if (!content) continue;
-    if (content.length <= 60 && CHAPTER_HEADING.test(content)) {
-      finish();
-      title = content;
-    } else {
-      paragraphs.push(content);
-    }
+    if (isChapterHeading(content)) sections.push({ title: content, paragraphs: [] });
+    else sections[sections.length - 1].paragraphs.push(content);
   }
-  finish();
+  const chapters = boundChapters(sections);
   if (!chapters.length) throw new Error("这份文件里还没有可以阅读的正文。");
   return chapters;
 }

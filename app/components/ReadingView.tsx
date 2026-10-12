@@ -36,9 +36,23 @@ function putReadingText(file: File, params: Record<string, string>) {
     headers: { "Content-Type": "application/octet-stream" }, body: file });
 }
 
-function checkTxt(file: File) {
-  if (!/\.txt$/i.test(file.name)) throw new Error("这一版先支持 TXT。");
-  if (file.size > MAX_READING_BYTES) throw new Error("TXT 暂时最多支持 10MB。");
+const BOOK_FILE_ACCEPT = ".txt,.epub,text/plain,application/epub+zip";
+
+function checkBookFile(file: File) {
+  if (!/\.(txt|epub)$/i.test(file.name)) throw new Error("现在支持 TXT 和 EPUB 两种格式。");
+  if (file.size > MAX_READING_BYTES) throw new Error("书的文件暂时最多支持 10MB。");
+}
+
+/**
+ * A title and author guessed from the file name. Z-Library names files
+ * "书名 (作者) (Z-Library).epub"; other names just lose the extension.
+ */
+function guessFromFileName(name: string): { title: string; author: string } {
+  const base = name.replace(/\.(txt|epub)$/i, "").trim();
+  const withoutSite = base.replace(/\s*[(（][^()（）]*(?:z-?lib|1lib|z-library)[^()（）]*[)）]/gi, "").trim();
+  if (withoutSite === base) return { title: base, author: "" };
+  const byline = /^(.+?)\s*[(（]([^()（）]+)[)）]$/.exec(withoutSite);
+  return byline ? { title: byline[1].trim(), author: byline[2].trim() } : { title: withoutSite, author: "" };
 }
 
 const COVER_COLORS = ["#c0392b", "#2e6bc6", "#2f8f4e", "#8e44ad", "#d35400", "#16a085", "#b03a73", "#7f6a3a"];
@@ -96,12 +110,16 @@ function BookFormDialog({ initial, hisName, isNew, onClose, onSubmit }: {
       </fieldset>}
       <label><span>一句话</span><input value={form.blurb} maxLength={200} placeholder="为什么想读，或者随便写点" onChange={(event) => set({ blurb: event.target.value })} /></label>
       {isNew && <div className="rd-file-row"><span>正文</span>
-        <button type="button" className="rd-button" onClick={() => fileRef.current?.click()}>选择 TXT…</button>
+        <button type="button" className="rd-button" onClick={() => fileRef.current?.click()}>选择 TXT / EPUB…</button>
         <small>{form.file ? form.file.name : "可以先不放，之后再导入"}</small>
-        <input type="file" accept=".txt,text/plain" hidden ref={fileRef} onChange={(event) => {
+        <input type="file" accept={BOOK_FILE_ACCEPT} hidden ref={fileRef} onChange={(event) => {
           const file = event.target.files?.[0] || null; event.target.value = "";
           if (!file) return;
-          try { checkTxt(file); setError(""); set({ file, title: form.title || file.name.replace(/\.txt$/i, "").trim() }); }
+          try {
+            checkBookFile(file); setError("");
+            const guess = guessFromFileName(file.name);
+            set({ file, title: form.title || guess.title, author: form.author || guess.author });
+          }
           catch (failure) { setError((failure as Error).message); }
         }} />
       </div>}
@@ -124,7 +142,7 @@ function ShelfList({ books, shelf, hisName, onOpen }: { books: ShelfBook[]; shel
   if (!items.length) return <div className="rd-empty">
     <BookGlyph />
     <p>{shelf === "reading" ? "还没有在读的书。" : shelf === "want" ? "想读什么，先记在这里。" : "读完的书会放在这里。"}</p>
-    <small>{shelf === "reading" ? "点上面的「添加」，记个书名，或者导入一本 TXT。" : shelf === "want" ? "你想读的，他想读的，都可以放。" : "读完了就把书挪过来。"}</small>
+    <small>{shelf === "reading" ? "点上面的「添加」，记个书名，或者导入一本 TXT / EPUB。" : shelf === "want" ? "你想读的，他想读的，都可以放。" : "读完了就把书挪过来。"}</small>
   </div>;
   return <ul className="rd-list">
     {items.map((book) => <li key={book.id}>
@@ -160,7 +178,7 @@ function BookPage({ book, hisName, onRead, onEdit, onDelete, onMark, onText, bus
       <div>
         <h2>{book.title}</h2>
         {book.author && <p>{book.author}</p>}
-        <p className="rd-muted">{SHELF_LABEL[book.shelf]}{book.hasText ? ` · TXT · ${book.chapterCount} 章` : " · 没有正文"}</p>
+        <p className="rd-muted">{SHELF_LABEL[book.shelf]}{book.hasText ? ` · 有正文 · ${book.chapterCount} 章` : " · 没有正文"}</p>
         {book.shelf === "want" && book.wantedBy && <span className="rd-tag">{book.wantedBy === "her" ? "你想读" : `${hisName}想读`}</span>}
         {book.blurb && <p className="rd-blurb">{book.blurb}</p>}
       </div>
@@ -189,11 +207,11 @@ function BookPage({ book, hisName, onRead, onEdit, onDelete, onMark, onText, bus
     <div className="rd-book-actions">
       {book.hasText
         ? <button type="button" className="rd-button rd-button-default" onClick={onRead}>{book.her ? "继续阅读" : "开始阅读"}</button>
-        : <button type="button" className="rd-button rd-button-default" disabled={busy} onClick={() => fileRef.current?.click()}>{busy ? "正在导入…" : "导入正文 TXT"}</button>}
+        : <button type="button" className="rd-button rd-button-default" disabled={busy} onClick={() => fileRef.current?.click()}>{busy ? "正在导入…" : "导入正文（TXT / EPUB）"}</button>}
       <button type="button" className="rd-button" onClick={onEdit}>属性…</button>
       {book.hasText && <button type="button" className="rd-button" disabled={busy} onClick={() => fileRef.current?.click()}>换正文</button>}
       <button type="button" className="rd-button" disabled={busy} onClick={onDelete}>删除</button>
-      <input type="file" accept=".txt,text/plain" hidden ref={fileRef} onChange={(event) => {
+      <input type="file" accept={BOOK_FILE_ACCEPT} hidden ref={fileRef} onChange={(event) => {
         const file = event.target.files?.[0]; event.target.value = "";
         if (file) onText(file);
       }} />
@@ -464,7 +482,7 @@ export function ReadingView({ settings, onBack }: { settings: Settings; onBack: 
                 if (reply.book) applyBook(reply.book);
               }); }}
               onText={(file) => { void run(async () => {
-                checkTxt(file);
+                checkBookFile(file);
                 if (book.hasText && !window.confirm("换一份正文的话，书里的批注会清掉，进度只留百分比。要换吗？")) return;
                 const reply = await putReadingText(file, { book: book.id });
                 if (reply.books) setBooks(reply.books);

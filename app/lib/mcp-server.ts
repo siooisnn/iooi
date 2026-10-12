@@ -307,7 +307,7 @@ async function callReading(name: string, args: Record<string, unknown>, access: 
       case "reading_book":
         return reply(bookDigest(book, chapters));
       case "reading_read":
-        if (!chapters) return reply("这本书还没有正文，她导入 TXT 以后才能读。", true);
+        if (!chapters) return reply("这本书还没有正文，她导入 TXT 或 EPUB 以后才能读。", true);
         return reply(passageText(book, chapters, { chapter: args.chapter, paragraph: args.paragraph, maxChars: args.max_chars }));
       case "reading_mark": {
         if (chapters && args.chapter === undefined) return reply("这本书有正文，填 chapter 和 paragraph 记你读到哪（从 1 开始）。", true);

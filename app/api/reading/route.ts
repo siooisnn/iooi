@@ -1,4 +1,5 @@
 import { MAX_READING_BYTES, isBookId, parseReadingText, validChapters } from "@/app/lib/reading-books";
+import { looksLikeZip, parseEpub } from "@/app/lib/reading-epub";
 import { addBook, attachText, deleteBook, editBook, getShelfBook, listShelf, loadBookText, markBook } from "@/app/lib/reading-shelf";
 
 function fail(error: unknown, status = 400) {
@@ -59,21 +60,24 @@ export async function POST(request: Request) {
 }
 
 /**
- * A TXT file as the raw body. ?title=&author=&shelf=&blurb=&wantedBy= makes a new book;
- * ?book=<id> puts the text into a book that is already on the shelf.
+ * A TXT or EPUB file as the raw body (an EPUB is told apart by its zip header).
+ * ?title=&author=&shelf=&blurb=&wantedBy= makes a new book; an EPUB fills in a
+ * missing title or author from its own metadata. ?book=<id> puts the text into
+ * a book that is already on the shelf.
  */
 export async function PUT(request: Request) {
   const params = new URL(request.url).searchParams;
   try {
     const bytes = new Uint8Array(await request.arrayBuffer());
     if (!bytes.byteLength) return fail(new Error("文件是空的。"));
-    if (bytes.byteLength > MAX_READING_BYTES) return fail(new Error("TXT 暂时最多支持 10MB。"), 413);
-    const chapters = parseReadingText(bytes);
+    if (bytes.byteLength > MAX_READING_BYTES) return fail(new Error("书的文件暂时最多支持 10MB。"), 413);
+    const epub = looksLikeZip(bytes) ? parseEpub(bytes) : null;
+    const chapters = epub ? epub.chapters : parseReadingText(bytes);
     const target = params.get("book");
     const book = target
       ? isBookId(target) ? await attachText(target, chapters) : null
-      : await addBook({ title: params.get("title"), author: params.get("author") || "", shelf: params.get("shelf") || "reading",
-        blurb: params.get("blurb") || "", wantedBy: params.get("wantedBy") || "", chapters });
+      : await addBook({ title: params.get("title") || epub?.title, author: params.get("author") || epub?.author || "",
+        shelf: params.get("shelf") || "reading", blurb: params.get("blurb") || "", wantedBy: params.get("wantedBy") || "", chapters });
     if (!book) return fail(new Error("书的编号不对。"));
     return Response.json({ ok: true, book, books: listShelf() });
   } catch (error) {

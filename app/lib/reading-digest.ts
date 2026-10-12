@@ -50,7 +50,7 @@ export function bookDigest(book: ShelfBook, chapters: ReadingChapter[] | null, t
     `你读到：${spot(book.him, chapters)}`,
   ];
   if (!chapters) {
-    lines.push("", "这本书还没有正文（她还没导入 TXT），只能用 reading_mark 记百分比，没法读也没法批注。");
+    lines.push("", "这本书还没有正文（她还没导入 TXT 或 EPUB），只能用 reading_mark 记百分比，没法读也没法批注。");
   } else {
     lines.push("", `目录（共 ${chapters.length} 章）：`);
     for (const [index, chapter] of chapters.slice(0, tocLimit).entries()) {
