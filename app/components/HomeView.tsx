@@ -8,11 +8,11 @@ import { SkyChrome } from "./ThemeProvider";
 import { CLAUDE_DEFAULT_NAME } from "../lib/app-settings";
 import type { Settings } from "../lib/app-settings";
 import {
-  IconLineBlog, IconLineBook, IconLineChat, IconLineClawd, IconLineDiary, IconLineGear, IconLineGlobe, IconLineHeart, IconLineMood, IconLinePaper, IconLineRetro,
+  IconLineBlog, IconLineBook, IconLineChat, IconLineClawd, IconLineDiary, IconLineGear, IconLineGlobe, IconLineHanger, IconLineHeart, IconLineMood, IconLinePaper, IconLineRetro,
 } from "./NavIcons";
 
 /** Every page the desktop can open. */
-export type HomeApp = "moon" | "chat" | "heartbeat" | "blog" | "reading" | "surf" | "clawd" | "mood" | "settings" | "summer-claude" | "summer-gpt";
+export type HomeApp = "moon" | "chat" | "heartbeat" | "blog" | "reading" | "surf" | "wardrobe" | "clawd" | "mood" | "settings" | "summer-claude" | "summer-gpt";
 
 /** Time together since settings.startDate, ticking every second once mounted. */
 export function useTogether(startDate: string) {
@@ -123,6 +123,7 @@ export function HomeView({ settings, onOpen, onRetro }: { settings: Settings; on
           <AppTile label="retro" onClick={onRetro}><IconLineRetro /></AppTile>
           <AppTile label="clawd" onClick={() => onOpen("clawd")}><IconLineClawd /></AppTile>
           <AppTile label="mood" onClick={() => onOpen("mood")}><IconLineMood /></AppTile>
+          <AppTile label="wardrobe" onClick={() => onOpen("wardrobe")}><IconLineHanger /></AppTile>
         </div>
       </div>
 

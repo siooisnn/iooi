@@ -71,6 +71,16 @@ export function IconLineGlobe(props: LineIconProps) {
   );
 }
 
+/** wardrobe: a clothes hanger. */
+export function IconLineHanger(props: LineIconProps) {
+  return (
+    <LineIcon {...props}>
+      <path d="M10 6.6a2 2 0 1 1 3 1.73c-.6.35-1 .85-1 1.55v.9" />
+      <path d="M12 10.8 3.9 16.2c-.9.6-.47 2 .6 2h15c1.07 0 1.5-1.4.6-2Z" />
+    </LineIcon>
+  );
+}
+
 export function IconLineMood(props: LineIconProps) {
   return <LineIcon {...props}><circle cx="12" cy="12" r="8.5" /><path d="M8.5 13.5c.7 2 2 3 3.5 3s2.8-1 3.5-3M9 8.7v1.1M15 8.7v1.1" /></LineIcon>;
 }

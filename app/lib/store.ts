@@ -53,6 +53,8 @@ const mcpAuthStore = createJsonStore("mcp-oauth.json", true);
 const readingStore = createJsonStore("reading.json");
 // Our little forum (the surf app): his finds online, her replies.
 const surfStore = createJsonStore("surf.json");
+// Her wardrobe: the pixel clothes and what the doll has on.
+const wardrobeStore = createJsonStore("wardrobe.json");
 
 export const readStore = mainStore.read;
 export const withStore = mainStore.write;
@@ -68,4 +70,6 @@ export const readReadingStore = readingStore.read;
 export const withReadingStore = readingStore.write;
 export const readSurfStore = surfStore.read;
 export const withSurfStore = surfStore.write;
+export const readWardrobeStore = wardrobeStore.read;
+export const withWardrobeStore = wardrobeStore.write;
 export const DATA_DIR_PATH = DATA_DIR;

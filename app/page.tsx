@@ -19,6 +19,7 @@ import { HeartbeatView } from "./components/AppPages";
 import { readLifeLog, type LifeEntry } from "./lib/life-log";
 import { ReadingView } from "./components/ReadingView";
 import { SurfView } from "./components/SurfView";
+import { WardrobeView } from "./components/WardrobeView";
 import { ClawdView } from "./components/ClawdView";
 import { BlogView } from "./components/BlogView";
 import { PageBack } from "./components/PageBack";
@@ -745,6 +746,7 @@ export default function Home() {
         {tab === "reading" && <ReadingView settings={settings} onBack={goHome} />}
         {tab === "surf" && <SurfView key={surfTarget || "surf"} settings={settings} initialThread={surfTarget}
           onBack={surfTarget ? () => { setSurfTarget(null); setTab("heartbeat"); } : goHome} />}
+        {tab === "wardrobe" && <WardrobeView settings={settings} onBack={goHome} />}
         {tab === "clawd" && <ClawdView onBack={goHome} />}
         {tab === "mood" && <MoodPage mood={dailyMood} retro={settings.retroDesktop} onBack={goHome} />}
         {(tab === "summer-claude" || tab === "summer-gpt") && (
