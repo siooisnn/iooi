@@ -1,92 +1,72 @@
-/* ━━ wardrobe: her pixel clothes and the doll ━━
-   An .xp-summer-screen window (frame from xp-summer.css) that also carries
-   .rd-screen, so toolbar, tabs, buttons, dialogs and empty states come from
-   reading-room.css. Only what's the wardrobe's own lives here. */
-
-:root[data-theme] .wd-screen .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
-:root[data-theme] .wd-screen canvas { display: block; image-rendering: pixelated; }
-
-:root[data-theme] .wd-screen .wd-content { flex-direction: row; align-items: flex-start; gap: 10px; }
-
-/* The doll in a little fitting-room mirror, what she has on underneath. */
-:root[data-theme] .wd-screen .wd-stage { display: flex; flex: none; flex-direction: column; gap: 8px; width: 158px; }
-:root[data-theme] .wd-screen .wd-mirror { display: flex; align-items: center; justify-content: center; padding: 10px 0 8px; border: 3px solid #b98a55; border-radius: 70px 70px 4px 4px; background: linear-gradient(180deg, #fbf7ef 0 78%, #e9dcc6 78% 100%); box-shadow: inset 1px 1px 0 #fff, inset -1px -1px 0 rgba(0, 0, 0, 0.08), 1px 2px 3px rgba(0, 0, 0, 0.2); }
-:root[data-theme] .wd-screen .wd-slots { display: flex; flex-direction: column; padding: 0; border: 1px solid #d0d0bf; background: #fff; list-style: none; }
-:root[data-theme] .wd-screen .wd-slots > li { display: flex; align-items: center; gap: 6px; min-height: 28px; padding: 2px 4px 2px 7px; font-size: 12px; }
-:root[data-theme] .wd-screen .wd-slots > li + li { border-top: 1px dotted #d0d0bf; }
-:root[data-theme] .wd-screen .wd-slot-name { flex: none; width: 2.5em; color: #0046d5; }
-:root[data-theme] .wd-screen .wd-slot-item { flex: 1; min-width: 0; padding: 0; overflow: hidden; border: 0; background: none; color: #000; text-align: left; white-space: nowrap; text-overflow: ellipsis; text-decoration: underline dotted #888; }
-:root[data-theme] .wd-screen .wd-slot-empty { flex: 1; color: #aaa; }
-:root[data-theme] .wd-screen .wd-slot-off { flex: none; width: 22px; height: 22px; padding: 0; border: 1px solid #c9c7ba; border-radius: 2px; background: #f5f4ee; color: #a3301f; font-size: 14px; line-height: 1; }
-
-/* The closet: tabs per category, a grid of pixel tiles. */
-:root[data-theme] .wd-screen .wd-closet { display: flex; flex: 1; flex-direction: column; min-width: 0; }
+/* Her real wardrobe and a paper outfit board, inside the shared XP window. */
+:root[data-theme] .wd-screen .wd-content { flex-direction: row; align-items: flex-start; gap: 18px; padding: 16px; background: #f5f1ea; }
+:root[data-theme] .wd-screen .wd-stage { flex: 0 0 46%; min-width: 0; }
+:root[data-theme] .wd-screen :is(.wd-board-heading, .wd-closet-heading) { display: flex; align-items: flex-end; justify-content: space-between; gap: 8px; margin-bottom: 12px; color: #675c56; }
+:root[data-theme] .wd-screen :is(.wd-board-heading, .wd-closet-heading) h2 { font-size: 16px; font-weight: 600; color: #51443e; }
+:root[data-theme] .wd-screen .wd-board-heading small { display: block; margin-bottom: 4px; font: 9px Georgia, serif; letter-spacing: 2px; color: #9a7a70; }
+:root[data-theme] .wd-screen :is(.wd-board-heading, .wd-closet-heading) > span { font-size: 10px; line-height: 1.5; text-align: right; }
+:root[data-theme] .wd-screen .wd-board { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; padding: 16px; border: 1px solid #dbd0c2; border-radius: 3px; background-color: #fffcf6; background-image: radial-gradient(#dbcdbf 0.6px, transparent 0.6px); background-size: 8px 8px; box-shadow: 0 2px 6px #745a3810; }
+:root[data-theme] .wd-screen .wd-board-piece { position: relative; min-width: 0; padding: 8px; border: 1px dashed #d8cbbd; background: #fffcf6b3; }
+:root[data-theme] .wd-screen .wd-board-piece.has-item { border: 1px solid #e3dad0; background: #fff; box-shadow: 1px 3px 5px #6e533815; }
+:root[data-theme] .wd-screen .wd-board-label { display: block; margin-bottom: 6px; font-size: 10px; color: #9c7b6c; }
+:root[data-theme] .wd-screen .wd-board-photo { display: flex; align-items: center; justify-content: center; width: 100%; aspect-ratio: 4 / 5; overflow: hidden; padding: 0; border: 0; background: #fff; }
+:root[data-theme] .wd-screen .wd-board-photo:disabled { cursor: default; }
+:root[data-theme] .wd-screen :is(.wd-board-photo, .wd-tile-art, .wd-photo-preview) > img { display: block; width: 100%; height: 100%; object-fit: contain; }
+:root[data-theme] .wd-screen :is(.wd-board-empty, .wd-photo-placeholder) { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 9px; width: 100%; height: 100%; color: #bdaba0; }
+:root[data-theme] .wd-screen :is(.wd-board-empty, .wd-photo-placeholder) > svg { width: 48px; max-width: 50%; }
+:root[data-theme] .wd-screen :is(.wd-board-empty, .wd-photo-placeholder) > small { font-size: 10px; }
+:root[data-theme] .wd-screen .wd-board-empty { background: #fffdf8; }
+:root[data-theme] .wd-screen .wd-board-caption { display: flex; align-items: center; gap: 5px; margin-top: 5px; }
+:root[data-theme] .wd-screen .wd-board-caption > span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; color: #67564c; }
+:root[data-theme] .wd-screen .wd-board-caption > button { flex: none; width: 26px; height: 26px; padding: 0; border: 0; background: transparent; color: #8f8076; font-size: 18px; }
+:root[data-theme] .wd-screen .wd-board-hint { margin-top: 10px; color: #99877b; font-size: 11px; line-height: 1.7; }
+:root[data-theme] .wd-screen .wd-closet { flex: 1; min-width: 0; }
+:root[data-theme] .wd-screen .wd-closet-heading { min-height: 33px; }
 :root[data-theme] .wd-screen .wd-tabs { overflow-x: auto; padding-top: 3px; scrollbar-width: none; }
 :root[data-theme] .wd-screen .wd-tabs::-webkit-scrollbar { display: none; }
-:root[data-theme] .wd-screen .wd-tabs > button { flex: none; padding: 3px 9px; }
-:root[data-theme] .wd-screen .wd-panel { padding: 8px; }
-:root[data-theme] .wd-screen .rd-empty > svg { width: 44px; height: 44px; }
-:root[data-theme] .wd-screen .wd-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); gap: 7px; margin: 0; padding: 0; list-style: none; }
+:root[data-theme] .wd-screen .wd-tabs > button { flex: none; padding: 6px 9px; }
+:root[data-theme] .wd-screen .wd-panel { min-height: 160px; padding: 10px; }
+:root[data-theme] .wd-screen .rd-empty { min-height: 185px; padding: 22px 10px; }
+:root[data-theme] .wd-screen .rd-empty > svg { width: 40px; height: 40px; }
+:root[data-theme] .wd-screen .wd-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(94px, 1fr)); gap: 9px; margin: 0; padding: 0; list-style: none; }
 :root[data-theme] .wd-screen .wd-grid > li { position: relative; min-width: 0; }
-:root[data-theme] .wd-screen .wd-tile { display: flex; flex-direction: column; align-items: center; gap: 4px; width: 100%; padding: 6px 4px 5px; border: 1px solid #d0d0bf; border-radius: 3px; background: #fff; }
-:root[data-theme] .wd-screen .wd-tile:not(:disabled):active { background: #f1f0ea; }
-:root[data-theme] .wd-screen .is-on > .wd-tile { border-color: #316ac5; background: #e1e9f8; box-shadow: inset 0 0 0 1px #316ac5; }
-:root[data-theme] .wd-screen .wd-tile-art { display: grid; place-items: center; width: 62px; height: 62px; border-radius: 2px; background: #f6f1e7; }
-:root[data-theme] .wd-screen .wd-tile-name { max-width: 100%; overflow: hidden; font-size: 12px; line-height: 1.4; white-space: nowrap; text-overflow: ellipsis; }
-:root[data-theme] .wd-screen .wd-tile-on { position: absolute; top: 3px; left: 3px; padding: 0 4px; border-radius: 2px; background: #316ac5; color: #fff; font-size: 10.5px; font-style: normal; line-height: 16px; pointer-events: none; }
-:root[data-theme] .wd-screen .wd-tile-edit { position: absolute; top: 2px; right: 2px; width: 24px; height: 24px; padding: 0; border: 1px solid #c9c7ba; border-radius: 2px; background: rgba(255, 255, 255, 0.92); color: #333; font-size: 12px; line-height: 1; }
-:root[data-theme] .wd-screen .wd-tile-edit::after { content: ""; position: absolute; inset: -5px; }
+:root[data-theme] .wd-screen .wd-tile { display: flex; flex-direction: column; align-items: stretch; gap: 5px; width: 100%; padding: 6px; border: 1px solid #e1d7cd; border-radius: 2px; background: #fff; color: #51443e; text-align: left; }
+:root[data-theme] .wd-screen .wd-tile:not(:disabled):active { background: #f9f2ea; }
+:root[data-theme] .wd-screen .is-on > .wd-tile { border-color: #aa8173; background: #fff8f4; box-shadow: 0 0 0 1px #aa8173; }
+:root[data-theme] .wd-screen .wd-tile-art { display: flex; align-items: center; justify-content: center; width: 100%; aspect-ratio: 1; overflow: hidden; background: #fff; }
+:root[data-theme] .wd-screen .wd-tile-name { max-width: 100%; overflow: hidden; font-size: 12px; line-height: 1.5; white-space: nowrap; text-overflow: ellipsis; }
+:root[data-theme] .wd-screen .wd-tile-category { font-size: 10px; line-height: 1.4; color: #a18b7d; }
+:root[data-theme] .wd-screen .wd-tile-on { position: absolute; top: 6px; left: 6px; padding: 1px 5px; border-radius: 2px; background: #ab8173; color: #fff; font-size: 10px; font-style: normal; line-height: 16px; pointer-events: none; }
+:root[data-theme] .wd-screen .wd-tile-edit { position: absolute; top: 5px; right: 5px; width: 30px; height: 30px; padding: 0; border: 1px solid #e5dcd3; border-radius: 2px; background: #fffffff0; color: #7c6658; font-size: 14px; }
 
-/* ━━ Adding / changing a garment ━━ */
-:root[data-theme] .wd-screen .wd-dialog { width: min(470px, calc(100% - 16px)); max-height: min(92dvh, 780px); }
-:root[data-theme] .wd-screen .wd-form { gap: 9px; }
-:root[data-theme] .wd-screen .wd-maker { display: flex; align-items: flex-start; gap: 8px; }
-:root[data-theme] .wd-screen .wd-photo { display: flex; flex: 1; flex-direction: column; gap: 6px; min-width: 0; }
-:root[data-theme] .wd-screen .wd-photo > small { color: #555; font-size: 11.5px; line-height: 1.5; }
-:root[data-theme] .wd-screen .wd-photo-actions { display: flex; flex-wrap: wrap; gap: 5px; }
-:root[data-theme] .wd-screen .wd-photo-actions .rd-button { min-width: 0; padding-inline: 10px; }
-:root[data-theme] .wd-screen .wd-photo-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; min-height: 150px; padding: 10px; border: 1px dashed #7f9db9; border-radius: 3px; background: #fff; font-size: 12.5px; }
-:root[data-theme] .wd-screen .wd-photo-empty > svg { width: 40px; height: 40px; }
-:root[data-theme] .wd-screen .wd-photo-empty > small { color: #777; font-size: 11px; }
-
-:root[data-theme] .wd-screen .wd-crop { position: relative; align-self: flex-start; max-width: 100%; overflow: hidden; border: 1px solid #7f9db9; background: #222; line-height: 0; cursor: crosshair; touch-action: none; user-select: none; -webkit-user-select: none; }
-:root[data-theme] .wd-screen .wd-crop > img { display: block; width: auto; max-width: 100%; height: auto; max-height: 260px; pointer-events: none; -webkit-user-drag: none; }
-:root[data-theme] .wd-screen .wd-crop-box { position: absolute; border: 2px dashed #fff; outline: 1px solid rgba(0, 0, 0, 0.55); box-shadow: 0 0 0 999px rgba(0, 0, 0, 0.38); cursor: move; pointer-events: none; }
-
-:root[data-theme] .wd-screen .wd-preview { flex: none; padding: 6px 4px; border: 2px solid #b98a55; border-radius: 40px 40px 3px 3px; background: linear-gradient(180deg, #fbf7ef 0 78%, #e9dcc6 78% 100%); }
-
-:root[data-theme] .wd-screen .wd-field { display: flex; flex-direction: column; gap: 6px; min-width: 0; margin: 0; padding: 6px 8px 8px; border: 1px solid #d0d0bf; border-radius: 4px; }
+/* Photo, category and notes; no conversion or figure editor. */
+:root[data-theme] .wd-screen .wd-dialog { width: min(450px, calc(100% - 20px)); max-height: min(92dvh, 780px); }
+:root[data-theme] .wd-screen .wd-form { gap: 12px; }
+:root[data-theme] .wd-screen .wd-photo-editor { display: flex; flex-direction: column; align-items: center; gap: 9px; }
+:root[data-theme] .wd-screen .wd-photo-preview { display: flex; width: 100%; height: 205px; border: 1px solid #e1d7cd; background: #fff; }
+:root[data-theme] .wd-screen .wd-photo-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+:root[data-theme] .wd-screen .wd-photo-editor > small { color: #8a7a6d; font-size: 11px; text-align: center; }
+:root[data-theme] .wd-screen .wd-field { min-width: 0; margin: 0; padding: 7px 9px 9px; border: 1px solid #d0d0bf; border-radius: 3px; }
 :root[data-theme] .wd-screen .wd-field > legend { padding: 0 4px; color: #0046d5; font-size: 12px; }
-:root[data-theme] .wd-screen .wd-chips { display: flex; flex-wrap: wrap; gap: 4px; }
-:root[data-theme] .wd-screen .wd-chips > button,
-:root[data-theme] .wd-screen .wd-color-target { min-height: 26px; padding: 2px 10px; border: 1px solid #7f9db9; border-radius: 3px; background: linear-gradient(180deg, #fff, #ecebe6); color: #000; font-size: 12.5px; }
-:root[data-theme] .wd-screen :is(.wd-chips > button, .wd-color-target)[aria-pressed="true"] { border-color: #0b3d91; background: #316ac5; color: #fff; }
-:root[data-theme] .wd-screen .wd-chips > button:disabled { border-color: #c9c7ba; color: #aca899; background: #f5f4ee; }
-
-:root[data-theme] .wd-screen .wd-shapes { display: grid; grid-template-columns: repeat(auto-fill, minmax(60px, 1fr)); gap: 4px; }
-:root[data-theme] .wd-screen .wd-shapes > button { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 4px 2px 3px; border: 1px solid #d0d0bf; border-radius: 3px; background: #fff; color: #000; font-size: 11.5px; }
-:root[data-theme] .wd-screen .wd-shapes > button[aria-pressed="true"] { border-color: #316ac5; background: #e1e9f8; box-shadow: inset 0 0 0 1px #316ac5; }
-:root[data-theme] .wd-screen .wd-shape-art { display: grid; place-items: center; width: 44px; height: 44px; }
-
-:root[data-theme] .wd-screen .wd-color-row { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; }
-:root[data-theme] .wd-screen .wd-color-target { display: inline-flex; align-items: center; gap: 5px; }
-:root[data-theme] .wd-screen .wd-color-target > i { display: block; width: 14px; height: 14px; border: 1px solid rgba(0, 0, 0, 0.55); }
-:root[data-theme] .wd-screen .wd-color-input { display: inline-flex; }
-:root[data-theme] .wd-screen .wd-color-input input { width: 40px; height: 28px; padding: 1px; border: 1px solid #7f9db9; background: #fff; cursor: pointer; }
-:root[data-theme] .wd-screen .wd-swatches { display: flex; flex-wrap: wrap; gap: 5px; }
-:root[data-theme] .wd-screen .wd-swatches > button { width: 28px; height: 28px; padding: 0; border: 1px solid rgba(0, 0, 0, 0.55); border-radius: 2px; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.5); }
-:root[data-theme] .wd-screen .wd-swatches > button[aria-pressed="true"] { outline: 2px solid #316ac5; outline-offset: 1px; }
-
+:root[data-theme] .wd-screen .wd-chips { display: flex; flex-wrap: wrap; gap: 5px; }
+:root[data-theme] .wd-screen .wd-chips > button { min-height: 32px; padding: 3px 12px; border: 1px solid #c6b8ae; border-radius: 3px; background: linear-gradient(#fff, #f1ede7); color: #5d4e43; font-size: 12px; }
+:root[data-theme] .wd-screen .wd-chips > button[aria-pressed="true"] { border-color: #9e7466; background: #ad8376; color: #fff; }
 :root[data-theme] .wd-screen .wd-note { align-items: start !important; }
-:root[data-theme] .wd-screen .wd-note > span { padding-top: 4px; }
-:root[data-theme] .wd-screen .wd-form textarea { width: 100%; min-width: 0; padding: 4px 5px; border: 1px solid #7f9db9; border-radius: 0; background: #fff; color: #000; font: inherit; font-size: 16px; line-height: 1.5; resize: vertical; }
-:root[data-theme] .wd-screen .wd-form textarea:focus { outline: none; border-color: #316ac5; }
+:root[data-theme] .wd-screen .wd-note > span { padding-top: 5px; }
+:root[data-theme] .wd-screen .wd-form textarea { width: 100%; min-width: 0; padding: 5px 6px; border: 1px solid #7f9db9; border-radius: 0; background: #fff; color: #000; font: inherit; font-size: 16px; line-height: 1.5; resize: vertical; }
+:root[data-theme] .wd-screen .wd-form textarea:focus { outline: 1px solid #316ac5; }
 :root[data-theme] .wd-screen .wd-buttons .wd-delete { margin-right: auto; color: #a3301f; }
-
 @media (max-width: 620px) {
-  :root[data-theme] .wd-screen .wd-content { flex-direction: column; align-items: stretch; }
-  :root[data-theme] .wd-screen .wd-stage { flex-direction: row; align-items: flex-start; width: auto; }
-  :root[data-theme] .wd-screen .wd-mirror { flex: none; width: 150px; }
-  :root[data-theme] .wd-screen .wd-slots { flex: 1; min-width: 0; }
+  :root[data-theme] .wd-screen .wd-content { flex-direction: column; align-items: stretch; gap: 20px; padding: 14px 12px; }
+  :root[data-theme] .wd-screen .wd-stage { flex: none; width: 100%; }
+  :root[data-theme] .wd-screen .wd-board { gap: 10px; padding: 12px; }
+  :root[data-theme] .wd-screen .wd-board-photo { aspect-ratio: 5 / 4; }
+  :root[data-theme] .wd-screen .wd-board-hint { text-align: center; }
   :root[data-theme] .wd-screen .wd-closet { flex: none; }
+  :root[data-theme] .wd-screen .wd-closet-heading { min-height: 0; }
+  :root[data-theme] .wd-screen .wd-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+@media (max-width: 340px) {
+  :root[data-theme] .wd-screen .wd-tabs > button { padding-inline: 6px; }
+  :root[data-theme] .wd-screen .wd-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }

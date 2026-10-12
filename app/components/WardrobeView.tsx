@@ -1,35 +1,25 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { PointerEvent as ReactPointerEvent } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { WardrobeGlyph } from "./RetroDesktop";
 import { XpDialog } from "./XpDialog";
 import type { Settings } from "../lib/app-settings";
 import { apiFetch } from "../lib/client-api";
 import { prepareImageForUpload } from "../lib/image-compress";
 import {
-  CATEGORY_LABELS, OUTFIT_SLOTS, PATTERN_LABELS, SLOT_LABELS, WARDROBE_CATEGORIES, WARDROBE_LIMITS, WARDROBE_PATTERNS,
-  WARDROBE_SHAPES, shapeLabel, slotOf,
-  type Outfit, type PixelLook, type WardrobeCategory, type WardrobeItem, type WardrobePattern, type WardrobeTexture,
+  CATEGORY_LABELS, OUTFIT_SLOTS, SLOT_LABELS, WARDROBE_CATEGORIES, WARDROBE_LIMITS,
+  WARDROBE_SHAPES, slotOf, type Outfit, type OutfitSlot, type WardrobeCategory, type WardrobeItem,
 } from "../lib/wardrobe";
-import { outfitLooks, renderDoll, renderGarment, type PixelGrid } from "../lib/wardrobe-pixels";
-import { mainColors, paletteFromPixels, textureFromPixels } from "../lib/wardrobe-colors";
 
-// The wardrobe: her clothes as pixel garments, a pixel doll drawn after her
-// (curtain bangs, black-to-orange hair, black glasses) to dress up. Tap a
-// garment to put it on or take it off; ✎ opens it to fix the shape and colours.
-
+// Real clothes, side by side on a little outfit board. The existing wardrobe
+// and selected-outfit data stay intact, including older colour/shape metadata.
 type Reply = { ok: boolean; error?: string; items?: WardrobeItem[]; outfit?: Outfit; item?: WardrobeItem };
 type Tab = "all" | WardrobeCategory;
-type Crop = { x: number; y: number; w: number; h: number };
 
 async function wardrobeApi(init: RequestInit = {}): Promise<Reply> {
   let response: Response;
-  try {
-    response = await apiFetch("/api/wardrobe", init);
-  } catch {
-    throw new Error("连不上衣柜，看看网络再试。");
-  }
+  try { response = await apiFetch("/api/wardrobe", init); }
+  catch { throw new Error("连不上衣柜，看看网络再试。"); }
   const data = await response.json().catch(() => null) as Reply | null;
   if (!response.ok || !data?.ok) throw new Error(data?.error || "衣柜出了点问题，请稍后再试。");
   return data;
@@ -43,306 +33,90 @@ async function uploadPhoto(file: File) {
   const form = new FormData();
   form.append("file", file);
   let response: Response;
-  try {
-    response = await apiFetch("/api/upload", { method: "POST", body: form });
-  } catch {
-    throw new Error("照片没传上去，看看网络再试。");
-  }
+  try { response = await apiFetch("/api/upload", { method: "POST", body: form }); }
+  catch { throw new Error("照片没传上去，看看网络再试。"); }
   const data = await response.json().catch(() => ({})) as { url?: string; error?: string };
   if (!response.ok || typeof data.url !== "string") throw new Error(data.error || "照片没传上去。");
   return data.url;
 }
 
-/** A pixel grid drawn crisp: every cell a `scale`-pixel square (sharp on retina too). */
-function PixelCanvas({ grid, scale, className, label }: { grid: PixelGrid; scale: number; className?: string; label?: string }) {
-  const ref = useRef<HTMLCanvasElement>(null);
-  useEffect(() => {
-    const canvas = ref.current;
-    const context = canvas?.getContext("2d");
-    if (!canvas || !context) return;
-    const ratio = Math.min(3, Math.max(1, Math.round(window.devicePixelRatio || 1)));
-    const size = scale * ratio;
-    canvas.width = grid.w * size;
-    canvas.height = grid.h * size;
-    context.clearRect(0, 0, canvas.width, canvas.height);
-    grid.cells.forEach((color, index) => {
-      if (!color) return;
-      context.fillStyle = color;
-      context.fillRect((index % grid.w) * size, Math.floor(index / grid.w) * size, size, size);
-    });
-  }, [grid, scale]);
-  return <canvas ref={ref} className={className} style={{ width: grid.w * scale, height: grid.h * scale }}
-    role={label ? "img" : undefined} aria-label={label} aria-hidden={label ? undefined : true} />;
+function ClothingGlyph({ slot }: { slot: OutfitSlot }) {
+  return <svg viewBox="0 0 64 64" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    {slot === "top" ? <><path d="m23 14-13 7 7 12 7-4v23h16V29l7 4 7-12-13-7" /><path d="M23 14c1 11 17 11 18 0" /></>
+      : slot === "outer" ? <><path d="m24 12-11 8-5 32h10l4-24-2 25h24l-2-25 4 24h10l-5-32-11-8" /><path d="m24 12 8 13-7 4 7 8m8-25-8 13 7 4-7 8v16" /></>
+      : slot === "bottom" ? <><path d="M23 13h18l9 39H14z" /><path d="M22 18h20M25 24l-4 23m11-23v23m7-23 4 23" /></>
+      : <><path d="M13 27h14l5 13 15 5v9H12V39z" /><path d="M14 34h12m-13 14h34M37 26h10l4 12" /></>}
+  </svg>;
 }
 
-/** The biggest whole-pixel scale that fits a grid in a box. */
-function fitScale(grid: PixelGrid, box: number) {
-  return Math.max(1, Math.floor(Math.min(box / grid.w, box / grid.h)));
+function GarmentPhoto({ item, src = item?.photo || "" }: { item?: WardrobeItem; src?: string }) {
+  const [failedSrc, setFailedSrc] = useState<string | null>(null);
+  return src && failedSrc !== src
+    // Uploaded photos have arbitrary sizes and are served by the authenticated upload route.
+    // eslint-disable-next-line @next/next/no-img-element
+    ? <img src={src} alt={item?.name || "衣服照片"} draggable={false} onError={() => setFailedSrc(src)} />
+    : <span className="wd-photo-placeholder"><ClothingGlyph slot={item ? slotOf(item.category) : "top"} />
+      <small>{src ? "照片暂时打不开" : "还没有照片"}</small></span>;
 }
 
-function Thumb({ look, box }: { look: PixelLook; box: number }) {
-  const grid = useMemo(() => renderGarment(look), [look]);
-  return <PixelCanvas grid={grid} scale={fitScale(grid, box)} />;
-}
-
-// ── Taking colours out of a photo ──
-
-function loadImage(src: string) {
-  return new Promise<HTMLImageElement>((resolve, reject) => {
-    const image = new Image();
-    image.onload = () => resolve(image);
-    image.onerror = () => reject(new Error("这张照片打不开。"));
-    image.src = src;
-  });
-}
-
-/** RGBA pixels of the cropped part, drawn down to at most `max` on the long side. */
-function cropPixels(image: HTMLImageElement, crop: Crop, max: number) {
-  const sx = crop.x * image.naturalWidth, sy = crop.y * image.naturalHeight;
-  const sw = Math.max(1, crop.w * image.naturalWidth), sh = Math.max(1, crop.h * image.naturalHeight);
-  const k = max / Math.max(sw, sh);
-  const w = Math.max(2, Math.round(sw * k)), h = Math.max(2, Math.round(sh * k));
-  const canvas = document.createElement("canvas");
-  canvas.width = w; canvas.height = h;
-  const context = canvas.getContext("2d", { willReadFrequently: true });
-  if (!context) throw new Error("这个浏览器取不了色。");
-  context.imageSmoothingQuality = "high";
-  context.drawImage(image, sx, sy, sw, sh, 0, 0, w, h);
-  return { data: context.getImageData(0, 0, w, h).data, w, h };
-}
-
-function sampleCrop(image: HTMLImageElement, crop: Crop): { palette: string[]; colors: [string, string]; texture: WardrobeTexture | null } {
-  // The middle of the box for the colours, so a sloppy edge doesn't count much.
-  const inset = { x: crop.x + crop.w * 0.12, y: crop.y + crop.h * 0.12, w: crop.w * 0.76, h: crop.h * 0.76 };
-  const small = cropPixels(image, inset, 40);
-  const found = paletteFromPixels(small.data, 6).filter((item, index) => index === 0 || item.share >= 0.03);
-  const palette = found.map((item) => item.color);
-  const tiny = cropPixels(image, crop, 16);
-  return { palette, colors: mainColors(found), texture: textureFromPixels(tiny.data, tiny.w, tiny.h, palette) };
-}
-
-const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
-const START_CROP: Crop = { x: 0.3, y: 0.3, w: 0.4, h: 0.4 };
-
-/** Her photo with a box on it: drag inside to move it, drag elsewhere to draw a new one. */
-function CropBox({ src, crop, onChange, onDone }: { src: string; crop: Crop; onChange: (crop: Crop) => void; onDone: (crop: Crop) => void }) {
-  const ref = useRef<HTMLDivElement>(null);
-  const drag = useRef<{ mode: "move" | "draw"; x: number; y: number; start: Crop } | null>(null);
-  const latest = useRef(crop);
-
-  function point(event: ReactPointerEvent) {
-    const rect = ref.current!.getBoundingClientRect();
-    return { x: clamp((event.clientX - rect.left) / rect.width, 0, 1), y: clamp((event.clientY - rect.top) / rect.height, 0, 1) };
-  }
-  function set(next: Crop) {
-    latest.current = next;
-    onChange(next);
-  }
-
-  return <div className="wd-crop" ref={ref}
-    onPointerDown={(event) => {
-      event.currentTarget.setPointerCapture(event.pointerId);
-      const p = point(event);
-      const inside = p.x >= crop.x && p.x <= crop.x + crop.w && p.y >= crop.y && p.y <= crop.y + crop.h;
-      drag.current = { mode: inside ? "move" : "draw", x: p.x, y: p.y, start: crop };
-      if (!inside) set({ x: p.x, y: p.y, w: 0.02, h: 0.02 });
-    }}
-    onPointerMove={(event) => {
-      const state = drag.current;
-      if (!state) return;
-      const p = point(event);
-      if (state.mode === "move") {
-        set({ ...state.start, x: clamp(state.start.x + p.x - state.x, 0, 1 - state.start.w), y: clamp(state.start.y + p.y - state.y, 0, 1 - state.start.h) });
-      } else {
-        set({ x: Math.min(p.x, state.x), y: Math.min(p.y, state.y), w: Math.max(0.02, Math.abs(p.x - state.x)), h: Math.max(0.02, Math.abs(p.y - state.y)) });
-      }
-    }}
-    onPointerUp={() => {
-      if (!drag.current) return;
-      drag.current = null;
-      let next = latest.current;
-      // A tap (or a tiny box) makes a box of a sensible size around that spot.
-      if (next.w < 0.06 || next.h < 0.06) {
-        const w = Math.max(next.w, 0.2), h = Math.max(next.h, 0.2);
-        next = { x: clamp(next.x - w / 2, 0, 1 - w), y: clamp(next.y - h / 2, 0, 1 - h), w, h };
-        set(next);
-      }
-      onDone(next);
-    }}
-    onPointerCancel={() => { drag.current = null; }}>
-    {/* eslint-disable-next-line @next/next/no-img-element */}
-    <img src={src} alt="衣服照片" draggable={false} />
-    <span className="wd-crop-box" style={{ left: `${crop.x * 100}%`, top: `${crop.y * 100}%`, width: `${crop.w * 100}%`, height: `${crop.h * 100}%` }} />
-  </div>;
-}
-
-// ── Adding / changing one garment ──
-
-type Draft = {
-  category: WardrobeCategory; shape: string; pattern: WardrobePattern; colors: [string, string];
-  texture: WardrobeTexture | null; name: string; note: string;
-};
-
-function draftOf(item?: WardrobeItem | null, category: WardrobeCategory = "top"): Draft {
-  if (item) return {
-    category: item.category, shape: item.shape, pattern: item.pattern, colors: item.colors,
-    texture: item.texture || null, name: item.name, note: item.note,
-  };
-  return { category, shape: WARDROBE_SHAPES[category][0].id, pattern: "solid", colors: ["#c8b6a6", "#8a6f5c"], texture: null, name: "", note: "" };
-}
-
-function GarmentDialog({ item, items, outfit, category, onClose, onSave, onDelete }: {
-  item: WardrobeItem | null; items: WardrobeItem[]; outfit: Outfit; category: WardrobeCategory;
-  onClose: () => void;
-  onSave: (input: Record<string, unknown>) => Promise<void>;
-  onDelete: () => Promise<void>;
+function GarmentDialog({ item, category, onClose, onSave, onDelete }: {
+  item: WardrobeItem | null; category: WardrobeCategory; onClose: () => void;
+  onSave: (input: Record<string, unknown>) => Promise<void>; onDelete: () => Promise<void>;
 }) {
-  const [draft, setDraft] = useState<Draft>(() => draftOf(item, category));
-  const [photo, setPhoto] = useState<{ src: string; file: File | null }>(() => ({ src: item?.photo || "", file: null }));
-  const [crop, setCrop] = useState<Crop>(START_CROP);
-  const [palette, setPalette] = useState<string[]>([]);
-  const [target, setTarget] = useState<0 | 1>(0);
+  const [form, setForm] = useState({ category: item?.category || category, name: item?.name || "", note: item?.note || "" });
+  const [photo, setPhoto] = useState({ src: item?.photo || "", file: null as File | null });
   const [busy, setBusy] = useState("");
   const [error, setError] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
   const objectUrl = useRef("");
-  const set = (patch: Partial<Draft>) => setDraft((current) => ({ ...current, ...patch }));
-
   useEffect(() => () => { if (objectUrl.current) URL.revokeObjectURL(objectUrl.current); }, []);
 
-  const sample = useCallback(async (src: string, box: Crop) => {
-    try {
-      const image = await loadImage(src);
-      const found = sampleCrop(image, box);
-      setPalette(found.palette);
-      setDraft((current) => ({ ...current, colors: found.colors, texture: found.texture || current.texture }));
-      setError("");
-    } catch (failure) {
-      setError(failure instanceof Error ? failure.message : "取色失败了。");
-    }
-  }, []);
-
   async function pickPhoto(file: File | undefined) {
-    if (!file) return;
+    if (!file || busy) return;
     if (!file.type.startsWith("image/")) { setError("要选一张图片。"); return; }
-    setBusy("正在读照片…");
+    setBusy("正在读照片…"); setError("");
     try {
       const ready = await prepareImageForUpload(file);
       if (objectUrl.current) URL.revokeObjectURL(objectUrl.current);
       objectUrl.current = URL.createObjectURL(ready);
       setPhoto({ src: objectUrl.current, file: ready });
-      setCrop(START_CROP);
-      await sample(objectUrl.current, START_CROP);
-    } finally {
-      setBusy("");
-    }
+    } catch (failure) { setError(failure instanceof Error ? failure.message : "照片打不开，请换一张。"); }
+    finally { setBusy(""); }
   }
-
-  const look: PixelLook = useMemo(() => ({
-    category: draft.category, shape: draft.shape,
-    pattern: draft.pattern === "photo" && !draft.texture ? "solid" : draft.pattern,
-    colors: draft.colors, texture: draft.texture,
-  }), [draft]);
-  // The doll in what she has on now, with this one in its place.
-  const doll = useMemo(() => {
-    const others = { ...outfit };
-    delete others[slotOf(draft.category)];
-    for (const slot of OUTFIT_SLOTS) if (others[slot] === item?.id) delete others[slot];
-    return renderDoll([...outfitLooks(items, others), look]);
-  }, [items, outfit, item, draft.category, look]);
-  const shapes = WARDROBE_SHAPES[draft.category];
 
   async function save() {
     if (busy) return;
     setError("");
     try {
-      let url = item?.photo || "";
+      let url = photo.src ? item?.photo || "" : "";
       if (photo.file) { setBusy("正在传照片…"); url = await uploadPhoto(photo.file); }
-      else if (!photo.src) url = "";
       setBusy("正在放进衣柜…");
-      await onSave({
-        category: draft.category, shape: draft.shape, pattern: look.pattern, colors: draft.colors,
-        texture: draft.texture, name: draft.name, note: draft.note, photo: url,
+      // Keep the existing API's metadata for old items; new ones receive its defaults.
+      const sameCategory = item?.category === form.category;
+      await onSave({ ...form, photo: url,
+        shape: sameCategory ? item.shape : WARDROBE_SHAPES[form.category][0].id,
+        colors: item?.colors || ["#c8b6a6", "#8a6f5c"],
+        ...(item ? {} : { pattern: "solid" }),
       });
-    } catch (failure) {
-      setError(failure instanceof Error ? failure.message : "没存上，请再试一次。");
-      setBusy("");
-    }
+    } catch (failure) { setError(failure instanceof Error ? failure.message : "没存上，请再试一次。"); setBusy(""); }
   }
 
   return <XpDialog title={item ? `「${item.name}」` : "放一件衣服进来"} onClose={onClose} className="wd-dialog">
     <form className="rd-form wd-form" onSubmit={(event) => { event.preventDefault(); void save(); }}>
-      <div className="wd-maker">
-        <div className="wd-photo">
-          {photo.src ? <>
-            <CropBox src={photo.src} crop={crop} onChange={setCrop} onDone={(box) => { void sample(photo.src, box); }} />
-            <small>在照片上拖一个框，框住布料，颜色和花色从框里取。</small>
-          </> : <button type="button" className="wd-photo-empty" onClick={() => fileRef.current?.click()}>
-            <WardrobeGlyph /><span>选一张衣服的照片</span><small>不传也行，直接挑颜色</small>
-          </button>}
-          <div className="wd-photo-actions">
-            <button type="button" className="rd-button" disabled={Boolean(busy)} onClick={() => fileRef.current?.click()}>{photo.src ? "换照片" : "选照片"}</button>
-            {photo.src && <button type="button" className="rd-button" disabled={Boolean(busy)} onClick={() => setPhoto({ src: "", file: null })}>不要照片</button>}
-          </div>
-          <input ref={fileRef} type="file" accept="image/*" hidden onChange={(event) => { void pickPhoto(event.target.files?.[0]); event.target.value = ""; }} />
-        </div>
-        <div className="wd-preview" aria-label="穿上的样子">
-          <PixelCanvas grid={doll} scale={3} className="wd-preview-doll" label="小人穿上的样子" />
-        </div>
+      <div className="wd-photo-editor"><div className="wd-photo-preview"><GarmentPhoto item={item || undefined} src={photo.src} /></div>
+        <div className="wd-photo-actions"><button type="button" className="rd-button" disabled={Boolean(busy)} onClick={() => fileRef.current?.click()}>{photo.src ? "换照片" : "选照片"}</button>
+          {photo.src && <button type="button" className="rd-button" disabled={Boolean(busy)} onClick={() => setPhoto({ src: "", file: null })}>移除照片</button>}
+        </div><small>平铺照片、挂拍，或商品截图都可以。</small>
+        <input ref={fileRef} type="file" accept="image/*" hidden onChange={(event) => { void pickPhoto(event.target.files?.[0]); event.target.value = ""; }} />
       </div>
-
-      <fieldset className="wd-field">
-        <legend>分类</legend>
-        <div className="wd-chips">
-          {WARDROBE_CATEGORIES.map((key) => <button type="button" key={key} aria-pressed={draft.category === key}
-            onClick={() => set({ category: key, shape: WARDROBE_SHAPES[key].some((shape) => shape.id === draft.shape) ? draft.shape : WARDROBE_SHAPES[key][0].id })}>
-            {CATEGORY_LABELS[key]}</button>)}
-        </div>
-      </fieldset>
-
-      <fieldset className="wd-field">
-        <legend>版型</legend>
-        <div className="wd-shapes">
-          {shapes.map((shape) => <button type="button" key={shape.id} aria-pressed={draft.shape === shape.id} onClick={() => set({ shape: shape.id })}>
-            <span className="wd-shape-art"><Thumb look={{ ...look, shape: shape.id }} box={40} /></span>
-            <span>{shape.label}</span>
-          </button>)}
-        </div>
-      </fieldset>
-
-      <fieldset className="wd-field">
-        <legend>颜色</legend>
-        <div className="wd-color-row">
-          {(["主色", "配色"] as const).map((label, index) => <button type="button" key={label} className="wd-color-target" aria-pressed={target === index}
-            onClick={() => setTarget(index as 0 | 1)}>
-            <i style={{ background: draft.colors[index] }} />{label}</button>)}
-          <label className="wd-color-input"><span className="sr-only">调{target ? "配色" : "主色"}</span>
-            <input type="color" value={draft.colors[target]} onChange={(event) => {
-              const colors: [string, string] = [...draft.colors];
-              colors[target] = event.target.value.toLowerCase();
-              set({ colors });
-            }} /></label>
-        </div>
-        {palette.length > 0 && <div className="wd-swatches" aria-label="照片里的颜色">
-          {palette.map((color) => <button type="button" key={color} style={{ background: color }} aria-label={`用 ${color}`}
-            aria-pressed={draft.colors[target] === color}
-            onClick={() => { const colors: [string, string] = [...draft.colors]; colors[target] = color; set({ colors }); }} />)}
-        </div>}
-      </fieldset>
-
-      <fieldset className="wd-field">
-        <legend>花色</legend>
-        <div className="wd-chips">
-          {WARDROBE_PATTERNS.map((key) => <button type="button" key={key} aria-pressed={look.pattern === key}
-            disabled={key === "photo" && !draft.texture} onClick={() => set({ pattern: key })}>{PATTERN_LABELS[key]}</button>)}
-        </div>
-      </fieldset>
-
-      <label><span>名字</span><input value={draft.name} maxLength={WARDROBE_LIMITS.name} placeholder={shapeLabel(draft.category, draft.shape)}
-        onChange={(event) => set({ name: event.target.value })} /></label>
-      <label className="wd-note"><span>备注</span><textarea value={draft.note} maxLength={WARDROBE_LIMITS.note} rows={2}
-        placeholder="在哪买的、多少钱、配什么好看…" onChange={(event) => set({ note: event.target.value })} /></label>
-
+      <fieldset className="wd-field"><legend>分类</legend><div className="wd-chips">
+        {WARDROBE_CATEGORIES.map((key) => <button type="button" key={key} disabled={Boolean(busy)} aria-pressed={form.category === key}
+          onClick={() => setForm((current) => ({ ...current, category: key }))}>{CATEGORY_LABELS[key]}</button>)}
+      </div></fieldset>
+      <label><span>名字</span><input value={form.name} disabled={Boolean(busy)} maxLength={WARDROBE_LIMITS.name} placeholder="给这件衣服取个名字"
+        onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))} /></label>
+      <label className="wd-note"><span>备注</span><textarea value={form.note} disabled={Boolean(busy)} maxLength={WARDROBE_LIMITS.note} rows={3}
+        placeholder="在哪买的、多少钱、配什么好看…" onChange={(event) => setForm((current) => ({ ...current, note: event.target.value }))} /></label>
       {error && <p className="rd-error" role="alert">{error}</p>}
       <div className="rd-dialog-buttons wd-buttons">
         {item && <button type="button" className="rd-button wd-delete" disabled={Boolean(busy)} onClick={async () => {
@@ -352,13 +126,11 @@ function GarmentDialog({ item, items, outfit, category, onClose, onSave, onDelet
           catch (failure) { setError(failure instanceof Error ? failure.message : "没删掉，请再试一次。"); setBusy(""); }
         }}>拿走</button>}
         <button type="submit" className="rd-button rd-button-default" disabled={Boolean(busy)}>{busy || (item ? "保存" : "放进衣柜")}</button>
-        <button type="button" className="rd-button" onClick={onClose}>取消</button>
+        <button type="button" className="rd-button" disabled={Boolean(busy)} onClick={onClose}>取消</button>
       </div>
     </form>
   </XpDialog>;
 }
-
-// ── The window ──
 
 export function WardrobeView({ settings, onBack }: { settings: Settings; onBack: () => void }) {
   const herName = settings.userName || "宝宝";
@@ -369,140 +141,102 @@ export function WardrobeView({ settings, onBack }: { settings: Settings; onBack:
   const [notice, setNotice] = useState("");
   const [tab, setTab] = useState<Tab>("all");
   const [editing, setEditing] = useState<{ item: WardrobeItem | null } | null>(null);
-
+  const saving = useRef(false);
   const apply = useCallback((reply: Reply) => {
     if (reply.items) setItems(reply.items);
     if (reply.outfit) setOutfit(reply.outfit);
   }, []);
-
   useEffect(() => {
     let alive = true;
-    wardrobeApi()
-      .then((reply) => { if (alive) apply(reply); })
+    wardrobeApi().then((reply) => { if (alive) apply(reply); })
       .catch((error: Error) => { if (alive) setNotice(error.message); })
       .finally(() => { if (alive) setLoading(false); });
     return () => { alive = false; };
   }, [apply]);
 
-  const looks = useMemo(() => outfitLooks(items, outfit), [items, outfit]);
-  const doll = useMemo(() => renderDoll(looks), [looks]);
-  const byId = useMemo(() => new Map(items.map((item) => [item.id, item])), [items]);
+  const byId = new Map(items.map((item) => [item.id, item]));
+  const selected = new Set(Object.values(outfit));
   const shown = tab === "all" ? items : items.filter((item) => item.category === tab);
   const counts = Object.fromEntries(WARDROBE_CATEGORIES.map((key) => [key, items.filter((item) => item.category === key).length])) as Record<WardrobeCategory, number>;
-  const wearing = new Set(Object.values(outfit));
 
-  /** Dress the doll; the change shows at once and goes back if it didn't save. */
-  async function wear(next: Outfit) {
+  async function choose(next: Outfit) {
+    if (saving.current) return;
+    saving.current = true;
     const before = outfit;
-    setOutfit(next);
-    setBusy(true);
+    setOutfit(next); setBusy(true);
     try { apply(await postWardrobe({ action: "wear", outfit: next })); setNotice(""); }
-    catch (error) { setOutfit(before); setNotice((error as Error).message); }
-    finally { setBusy(false); }
+    catch (failure) { setOutfit(before); setNotice(failure instanceof Error ? failure.message : "搭配没存上，请再试一次。"); }
+    finally { saving.current = false; setBusy(false); }
   }
 
   function toggle(item: WardrobeItem) {
     const slot = slotOf(item.category);
     const next = { ...outfit };
-    if (next[slot] === item.id) delete next[slot];
-    else next[slot] = item.id;
-    void wear(next);
-  }
-
-  function takeOff(slot: keyof Outfit) {
-    const next = { ...outfit };
-    delete next[slot];
-    void wear(next);
+    if (next[slot] === item.id) delete next[slot]; else next[slot] = item.id;
+    void choose(next);
   }
 
   return <div className="xp-summer-screen rd-screen wd-screen">
     <section className="xp-summer-window" aria-label="wardrobe">
-      <header className="xp-summer-titlebar">
-        <span className="rd-title-icon"><WardrobeGlyph /></span><h1>{herName}的衣柜 - wardrobe</h1>
-        <div className="xp-summer-controls">
-          <i className="xp-summer-window-button xp-summer-min" aria-hidden="true" />
-          <i className="xp-summer-window-button xp-summer-max" aria-hidden="true" />
+      <header className="xp-summer-titlebar"><span className="rd-title-icon"><WardrobeGlyph /></span><h1>{herName}的衣柜 - wardrobe</h1>
+        <div className="xp-summer-controls"><i className="xp-summer-window-button xp-summer-min" aria-hidden="true" /><i className="xp-summer-window-button xp-summer-max" aria-hidden="true" />
           <button type="button" className="xp-summer-window-button xp-summer-close" aria-label="关闭窗口" onClick={onBack}>
-            <svg viewBox="0 0 10 10" aria-hidden="true"><path d="M2 2l6 6M8 2l-6 6" /></svg></button>
-        </div>
+            <svg viewBox="0 0 10 10" aria-hidden="true"><path d="M2 2l6 6M8 2l-6 6" /></svg></button></div>
       </header>
-
-      <div className="rd-toolbar">
-        <button type="button" className="rd-tool" disabled={loading} onClick={() => setEditing({ item: null })}><span aria-hidden="true">＋</span> 放衣服</button>
-        <button type="button" className="rd-tool" disabled={loading || busy || !looks.length} onClick={() => { void wear({}); }}>全部脱下</button>
-        <span className="rd-toolbar-note">{items.length} 件</span>
-      </div>
-
-      {notice && <div className="rd-notice" role="alert"><span>{notice}</span>
-        <button type="button" onClick={() => setNotice("")} aria-label="关闭提示">×</button></div>}
-
+      <div className="rd-toolbar"><button type="button" className="rd-tool" disabled={loading || busy} onClick={() => setEditing({ item: null })}><span aria-hidden="true">＋</span> 放衣服</button>
+        <button type="button" className="rd-tool" disabled={loading || busy || !selected.size} onClick={() => { void choose({}); }}>清空搭配</button>
+        <span className="rd-toolbar-note">{items.length} 件</span></div>
+      {notice && <div className="rd-notice" role="alert"><span>{notice}</span><button type="button" onClick={() => setNotice("")} aria-label="关闭提示">×</button></div>}
       <div className="rd-content wd-content">
-        <section className="wd-stage" aria-label="小人">
-          <div className="wd-mirror"><PixelCanvas grid={doll} scale={4} className="wd-doll" label={`${herName}的小人`} /></div>
-          <ul className="wd-slots">
+        <section className="wd-stage" aria-label="搭配板">
+          <div className="wd-board-heading"><div><small>OUTFIT NOTES</small><h2>今天这样搭</h2></div><span>{busy ? "保存中…" : loading ? "正在打开…" : selected.size ? `${selected.size} 件 · 已保存` : "从衣柜里选几件"}</span></div>
+          <div className="wd-board">
             {OUTFIT_SLOTS.map((slot) => {
-              const on = outfit[slot] ? byId.get(outfit[slot]!) : undefined;
-              return <li key={slot}>
-                <span className="wd-slot-name">{SLOT_LABELS[slot]}</span>
-                {on ? <>
-                  <button type="button" className="wd-slot-item" onClick={() => setEditing({ item: on })}>{on.name}</button>
-                  <button type="button" className="wd-slot-off" disabled={busy} aria-label={`脱下${on.name}`} onClick={() => takeOff(slot)}>×</button>
-                </> : <span className="wd-slot-empty">—</span>}
-              </li>;
+              const item = outfit[slot] ? byId.get(outfit[slot]!) : undefined;
+              return <div key={slot} className={`wd-board-piece wd-board-${slot}${item ? " has-item" : ""}`}>
+                <span className="wd-board-label">{SLOT_LABELS[slot]}</span>
+                <button type="button" className="wd-board-photo" disabled={loading || busy} aria-label={item ? `查看${item.name}` : `选择${SLOT_LABELS[slot]}`}
+                  onClick={() => { if (item) setEditing({ item }); else setTab(slot === "bottom" ? "all" : slot); }}>
+                  {item ? <GarmentPhoto item={item} /> : <span className="wd-board-empty"><ClothingGlyph slot={slot} /><small>选一件{SLOT_LABELS[slot]}</small></span>}
+                </button>
+                {item && <div className="wd-board-caption"><span>{item.name}</span><button type="button" disabled={busy} aria-label={`移出${item.name}`} onClick={() => {
+                  const next = { ...outfit }; delete next[slot]; void choose(next);
+                }}>×</button></div>}
+              </div>;
             })}
-          </ul>
+          </div>
+          <p className="wd-board-hint">把喜欢的几件放在一起，看看颜色和感觉。</p>
         </section>
-
         <section className="wd-closet" aria-label="衣柜">
+          <div className="wd-closet-heading"><h2>我的衣服</h2><span>点一件，加入这套</span></div>
           <div className="rd-tabs wd-tabs" role="tablist" aria-label="分类">
-            {(["all", ...WARDROBE_CATEGORIES] as Tab[]).map((key) => <button type="button" role="tab" key={key} aria-selected={tab === key}
+            {(["all", ...WARDROBE_CATEGORIES] as Tab[]).map((key) => <button type="button" role="tab" id={`wardrobe-tab-${key}`} aria-controls="wardrobe-panel" key={key} aria-selected={tab === key}
               onClick={() => setTab(key)}>{key === "all" ? "全部" : CATEGORY_LABELS[key]}{key !== "all" && counts[key] ? ` ${counts[key]}` : ""}</button>)}
           </div>
-          <div className="rd-tab-panel wd-panel" role="tabpanel">
+          <div id="wardrobe-panel" className="rd-tab-panel wd-panel" role="tabpanel" aria-labelledby={`wardrobe-tab-${tab}`}>
             {loading ? <p className="rd-muted rd-loading" role="status">正在打开衣柜…</p>
-              : !shown.length ? <div className="rd-empty"><WardrobeGlyph />
-                <p>{items.length ? `还没有${CATEGORY_LABELS[tab as WardrobeCategory]}。` : "衣柜还空着。"}</p>
-                <small>点「放衣服」，拍一件衣服放进来，它会变成像素的。</small>
-                <button type="button" className="rd-button" onClick={() => setEditing({ item: null })}>放一件</button>
-              </div>
-              : <ul className="wd-grid">
-                {shown.map((item) => {
-                  const on = wearing.has(item.id);
-                  return <li key={item.id} className={on ? "is-on" : undefined}>
-                    <button type="button" className="wd-tile" aria-pressed={on} disabled={busy} onClick={() => toggle(item)}
-                      title={on ? "点一下脱下" : "点一下穿上"}>
-                      <span className="wd-tile-art"><Thumb look={item} box={56} /></span>
-                      <span className="wd-tile-name">{item.name}</span>
-                      {on && <i className="wd-tile-on">穿着</i>}
-                    </button>
-                    <button type="button" className="wd-tile-edit" aria-label={`看看「${item.name}」`} onClick={() => setEditing({ item })}>✎</button>
-                  </li>;
-                })}
-              </ul>}
+              : !shown.length ? <div className="rd-empty"><WardrobeGlyph /><p>{items.length ? `还没有${CATEGORY_LABELS[tab as WardrobeCategory]}。` : "把你的第一件衣服放进来。"}</p>
+                <small>留住真实照片，慢慢搭出自己的衣柜。</small><button type="button" className="rd-button" onClick={() => setEditing({ item: null })}>选一张照片</button></div>
+              : <ul className="wd-grid">{shown.map((item) => {
+                const on = selected.has(item.id);
+                return <li key={item.id} className={on ? "is-on" : undefined}>
+                  <button type="button" className="wd-tile" aria-pressed={on} disabled={busy} onClick={() => toggle(item)} title={on ? "移出这套搭配" : "加入这套搭配"}>
+                    <span className="wd-tile-art"><GarmentPhoto item={item} /></span><span className="wd-tile-name">{item.name}</span><span className="wd-tile-category">{CATEGORY_LABELS[item.category]}</span>
+                    {on && <i className="wd-tile-on">这套</i>}</button>
+                  <button type="button" className="wd-tile-edit" disabled={busy} aria-label={`编辑${item.name}`} onClick={() => setEditing({ item })}>✎</button>
+                </li>;
+              })}</ul>}
           </div>
         </section>
       </div>
-
-      <footer className="xp-summer-statusbar">
-        <span>{busy ? "请稍候…" : loading ? "正在打开…" : "点衣服穿上或脱下，✎ 看看这件"}</span>
-        <span>{WARDROBE_CATEGORIES.filter((key) => counts[key]).map((key) => `${CATEGORY_LABELS[key]} ${counts[key]}`).join(" · ") || "今天穿什么呢"}</span>
-      </footer>
+      <footer className="xp-summer-statusbar"><span>{busy ? "正在保存搭配…" : "点衣服组合搭配，✎ 修改照片和备注"}</span><span>今天穿什么呢</span></footer>
     </section>
-    {editing && <GarmentDialog key={editing.item?.id || "new"} item={editing.item} items={items} outfit={outfit}
-      category={tab === "all" ? "top" : tab}
-      onClose={() => setEditing(null)}
+    {editing && <GarmentDialog key={editing.item?.id || "new"} item={editing.item} category={tab === "all" ? "top" : tab} onClose={() => setEditing(null)}
       onSave={async (input) => {
-        const reply = editing.item
-          ? await postWardrobe({ action: "edit", id: editing.item.id, item: input })
-          : await postWardrobe({ action: "add", item: input });
+        const reply = editing.item ? await postWardrobe({ action: "edit", id: editing.item.id, item: input }) : await postWardrobe({ action: "add", item: input });
         apply(reply);
         if (!editing.item && reply.item && tab !== "all" && tab !== reply.item.category) setTab(reply.item.category);
-        setEditing(null);
-        setNotice("");
-      }}
-      onDelete={async () => {
-        apply(await postWardrobe({ action: "delete", id: editing.item!.id }));
-        setEditing(null);
-      }} />}
+        setEditing(null); setNotice("");
+      }} onDelete={async () => { apply(await postWardrobe({ action: "delete", id: editing.item!.id })); setEditing(null); }} />}
   </div>;
 }

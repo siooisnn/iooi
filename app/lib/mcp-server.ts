@@ -39,9 +39,9 @@ export const MCP_INSTRUCTIONS = `iooi 是你和她的小窝。这些工具让你
 - surf_post 发帖：标题写你停下来的那个东西，正文第一人称说为什么停在这、你怎么想，链接只贴你真打开看过的。surf_reply 回帖，接住她那一楼说的话，一到三句就好。
 - 在改代码的工作里，只在她让你发帖、回帖时才动手。
 
-还有她的衣柜（衣柜窗口）：她把衣服拍照放进来，每件变成像素版，穿在照着她画的像素小人身上。这几个工具只能看，不会改她的衣柜：
-- wardrobe_list 看衣柜（上衣、外套、裤子、裙子、鞋子）和小人现在穿着什么；wardrobe_item 看一件的原照片和像素版；wardrobe_try 把几件穿到小人身上看看效果（只是试给你看）。
-- 她问怎么搭、该不该买、哪件好久没穿时再去翻，说具体是哪几件、为什么；像素版只是大概的样子，颜色和细节以原照片为准。`;
+还有她的衣柜（衣柜窗口）：她把真实的衣服照片放进来，在搭配板上组合上衣、外套、下装和鞋子。这几个工具只能看，不会改她的衣柜：
+- wardrobe_list 看衣柜（上衣、外套、裤子、裙子、鞋子）和当前搭配；wardrobe_item 看一件的原照片和备注；wardrobe_try 一起看几件的原照片和备注，讨论怎么搭（只是预览）。
+- 她问怎么搭、该不该买、哪件好久没穿时再去翻，说具体是哪几件、为什么；没有照片时根据备注交流，不要猜衣服的样子。`;
 
 function text(value: unknown) {
   return typeof value === "string" ? value : "";
@@ -204,7 +204,7 @@ const TOOLS = [
   },
   {
     name: "wardrobe_list",
-    description: "看她的衣柜：按上衣、外套、裤子、裙子、鞋子分组，每件的名字、版型、颜色花色、放进来的日期、她的备注，以及小人现在穿着什么。返回的 id 用于其他衣柜工具。",
+    description: "看她的衣柜：按上衣、外套、裤子、裙子、鞋子分组，每件的名字、放进来的日期、她的备注，以及当前搭配。返回的 id 用于其他衣柜工具。",
     inputSchema: {
       type: "object",
       properties: { category: { type: "string", enum: [...WARDROBE_CATEGORIES], description: "只看一类：top 上衣 / outer 外套 / pants 裤子 / skirt 裙子 / shoes 鞋子" } },
@@ -212,12 +212,12 @@ const TOOLS = [
   },
   {
     name: "wardrobe_item",
-    description: "看衣柜里的一件：她拍的原照片、像素版（单件和穿在小人身上），还有她的备注。",
+    description: "看衣柜里的一件：她拍的原照片、分类和备注。照片缺失时会如实说明。",
     inputSchema: { type: "object", properties: { item_id: { type: "string" } }, required: ["item_id"] },
   },
   {
     name: "wardrobe_try",
-    description: "把衣柜里的几件穿到像素小人身上看效果，返回一张图。每个位置（上衣、外套、下装、鞋子）一件，裤子和裙子算同一个位置。不填 item_ids 就看小人现在穿的。只是试给你看，不改她小人身上的衣服。",
+    description: "一起看衣柜里几件衣服的原照片和备注，讨论怎么搭。每类（上衣、外套、下装、鞋子）一件，裤子和裙子算同一类。不填 item_ids 就看当前搭配。只是预览，不修改她保存的搭配。",
     inputSchema: {
       type: "object",
       properties: { item_ids: { type: "array", items: { type: "string" }, maxItems: 8 } },
@@ -323,7 +323,7 @@ function callWardrobe(name: string, args: Record<string, unknown>): ToolResult {
       }
       case "wardrobe_try": {
         const view = tryOnView(args.item_ids);
-        return { content: [{ type: "text", text: view.text }, { type: "image", ...view.image }], isError: false };
+        return { content: [{ type: "text", text: view.text }, ...view.images.map((image): ToolContent => ({ type: "image", ...image }))], isError: false };
       }
       default:
         return reply(`不认识的工具：${name}`, true);

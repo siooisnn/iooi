@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import './helpers/resolve-typescript.mjs';
@@ -98,7 +98,7 @@ test('colours come out of photo pixels, biggest first', () => {
   assert.ok(wardrobe.cleanTexture(texture));
 });
 
-test('her page adds, dresses and removes; he only looks, from any access level', async () => {
+test('her page adds, combines and removes; he only looks, from any access level', async () => {
   for (const access of ['read', 'life', 'full']) {
     const list = await names(access);
     for (const name of ['wardrobe_list', 'wardrobe_item', 'wardrobe_try']) assert.ok(list.includes(name), `${access} ${name}`);
@@ -121,24 +121,49 @@ test('her page adds, dresses and removes; he only looks, from any access level',
   assert.match(listed, /她的备注：配百褶裙/);
   assert.doesNotMatch((await call('wardrobe_list', { category: 'shoes' }, 'read')).result.content[0].text, /棕色露肩毛衣\n/);
 
-  // The photo file is gone: he still gets the words and the pixel picture.
+  // Missing photos stay missing: no synthetic garment or figure is sent.
   const one = (await call('wardrobe_item', { item_id: sweater.id }, 'read')).result;
   assert.equal(one.isError, false);
   assert.match(one.content[0].text, /露肩/);
   const images = one.content.filter((block) => block.type === 'image');
-  assert.equal(images.length, 1);
-  assert.deepEqual(Buffer.from(images[0].data, 'base64').subarray(0, 8), PNG);
+  assert.equal(images.length, 0);
+  assert.match(one.content[0].text, /没有可查看的照片/);
+  assert.doesNotMatch(one.content[0].text, /像素|小人/);
   assert.equal((await call('wardrobe_item', { item_id: 'not-a-real-id' }, 'read')).result.isError, true);
 
-  // Trying on never changes what the doll has on.
+  // Looking at a combination never changes her saved outfit.
   const tried = (await call('wardrobe_try', { item_ids: [shoes.id, skirt.id] }, 'read')).result;
   assert.equal(tried.isError, false);
-  assert.match(tried.content[0].text, /试穿/);
-  assert.equal(tried.content[1].type, 'image');
+  assert.match(tried.content[0].text, /搭配预览/);
+  assert.equal(tried.content.filter((block) => block.type === 'image').length, 0);
   assert.deepEqual((await (await route.GET()).json()).outfit, { top: sweater.id, bottom: skirt.id });
   assert.equal((await call('wardrobe_try', { item_ids: ['not-a-real-id'] }, 'read')).result.isError, true);
 
   const removed = await post({ action: 'delete', id: sweater.id });
   assert.deepEqual(removed.body.outfit, { bottom: skirt.id });
   assert.equal((await post({ action: 'delete', id: sweater.id })).status, 404);
+});
+
+test('read-only outfit previews send original photos and keep her selection unchanged', async () => {
+  const previousCwd = process.cwd();
+  const original = gridsToPng([pixels.renderGarment({ category: 'top', shape: 'tee', pattern: 'solid', colors: ['#ffffff', '#ffffff'] })]);
+  mkdirSync(join(scratch, 'uploads'), { recursive: true });
+  writeFileSync(join(scratch, 'uploads', 'original.png'), original);
+  process.chdir(scratch);
+  try {
+    const top = (await post({ action: 'add', item: { category: 'top', shape: 'tee', colors: ['#ffffff'], name: '白色上衣', photo: '/uploads/original.png', note: '日常穿的' } })).body.item;
+    const before = (await (await route.GET()).json()).outfit;
+    for (const access of ['read', 'life', 'full']) {
+      const one = (await call('wardrobe_item', { item_id: top.id }, access)).result;
+      const oneImages = one.content.filter((block) => block.type === 'image');
+      assert.equal(oneImages.length, 1);
+      assert.deepEqual(Buffer.from(oneImages[0].data, 'base64'), original);
+      const preview = (await call('wardrobe_try', { item_ids: [top.id] }, access)).result;
+      assert.match(preview.content[0].text, /白色上衣/);
+      assert.match(preview.content[0].text, /日常穿的/);
+      assert.doesNotMatch(preview.content[0].text, /像素|小人/);
+      assert.deepEqual(Buffer.from(preview.content.find((block) => block.type === 'image').data, 'base64'), original);
+      assert.deepEqual((await (await route.GET()).json()).outfit, before);
+    }
+  } finally { process.chdir(previousCwd); }
 });

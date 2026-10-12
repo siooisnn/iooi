@@ -12,14 +12,14 @@ function current() {
   return { ok: true, ...getWardrobe() };
 }
 
-/** Every garment (newest first) and what the doll has on. */
+/** Every garment (newest first) and the selected outfit. */
 export async function GET() {
   return Response.json(current());
 }
 
 /**
  * JSON actions from her page: add (a new garment), edit, delete,
- * wear (the doll's whole outfit, one id per slot).
+ * wear (the selected outfit, one id per slot).
  */
 export async function POST(request: Request) {
   const body = await request.json().catch(() => null) as Record<string, unknown> | null;
