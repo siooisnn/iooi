@@ -85,23 +85,26 @@ function TimerWidget({ settings }: { settings: Settings }) {
     { value: seconds, unit: "秒" },
   ];
   return (
-    <div className="sp-widget sp-widget-timer">
-      <header className="sp-widget-timer-title">As time goes by</header>
-      <div className="sp-widget-timer-top">
-        <TimerAvatar src={settings.aiAvatar} alt={settings.aiName || "酥酥"} />
-        <svg viewBox="0 0 190 40" preserveAspectRatio="none" aria-hidden="true">
-          <path d={HEARTBEAT_LINE} vectorEffect="non-scaling-stroke" />
-        </svg>
-        <TimerAvatar src={settings.userAvatar} alt={settings.userName || "你"} />
-      </div>
-      <div className="sp-widget-timer-clock" role="timer" aria-label="在一起的时间">
-        {clock.map(({ value, unit }) => (
-          <span className="sp-widget-timer-part" key={unit}>
-            <b>{ready ? String(value).padStart(2, "0") : "—"}</b>
-            <small>{unit}</small>
-          </span>
-        ))}
-      </div>
+    <div className="sp-widget-slot sp-widget-slot-timer">
+      <section className="sp-widget sp-widget-timer" aria-label="As time goes by">
+        <header className="sp-widget-timer-title">此后我们的每一秒都是恩赐</header>
+        <div className="sp-widget-timer-top">
+          <TimerAvatar src={settings.aiAvatar} alt={settings.aiName || "酥酥"} />
+          <svg viewBox="0 0 190 40" preserveAspectRatio="none" aria-hidden="true">
+            <path d={HEARTBEAT_LINE} vectorEffect="non-scaling-stroke" />
+          </svg>
+          <TimerAvatar src={settings.userAvatar} alt={settings.userName || "你"} />
+        </div>
+        <div className="sp-widget-timer-clock" role="timer" aria-label="在一起的时间">
+          {clock.map(({ value, unit }) => (
+            <span className="sp-widget-timer-part" key={unit}>
+              <b>{ready ? String(value).padStart(2, "0") : "—"}</b>
+              <small>{unit}</small>
+            </span>
+          ))}
+        </div>
+      </section>
+      <span className="sp-widget-name">As time goes by</span>
     </div>
   );
 }
@@ -111,18 +114,21 @@ function TimerWidget({ settings }: { settings: Settings }) {
 function TodayWidget({ phone, onOpen }: { phone: PhoneSnapshot; onOpen: () => void }) {
   const today = phone.today;
   return (
-    <button type="button" className="sp-widget sp-widget-today" onClick={onOpen} aria-label="打开酥酥今天">
-      <header><b>酥酥今天</b><span>{today.length ? `${today.length} 件小事` : "慢慢过一天"}</span></header>
-      {today.length ? <ol>{today.slice(0, 2).map((entry) => (
-        <li key={`${entry.at}-${entry.text}`}><time>{entry.clock}</time><span>{entry.text}</span></li>
-      ))}</ol> : <p>今天还没有留下记录。<br />读书、逛网页的小事，会慢慢出现在这里。</p>}
-    </button>
+    <div className="sp-widget-slot sp-widget-slot-today">
+      <button type="button" className="sp-widget sp-widget-today" onClick={onOpen} aria-label="打开 my day">
+        <header><b>my day</b><span>{today.length ? `${today.length} 件小事` : "慢慢过一天"}</span></header>
+        {today.length ? <ol>{today.slice(0, 2).map((entry) => (
+          <li key={`${entry.at}-${entry.text}`}><time>{entry.clock}</time><span>{entry.text}</span></li>
+        ))}</ol> : <p>今天还没有留下记录。<br />读书、逛网页的小事，<br />会慢慢出现在这里。</p>}
+      </button>
+      <span className="sp-widget-name">my day</span>
+    </div>
   );
 }
 
-export function PhoneHome({ phone, error, settings, onRefresh, onOpenToday }: {
+export function PhoneHome({ phone, error, settings, onRefresh, onOpenToday, onOpenSettings }: {
   phone: PhoneSnapshot | null; error: string; settings: Settings;
-  onRefresh: () => void; onOpenToday: () => void;
+  onRefresh: () => void; onOpenToday: () => void; onOpenSettings: () => void;
 }) {
   return (
     <div className="sp-home">
@@ -134,15 +140,21 @@ export function PhoneHome({ phone, error, settings, onRefresh, onOpenToday }: {
           <TodayWidget phone={phone} onOpen={onOpenToday} />
           {GRID_APPS.map(({ id, label, Icon }) => (
             <span className="sp-app" key={id}>
-              <span className="sp-app-tile" style={{ background: TILE_COLORS[id] }}><Icon size={24} /></span>
+              <span className="sp-app-tile" style={{ background: TILE_COLORS[id] }}><Icon size={29} /></span>
               <small>{label}</small>
             </span>
           ))}
         </div>}
       </div>
       <nav className="sp-dock" aria-label="手机应用">
-        {DOCK_APPS.map(({ id, label, Icon }) => (
-          <span key={id} title={label}><span><Icon size={24} /></span></span>
+        {DOCK_APPS.map(({ id, label, Icon }) => id === "settings" ? (
+          <button type="button" className="sp-dock-app" key={id} aria-label="手机设置" onClick={onOpenSettings}>
+            <span className="sp-app-tile" style={{ background: TILE_COLORS[id] }}><Icon size={29} /></span>
+          </button>
+        ) : (
+          <span className="sp-dock-app" key={id} title={label} aria-label={label}>
+            <span className="sp-app-tile" style={{ background: TILE_COLORS[id] }}><Icon size={29} /></span>
+          </span>
         ))}
       </nav>
     </div>

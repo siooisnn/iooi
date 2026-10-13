@@ -67,7 +67,7 @@ export function PhoneLockScreen({ now, onUnlock }: { now: Date; onUnlock: () => 
       <div className={`sp-unlock${dragging ? " is-dragging" : ""}`} ref={trackRef} role="group" aria-label="滑动来解锁"
         onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={finish} onPointerCancel={finish} onClick={onTap}>
         <span className="sp-unlock-label" aria-hidden="true">滑动来解锁</span>
-        <button type="button" className="sp-unlock-thumb" aria-label="滑动来解锁">›</button>
+        <button type="button" className="sp-unlock-thumb" aria-label="滑动来解锁" style={{ transform: `translateX(${dx}px)` }}>›</button>
       </div>
     </div>
   );

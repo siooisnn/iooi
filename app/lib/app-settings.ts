@@ -14,6 +14,8 @@ export type Settings = {
   // Always on: the 2026 glass desktop is retired and the XP screen is the
   // only home. Kept so older saved settings can't switch back.
   retroDesktop?: boolean;
+  // The little phone has its own appearance; older settings open at night.
+  susuPhoneAppearance?: "day" | "night";
   // Shown under her name on the chat list; picked in settings.
   todayState: string;
   chatPinnedLine: string;

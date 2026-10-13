@@ -8,19 +8,21 @@ import { PhoneGlyph } from "./RetroDesktop";
 import { PhoneHome } from "./susu-phone/PhoneHome";
 import { PhoneLockScreen } from "./susu-phone/PhoneLockScreen";
 import { PhoneToday } from "./susu-phone/PhoneToday";
+import { PhoneSettings } from "./susu-phone/PhoneSettings";
 
 /* The phone on the XP desktop is now a whole little iOS: every open starts
    on the lock screen, unlocking lands on the home page (widgets + icons),
    and the old three cards live on the "susu today" page behind the square
    widget. Apps still jump out to the real windows. */
-type PhoneScreen = { kind: "locked" } | { kind: "home" } | { kind: "today" };
+type PhoneScreen = { kind: "locked" } | { kind: "home" } | { kind: "today" } | { kind: "settings" };
 
 function shanghaiTime(now: Date) {
   return now.toLocaleTimeString("zh-CN", { timeZone: "Asia/Shanghai", hour: "2-digit", minute: "2-digit", hour12: false });
 }
 
-export function SusuPhoneView({ settings, onBack, onOpen }: {
-  settings: Settings; onBack: () => void; onOpen: (target: PhoneTarget) => void;
+export function SusuPhoneView({ settings, updateSettings, onBack, onOpen }: {
+  settings: Settings; updateSettings: (patch: Partial<Settings>) => void;
+  onBack: () => void; onOpen: (target: PhoneTarget) => void;
 }) {
   const [phone, setPhone] = useState<PhoneSnapshot | null>(null);
   const [error, setError] = useState("");
@@ -87,20 +89,24 @@ export function SusuPhoneView({ settings, onBack, onOpen }: {
         <div className="sp-device">
           <button type="button" className={`sp-power${powerFlash ? " is-flash" : ""}`}
             aria-label={locked ? "电源键" : "电源键：锁定手机"} title={locked ? "电源键" : "按电源键上锁"} onClick={pressPower} />
-          <div className="sp-display" data-wallpaper={phone?.settings.wallpaper || "night-blue"}>
+          <div className="sp-display" data-appearance={settings.susuPhoneAppearance === "day" ? "day" : "night"}
+            data-wallpaper={phone?.settings.wallpaper || "night-blue"}>
             {phone?.settings.ornaments.clouds !== false && <div className="sp-clouds" aria-hidden="true"><i /><i /><i /></div>}
             {phone?.settings.ornaments.moon !== false && <span className="sp-moon" aria-hidden="true" />}
             <div className="sp-statusbar"><span>{locked ? "iooi服务" : shanghaiTime(now)}</span><span className="sp-island" aria-hidden="true" />
               <span className="sp-status-icons" aria-hidden="true">
-                <svg width="15" height="12" viewBox="0 0 15 12"><path d="M1 11V8.5M4.5 11V5.5M8 11V2.5M11.5 11V1" /></svg>
+                <svg className="sp-signal" width="16" height="12" viewBox="0 0 16 12"><path d="M2 10.5V9M6 10.5V6.5M10 10.5V4M14 10.5V1.5" /></svg>
                 <b>5G</b>
                 <svg width="22" height="12" viewBox="0 0 22 12"><rect className="sp-bat-body" x="1" y="1.5" width="15" height="9" rx="2.5" /><path className="sp-bat-tip" d="M18.5 4.5v3" /></svg>
               </span></div>
             {locked && <PhoneLockScreen now={now} onUnlock={() => setScreen({ kind: "home" })} />}
             {!locked && screen.kind === "home" && <PhoneHome phone={phone} error={error} settings={settings}
-              onRefresh={() => setRefresh((n) => n + 1)} onOpenToday={() => setScreen({ kind: "today" })} />}
+              onRefresh={() => setRefresh((n) => n + 1)} onOpenToday={() => setScreen({ kind: "today" })}
+              onOpenSettings={() => setScreen({ kind: "settings" })} />}
             {!locked && screen.kind === "today" && <PhoneToday phone={phone} error={error} onBack={() => setScreen({ kind: "home" })}
               onRefresh={() => setRefresh((n) => n + 1)} onOpen={onOpen} />}
+            {!locked && screen.kind === "settings" && <PhoneSettings appearance={settings.susuPhoneAppearance === "day" ? "day" : "night"}
+              onChange={(susuPhoneAppearance) => updateSettings({ susuPhoneAppearance })} onBack={() => setScreen({ kind: "home" })} />}
             {!locked && <span className="sp-home-indicator" aria-hidden="true" />}
           </div>
         </div>
