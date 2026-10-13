@@ -1,6 +1,12 @@
-/* XP stays on the outside. Inside is a quiet, modern phone under a blue sky. */
+/* XP stays on the outside. Inside is a quiet, modern phone under a blue sky:
+   an iOS-style lock screen, a home page with widgets, and one packed
+   susu-today page behind the square widget. */
 :root[data-theme] .sp-screen .sp-stage { flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; padding: 18px 20px; overflow: auto; background: #ece9d8; }
-:root[data-theme] .sp-screen .sp-device { flex: none; width: min(354px, 100%); height: min(670px, calc(100dvh - 125px)); min-height: 320px; padding: 7px; border: 1px solid #414956; border-radius: 40px; background: #111723; box-shadow: 0 16px 28px #14264035, inset 0 0 0 2px #080d16, inset 0 0 0 3px #445064; }
+:root[data-theme] .sp-screen .sp-device { flex: none; position: relative; width: min(354px, 100%); height: min(670px, calc(100dvh - 125px)); min-height: 320px; padding: 7px; border: 1px solid #414956; border-radius: 40px; background: #111723; box-shadow: 0 16px 28px #14264035, inset 0 0 0 2px #080d16, inset 0 0 0 3px #445064; }
+:root[data-theme] .sp-screen .sp-power { position: absolute; z-index: 3; top: 137px; right: -3px; width: 5px; height: 76px; padding: 0; border: 0; border-radius: 0 3px 3px 0; background: linear-gradient(180deg, #4d5a6d, #313c4d); box-shadow: 0 0 0 1px #232d3b; }
+:root[data-theme] .sp-screen .sp-power::after { position: absolute; inset: -9px -11px; content: ""; }
+:root[data-theme] .sp-screen .sp-power.is-flash { animation: sp-power-flash .45s ease-out; }
+@keyframes sp-power-flash { 0% { box-shadow: 0 0 0 1px #232d3b, 0 0 0 3px #ffffff73; } 100% { box-shadow: 0 0 0 1px #232d3b, 0 0 0 15px #ffffff00; } }
 :root[data-theme] .sp-screen .sp-display { --sp-top: #15274f; --sp-bottom: #36527e; position: relative; isolation: isolate; display: flex; flex-direction: column; height: 100%; min-height: 0; overflow: hidden; border-radius: 32px; color: #f1f5ff; background: radial-gradient(ellipse at 90% 5%, #839bc029, transparent 45%), linear-gradient(165deg, var(--sp-top), #213963 48%, var(--sp-bottom)); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif; }
 :root[data-theme] .sp-screen .sp-display[data-wallpaper="moon-mist"] { --sp-top: #313456; --sp-bottom: #686080; background: radial-gradient(ellipse at 95% 5%, #ccd3f036, transparent 48%), linear-gradient(160deg, var(--sp-top), #484b71 50%, var(--sp-bottom)); }
 :root[data-theme] .sp-screen .sp-display[data-wallpaper="deep-sea"] { --sp-top: #102936; --sp-bottom: #2d6577; background: radial-gradient(ellipse at 90% 5%, #88c0bb29, transparent 45%), linear-gradient(165deg, var(--sp-top), #214754 48%, var(--sp-bottom)); }
@@ -10,16 +16,64 @@
 :root[data-theme] .sp-screen .sp-clouds i:nth-child(2) { top: 144px; right: -50px; width: 230px; }
 :root[data-theme] .sp-screen .sp-clouds i:nth-child(3) { bottom: 170px; left: -20px; width: 230px; opacity: .65; }
 :root[data-theme] .sp-screen .sp-moon { position: absolute; z-index: -1; top: 79px; right: 29px; width: 27px; height: 27px; border-radius: 50%; box-shadow: 7px 5px 0 0 #e2ebfe; transform: rotate(-22deg); filter: drop-shadow(0 0 10px #dce9ff35); }
-:root[data-theme] .sp-screen .sp-statusbar { flex: none; position: relative; display: flex; justify-content: space-between; align-items: center; height: 40px; padding: 6px 21px 0; font-size: 11px; font-weight: 600; color: #f1f5ff; }
+:root[data-theme] .sp-screen .sp-statusbar { flex: none; position: relative; display: flex; justify-content: space-between; align-items: center; height: 40px; padding: 6px 21px 0; font-size: 11px; font-weight: 600; color: #f1f5ff; font-variant-numeric: tabular-nums; }
 :root[data-theme] .sp-screen .sp-island { position: absolute; left: 50%; top: 8px; width: 86px; height: 22px; transform: translateX(-50%); border-radius: 30px; background: #0b111b; }
-:root[data-theme] .sp-screen .sp-status-icons { width: 37px; height: 14px; }
-:root[data-theme] .sp-screen .sp-status-icons svg { width: 100%; height: 100%; fill: none; stroke: currentColor; stroke-width: 1.4; stroke-linecap: round; }
-:root[data-theme] .sp-screen .sp-heading { flex: none; position: relative; padding: 19px 22px 10px; }
+:root[data-theme] .sp-screen .sp-status-icons { display: flex; align-items: center; justify-content: flex-end; gap: 4px; width: 66px; height: 14px; }
+:root[data-theme] .sp-screen .sp-status-icons svg { width: auto; height: 100%; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; }
+:root[data-theme] .sp-screen .sp-status-icons b { font-size: 9px; font-weight: 700; font-style: normal; letter-spacing: .4px; }
+:root[data-theme] .sp-screen .sp-status-icons .sp-bat-body { fill: currentColor; stroke: none; }
+/* ─ lock screen ─ */
+:root[data-theme] .sp-screen .sp-lock { position: absolute; z-index: 2; inset: 0; display: flex; flex-direction: column; justify-content: space-between; padding: 96px 28px 26px; user-select: none; -webkit-user-select: none; animation: sp-lock-in .5s ease-out both; }
+@keyframes sp-lock-in { from { opacity: 0; transform: translateY(7px); } to { opacity: 1; transform: none; } }
+:root[data-theme] .sp-screen .sp-lock-mid { text-align: center; }
+:root[data-theme] .sp-screen .sp-lock-clock { display: block; color: #f6f8ff; font-size: 62px; font-weight: 250; line-height: 1.05; letter-spacing: 1px; font-variant-numeric: tabular-nums; text-shadow: 0 3px 18px #07122966; }
+:root[data-theme] .sp-screen .sp-lock-date { display: block; margin-top: 10px; color: #dbe6f8; font-size: 14px; font-weight: 500; letter-spacing: 1px; text-shadow: 0 2px 10px #07122955; }
+:root[data-theme] .sp-screen .sp-unlock { position: relative; height: 46px; border: 1px solid #ffffff40; border-radius: 23px; background: #ffffff12; backdrop-filter: blur(16px); box-shadow: inset 0 1px 0 #ffffff12; touch-action: none; cursor: pointer; }
+:root[data-theme] .sp-screen .sp-unlock-label { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: #e4edfb; font-size: 11px; letter-spacing: 4px; text-indent: 4px; transition: opacity .18s; }
+:root[data-theme] .sp-screen .sp-unlock.is-dragging .sp-unlock-label { opacity: .4; }
+:root[data-theme] .sp-screen .sp-unlock-thumb { position: absolute; top: 2px; left: 2px; display: flex; align-items: center; justify-content: center; width: 40px; height: 40px; padding: 0; border: 0; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #ffffff, #dce6f5 55%, #c3d2e8); color: #8fa3bf; font-size: 24px; font-weight: 300; line-height: 1; box-shadow: 0 2px 8px #07122955; transition: transform .18s ease-out; }
+:root[data-theme] .sp-screen .sp-unlock.is-dragging .sp-unlock-thumb { transition: none; }
+/* ─ home ─ */
+:root[data-theme] .sp-screen .sp-home, :root[data-theme] .sp-screen .sp-page { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+:root[data-theme] .sp-screen .sp-scroll { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 14px 16px 12px; scrollbar-width: thin; scrollbar-color: #ffffff35 transparent; -webkit-overflow-scrolling: touch; }
+:root[data-theme] .sp-screen .sp-widgets { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); grid-auto-rows: 70px; gap: 12px; }
+:root[data-theme] .sp-screen .sp-widget { position: relative; overflow: hidden; border: 1px solid #d9e8ff28; border-radius: 20px; background: #d8e5ff12; box-shadow: 0 5px 12px #0617320c, inset 0 1px 0 #ffffff0a; backdrop-filter: blur(14px); }
+:root[data-theme] .sp-screen .sp-widget-timer { grid-column: 1 / -1; grid-row: span 2; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; padding: 10px 16px; }
+:root[data-theme] .sp-screen .sp-widget-timer-top { display: flex; align-items: center; gap: 9px; width: 100%; }
+:root[data-theme] .sp-screen .sp-widget-timer-top svg { flex: 1; height: 15px; color: #ef9cb8; }
+:root[data-theme] .sp-screen .sp-widget-timer-top path { fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+:root[data-theme] .sp-screen .sp-timer-avatar { display: flex; align-items: center; justify-content: center; flex: none; width: 31px; height: 31px; overflow: hidden; border: 1px solid #ffffff5c; border-radius: 50%; background: #ffffff14; object-fit: cover; color: #eaf1ff; font-size: 13px; font-weight: 600; }
+:root[data-theme] .sp-screen .sp-widget-timer-promise { margin: 0; color: #c9d8ef; font-size: 9px; letter-spacing: 2px; }
+:root[data-theme] .sp-screen .sp-widget-timer-clock { display: flex; align-items: baseline; gap: 9px; color: #f2f6ff; }
+:root[data-theme] .sp-screen .sp-widget-timer-part { display: flex; align-items: baseline; gap: 2.5px; }
+:root[data-theme] .sp-screen .sp-widget-timer-part b { min-width: 1.15em; font-size: 19px; font-weight: 500; font-variant-numeric: tabular-nums; }
+:root[data-theme] .sp-screen .sp-widget-timer-part small { color: #9fb4d6; font-size: 9px; }
+:root[data-theme] .sp-screen .sp-widget-today { grid-column: span 2; grid-row: span 2; display: flex; flex-direction: column; gap: 7px; padding: 11px 12px; color: #eef4ff; font: inherit; text-align: left; cursor: pointer; }
+:root[data-theme] .sp-screen .sp-widget-today header { display: flex; align-items: baseline; justify-content: space-between; gap: 6px; }
+:root[data-theme] .sp-screen .sp-widget-today header b { color: #edf3ff; font-size: 11px; font-weight: 600; }
+:root[data-theme] .sp-screen .sp-widget-today header span { color: #b6c9e6; font-size: 8px; }
+:root[data-theme] .sp-screen .sp-widget-today ol { display: flex; flex-direction: column; gap: 6px; margin: 0; padding: 0; list-style: none; }
+:root[data-theme] .sp-screen .sp-widget-today li { display: flex; gap: 6px; min-width: 0; color: #dbe7fb; font-size: 9px; line-height: 1.55; }
+:root[data-theme] .sp-screen .sp-widget-today li time { flex: none; color: #8fa7cc; font-variant-numeric: tabular-nums; }
+:root[data-theme] .sp-screen .sp-widget-today li span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+:root[data-theme] .sp-screen .sp-widget-today p { margin: 0; color: #b6c9e4; font-size: 9px; line-height: 1.7; }
+:root[data-theme] .sp-screen .sp-apps { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px 4px; margin-top: 16px; padding: 0 4px; }
+:root[data-theme] .sp-screen .sp-apps button { display: flex; flex-direction: column; align-items: center; gap: 5px; min-width: 0; padding: 0; border: 0; background: transparent; color: #f0f5ff; }
+:root[data-theme] .sp-screen .sp-apps small { max-width: 100%; overflow: hidden; color: #e2ecfb; font-size: 9px; text-overflow: ellipsis; white-space: nowrap; text-shadow: 0 1px 4px #0a153055; }
+:root[data-theme] .sp-screen .sp-app-tile { display: flex; align-items: center; justify-content: center; width: 55px; height: 55px; border-radius: 16px; color: #fff; box-shadow: 0 4px 9px #07122938, inset 0 1px 0 #ffffff3d; }
+:root[data-theme] .sp-screen .sp-app-tile[data-app="reading"] { background: linear-gradient(155deg, #a287e0, #5d7fdb); }
+:root[data-theme] .sp-screen .sp-app-tile[data-app="surf"] { background: linear-gradient(155deg, #5fb4ee, #2f66d0); }
+:root[data-theme] .sp-screen .sp-app-tile[data-app="blog"] { background: linear-gradient(155deg, #ef9fbe, #d45f93); }
+:root[data-theme] .sp-screen .sp-app-tile[data-app="chat"] { background: linear-gradient(155deg, #67d293, #269a68); }
+/* ─ susu today page ─ */
+:root[data-theme] .sp-screen .sp-page-bar { flex: none; display: flex; align-items: center; gap: 6px; padding: 10px 16px 4px; }
+:root[data-theme] .sp-screen .sp-page-bar h2 { flex: 1; margin: 0; color: #f2f6ff; font-size: 15px; font-weight: 600; }
+:root[data-theme] .sp-screen .sp-page-back, :root[data-theme] .sp-screen .sp-page-refresh { display: flex; align-items: center; justify-content: center; width: 30px; height: 30px; padding: 0; border: 0; border-radius: 50%; background: #ffffff08; color: #d7e5fa; font-size: 21px; font-weight: 300; }
+:root[data-theme] .sp-screen .sp-page-refresh { font-size: 16px; }
+:root[data-theme] .sp-screen .sp-heading { flex: none; position: relative; padding: 13px 22px 8px; }
 :root[data-theme] .sp-screen .sp-heading > small { color: #c6d5eb; font-size: 8px; font-weight: 500; letter-spacing: 2.2px; }
 :root[data-theme] .sp-screen .sp-heading h2 { margin: 8px 0 7px; color: #f4f6ff; font-size: 22px; font-weight: 400; letter-spacing: 1px; }
 :root[data-theme] .sp-screen .sp-heading > span { color: #bdcbe2; font-size: 10px; }
-:root[data-theme] .sp-screen .sp-heading > button { position: absolute; right: 18px; bottom: 15px; width: 30px; height: 30px; padding: 0; border: 0; border-radius: 50%; color: #d7e5fa; background: #ffffff08; font-size: 21px; }
-:root[data-theme] .sp-screen .sp-scroll { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 26px 16px 12px; scrollbar-width: thin; scrollbar-color: #ffffff35 transparent; -webkit-overflow-scrolling: touch; }
 :root[data-theme] .sp-screen .sp-card { position: relative; margin: 0 0 14px; padding: 16px; border: 1px solid #d9e8ff28; border-radius: 20px; background: #d8e5ff12; box-shadow: 0 5px 12px #0617320c, inset 0 1px 0 #ffffff0a; backdrop-filter: blur(14px); }
 :root[data-theme] .sp-screen .sp-card > header { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 0 0 14px; }
 :root[data-theme] .sp-screen .sp-card h2 { margin: 0; color: #edf3ff; font-size: 13px; font-weight: 600; }
@@ -55,7 +109,7 @@
 :root[data-theme] .sp-screen .sp-dock button > span { display: flex; align-items: center; justify-content: center; width: 38px; height: 38px; border: 1px solid #f3f7ff65; border-radius: 14px; background: #ffffff05; }
 :root[data-theme] .sp-screen .sp-dock small { color: #e2ecfb; font-size: 9px; }
 :root[data-theme] .sp-screen .sp-home-indicator { flex: none; width: 90px; height: 3px; margin: 9px auto 7px; border-radius: 3px; background: #e0eafa; }
-:root[data-theme] .sp-screen :is(.sp-item, .sp-activity, .sp-dock button, .sp-heading > button):active { opacity: .65; }
+:root[data-theme] .sp-screen :is(.sp-item, .sp-activity, .sp-dock button, .sp-apps button, .sp-widget-today, .sp-page-back, .sp-page-refresh):active { opacity: .65; }
 :root[data-theme] .sp-screen :is(button, a):focus-visible { outline: 2px solid #d4e5ff; outline-offset: 3px; }
 @media (min-width: 481px) {
   :root[data-theme] .sp-screen .xp-summer-window { width: min(454px, calc(100% - 32px)); height: min(790px, calc(100dvh - 32px)); }
@@ -66,4 +120,9 @@
 }
 @media (max-height: 500px) and (min-width: 481px) {
   :root[data-theme] .sp-screen .sp-stage { align-items: flex-start; }
+}
+@media (prefers-reduced-motion: reduce) {
+  :root[data-theme] .sp-screen .sp-lock { animation: none; }
+  :root[data-theme] .sp-screen .sp-unlock-thumb { transition: none; }
+  :root[data-theme] .sp-screen .sp-power.is-flash { animation: none; }
 }
