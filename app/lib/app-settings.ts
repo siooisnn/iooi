@@ -11,8 +11,8 @@ export type Settings = {
   classicChatBackground: string;
   // The desktop's wallpaper; empty keeps the plain gray.
   homeBackground: string;
-  // The desktop as a 2007 Windows XP screen instead of the gray glass one;
-  // flipped by the "retro" app next to clawd.
+  // Always on: the 2026 glass desktop is retired and the XP screen is the
+  // only home. Kept so older saved settings can't switch back.
   retroDesktop?: boolean;
   // Shown under her name on the chat list; picked in settings.
   todayState: string;

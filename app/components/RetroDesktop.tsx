@@ -13,8 +13,8 @@ import type { Settings } from "../lib/app-settings";
 
 /* The desktop as a 2007 Windows XP screen: a candy sky, chunky glossy
    icons, an "As time goes by.exe" window, the moon as a sidebar gadget and a
-   blue taskbar with the green start button. Only looks differ; every icon
-   opens the same app as the gray glass desktop. */
+   blue taskbar with the green start button. The 2026 glass desktop is
+   retired — this is the only home now. */
 
 const BOOT_MS = 2400;
 const SHUTDOWN_MS = 1300;
@@ -168,7 +168,7 @@ function ClawdGlyph() {
   );
 }
 
-/** Back to 2026: a little iPhone showing the gray glass desktop. */
+/** susu's phone: a little iPhone on the desktop. */
 export function PhoneGlyph() {
   const { ref, paint } = useIds();
   return (
@@ -245,30 +245,29 @@ function Portrait({ src }: { src: string }) {
   return <span className="xp-desk-portrait">{src ? <img src={src} alt="" /> : <span />}</span>;
 }
 
-export function RetroDesktop({ settings, onOpen, onExit, boot, onBooted }: {
+export function RetroDesktop({ settings, onOpen }: {
   settings: Settings;
   onOpen: (app: HomeApp) => void;
-  onExit: () => void;
-  boot: boolean;
-  onBooted: () => void;
 }) {
   const { days, hours, minutes, seconds, ready, isAnniversary, now } = useTogether(settings.startDate);
   const [startOpen, setStartOpen] = useState(false);
   const [balloon, setBalloon] = useState(false);
   const [leaving, setLeaving] = useState(false);
+  const [off, setOff] = useState(false);
+  const [booting, setBooting] = useState(false);
   const claudeName = settings.aiName || CLAUDE_DEFAULT_NAME;
   const gptName = settings.gptName || "GPT";
   const herName = settings.userName || "宝宝";
 
-  // The boot screen only plays right after she switches retro on.
+  // The boot screen plays when the desktop is powered on from the off screen.
   useEffect(() => {
-    if (!boot) return;
+    if (!booting) return;
     const timer = window.setTimeout(() => {
-      onBooted();
+      setBooting(false);
       setBalloon(true);
     }, reducedMotion() ? 200 : BOOT_MS);
     return () => window.clearTimeout(timer);
-  }, [boot, onBooted]);
+  }, [booting]);
 
   // The tray balloon tucks itself away after a few seconds.
   useEffect(() => {
@@ -285,7 +284,15 @@ export function RetroDesktop({ settings, onOpen, onExit, boot, onBooted }: {
   function shutDown() {
     setStartOpen(false);
     setLeaving(true);
-    window.setTimeout(onExit, reducedMotion() ? 200 : SHUTDOWN_MS);
+    window.setTimeout(() => {
+      setLeaving(false);
+      setOff(true);
+    }, reducedMotion() ? 200 : SHUTDOWN_MS);
+  }
+
+  function powerOn() {
+    setOff(false);
+    setBooting(true);
   }
 
   const clockTime = now === null ? "" : new Date(now).toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit", hour12: false });
@@ -379,7 +386,7 @@ export function RetroDesktop({ settings, onOpen, onExit, boot, onBooted }: {
               </div>
             </div>
             <footer className="xp-desk-menu-foot">
-              <button type="button" onClick={shutDown}><span className="xp-desk-power" aria-hidden="true">⏻</span>回到 2026</button>
+              <button type="button" onClick={shutDown}><span className="xp-desk-power" aria-hidden="true">⏻</span>关机</button>
             </footer>
           </nav>
         </>
@@ -393,7 +400,7 @@ export function RetroDesktop({ settings, onOpen, onExit, boot, onBooted }: {
       )}
 
       <footer className="xp-desk-taskbar">
-        {!startOpen && !boot && !leaving && <TaskbarClawd />}
+        {!startOpen && !booting && !leaving && !off && <TaskbarClawd />}
         <button type="button" className={`xp-desk-start${startOpen ? " is-open" : ""}`} onClick={() => setStartOpen((value) => !value)}>
           <StartFlag /><span>start</span>
         </button>
@@ -404,7 +411,7 @@ export function RetroDesktop({ settings, onOpen, onExit, boot, onBooted }: {
         </span>
       </footer>
 
-      {boot && (
+      {booting && (
         <div className="xp-desk-boot" role="status" aria-label="正在开机">
           <p className="xp-desk-boot-logo"><StartFlag /><span>iooi<sup>xp</sup></span></p>
           <span className="xp-desk-boot-bar" aria-hidden="true"><i /><i /><i /></span>
@@ -414,8 +421,18 @@ export function RetroDesktop({ settings, onOpen, onExit, boot, onBooted }: {
 
       {leaving && (
         <div className="xp-desk-bye" role="status">
-          <p>正在保存你的设置…</p>
+          <p>正在关机…</p>
           <small>下次见，2007 ♥</small>
+        </div>
+      )}
+
+      {off && (
+        <div className="xp-desk-off" role="status" aria-label="iooi 已关机">
+          <button type="button" className="xp-desk-off-power" onClick={powerOn} aria-label="开机">
+            <span aria-hidden="true">⏻</span>
+          </button>
+          <p>iooi 已关机</p>
+          <small>按一下电源键开机</small>
         </div>
       )}
     </section>

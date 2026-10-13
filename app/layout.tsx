@@ -2,7 +2,6 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import "./themes/white-pink.css";
 import "./themes/fullscreen-shell.css";
-import "./themes/phone-home.css";
 import "./themes/ios-glass.css";
 import "./themes/reading-room.css";
 import "./themes/clawd-room.css";

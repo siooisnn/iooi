@@ -624,6 +624,48 @@
 
 :root[data-theme] .xp-desktop .xp-desk-bye small { color: #dbe6ff; font-size: 12px; }
 
+/* Powered-off: a black screen with the monitor's power button. */
+:root[data-theme] .xp-desktop .xp-desk-off {
+  position: absolute;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  background: #000;
+  color: #fff;
+  animation: xpDeskIn 0.3s ease-out;
+}
+
+:root[data-theme] .xp-desktop .xp-desk-off-power {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 64px;
+  height: 64px;
+  border: 2px solid #4a4a4a;
+  border-radius: 50%;
+  background: #1a1a1a;
+  color: #8fd16f;
+  font-size: 30px;
+  cursor: pointer;
+}
+
+:root[data-theme] .xp-desktop .xp-desk-off-power:active {
+  background: #222;
+  box-shadow: 0 0 14px rgba(143, 209, 111, 0.35);
+}
+
+:root[data-theme] .xp-desktop .xp-desk-off p {
+  margin: 0;
+  font-size: 16px;
+  color: #e8e8e8;
+}
+
+:root[data-theme] .xp-desktop .xp-desk-off small { color: #777; font-size: 12px; }
+
 @media (prefers-reduced-motion: reduce) {
   :root[data-theme] .xp-desktop,
   :root[data-theme] .xp-desktop * {

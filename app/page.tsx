@@ -12,7 +12,7 @@ import type { Settings } from "./lib/app-settings";
 import { createGroupSession, genId, mergeChatMessages, mergeChatSessionLists, mergeFragments } from "./lib/chat-sessions";
 import { apiFetch, fetchFromServer, fetchGptFromServer, fetchGroupFromServer, getToken, loadLocal, loadLocalRaw, saveLocal, syncGptToServer, syncGroupToServer, syncToServer } from "./lib/client-api";
 import { ChatListView } from "./components/ChatListView";
-import { HomeView, MoonPage } from "./components/HomeView";
+import { MoonPage } from "./components/HomeView";
 import type { HomeApp } from "./components/HomeView";
 import { RetroDesktop } from "./components/RetroDesktop";
 import { HeartbeatView } from "./components/AppPages";
@@ -39,7 +39,7 @@ export default function Home() {
     chatEntryStyle: "list",
     classicChatBackground: "",
     homeBackground: "",
-    retroDesktop: false,
+    retroDesktop: true,
     todayState: "",
     chatPinnedLine: "此后我们的每一秒都是恩赐。",
     gptChatPinnedLine: "此后我们的每一秒都是恩赐。",
@@ -80,9 +80,6 @@ export default function Home() {
   );
   const [chatView, setChatView] = useState<"list" | "room" | "group">("list");
   const [settings, setSettings] = useState<Settings>(defaultSettings);
-  // The XP boot screen plays once, right after retro is switched on.
-  const [retroBoot, setRetroBoot] = useState(false);
-  const finishRetroBoot = useCallback(() => setRetroBoot(false), []);
   const chatRoomOpen = tab === "chat" && chatView !== "list";
   const shellRef = useRef<HTMLDivElement>(null);
   // Retro mode turns private and group rooms into MSN windows.
@@ -201,6 +198,8 @@ export default function Home() {
           messages: mergeChatMessages([], group.messages || []),
         }));
 
+      // The 2026 theme is retired: the XP desktop is always on.
+      s = { ...s, retroDesktop: true };
       setSettings(s);
       saveLocal("iooi-settings", s);
       syncToServer({ settings: s });
@@ -651,24 +650,12 @@ export default function Home() {
         {activeChatBackground && (
           <NextImage className="chat-room-background" src={activeChatBackground} alt="" fill unoptimized aria-hidden="true" />
         )}
-        {tab === "home" && (settings.retroDesktop ? (
+        {tab === "home" && (
           <RetroDesktop
             settings={settings}
             onOpen={openApp}
-            onExit={() => updateSettings({ retroDesktop: false })}
-            boot={retroBoot}
-            onBooted={finishRetroBoot}
           />
-        ) : (
-          <HomeView
-            settings={settings}
-            onOpen={openApp}
-            onRetro={() => {
-              setRetroBoot(true);
-              updateSettings({ retroDesktop: true });
-            }}
-          />
-        ))}
+        )}
         {tab === "moon" && (
           <>
             <MoonPage settings={settings} />
