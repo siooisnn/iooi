@@ -92,13 +92,13 @@ export function SusuPhoneView({ settings, onBack, onOpen }: {
             {phone?.settings.ornaments.moon !== false && <span className="sp-moon" aria-hidden="true" />}
             <div className="sp-statusbar"><span>{locked ? "iooi服务" : shanghaiTime(now)}</span><span className="sp-island" aria-hidden="true" />
               <span className="sp-status-icons" aria-hidden="true">
-                <svg width="15" height="12" viewBox="0 0 15 12"><path d="M1 11V8m3.5 3V5m3.5 6V1" /></svg>
+                <svg width="15" height="12" viewBox="0 0 15 12"><path d="M1 11V8.5M4.5 11V5.5M8 11V2.5M11.5 11V1" /></svg>
                 <b>5G</b>
                 <svg width="22" height="12" viewBox="0 0 22 12"><rect className="sp-bat-body" x="1" y="1.5" width="15" height="9" rx="2.5" /><path className="sp-bat-tip" d="M18.5 4.5v3" /></svg>
               </span></div>
             {locked && <PhoneLockScreen now={now} onUnlock={() => setScreen({ kind: "home" })} />}
             {!locked && screen.kind === "home" && <PhoneHome phone={phone} error={error} settings={settings}
-              onRefresh={() => setRefresh((n) => n + 1)} onOpenToday={() => setScreen({ kind: "today" })} onOpen={onOpen} />}
+              onRefresh={() => setRefresh((n) => n + 1)} onOpenToday={() => setScreen({ kind: "today" })} />}
             {!locked && screen.kind === "today" && <PhoneToday phone={phone} error={error} onBack={() => setScreen({ kind: "home" })}
               onRefresh={() => setRefresh((n) => n + 1)} onOpen={onOpen} />}
             {!locked && <span className="sp-home-indicator" aria-hidden="true" />}

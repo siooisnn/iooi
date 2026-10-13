@@ -61,8 +61,8 @@ export function PhoneLockScreen({ now, onUnlock }: { now: Date; onUnlock: () => 
   return (
     <div className="sp-lock">
       <div className="sp-lock-mid">
-        <time className="sp-lock-clock" dateTime={now.toISOString()}>{lockTime(now)}</time>
         <span className="sp-lock-date">{lockDate(now)}</span>
+        <time className="sp-lock-clock" dateTime={now.toISOString()}>{lockTime(now)}</time>
       </div>
       <div className={`sp-unlock${dragging ? " is-dragging" : ""}`} ref={trackRef} role="group" aria-label="滑动来解锁"
         onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={finish} onPointerCancel={finish} onClick={onTap}>
