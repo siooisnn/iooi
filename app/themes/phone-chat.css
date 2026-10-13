@@ -1,0 +1,79 @@
+/* The chat app belongs to the phone; the outside chat keeps its own layout. */
+:root[data-theme] .sp-screen .sp-app-button { padding: 0; border: 0; background: none; font: inherit; cursor: pointer; }
+:root[data-theme] .sp-screen .sp-search { flex: none; display: flex; align-items: center; justify-content: center; gap: 4px; width: max-content; margin: 4px auto 0; padding: 5px 11px; border-radius: 18px; background: var(--sp-glass); color: var(--sp-ink); font-size: 10px; line-height: 12px; backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); }
+:root[data-theme] .sp-screen .sp-search svg { width: 11px; height: 11px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; }
+:root[data-theme] .sp-screen .sp-display[data-app="chat"] { --qq-background: #181c27; --qq-surface: #202532; --qq-text: #eef1f8; --qq-muted: #888fa3; --qq-line: #ffffff09; --qq-input: #2e3443; --qq-accent: #429eff; background: var(--qq-background); }
+:root[data-theme] .sp-screen .sp-display[data-app="chat"][data-appearance="day"] { --qq-background: #f3f4f7; --qq-surface: #fff; --qq-text: #272d38; --qq-muted: #9298a4; --qq-line: #e9ebf0; --qq-input: #fff; }
+:root[data-theme] .sp-screen .sp-display[data-app="chat"] :is(.sp-clouds, .sp-moon) { display: none; }
+:root[data-theme] .sp-screen .sp-display[data-app="chat"] .sp-statusbar { background: var(--qq-surface); }
+:root[data-theme] .sp-screen .spqq-app { flex: 1; min-height: 0; display: flex; flex-direction: column; overflow: hidden; background: var(--qq-background); color: var(--qq-text); }
+:root[data-theme] .sp-screen .spqq-app button { font: inherit; -webkit-tap-highlight-color: transparent; }
+:root[data-theme] .sp-screen .spqq-app :is(button, a):focus-visible { outline: 2px solid var(--qq-accent); outline-offset: -2px; }
+:root[data-theme] .sp-screen .spqq-app button:active { opacity: .7; }
+:root[data-theme] .sp-screen .spqq-app button[aria-disabled="true"]:active { opacity: 1; }
+:root[data-theme] .sp-screen .spqq-app-header { flex: none; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 6px 15px 13px; background: var(--qq-surface); }
+:root[data-theme] .sp-screen .spqq-account { display: flex; align-items: center; gap: 9px; min-width: 0; }
+:root[data-theme] .sp-screen .spqq-account strong { overflow: hidden; font-size: 14px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+:root[data-theme] .sp-screen .spqq-avatar { display: block; flex: none; width: 40px; height: 40px; border-radius: 50%; object-fit: cover; background: #e7ecf4; }
+:root[data-theme] .sp-screen .spqq-avatar-fallback { display: flex; align-items: center; justify-content: center; background: #f0d9e5; color: #8a6278; font-size: 15px; }
+:root[data-theme] .sp-screen .spqq-avatar-fallback.is-owner { background: #d5e8fc; color: #5481b4; }
+:root[data-theme] .sp-screen .spqq-account .spqq-avatar { width: 32px; height: 32px; }
+:root[data-theme] .sp-screen .spqq-close { display: flex; align-items: center; justify-content: center; width: 27px; height: 27px; padding: 0; border: 0; border-radius: 50%; background: var(--qq-background); color: var(--qq-muted); cursor: pointer; }
+:root[data-theme] .sp-screen .spqq-tab-content { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+:root[data-theme] .sp-screen .spqq-message-list { padding-top: 4px; }
+:root[data-theme] .sp-screen .spqq-conversation { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 74px; padding: 15px; border: 0; background: var(--qq-surface); color: var(--qq-text); text-align: left; cursor: pointer; }
+:root[data-theme] .sp-screen .spqq-conversation-copy { flex: 1; display: flex; flex-direction: column; gap: 7px; min-width: 0; }
+:root[data-theme] .sp-screen .spqq-conversation strong { font-size: 14px; font-weight: 500; }
+:root[data-theme] .sp-screen .spqq-conversation-copy small { overflow: hidden; color: var(--qq-muted); font-size: 11px; line-height: 1.3; white-space: nowrap; text-overflow: ellipsis; }
+:root[data-theme] .sp-screen .spqq-conversation > time { flex: none; align-self: flex-start; padding-top: 1px; color: var(--qq-muted); font-size: 9px; font-variant-numeric: tabular-nums; }
+:root[data-theme] .sp-screen .spqq-contact-count { display: block; padding: 17px 15px 10px; color: var(--qq-muted); font-size: 10px; }
+:root[data-theme] .sp-screen .spqq-profile { display: flex; flex-direction: column; align-items: center; gap: 16px; padding: 48px 20px; }
+:root[data-theme] .sp-screen .spqq-profile .spqq-avatar { width: 76px; height: 76px; font-size: 27px; }
+:root[data-theme] .sp-screen .spqq-profile strong { font-size: 18px; font-weight: 600; }
+:root[data-theme] .sp-screen .spqq-tabs { flex: none; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); padding: 9px 5px 6px; border-top: 1px solid var(--qq-line); background: var(--qq-surface); }
+:root[data-theme] .sp-screen .spqq-tab { display: flex; flex-direction: column; align-items: center; gap: 4px; min-width: 0; padding: 0; border: 0; background: none; color: var(--qq-muted); cursor: pointer; }
+:root[data-theme] .sp-screen .spqq-tab span { font-size: 9px; line-height: 14px; }
+:root[data-theme] .sp-screen .spqq-tab[aria-current="page"] { color: var(--qq-accent); }
+:root[data-theme] .sp-screen .spqq-room { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+:root[data-theme] .sp-screen .spqq-room-header { flex: none; display: flex; align-items: center; gap: 8px; height: 43px; padding: 0 9px; border-bottom: 1px solid var(--qq-line); background: var(--qq-surface); }
+:root[data-theme] .sp-screen .spqq-room-header h2 { flex: 1; margin: 0; color: var(--qq-text); font-size: 14px; font-weight: 600; text-align: center; }
+:root[data-theme] .sp-screen .spqq-icon-button { display: flex; align-items: center; justify-content: center; flex: none; width: 30px; height: 34px; padding: 0; border: 0; background: none; color: var(--qq-text); cursor: pointer; }
+:root[data-theme] .sp-screen .spqq-icon-button[aria-disabled="true"] { cursor: default; }
+:root[data-theme] .sp-screen .spqq-transcript { flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden; padding: 2px 12px 12px; overscroll-behavior: contain; scrollbar-width: thin; scrollbar-color: var(--qq-muted) transparent; scroll-behavior: auto; overflow-anchor: none; -webkit-overflow-scrolling: touch; }
+:root[data-theme] .sp-screen .spqq-earlier { display: block; margin: 12px auto; padding: 5px 10px; border: 0; background: none; color: var(--qq-muted); font-size: 10px; cursor: pointer; }
+:root[data-theme] .sp-screen .spqq-time { display: block; margin: 14px 0; color: var(--qq-muted); font-size: 9px; line-height: 1.5; text-align: center; font-variant-numeric: tabular-nums; }
+:root[data-theme] .sp-screen .spqq-message { display: flex; align-items: flex-start; gap: 8px; margin: 13px 0; }
+:root[data-theme] .sp-screen .spqq-message.is-right { flex-direction: row-reverse; }
+:root[data-theme] .sp-screen .spqq-message .spqq-avatar { width: 34px; height: 34px; border-radius: 8px; font-size: 13px; }
+:root[data-theme] .sp-screen .spqq-bubble { position: relative; max-width: calc(100% - 42px); min-width: 20px; padding: 8px 11px; border-radius: 11px; background: #fff; color: #303641; box-shadow: 0 1px 3px #0a162009; font-size: 12px; line-height: 1.65; overflow-wrap: anywhere; }
+:root[data-theme] .sp-screen .spqq-bubble::before { position: absolute; top: 12px; left: -4px; width: 5px; height: 8px; background: inherit; clip-path: polygon(100% 0, 100% 100%, 0 50%); content: ""; }
+:root[data-theme] .sp-screen .is-right .spqq-bubble { background: #409eff; color: #fff; }
+:root[data-theme] .sp-screen .is-right .spqq-bubble::before { left: auto; right: -4px; transform: rotate(180deg); }
+:root[data-theme] .sp-screen .spqq-message-text .chat-message-link { color: #3487d8; text-decoration: underline; }
+:root[data-theme] .sp-screen .is-right .spqq-message-text .chat-message-link { color: #fff; }
+:root[data-theme] .sp-screen .spqq-bubble.has-images { padding: 5px; }
+:root[data-theme] .sp-screen .has-images .spqq-message-text { padding: 3px 6px; }
+:root[data-theme] .sp-screen .spqq-message-images { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px; width: 186px; max-width: 100%; }
+:root[data-theme] .sp-screen .spqq-message-images:has(> :only-child) { display: block; }
+:root[data-theme] .sp-screen .spqq-message-images img { display: block; width: 100%; aspect-ratio: 1; border-radius: 7px; object-fit: cover; }
+:root[data-theme] .sp-screen .spqq-image-missing { display: flex; align-items: center; justify-content: center; min-height: 80px; color: #8b8e98; background: #eceef3; font-size: 10px; }
+:root[data-theme] .sp-screen .spqq-file { display: flex; align-items: center; gap: 7px; margin: 3px 0; }
+:root[data-theme] .sp-screen .spqq-composer { flex: none; display: flex; align-items: center; gap: 5px; min-height: 50px; padding: 8px 9px; border-top: 1px solid var(--qq-line); background: var(--qq-surface); }
+:root[data-theme] .sp-screen .spqq-input { display: block; flex: 1; min-width: 0; height: 32px; margin: 0; padding: 0 8px; border: 1px solid var(--qq-line); border-radius: 6px; background: var(--qq-input); color: var(--qq-text); font: inherit; caret-color: transparent; outline: none; pointer-events: none; }
+:root[data-theme] .sp-screen .spqq-composer .spqq-icon-button { width: 25px; height: 28px; }
+:root[data-theme] .sp-screen .spqq-icon-button.is-open { color: var(--qq-accent); transform: rotate(45deg); }
+:root[data-theme] .sp-screen .spqq-extras { flex: none; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; padding: 19px 16px 22px; border-top: 1px solid var(--qq-line); background: var(--qq-surface); }
+:root[data-theme] .sp-screen .spqq-extra { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 0; border: 0; background: none; color: var(--qq-muted); cursor: default; }
+:root[data-theme] .sp-screen .spqq-extra > span { display: flex; align-items: center; justify-content: center; width: 49px; height: 49px; border: 1px solid var(--qq-line); border-radius: 13px; background: var(--qq-background); color: #87a9d9; }
+:root[data-theme] .sp-screen .spqq-extra-camera > span { color: #95acdc; }
+:root[data-theme] .sp-screen .spqq-extra-file > span { color: #ddbc77; }
+:root[data-theme] .sp-screen .spqq-extra-redpacket > span { color: #e88c97; }
+:root[data-theme] .sp-screen .spqq-extra small { font-size: 10px; }
+@media (max-width: 360px) {
+  :root[data-theme] .sp-screen .spqq-transcript { padding-left: 10px; padding-right: 10px; }
+  :root[data-theme] .sp-screen .spqq-message { gap: 6px; }
+  :root[data-theme] .sp-screen .spqq-message .spqq-avatar { width: 30px; height: 30px; }
+  :root[data-theme] .sp-screen .spqq-bubble { max-width: calc(100% - 36px); }
+  :root[data-theme] .sp-screen .spqq-extras { gap: 8px; padding-left: 12px; padding-right: 12px; }
+  :root[data-theme] .sp-screen .spqq-extra > span { width: 44px; height: 44px; }
+}

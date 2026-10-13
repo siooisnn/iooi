@@ -3,25 +3,28 @@
 import { useEffect, useRef, useState } from "react";
 import { apiFetch } from "../lib/client-api";
 import type { Settings } from "../lib/app-settings";
+import type { ChatSession } from "../lib/app-types";
 import type { PhoneSnapshot, PhoneTarget } from "../lib/susu-phone";
 import { PhoneGlyph } from "./RetroDesktop";
 import { PhoneHome } from "./susu-phone/PhoneHome";
 import { PhoneLockScreen } from "./susu-phone/PhoneLockScreen";
 import { PhoneToday } from "./susu-phone/PhoneToday";
 import { PhoneSettings } from "./susu-phone/PhoneSettings";
+import { PhoneChat } from "./susu-phone/PhoneChat";
 
 /* The phone on the XP desktop is now a whole little iOS: every open starts
    on the lock screen, unlocking lands on the home page (widgets + icons),
    and the old three cards live on the "susu today" page behind the square
    widget. Apps still jump out to the real windows. */
-type PhoneScreen = { kind: "locked" } | { kind: "home" } | { kind: "today" } | { kind: "settings" };
+type PhoneScreen = { kind: "locked" } | { kind: "home" } | { kind: "today" } | { kind: "settings" } | { kind: "chat" };
 
 function shanghaiTime(now: Date) {
   return now.toLocaleTimeString("zh-CN", { timeZone: "Asia/Shanghai", hour: "2-digit", minute: "2-digit", hour12: false });
 }
 
-export function SusuPhoneView({ settings, updateSettings, onBack, onOpen }: {
+export function SusuPhoneView({ settings, sessions, updateSettings, onBack, onOpen }: {
   settings: Settings; updateSettings: (patch: Partial<Settings>) => void;
+  sessions: ChatSession[];
   onBack: () => void; onOpen: (target: PhoneTarget) => void;
 }) {
   const [phone, setPhone] = useState<PhoneSnapshot | null>(null);
@@ -90,7 +93,7 @@ export function SusuPhoneView({ settings, updateSettings, onBack, onOpen }: {
           <button type="button" className={`sp-power${powerFlash ? " is-flash" : ""}`}
             aria-label={locked ? "电源键" : "电源键：锁定手机"} title={locked ? "电源键" : "按电源键上锁"} onClick={pressPower} />
           <div className="sp-display" data-appearance={settings.susuPhoneAppearance === "day" ? "day" : "night"}
-            data-wallpaper={phone?.settings.wallpaper || "night-blue"}>
+            data-wallpaper={phone?.settings.wallpaper || "night-blue"} data-app={screen.kind === "chat" ? "chat" : undefined}>
             {phone?.settings.ornaments.clouds !== false && <div className="sp-clouds" aria-hidden="true"><i /><i /><i /></div>}
             {phone?.settings.ornaments.moon !== false && <span className="sp-moon" aria-hidden="true" />}
             <div className="sp-statusbar"><span>{locked ? "iooi服务" : shanghaiTime(now)}</span><span className="sp-island" aria-hidden="true" />
@@ -102,11 +105,12 @@ export function SusuPhoneView({ settings, updateSettings, onBack, onOpen }: {
             {locked && <PhoneLockScreen now={now} onUnlock={() => setScreen({ kind: "home" })} />}
             {!locked && screen.kind === "home" && <PhoneHome phone={phone} error={error} settings={settings}
               onRefresh={() => setRefresh((n) => n + 1)} onOpenToday={() => setScreen({ kind: "today" })}
-              onOpenSettings={() => setScreen({ kind: "settings" })} />}
+              onOpenSettings={() => setScreen({ kind: "settings" })} onOpenChat={() => setScreen({ kind: "chat" })} />}
             {!locked && screen.kind === "today" && <PhoneToday phone={phone} error={error} onBack={() => setScreen({ kind: "home" })}
               onRefresh={() => setRefresh((n) => n + 1)} onOpen={onOpen} />}
             {!locked && screen.kind === "settings" && <PhoneSettings appearance={settings.susuPhoneAppearance === "day" ? "day" : "night"}
               onChange={(susuPhoneAppearance) => updateSettings({ susuPhoneAppearance })} onBack={() => setScreen({ kind: "home" })} />}
+            {!locked && screen.kind === "chat" && <PhoneChat settings={settings} sessions={sessions} onBack={() => setScreen({ kind: "home" })} />}
             {!locked && <span className="sp-home-indicator" aria-hidden="true" />}
           </div>
         </div>

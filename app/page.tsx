@@ -745,7 +745,7 @@ export default function Home() {
         )}
         {tab === "heartbeat" && <HeartbeatView log={heartbeatLog} onBack={goHome}
           onOpenThread={(id) => { setSurfTarget(id); setTab("surf"); }} />}
-        {tab === "susu-phone" && <SusuPhoneView settings={settings} updateSettings={updateSettings} onBack={goHome} onOpen={openPhoneTarget} />}
+        {tab === "susu-phone" && <SusuPhoneView settings={settings} sessions={sessions} updateSettings={updateSettings} onBack={goHome} onOpen={openPhoneTarget} />}
         {tab === "blog" && <BlogView
           key={blogTarget ? `${blogTarget.kind}-${blogTarget.id}` : "blog"}
           settings={settings}

@@ -16,7 +16,8 @@ function IconPhone({ size = 24 }: { size?: number }) {
 function IconChatBubbles({ size = 24 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M8.8 12.2h6.4a2 2 0 0 0 2-2V6.4a2 2 0 0 0-2-2H8.8a2 2 0 0 0-2 2v3.8a2 2 0 0 0 2 2Zm-3.3 3.3 2.7-2.1v-.5H5.9a2 2 0 0 1-2-2V7.1" />
+      <path d="M7.5 4.5h11a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2h-5l-4 3v-3h-2a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2Z" />
+      <path d="M5.5 8H4a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h1v2l3-2h3" />
     </svg>
   );
 }
@@ -126,9 +127,9 @@ function TodayWidget({ phone, onOpen }: { phone: PhoneSnapshot; onOpen: () => vo
   );
 }
 
-export function PhoneHome({ phone, error, settings, onRefresh, onOpenToday, onOpenSettings }: {
+export function PhoneHome({ phone, error, settings, onRefresh, onOpenToday, onOpenSettings, onOpenChat }: {
   phone: PhoneSnapshot | null; error: string; settings: Settings;
-  onRefresh: () => void; onOpenToday: () => void; onOpenSettings: () => void;
+  onRefresh: () => void; onOpenToday: () => void; onOpenSettings: () => void; onOpenChat: () => void;
 }) {
   return (
     <div className="sp-home">
@@ -138,7 +139,12 @@ export function PhoneHome({ phone, error, settings, onRefresh, onOpenToday, onOp
         {phone && <div className="sp-home-grid">
           <TimerWidget settings={settings} />
           <TodayWidget phone={phone} onOpen={onOpenToday} />
-          {GRID_APPS.map(({ id, label, Icon }) => (
+          {GRID_APPS.map(({ id, label, Icon }) => id === "chat" ? (
+            <button type="button" className="sp-app sp-app-button" key={id} aria-label="打开聊天 App" onClick={onOpenChat}>
+              <span className="sp-app-tile" style={{ background: TILE_COLORS[id] }}><Icon size={29} /></span>
+              <small>{label}</small>
+            </button>
+          ) : (
             <span className="sp-app" key={id}>
               <span className="sp-app-tile" style={{ background: TILE_COLORS[id] }}><Icon size={29} /></span>
               <small>{label}</small>
@@ -146,6 +152,10 @@ export function PhoneHome({ phone, error, settings, onRefresh, onOpenToday, onOp
           ))}
         </div>}
       </div>
+      <span className="sp-search" aria-label="Search">
+        <svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="6.8" cy="6.8" r="3.7" /><path d="m9.5 9.5 3 3" /></svg>
+        Search
+      </span>
       <nav className="sp-dock" aria-label="手机应用">
         {DOCK_APPS.map(({ id, label, Icon }) => id === "settings" ? (
           <button type="button" className="sp-dock-app" key={id} aria-label="手机设置" onClick={onOpenSettings}>

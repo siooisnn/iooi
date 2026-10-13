@@ -13,6 +13,7 @@ import "./themes/xp-summer.css";
 import "./themes/xp-small-apps.css";
 import "./themes/wardrobe-room.css";
 import "./themes/susu-phone.css";
+import "./themes/phone-chat.css";
 import "./themes/mood.css";
 import "./themes/xp-control.css";
 import "./themes/cute.css";
