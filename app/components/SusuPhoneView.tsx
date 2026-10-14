@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { apiFetch } from "../lib/client-api";
+import { normalizeChatBackground } from "../lib/chat-background";
 import type { Settings } from "../lib/app-settings";
 import type { ChatSession } from "../lib/app-types";
 import type { PhoneSnapshot, PhoneTarget } from "../lib/susu-phone";
@@ -76,6 +77,8 @@ export function SusuPhoneView({ settings, sessions, updateSettings, onBack, onOp
   }
 
   const locked = screen.kind === "locked";
+  const wallpaper = locked ? normalizeChatBackground(settings.susuPhoneLockBackground)
+    : screen.kind === "home" ? normalizeChatBackground(settings.susuPhoneHomeBackground) : "";
 
   return <div className="xp-summer-screen sp-screen">
     <section className="xp-summer-window" aria-label="susu’s phone">
@@ -94,8 +97,8 @@ export function SusuPhoneView({ settings, sessions, updateSettings, onBack, onOp
             aria-label={locked ? "电源键" : "电源键：锁定手机"} title={locked ? "电源键" : "按电源键上锁"} onClick={pressPower} />
           <div className="sp-display" data-appearance={settings.susuPhoneAppearance === "day" ? "day" : "night"}
             data-wallpaper={phone?.settings.wallpaper || "night-blue"} data-app={screen.kind === "chat" ? "chat" : undefined}>
-            {phone?.settings.ornaments.clouds !== false && <div className="sp-clouds" aria-hidden="true"><i /><i /><i /></div>}
-            {phone?.settings.ornaments.moon !== false && <span className="sp-moon" aria-hidden="true" />}
+            {wallpaper ? <div className="sp-wallpaper" style={{ backgroundImage: `url("${wallpaper}")` }} aria-hidden="true" />
+              : phone?.settings.ornaments.clouds !== false && <div className="sp-clouds" aria-hidden="true"><i /><i /><i /></div>}
             <div className="sp-statusbar"><span>{locked ? "iooi服务" : shanghaiTime(now)}</span><span className="sp-island" aria-hidden="true" />
               <span className="sp-status-icons" aria-hidden="true">
                 <svg className="sp-signal" width="16" height="12" viewBox="0 0 16 12"><path d="M2 10.5V9M6 10.5V6.5M10 10.5V4M14 10.5V1.5" /></svg>
@@ -108,10 +111,9 @@ export function SusuPhoneView({ settings, sessions, updateSettings, onBack, onOp
               onOpenSettings={() => setScreen({ kind: "settings" })} onOpenChat={() => setScreen({ kind: "chat" })} />}
             {!locked && screen.kind === "today" && <PhoneToday phone={phone} error={error} onBack={() => setScreen({ kind: "home" })}
               onRefresh={() => setRefresh((n) => n + 1)} onOpen={onOpen} />}
-            {!locked && screen.kind === "settings" && <PhoneSettings appearance={settings.susuPhoneAppearance === "day" ? "day" : "night"}
-              onChange={(susuPhoneAppearance) => updateSettings({ susuPhoneAppearance })} onBack={() => setScreen({ kind: "home" })} />}
+            {!locked && screen.kind === "settings" && <PhoneSettings settings={settings}
+              updateSettings={updateSettings} onBack={() => setScreen({ kind: "home" })} />}
             {!locked && screen.kind === "chat" && <PhoneChat settings={settings} sessions={sessions} onBack={() => setScreen({ kind: "home" })} />}
-            {!locked && <span className="sp-home-indicator" aria-hidden="true" />}
           </div>
         </div>
       </div>

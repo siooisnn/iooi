@@ -13,7 +13,6 @@
 :root[data-theme] .sp-screen .sp-clouds i:nth-child(1) { top: 75px; left: -40px; }
 :root[data-theme] .sp-screen .sp-clouds i:nth-child(2) { top: 144px; right: -50px; width: 230px; }
 :root[data-theme] .sp-screen .sp-clouds i:nth-child(3) { bottom: 170px; left: -20px; width: 230px; opacity: .65; }
-:root[data-theme] .sp-screen .sp-moon { position: absolute; z-index: -1; top: 79px; right: 29px; width: 27px; height: 27px; border-radius: 50%; box-shadow: 7px 5px 0 0 #e2ebfe; transform: rotate(-22deg); filter: drop-shadow(0 0 10px #dce9ff35); }
 :root[data-theme] .sp-screen .sp-statusbar { flex: none; position: relative; z-index: 3; display: flex; justify-content: space-between; align-items: center; height: 44px; padding: 6px 21px 0; font-size: 11px; font-weight: 600; color: var(--sp-ink); font-variant-numeric: tabular-nums; }
 :root[data-theme] .sp-screen .sp-island { position: absolute; left: 50%; top: 8px; width: 86px; height: 22px; transform: translateX(-50%); border-radius: 30px; background: #0b111b; }
 :root[data-theme] .sp-screen .sp-status-icons { display: flex; align-items: center; justify-content: flex-end; gap: 4px; width: 66px; height: 14px; }
@@ -97,8 +96,7 @@
 :root[data-theme] .sp-screen .sp-owner { margin: 2px 0 0; color: var(--sp-muted); font-size: 8px; text-align: center; letter-spacing: .8px; }
 :root[data-theme] .sp-screen .sp-loading, :root[data-theme] .sp-screen .sp-error { margin: 6px 0 14px; padding: 14px; border-radius: 16px; background: #ffffff12; color: var(--sp-ink); font-size: 11px; line-height: 1.8; }
 :root[data-theme] .sp-screen .sp-error button { margin-left: 8px; padding: 0; border: 0; background: none; color: var(--sp-link); text-decoration: underline; }
-:root[data-theme] .sp-screen .sp-dock { flex: none; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); align-items: center; gap: 8px; margin: 10px 12px 5px; padding: 15px 9px; border: 1px solid var(--sp-edge); border-radius: 28px; background: var(--sp-glass); box-shadow: 0 4px 16px var(--sp-shadow), inset 0 1px 0 #ffffff1a; backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px); }
-:root[data-theme] .sp-screen .sp-home-indicator { flex: none; width: 72px; height: 3px; margin: 6px auto 8px; border-radius: 3px; background: var(--sp-ink); opacity: .9; }
+:root[data-theme] .sp-screen .sp-dock { flex: none; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); align-items: center; gap: 8px; margin: 10px 12px 12px; padding: 15px 9px; border: 1px solid var(--sp-edge); border-radius: 28px; background: var(--sp-glass); box-shadow: 0 4px 16px var(--sp-shadow), inset 0 1px 0 #ffffff1a; backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px); }
 :root[data-theme] .sp-screen :is(.sp-item, .sp-activity, .sp-widget-today, .sp-page-back, .sp-page-refresh):active { opacity: .65; }
 :root[data-theme] .sp-screen :is(button, a):focus-visible { outline: 2px solid var(--sp-link); outline-offset: 3px; }
 
@@ -111,12 +109,10 @@
 :root[data-theme] .sp-screen .sp-status-icons .sp-signal { stroke-width: 2.3; }
 :root[data-theme] .sp-screen .sp-dock-app { display: flex; align-items: center; justify-content: center; min-width: 0; margin: 0; padding: 0; border: 0; background: none; font: inherit; }
 :root[data-theme] .sp-screen button.sp-dock-app { cursor: pointer; }
-:root[data-theme] .sp-screen .sp-moon { top: 70px; right: 26px; opacity: .8; }
 /* A white, softly tinted day; every inner screen inherits these colors. */
 :root[data-theme] .sp-screen .sp-display[data-appearance="day"] { --sp-ink: #303342; --sp-muted: #717486; --sp-subtle: #8e91a3; --sp-widget: #ffffffdf; --sp-card: #ffffffb8; --sp-edge: #ffffff75; --sp-glass: #ffffff62; --sp-link: #7276ae; --sp-pink: #cf84a1; --sp-shadow: #77778e13; color-scheme: light; background: radial-gradient(ellipse at 100% 0, #ece5f28a, transparent 52%), radial-gradient(ellipse at 0 75%, #e0e8f466, transparent 48%), linear-gradient(165deg, #f9f8fb, #f2f1f7 52%, #e6e8f2); }
 :root[data-theme] .sp-screen .sp-display[data-appearance="night"] { color-scheme: dark; }
 :root[data-theme] .sp-screen .sp-display[data-appearance="day"] .sp-clouds i { background: radial-gradient(ellipse, #ffffff, transparent 70%); opacity: .8; }
-:root[data-theme] .sp-screen .sp-display[data-appearance="day"] .sp-moon { width: 22px; height: 22px; background: #dfc5a5; box-shadow: 0 0 24px #e3ccb550; transform: none; }
 :root[data-theme] .sp-screen .sp-display[data-appearance="day"] .sp-unlock-thumb { color: #898597; background: linear-gradient(145deg, #fff, #eeeaf5); box-shadow: 0 2px 8px #77718e20; }
 :root[data-theme] .sp-screen .sp-display[data-appearance="day"] .sp-card { box-shadow: 0 5px 12px var(--sp-shadow); }
 :root[data-theme] .sp-screen .sp-display[data-appearance="day"] .sp-timeline > li::before,
@@ -145,6 +141,21 @@
   :root[data-theme] .sp-screen .sp-widget-today { gap: 7px; padding: 10px; }
   :root[data-theme] .sp-screen .sp-widget-today p { font-size: 9px; }
 }
+
+:root[data-theme] .sp-screen .sp-wallpaper { position: absolute; z-index: -1; inset: 0; background-size: cover; background-position: center; pointer-events: none; }
+:root[data-theme] .sp-screen .sp-wallpaper::after { position: absolute; inset: 0; background: linear-gradient(#10172433, #1017240d 40%, #10172426); content: ""; }
+:root[data-theme] .sp-screen .sp-display[data-appearance="day"] .sp-wallpaper::after { background: linear-gradient(#ffffff4d, #ffffff1a 40%, #ffffff26); }
+:root[data-theme] .sp-screen .sp-wallpaper-title { margin-top: 25px; font-size: 17px; }
+:root[data-theme] .sp-screen .sp-wallpaper-setting { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-bottom: 12px; padding: 16px; border: 1px solid var(--sp-edge); border-radius: 18px; background: var(--sp-widget); }
+:root[data-theme] .sp-screen .sp-wallpaper-copy { flex: 1; min-width: 0; }
+:root[data-theme] .sp-screen .sp-wallpaper-copy h3 { margin: 0 0 5px; color: var(--sp-ink); font-size: 13px; font-weight: 600; }
+:root[data-theme] .sp-screen .sp-wallpaper-copy > span { color: var(--sp-muted); font-size: 10px; }
+:root[data-theme] .sp-screen .sp-wallpaper-preview { width: 40px; height: 56px; border-radius: 8px; object-fit: cover; }
+:root[data-theme] .sp-screen .sp-wallpaper-input { display: none; }
+:root[data-theme] .sp-screen .sp-wallpaper-actions { display: flex; gap: 10px; width: 100%; }
+:root[data-theme] .sp-screen .sp-wallpaper-actions button { padding: 7px 11px; border: 1px solid var(--sp-edge); border-radius: 8px; background: var(--sp-glass); color: var(--sp-ink); font: inherit; font-size: 11px; cursor: pointer; }
+:root[data-theme] .sp-screen .sp-wallpaper-actions button:disabled { opacity: .5; cursor: default; }
+:root[data-theme] .sp-screen .sp-wallpaper-error { width: 100%; margin: 0; color: var(--sp-pink); font-size: 10px; line-height: 1.6; }
 @media (min-width: 481px) {
   :root[data-theme] .sp-screen .xp-summer-window { width: min(454px, calc(100% - 32px)); height: min(790px, calc(100dvh - 32px)); }
 }

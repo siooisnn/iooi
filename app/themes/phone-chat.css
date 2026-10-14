@@ -4,7 +4,7 @@
 :root[data-theme] .sp-screen .sp-search svg { width: 11px; height: 11px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; }
 :root[data-theme] .sp-screen .sp-display[data-app="chat"] { --qq-background: #181c27; --qq-surface: #202532; --qq-text: #eef1f8; --qq-muted: #888fa3; --qq-line: #ffffff09; --qq-input: #2e3443; --qq-accent: #429eff; background: var(--qq-background); }
 :root[data-theme] .sp-screen .sp-display[data-app="chat"][data-appearance="day"] { --qq-background: #f3f4f7; --qq-surface: #fff; --qq-text: #272d38; --qq-muted: #9298a4; --qq-line: #e9ebf0; --qq-input: #fff; }
-:root[data-theme] .sp-screen .sp-display[data-app="chat"] :is(.sp-clouds, .sp-moon) { display: none; }
+:root[data-theme] .sp-screen .sp-display[data-app="chat"] .sp-clouds { display: none; }
 :root[data-theme] .sp-screen .sp-display[data-app="chat"] .sp-statusbar { background: var(--qq-surface); }
 :root[data-theme] .sp-screen .spqq-app { flex: 1; min-height: 0; display: flex; flex-direction: column; overflow: hidden; background: var(--qq-background); color: var(--qq-text); }
 :root[data-theme] .sp-screen .spqq-app button { font: inherit; -webkit-tap-highlight-color: transparent; }
@@ -44,11 +44,10 @@
 :root[data-theme] .sp-screen .spqq-time { display: block; margin: 14px 0; color: var(--qq-muted); font-size: 9px; line-height: 1.5; text-align: center; font-variant-numeric: tabular-nums; }
 :root[data-theme] .sp-screen .spqq-message { display: flex; align-items: flex-start; gap: 8px; margin: 13px 0; }
 :root[data-theme] .sp-screen .spqq-message.is-right { flex-direction: row-reverse; }
-:root[data-theme] .sp-screen .spqq-message .spqq-avatar { width: 34px; height: 34px; border-radius: 8px; font-size: 13px; }
-:root[data-theme] .sp-screen .spqq-bubble { position: relative; max-width: calc(100% - 42px); min-width: 20px; padding: 8px 11px; border-radius: 11px; background: #fff; color: #303641; box-shadow: 0 1px 3px #0a162009; font-size: 12px; line-height: 1.65; overflow-wrap: anywhere; }
-:root[data-theme] .sp-screen .spqq-bubble::before { position: absolute; top: 12px; left: -4px; width: 5px; height: 8px; background: inherit; clip-path: polygon(100% 0, 100% 100%, 0 50%); content: ""; }
+:root[data-theme] .sp-screen .spqq-message .spqq-avatar { width: 34px; height: 34px; border-radius: 50%; font-size: 13px; }
+/* Reserve the same avatar column on both sides of a long bubble. */
+:root[data-theme] .sp-screen .spqq-bubble { position: relative; max-width: calc(100% - 84px); min-width: 20px; padding: 8px 11px; border-radius: 11px; background: #fff; color: #303641; box-shadow: 0 1px 3px #0a162009; font-size: 12px; line-height: 1.65; overflow-wrap: anywhere; }
 :root[data-theme] .sp-screen .is-right .spqq-bubble { background: #409eff; color: #fff; }
-:root[data-theme] .sp-screen .is-right .spqq-bubble::before { left: auto; right: -4px; transform: rotate(180deg); }
 :root[data-theme] .sp-screen .spqq-message-text .chat-message-link { color: #3487d8; text-decoration: underline; }
 :root[data-theme] .sp-screen .is-right .spqq-message-text .chat-message-link { color: #fff; }
 :root[data-theme] .sp-screen .spqq-bubble.has-images { padding: 5px; }
@@ -73,7 +72,7 @@
   :root[data-theme] .sp-screen .spqq-transcript { padding-left: 10px; padding-right: 10px; }
   :root[data-theme] .sp-screen .spqq-message { gap: 6px; }
   :root[data-theme] .sp-screen .spqq-message .spqq-avatar { width: 30px; height: 30px; }
-  :root[data-theme] .sp-screen .spqq-bubble { max-width: calc(100% - 36px); }
+  :root[data-theme] .sp-screen .spqq-bubble { max-width: calc(100% - 72px); }
   :root[data-theme] .sp-screen .spqq-extras { gap: 8px; padding-left: 12px; padding-right: 12px; }
   :root[data-theme] .sp-screen .spqq-extra > span { width: 44px; height: 44px; }
 }

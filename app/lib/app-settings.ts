@@ -16,6 +16,8 @@ export type Settings = {
   retroDesktop?: boolean;
   // The little phone has its own appearance; older settings open at night.
   susuPhoneAppearance?: "day" | "night";
+  susuPhoneLockBackground?: string;
+  susuPhoneHomeBackground?: string;
   // Shown under her name on the chat list; picked in settings.
   todayState: string;
   chatPinnedLine: string;
@@ -135,6 +137,8 @@ export function normalizeClaudeSettings(settings: Settings): Settings {
     gptModel: resolveGptModel(settings.gptModel).id,
     classicChatBackground: normalizeChatBackground(settings.classicChatBackground),
     homeBackground: normalizeChatBackground(settings.homeBackground),
+    susuPhoneLockBackground: normalizeChatBackground(settings.susuPhoneLockBackground),
+    susuPhoneHomeBackground: normalizeChatBackground(settings.susuPhoneHomeBackground),
     todayState: typeof settings.todayState === "string" ? settings.todayState.trim().slice(0, 40) : "",
     webSearch: Boolean(settings.webSearch),
     aiName: !settings.aiName?.trim() || oldDefaultName.test(settings.aiName.trim())
