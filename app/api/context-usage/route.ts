@@ -1,4 +1,5 @@
 import { readContextStore } from "@/app/lib/store";
+import { isCodeProject } from "@/app/lib/code-projects";
 import { estimateTokens, GROUP_CONTEXT_BUDGET, planContext, WORK_CONTEXT_BUDGET,
   type ContextMessage, type ContextSnapshot } from "@/app/lib/context-budget";
 
@@ -16,7 +17,7 @@ export async function POST(request: Request) {
   const project = body.project;
   const messages = body.messages as ContextMessage[];
   if (!kind || typeof sessionId !== "string" || !/^[\w-]{1,200}$/.test(sessionId)
-    || (kind === "work" && project !== "iooi" && project !== "summer")
+    || (kind === "work" && !isCodeProject(project))
     || !Array.isArray(messages) || messages.length > 2_000
     || messages.some((message, index) => !message || !Number.isInteger(message.index) || message.index < 0
       || (index > 0 && message.index <= messages[index - 1].index)

@@ -2,6 +2,7 @@ import { normalizeChatBackground } from "./chat-background";
 import { resolveGptModel } from "./gpt-models";
 import type { ClaudeReasoningEffort, DevelopmentModePref, GptReasoningEffort } from "./app-types";
 import { loadLocalRaw } from "./client-api";
+import { CODE_PROJECTS, isCodeProject } from "./code-projects";
 
 export type Settings = {
   model: string;
@@ -156,7 +157,7 @@ export function loadDevelopmentModePrefs(): Record<string, DevelopmentModePref> 
   for (const [id, value] of Object.entries(raw as Record<string, unknown>)) {
     if (!value || typeof value !== "object") continue;
     const { enabled, project } = value as Partial<DevelopmentModePref>;
-    prefs[id] = { enabled: enabled === true, project: project === "summer" ? "summer" : "iooi" };
+    prefs[id] = { enabled: enabled === true, project: isCodeProject(project) ? project : "iooi" };
   }
   return prefs;
 }
@@ -173,8 +174,8 @@ export function inferDevelopmentModePref(
   for (let index = messages.length - 1; index >= 0; index -= 1) {
     const message = messages[index];
     if (message.role !== "user" && message.role !== "assistant") continue;
-    if (message.source === "code_task_iooi") return { enabled: true, project: "iooi" };
-    if (message.source === "code_task_summer") return { enabled: true, project: "summer" };
+    const project = CODE_PROJECTS.find((project) => message.source === `code_task_${project}`);
+    if (project) return { enabled: true, project };
     return undefined;
   }
   return undefined;

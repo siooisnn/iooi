@@ -150,7 +150,7 @@ export type SummerState = {
 };
 
 // 开发模式按会话记在本地:切 tab、返回列表、刷新都不会自己关掉。
-export type DevelopmentProject = "iooi" | "summer";
+export type DevelopmentProject = import("./code-projects").CodeProject;
 export type DevelopmentModePref = { enabled: boolean; project: DevelopmentProject };
 
 export type ChatListTab = "chats" | "groups" | "contacts";

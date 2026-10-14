@@ -1,10 +1,12 @@
+import type { CodeProject } from "./code-projects";
+
 type WorkMessage = { role: string; content: string; source?: string; roundId?: string; image?: string; images?: string[] };
 
 function imageCount(message: WorkMessage) {
   return new Set([message.image, ...(Array.isArray(message.images) ? message.images : [])].filter(Boolean)).size;
 }
 
-export function workContextHistory(messages: WorkMessage[], project: "iooi" | "summer", currentRound?: string) {
+export function workContextHistory(messages: WorkMessage[], project: CodeProject, currentRound?: string) {
   return messages.filter((message) => message.source === `code_task_${project}`
     && (message.role === "user" || message.role === "assistant") && (!currentRound || message.roundId !== currentRound))
     .map((message, index) => {

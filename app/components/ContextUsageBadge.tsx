@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import type { CodeProject } from "../lib/code-projects";
 
 export type UsageMessage = { index: number; role: "user" | "assistant"; content: string; speaker?: string; media?: boolean };
 
@@ -10,7 +11,7 @@ export type UsageMessage = { index: number; role: "user" | "assistant"; content:
 export function ContextUsageBadge({ kind, sessionId, project, messages, systemPrompt = "" }: {
   kind: "group" | "work";
   sessionId: string;
-  project?: "iooi" | "summer";
+  project?: CodeProject;
   messages: UsageMessage[];
   systemPrompt?: string;
 }) {
