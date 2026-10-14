@@ -10,5 +10,5 @@ export function isCodeProject(value: unknown): value is CodeProject {
 }
 
 export function canDeployCodeProject(project: CodeProject) {
-  return project !== "iooiblog";
+  return isCodeProject(project);
 }

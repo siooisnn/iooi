@@ -41,9 +41,9 @@ test("three project histories stay isolated from each other, normal chat and the
   for (const value of [null, "../iooi", "constructor", "IOOIBLOG"]) assert.equal(isCodeProject(value), false);
 });
 
-test("blog deployment is rejected before creating release state or spawning the iooi worker", async () => {
+test("all registered projects can deploy, while unknown projects are rejected before spawning a worker", async () => {
   assert.equal(canDeployCodeProject("iooi"), true);
   assert.equal(canDeployCodeProject("summer"), true);
-  assert.equal(canDeployCodeProject("iooiblog"), false);
-  await assert.rejects(startCodeRelease("deploy", "iooiblog", "blog-unsupported-test", "blog-unsupported-test"), /独立的 AWS 服务器/);
+  assert.equal(canDeployCodeProject("iooiblog"), true);
+  await assert.rejects(startCodeRelease("deploy", "../../iooi", "blog-unsupported-test", "blog-unsupported-test"), /未知项目/);
 });

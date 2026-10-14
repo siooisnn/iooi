@@ -16,7 +16,7 @@ import type { CodeReleaseState } from "../lib/code-release";
 import { imageFields, MAX_IMAGES_PER_MESSAGE, messageImages, stripObjectPlaceholders } from "../lib/message-images";
 import { prepareImageForUpload } from "../lib/image-compress";
 import { workContextHistory } from "../lib/work-context";
-import { CODE_PROJECTS, CODE_PROJECT_LABELS, canDeployCodeProject } from "../lib/code-projects";
+import { CODE_PROJECTS, CODE_PROJECT_LABELS } from "../lib/code-projects";
 import type { AssistantMode, BlogCard, CacheStats, ChatSession, ClaudeReasoningEffort, DevelopmentModePref, DevelopmentProject, GptReasoningEffort, Message, PendingAttachment, ReplyRequestState, SummerCall, SummerWriteProposal } from "../lib/app-types";
 import { CLAUDE_REASONING_OPTIONS, CONTEXT_WINDOW_ROUNDS, DEVELOPMENT_MODE_KEY, GPT_DEFAULT_PROMPT, GPT_REASONING_OPTIONS, MODELS, inferDevelopmentModePref, loadDevelopmentModePrefs } from "../lib/app-settings";
 import type { Settings } from "../lib/app-settings";
@@ -1037,9 +1037,9 @@ export function ChatView({
                     </button>
                   ))}
                 </div>
-                <p className="settings-hint">{canDeployCodeProject(developmentProject)
-                  ? "开发对话与普通聊天各用自己的上下文。改完后单独发送“部署”或“推送到 GitHub”；只有收到明确指令才执行。"
-                  : "iooiblog 使用独立的代码目录和上下文。改完后单独发送“推送到 GitHub”；博客服务器的部署通道稍后接入。"}</p>
+                <p className="settings-hint">{developmentProject === "iooiblog"
+                  ? "iooiblog 在独立服务器发布。改完后单独发送“部署”或“推送到 GitHub”；两项操作分别执行。"
+                  : "开发对话与普通聊天各用自己的上下文。改完后单独发送“部署”或“推送到 GitHub”；只有收到明确指令才执行。"}</p>
               </>}
             </section>
           )}

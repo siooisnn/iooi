@@ -37,7 +37,7 @@ export function readCodeReleaseState(sessionId: string): CodeReleaseState | null
 
 export async function startCodeRelease(action: CodeReleaseAction, project: CodeProject, sessionId: string, taskId: string) {
   if (action === "deploy" && !canDeployCodeProject(project)) {
-    throw new Error("iooiblog 位于独立的 AWS 服务器，工作模式暂未接入它的部署通道。可以修改代码并按明确指令推送 GitHub；上线需单独部署博客服务器。");
+    throw new Error("未知项目无法部署");
   }
   if (!/^[a-zA-Z0-9_-]{1,100}$/.test(sessionId) || !/^[a-zA-Z0-9_-]{1,100}$/.test(taskId)) {
     throw new Error("发布任务标识无效");
