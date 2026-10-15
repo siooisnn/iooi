@@ -222,6 +222,7 @@ export default function Home() {
       }
       setGroupSessions(normalizedGroupSessions);
       setGroupActiveSessionId(normalizedGroupSessions[0].id);
+      if (new URLSearchParams(window.location.search).has("iooiblog")) setTab("settings");
       setMounted(true);
     }
     init();
