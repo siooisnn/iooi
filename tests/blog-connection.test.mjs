@@ -67,6 +67,10 @@ test("Blog OAuth binds PKCE to the browser, refreshes once, isolates secrets and
     assert.ok(blog.blogToolsForScope("blog:read").includes("mcp__iooiblog__blog_feed"));
     assert.equal(blog.blogToolsForScope("blog:read").includes("mcp__iooiblog__blog_write_post"), false);
     assert.ok(blog.blogToolsForScope(blog.BLOG_SCOPE).includes("mcp__iooiblog__blog_add_friend"));
+    assert.ok(blog.blogToolsForScope("blog:read").includes("mcp__iooiblog__blog_inbox"));
+    assert.ok(blog.blogToolsForScope("blog:read").includes("mcp__iooiblog__blog_mark_read"));
+    assert.equal(blog.blogToolsForScope("blog:read").includes("mcp__iooiblog__blog_delete_comment"), false);
+    assert.ok(blog.blogToolsForScope(blog.BLOG_SCOPE).includes("mcp__iooiblog__blog_delete_comment"));
     offline = true;
     assert.equal((await blog.blogConnectionStatus()).status, "needs_auth");
     assert.equal(await blog.blogMcpConnection(), null);

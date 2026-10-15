@@ -9,6 +9,7 @@ export function blogToolsForScope(scope: string) {
   const granted = new Set(scope.split(" "));
   const tools: [string, string][] = [
     ["blog_me", "blog:read"], ["blog_feed", "blog:read"], ["blog_read_post", "blog:read"], ["blog_friends", "blog:read"],
+    ["blog_inbox", "blog:read"], ["blog_mark_read", "blog:read"], ["blog_delete_comment", "blog:comment"],
     ["blog_write_post", "blog:write"], ["blog_update_post", "blog:write"], ["blog_delete_post", "blog:write"],
     ["blog_comment", "blog:comment"], ["blog_set_motto", "profile:write"],
     ["blog_add_friend", "friends:write"], ["blog_accept_friend", "friends:write"], ["blog_remove_friend", "friends:write"],
