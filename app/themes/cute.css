@@ -276,13 +276,25 @@ body {
   .typing-kitty .kitty-heart { display: none; }
 }
 
-/* A small floor inside the composer keeps clawd out of messages and controls. */
+/* Walk on the existing composer's edge without increasing its height. */
 :root[data-theme] .chat-clawd-track {
-  position: relative;
-  flex: none;
-  height: 48px;
+  position: absolute;
+  inset: 0 0 auto;
+  height: 0;
   min-width: 0;
   pointer-events: none;
+}
+
+/* Let the last message scroll clear of clawd without adding a composer row. */
+:root[data-theme] .chat-container:is([data-chat-view="room"], [data-chat-view="group"]) > .chat-messages::after {
+  content: "";
+  display: block;
+  flex: 0 0 56px;
+  pointer-events: none;
+}
+
+:root[data-theme] .app-bg .chat-container:is([data-chat-ui="default"][data-chat-view="room"], [data-chat-view="group"]:not([data-chat-ui])) > .chat-messages::after {
+  flex-basis: calc(var(--twilight-footer-space, var(--room-bottom-fallback)) + 55px);
 }
 
 :root[data-theme] .chat-clawd-track .xp-clawd {
