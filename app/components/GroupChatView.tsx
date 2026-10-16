@@ -5,6 +5,7 @@ import { readChatResponse } from "../lib/chat-stream";
 import { useChatScrollPosition } from "../lib/use-chat-scroll-position";
 import { useTwilightLayout } from "../lib/use-twilight-layout";
 import { TypingKitty } from "./TypingKitty";
+import { ChatClawd } from "./TaskbarClawd";
 import { sendHearts } from "../lib/cute-fx";
 import { ClaudeUsageCircle, useClaudeUsage } from "./ClaudeUsageBadge";
 import { imageFields, MAX_IMAGES_PER_MESSAGE, messageImages, stripObjectPlaceholders } from "../lib/message-images";
@@ -861,6 +862,7 @@ export function GroupChatView({
       </section>
 
       <footer className="chat-footer group-chat-footer">
+        <ChatClawd />
         {retro && <div className="xp-chat-toolbar">
           <button type="button" className="xp-chat-tool" aria-label="群聊菜单" aria-expanded={showMenu}
             onClick={() => { setShowMenu((open) => !open); setShowWebSearchMenu(false); }}>

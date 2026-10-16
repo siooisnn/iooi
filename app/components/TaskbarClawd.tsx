@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { PixelSprite } from "./PixelSprite";
 import { CLAWD_STORAGE_KEY, advanceClawd, clawdState, parseClawd } from "../lib/clawd-pet";
 
-// clawd strolls along the top of the XP taskbar. Poke him and he rolls over;
+// clawd strolls along the XP taskbar or chat composer. Poke him and he rolls over;
 // if he is asleep in his room he naps here too and only mumbles.
 
 const PALETTE = { C: "#d77757", D: "#7a3520", E: "#2b2b2b", H: "#eba48b" };
@@ -89,4 +89,8 @@ export function TaskbarClawd() {
       {say && <span className="xp-clawd-say" aria-live="polite">{say}</span>}
     </button>
   );
+}
+
+export function ChatClawd() {
+  return <div className="chat-clawd-track"><TaskbarClawd /></div>;
 }

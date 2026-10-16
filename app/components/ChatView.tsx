@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect, useMemo } from "react";
 import { TypingKitty } from "./TypingKitty";
+import { ChatClawd } from "./TaskbarClawd";
 import { sendHearts } from "../lib/cute-fx";
 import { ClaudeUsageCircle, ClaudeUsageDetails, useClaudeUsage } from "./ClaudeUsageBadge";
 import { ContextUsageBadge, type UsageMessage } from "./ContextUsageBadge";
@@ -1262,6 +1263,7 @@ export function ChatView({
       )}
 
       <footer className={`chat-footer single-chat-footer${retro ? " xp-chat-footer" : ""}`}>
+        <ChatClawd />
         {uploadError && <p className="composer-upload-error" role="alert">{uploadError}</p>}
         {attachments.length > 0 && (
           <div className="composer-attachments" aria-label="待发送的附件">

@@ -147,7 +147,7 @@ body {
 }
 
 /* ── clawd on the XP taskbar ── */
-:root[data-theme] .xp-desktop .xp-clawd {
+:root[data-theme] :is(.xp-desktop, .chat-clawd-track) .xp-clawd {
   position: absolute;
   bottom: 100%;
   left: 4%;
@@ -172,28 +172,28 @@ body {
   100% { left: 4%; }
 }
 
-:root[data-theme] .xp-desktop .xp-clawd:focus-visible {
+:root[data-theme] :is(.xp-desktop, .chat-clawd-track) .xp-clawd:focus-visible {
   outline: 1px dotted #fff;
   outline-offset: 2px;
 }
 
-:root[data-theme] .xp-desktop .xp-clawd-body {
+:root[data-theme] :is(.xp-desktop, .chat-clawd-track) .xp-clawd-body {
   display: block;
   line-height: 0;
   transform-origin: 50% 60%;
 }
 
-:root[data-theme] .xp-desktop .xp-clawd-legs-a,
-:root[data-theme] .xp-desktop .xp-clawd-legs-b { animation: xpClawdStep 0.5s steps(1, end) infinite; }
-:root[data-theme] .xp-desktop .xp-clawd-legs-b { animation-delay: -0.25s; }
+:root[data-theme] :is(.xp-desktop, .chat-clawd-track) .xp-clawd-legs-a,
+:root[data-theme] :is(.xp-desktop, .chat-clawd-track) .xp-clawd-legs-b { animation: xpClawdStep 0.5s steps(1, end) infinite; }
+:root[data-theme] :is(.xp-desktop, .chat-clawd-track) .xp-clawd-legs-b { animation-delay: -0.25s; }
 
 @keyframes xpClawdStep {
   0% { transform: translateY(-1px); }
   50% { transform: translateY(0); }
 }
 
-:root[data-theme] .xp-desktop .xp-clawd.is-rolling { animation-play-state: paused; }
-:root[data-theme] .xp-desktop .xp-clawd.is-rolling .xp-clawd-body { animation: xpClawdRoll 0.95s cubic-bezier(0.3, 0.6, 0.4, 1) both; }
+:root[data-theme] :is(.xp-desktop, .chat-clawd-track) .xp-clawd.is-rolling { animation-play-state: paused; }
+:root[data-theme] :is(.xp-desktop, .chat-clawd-track) .xp-clawd.is-rolling .xp-clawd-body { animation: xpClawdRoll 0.95s cubic-bezier(0.3, 0.6, 0.4, 1) both; }
 
 @keyframes xpClawdRoll {
   0% { transform: none; }
@@ -204,15 +204,15 @@ body {
 }
 
 /* Asleep in his room, he naps by the tray instead of walking. */
-:root[data-theme] .xp-desktop .xp-clawd.is-asleep {
+:root[data-theme] :is(.xp-desktop, .chat-clawd-track) .xp-clawd.is-asleep {
   left: auto;
   right: 140px;
   animation: none;
 }
 
-:root[data-theme] .xp-desktop .xp-clawd.is-asleep :is(.xp-clawd-legs-a, .xp-clawd-legs-b) { animation: none; }
+:root[data-theme] :is(.xp-desktop, .chat-clawd-track) .xp-clawd.is-asleep :is(.xp-clawd-legs-a, .xp-clawd-legs-b) { animation: none; }
 
-:root[data-theme] .xp-desktop .xp-clawd.is-asleep .xp-clawd-body {
+:root[data-theme] :is(.xp-desktop, .chat-clawd-track) .xp-clawd.is-asleep .xp-clawd-body {
   transform-origin: 50% 100%;
   animation: xpClawdBreath 3s ease-in-out infinite;
 }
@@ -222,7 +222,7 @@ body {
   50% { transform: scaleY(0.9); }
 }
 
-:root[data-theme] .xp-desktop .xp-clawd-z {
+:root[data-theme] :is(.xp-desktop, .chat-clawd-track) .xp-clawd-z {
   position: absolute;
   right: -6px;
   top: -8px;
@@ -239,7 +239,7 @@ body {
 }
 
 /* XP tooltip yellow for whatever he says when poked. */
-:root[data-theme] .xp-desktop .xp-clawd-say {
+:root[data-theme] :is(.xp-desktop, .chat-clawd-track) .xp-clawd-say {
   position: absolute;
   bottom: calc(100% + 6px);
   left: 50%;
@@ -254,7 +254,7 @@ body {
   animation: xpClawdSay 0.25s ease-out both;
 }
 
-:root[data-theme] .xp-desktop .xp-clawd-say::after {
+:root[data-theme] :is(.xp-desktop, .chat-clawd-track) .xp-clawd-say::after {
   content: "";
   position: absolute;
   top: 100%;
@@ -271,7 +271,42 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .msg-row { animation-duration: 0.01s; }
   .typing-kitty :is(.kitty-paw-l, .kitty-paw-r, .kitty-tail, .kitty-eyes),
-  :root[data-theme] .xp-desktop :is(.xp-clawd, .xp-clawd-legs-a, .xp-clawd-legs-b, .xp-clawd-body, .xp-clawd-z),
-  :root[data-theme] .xp-desktop .xp-clawd.is-rolling .xp-clawd-body { animation: none; }
+  :root[data-theme] :is(.xp-desktop, .chat-clawd-track) :is(.xp-clawd, .xp-clawd-legs-a, .xp-clawd-legs-b, .xp-clawd-body, .xp-clawd-z),
+  :root[data-theme] :is(.xp-desktop, .chat-clawd-track) .xp-clawd.is-rolling .xp-clawd-body { animation: none; }
   .typing-kitty .kitty-heart { display: none; }
+}
+
+/* A small floor inside the composer keeps clawd out of messages and controls. */
+:root[data-theme] .chat-clawd-track {
+  position: relative;
+  flex: none;
+  height: 48px;
+  min-width: 0;
+  pointer-events: none;
+}
+
+:root[data-theme] .chat-clawd-track .xp-clawd {
+  bottom: 0;
+  pointer-events: auto;
+  animation-name: chatClawdWalk;
+}
+
+@keyframes chatClawdWalk {
+  0%, 100% { left: 16px; }
+  40%, 50% { left: calc(100% - 88px); }
+  90% { left: 16px; }
+}
+
+:root[data-theme] .chat-clawd-track .xp-clawd.is-asleep {
+  left: auto;
+  right: 16px;
+  animation: none;
+}
+
+:root[data-theme] .chat-clawd-track .xp-clawd:focus-visible {
+  outline: 2px dotted #7a3520;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root[data-theme] .chat-clawd-track .xp-clawd { animation: none; }
 }
