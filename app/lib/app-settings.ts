@@ -31,6 +31,8 @@ export type Settings = {
   aiAvatar: string;
   gptAvatar: string;
   userAvatar: string;
+  // XP private rooms: a small avatar heads each "说" line. Off keeps the plain log.
+  chatAvatars?: boolean;
   gptReasoningEffort: GptReasoningEffort;
   claudeReasoningEffort: ClaudeReasoningEffort;
   gptWebSearch: boolean;

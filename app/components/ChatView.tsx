@@ -865,6 +865,15 @@ export function ChatView({
   );
 
   const retroUserName = settings.userName || "我";
+  // XP rooms only: the avatar sits on each run's "说" line; off keeps the plain log.
+  const saysAvatars = retro && settings.chatAvatars === true;
+  const saysAvatar = (user: boolean) => {
+    if (!saysAvatars) return null;
+    const src = user ? settings.userAvatar : assistantAvatar;
+    return src
+      ? <img src={src} className="xp-says-avatar" alt="" />
+      : <span className={`xp-says-avatar ${user ? "avatar-user" : "avatar-ai"}`} aria-hidden="true" />;
+  };
 
   return (
     <>
@@ -1017,6 +1026,21 @@ export function ChatView({
               <span>{(isGpt ? settings.gptWebSearch : settings.webSearch) ? "On" : "Off"}</span><i />
             </button>
           </section>
+          {retro && (
+            <section className="chat-config-section chat-config-toggle-section">
+              <p>头像</p>
+              <button
+                type="button"
+                className={`chat-config-switch${settings.chatAvatars ? " chat-config-switch-on" : ""}`}
+                role="switch"
+                aria-checked={settings.chatAvatars === true}
+                aria-label="对话里显示头像"
+                onClick={() => updateSettings({ chatAvatars: !settings.chatAvatars })}
+              >
+                <span>{settings.chatAvatars ? "On" : "Off"}</span><i />
+              </button>
+            </section>
+          )}
           {!isGpt && (
             <section className="chat-config-section">
               <div className="chat-config-toggle-section development-mode-heading">
@@ -1048,7 +1072,7 @@ export function ChatView({
         </div>
       )}
 
-      <section className="chat-messages" ref={scrollRef} onScroll={handleScroll}>
+      <section className={`chat-messages${saysAvatars ? " xp-log-avatars" : ""}`} ref={scrollRef} onScroll={handleScroll}>
         {session.messages.length === 0 && (
           <div className="empty-chat"><p>说点什么开始聊天吧</p></div>
         )}
@@ -1101,6 +1125,7 @@ export function ChatView({
               )}
               {showSays && (
                 <div className={`xp-msg-says ${message.role === "user" ? "xp-msg-says-user" : "xp-msg-says-ai"}`}>
+                  {saysAvatar(message.role === "user")}
                   {message.role === "user" ? retroUserName : assistantName} 说{message.time ? ` (${message.time})` : ""}:
                 </div>
               )}
@@ -1217,7 +1242,7 @@ export function ChatView({
         {retro && nudgeNotes.map((note) => (
           <div key={note.id} className="xp-msg-nudge" role="status">{note.text}</div>
         ))}
-        {retro && streamingReply && <div className="xp-msg-says xp-msg-says-ai">{assistantName} 说:</div>}
+        {retro && streamingReply && <div className="xp-msg-says xp-msg-says-ai">{saysAvatar(false)}{assistantName} 说:</div>}
         {streamingReply && (
           <div className="msg-row msg-row-ai msg-row-streaming">
             {assistantAvatar

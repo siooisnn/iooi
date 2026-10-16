@@ -51,6 +51,7 @@ export default function Home() {
     aiAvatar: "",
     gptAvatar: "",
     userAvatar: "",
+    chatAvatars: false,
     gptReasoningEffort: "medium",
     claudeReasoningEffort: "high",
     gptWebSearch: false,

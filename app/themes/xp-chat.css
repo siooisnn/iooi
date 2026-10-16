@@ -283,6 +283,45 @@
   display: none;
 }
 
+/* Avatars on (room settings): a small framed picture heads each 说 line,
+   and the run's lines line up under the name beside it. */
+:root[data-theme] .app-bg .chat-container[data-chat-ui="xp"][data-chat-view="room"] .chat-messages.xp-log-avatars {
+  --xp-says-avatar: 30px;
+  --xp-says-indent: calc(var(--xp-says-avatar) + 8px);
+}
+
+:root[data-theme] .app-bg .chat-container[data-chat-ui="xp"][data-chat-view="room"] .chat-messages.xp-log-avatars .xp-msg-says {
+  position: relative;
+  padding-left: var(--xp-says-indent);
+}
+
+:root[data-theme] .app-bg .chat-container[data-chat-ui="xp"][data-chat-view="room"] .chat-messages.xp-log-avatars .xp-says-avatar {
+  position: absolute;
+  top: 1px;
+  left: 0;
+  box-sizing: border-box;
+  width: var(--xp-says-avatar);
+  height: var(--xp-says-avatar);
+  padding: 1px;
+  border: 1px solid #7f9db9;
+  border-radius: 2px;
+  background-color: #fff;
+  object-fit: cover;
+  box-shadow: 1px 1px 0 #fff inset, 1px 1px 2px rgba(0, 0, 0, 0.15);
+}
+
+:root[data-theme] .app-bg .chat-container[data-chat-ui="xp"][data-chat-view="room"] .chat-messages.xp-log-avatars span.xp-says-avatar.avatar-ai {
+  background-color: #dfe8f6;
+}
+
+:root[data-theme] .app-bg .chat-container[data-chat-ui="xp"][data-chat-view="room"] .chat-messages.xp-log-avatars span.xp-says-avatar.avatar-user {
+  background-color: #f6e3ea;
+}
+
+:root[data-theme] .app-bg .chat-container[data-chat-ui="xp"][data-chat-view="room"] .chat-messages.xp-log-avatars :is(.msg-row, .thinking-row) {
+  padding-left: var(--xp-says-indent);
+}
+
 :root[data-theme] .app-bg .chat-container[data-chat-ui="xp"]:is([data-chat-view="room"], [data-chat-view="group"]) :is(.msg-content-ai, .msg-content-user) {
   display: block;
   max-width: 100%;
