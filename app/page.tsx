@@ -19,7 +19,7 @@ import { HeartbeatView } from "./components/AppPages";
 import { readLifeLog, type LifeEntry } from "./lib/life-log";
 import { ReadingView } from "./components/ReadingView";
 import { SurfView } from "./components/SurfView";
-import { WardrobeView } from "./components/WardrobeView";
+import { DaydayView } from "./components/DaydayView";
 import { SusuPhoneView } from "./components/SusuPhoneView";
 import type { PhoneTarget } from "./lib/susu-phone";
 import { ClawdView } from "./components/ClawdView";
@@ -760,7 +760,7 @@ export default function Home() {
         {tab === "reading" && <ReadingView key={readingTarget || "reading"} settings={settings} initialBook={readingTarget} onBack={goHome} />}
         {tab === "surf" && <SurfView key={surfTarget || "surf"} settings={settings} initialThread={surfTarget}
           onBack={surfTarget && !phoneReturn ? () => { setSurfTarget(null); setTab("heartbeat"); } : goHome} />}
-        {tab === "wardrobe" && <WardrobeView settings={settings} onBack={goHome} />}
+        {tab === "dayday" && <DaydayView settings={settings} onBack={goHome} onOpenHeartbeat={() => setTab("heartbeat")} />}
         {tab === "clawd" && <ClawdView onBack={goHome} />}
         {tab === "mood" && <MoodPage mood={dailyMood} retro={settings.retroDesktop} onBack={goHome} />}
         {(tab === "summer-claude" || tab === "summer-gpt") && (

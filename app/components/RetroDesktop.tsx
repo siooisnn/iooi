@@ -126,31 +126,20 @@ export function IeGlyph() {
   );
 }
 
-/** wardrobe: a little wooden wardrobe, one door open on a pink dress. */
-export function WardrobeGlyph() {
-  const { ref, paint } = useIds();
-  return (
-    <svg viewBox="0 0 48 48" aria-hidden="true">
-      <defs>
-        <linearGradient id={ref("wood")} x1="0" x2="0" y1="0" y2="1"><stop stopColor="#f2c48a" /><stop offset=".55" stopColor="#c98a4b" /><stop offset="1" stopColor="#8f5524" /></linearGradient>
-        <linearGradient id={ref("door")} x1="0" x2="1"><stop stopColor="#e9b273" /><stop offset="1" stopColor="#b57334" /></linearGradient>
-        <linearGradient id={ref("dress")} x1="0" x2="0" y1="0" y2="1"><stop stopColor="#ffb3d4" /><stop offset="1" stopColor="#f0609e" /></linearGradient>
-      </defs>
-      <rect x="7" y="5" width="34" height="38" rx="2.5" fill={paint("wood")} stroke="#5c3311" strokeWidth="1.6" />
-      <rect x="10" y="9" width="14" height="30" fill="#4a2a12" />
-      <path d="M12 12.5h10" stroke="#d9d9d9" strokeWidth="1.2" strokeLinecap="round" />
-      <path d="M17 12.5v2.2l-4.2 3.2h8.4L17 14.7" fill="none" stroke="#d9d9d9" strokeWidth="1" strokeLinejoin="round" />
-      <path d="M14.2 18h5.6l1.2 4.2-1 .6 2.4 10.6H11.6l2.4-10.6-1-.6z" fill={paint("dress")} stroke="#a3245b" strokeWidth=".9" strokeLinejoin="round" />
-      <rect x="25" y="9" width="13" height="30" fill={paint("door")} stroke="#6b3a15" strokeWidth="1.1" />
-      <rect x="27.5" y="12" width="8" height="10" rx="1" fill="none" stroke="#8f5524" strokeWidth=".9" opacity=".8" />
-      <rect x="27.5" y="25" width="8" height="10" rx="1" fill="none" stroke="#8f5524" strokeWidth=".9" opacity=".8" />
-      <circle cx="27" cy="24" r="1.3" fill="#ffe08a" stroke="#8a5a00" strokeWidth=".6" />
-      <rect x="9" y="43" width="4" height="2.5" fill="#5c3311" /><rect x="35" y="43" width="4" height="2.5" fill="#5c3311" />
-      <path d="M9.5 7.5h29" stroke="#fff" strokeWidth="1" opacity=".5" strokeLinecap="round" />
-    </svg>
-  );
+/** dayday: a little blue shop with a pink striped awning. */
+export function DaydayGlyph() {
+  return <svg viewBox="0 0 48 48" aria-hidden="true">
+    <rect x="7" y="18" width="34" height="25" rx="2" fill="#e5f1ff" stroke="#385e90" strokeWidth="1.5" />
+    <path d="M5 17 10 6h28l5 11v5H5z" fill="#fff1f6" stroke="#8a5c7c" strokeWidth="1.5" strokeLinejoin="round" />
+    <path d="m14 7-2 14h6l1-14m7 0 1 14h6L31 7m6 0 5 14" fill="#ed9cbb" />
+    <path d="M5 21c0 5 6 5 6 0 0 5 7 5 7 0 0 5 6 5 6 0 0 5 7 5 7 0 0 5 6 5 6 0 0 5 6 5 6 0" fill="#f7c3d7" stroke="#8a5c7c" strokeWidth="1.2" />
+    <rect x="12" y="28" width="11" height="10" rx="1" fill="#a6ccec" stroke="#5376a2" />
+    <path d="m13 29 9 8m-9-3 5-5" stroke="#e7f5ff" strokeWidth="2" />
+    <rect x="28" y="28" width="8" height="15" rx="1" fill="#83acd6" stroke="#5376a2" />
+    <circle cx="34" cy="36" r="1" fill="#fff1b9" /><path d="M4 44h40" stroke="#385e90" strokeWidth="2" strokeLinecap="round" />
+    <path d="M22 10c-5-5-9 2 2 7 11-5 7-12 2-7l-2 2z" fill="#fff" opacity=".8" />
+  </svg>;
 }
-
 /** clawd: the terracotta crab-ish friend, in big square pixels. */
 function ClawdGlyph() {
   return (
@@ -348,7 +337,7 @@ export function RetroDesktop({ settings, onOpen }: {
             <DeskIcon label="internet" onClick={() => open("surf")}><IeGlyph /></DeskIcon>
             <DeskIcon label="clawd" onClick={() => open("clawd")}><ClawdGlyph /></DeskIcon>
             <DeskIcon label="mood" onClick={() => open("mood")}><MoodGlyph /></DeskIcon>
-            <DeskIcon label="wardrobe" onClick={() => open("wardrobe")}><WardrobeGlyph /></DeskIcon>
+            <DeskIcon label="dayday" onClick={() => open("dayday")}><DaydayGlyph /></DeskIcon>
             <DeskIcon label="susu’s phone" onClick={() => open("susu-phone")}><PhoneGlyph /></DeskIcon>
           </div>
 
@@ -374,7 +363,7 @@ export function RetroDesktop({ settings, onOpen }: {
                 <MenuItem icon={<BookGlyph />} label="reading" onClick={() => open("reading")} />
                 <MenuItem icon={<IeGlyph />} label="internet" note="我们俩的小论坛" onClick={() => open("surf")} />
                 <MenuItem icon={<MoodGlyph />} label="mood" note="今天是什么心情" onClick={() => open("mood")} />
-                <MenuItem icon={<WardrobeGlyph />} label="wardrobe" note="今天穿什么" onClick={() => open("wardrobe")} />
+                <MenuItem icon={<DaydayGlyph />} label="dayday" note="酥酥的生活小商城" onClick={() => open("dayday")} />
                 <MenuItem icon={<HeartGlyph />} label="heartbeat" onClick={() => open("heartbeat")} />
                 <MenuItem icon={<PhoneGlyph />} label="susu’s phone" onClick={() => open("susu-phone")} />
               </div>
