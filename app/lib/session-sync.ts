@@ -9,6 +9,7 @@ type StoredMessage = {
   thinking?: string;
   source?: string;
   roundId?: string;
+  dayday?: { id?: string };
   speaker?: "claude" | "gpt";
   proposal?: { id?: string; status?: string };
 };
@@ -51,6 +52,7 @@ function imageKey(message: StoredMessage) {
 }
 
 function messageKey(message: StoredMessage) {
+  if (message.source === "dayday_card" && message.dayday?.id) return `dayday:${message.dayday.id}`;
   const proposalId = message.proposal?.id;
   if (proposalId && message.source?.startsWith("summer_write_")) {
     return ["summer_proposal", proposalId].join("\u0001");

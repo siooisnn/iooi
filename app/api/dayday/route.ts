@@ -1,11 +1,18 @@
-import { executeDayday, readDayday } from "@/app/lib/dayday-store";
+import { executeDayday, readDayday, readDaydayTransfer } from "@/app/lib/dayday-store";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-export async function GET() {
+export async function GET(request?: Request) {
   // Heartbeat settles allowances. Reading the management UI has no financial side effects.
-  try { return Response.json({ ok: true, state: readDayday() }, { headers: { "Cache-Control": "no-store" } }); }
+  try {
+    const id = request ? new URL(request.url).searchParams.get("transfer") : null;
+    if (id) {
+      const transfer = readDaydayTransfer(id);
+      return Response.json(transfer ? { ok: true, transfer } : { ok: false, error: "找不到这笔红包或转账。" }, { status: transfer ? 200 : 404, headers: { "Cache-Control": "no-store" } });
+    }
+    return Response.json({ ok: true, state: readDayday() }, { headers: { "Cache-Control": "no-store" } });
+  }
   catch { return Response.json({ ok: false, error: "dayday 账本暂时无法读取，请保留数据并检查服务。" }, { status: 500 }); }
 }
 export async function POST(request: Request) {

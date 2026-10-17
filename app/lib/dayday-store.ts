@@ -2,8 +2,13 @@ import { readStore, withStore } from "./store";
 import { addLifeEntry } from "./life-log";
 import { describePushResult, sendPushToAll } from "./push";
 import { daydayCommand, daydaySnapshot, daydayState, dueDaydaySlot, event, settleDayday, type DaydayState } from "./dayday";
+import { appendDaydayTransferCard, daydayTargetSession } from "./dayday-chat";
 
 export function readDayday() { return daydaySnapshot(daydayState(readStore()?.dayday)); }
+export function readDaydayTransfer(id: string) {
+  const transfer = daydayState(readStore()?.dayday).transfers.find((t) => t.id === id);
+  return transfer?.status === "pending" && transfer.expiresAt <= Date.now() ? { ...transfer, status: "expired" as const } : transfer || null;
+}
 
 /** Wallet, stock, orders, receipts and life log are committed in the same JSON rename. */
 export async function executeDayday(action: string, input: Record<string, unknown> = {}, manager = false, expectedEpoch?: number) {
@@ -18,14 +23,22 @@ export async function executeDayday(action: string, input: Record<string, unknow
       const next = structuredClone(state);
       try {
         if (expectedEpoch !== undefined && (!next.enabled || next.epoch !== expectedEpoch)) throw new Error("dayday 开关已变更，本次生活活动取消。");
-        result = daydayCommand(next, action, input, now, manager);
+        const target = action === "send_transfer" && !next.receipts.some((r) => r.id === input.requestId)
+          ? daydayTargetSession(store, input.sessionId).id : undefined;
+        result = daydayCommand(next, action, input, now, manager, target);
+        // Append before committing the new journal; failure leaves both untouched.
+        if (action === "send_transfer" && !state.receipts.some((r) => r.id === input.requestId)) {
+          const transfer = next.transfers.find((t) => t.id === (result as { id: string }).id);
+          if (transfer) appendDaydayTransferCard(store, transfer);
+        }
         state = next;
       } catch (err) {
         error = err instanceof Error ? err.message : "dayday 操作失败。";
         if (error.startsWith("余额不足")) {
           // Repeated retries do not send the same insufficient-funds alert all day.
-          const last = state.events.find((e) => e.text === "购物时余额不足，未创建订单、未扣款。");
-          if (!last || now - last.at > 3600_000) event(state, "购物时余额不足，未创建订单、未扣款。", now, true);
+          const text = action === "send_transfer" ? "红包／转账因余额不足未发出，没有冻结或扣款。" : "购物时余额不足，未创建订单、未扣款。";
+          const last = state.events.find((e) => e.text === text);
+          if (!last || now - last.at > 3600_000) event(state, text, now, true);
         }
       }
     }

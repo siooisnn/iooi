@@ -1,5 +1,7 @@
 
 // ━━━━━━━━━━━━━━━ Types ━━━━━━━━━━━━━━━
+import type { DaydayCard } from "./dayday-chat";
+export type { DaydayCard };
 export type Message = {
   role: "user" | "assistant";
   content: string;
@@ -14,6 +16,7 @@ export type Message = {
   speaker?: "claude" | "gpt";
   proposal?: SummerWriteProposal;
   blog?: BlogCard;
+  dayday?: DaydayCard;
 };
 
 /** What he did on the blog from the private chat, shown as a card under his reply. */
@@ -92,6 +95,7 @@ export type CacheStats = {
   summer_calls?: SummerCall[];
   summer_write_proposals?: SummerWriteProposal[];
   blog_cards?: BlogCard[];
+  dayday_cards?: DaydayCard[];
   time?: string;
 };
 

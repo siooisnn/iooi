@@ -2,6 +2,12 @@
 export const DAYDAY_CATEGORIES = ["饮食", "衣物", "日用", "书籍", "小砖专属"] as const;
 export const DAYDAY_ALLOWANCE = 200_000;
 export const DAYDAY_REFUND_MS = 10 * 60_000;
+export const DAYDAY_TRANSFER_MS = 24 * 3600_000;
+export type DaydayTransfer = {
+  id: string; kind: "redpacket" | "transfer"; amount: number; message: string;
+  sessionId: string; roundId?: string; createdAt: number; expiresAt: number;
+  status: "pending" | "accepted" | "returned" | "expired"; settledAt?: number;
+};
 export type DaydayUsage = { amount: number; unit: "day" | "month" };
 export type DaydayProduct = {
   id: string; name: string; category: string; description: string; photo: string;
@@ -22,13 +28,14 @@ export type DaydayState = {
   version: 1; enabled: boolean; epoch: number; salaryCheckedAt: number; salaryMonths: string[];
   wallet: number; bank: number; products: DaydayProduct[]; orders: DaydayOrder[];
   ledger: DaydayEntry[]; events: DaydayEvent[];
+  transfers: DaydayTransfer[]; initialGrant: { amount: number; at: number } | null;
   routine: { meals: boolean; walks: boolean; times: number; notify: boolean };
   beatSlots: string[];
   receipts: { id: string; fingerprint: string; result: unknown }[];
 };
 export function newDayday(now = Date.now()): DaydayState {
   return { version: 1, enabled: false, epoch: 0, salaryCheckedAt: now, salaryMonths: [], wallet: 0, bank: 0,
-    products: [], orders: [], ledger: [], events: [], beatSlots: [], receipts: [],
+    products: [], orders: [], ledger: [], events: [], beatSlots: [], receipts: [], transfers: [], initialGrant: null,
     routine: { meals: true, walks: true, times: 7, notify: true } };
 }
 export function daydayState(raw: unknown, now = Date.now()): DaydayState {
@@ -36,8 +43,14 @@ export function daydayState(raw: unknown, now = Date.now()): DaydayState {
   const s = raw as DaydayState;
   if (s.version !== 1 || !Number.isSafeInteger(s.wallet) || s.wallet < 0 || !Number.isSafeInteger(s.bank) || s.bank < 0
     || !Array.isArray(s.products) || !Array.isArray(s.orders) || !Array.isArray(s.receipts)) throw new Error("dayday 数据异常，已停止操作以保护账本。");
+  // Additive migration for accounts created before chat payments.
+  s.transfers ??= []; s.initialGrant ??= null;
   return s;
 }
+export function heldDayday(s: DaydayState, now: number) {
+  return s.transfers.filter((t) => t.status === "pending" && t.expiresAt > now).reduce((sum, t) => sum + t.amount, 0);
+}
+export function availableDayday(s: DaydayState, now: number) { return s.wallet - heldDayday(s, now); }
 export function cstParts(now: number) {
   const d = new Date(now + 8 * 3600_000);
   return { year: d.getUTCFullYear(), month: d.getUTCMonth(), day: d.getUTCDate(), hour: d.getUTCHours(), minute: d.getUTCMinutes() };
@@ -79,6 +92,9 @@ function pay(s: DaydayState, year: number, month: number, now: number) {
 }
 /** Settled at toggle boundaries as well as heartbeats. Disabled intervals never accrue. */
 export function settleDayday(s: DaydayState, now: number) {
+  for (const transfer of s.transfers) {
+    if (transfer.status === "pending" && transfer.expiresAt <= now) settleDaydayTransfer(s, transfer.id, "expired", now);
+  }
   if (now < s.salaryCheckedAt) return;
   if (s.enabled) {
     const from = cstParts(s.salaryCheckedAt), until = cstParts(now);
@@ -158,7 +174,7 @@ export function buyDayday(s: DaydayState, input: Record<string, unknown>, now: n
   }
   const total = lines.reduce((sum, p) => sum + p.price * p.quantity, 0);
   if (input.expectedTotal !== undefined && input.expectedTotal !== total) throw new Error("商品价格已变化，请刷新购物车后重新确认。");
-  if (!Number.isSafeInteger(total) || total > s.wallet) throw new Error("余额不足，请减少商品或从银行取款。");
+  if (!Number.isSafeInteger(total) || total > availableDayday(s, now)) throw new Error("余额不足（含待收红包／转账的冻结金额），请减少商品或从银行取款。");
   const reason = short(input.reason, 500, "购物理由");
   const order: DaydayOrder = { id: crypto.randomUUID(), createdAt: now, lines, total, reason, status: "paid" };
   ledger(s, "purchase", -total, 0, `购买 ${lines.map((p) => `${p.name}×${p.quantity}`).join("、")}`, now, order.id);
@@ -185,9 +201,46 @@ export function bankDayday(s: DaydayState, input: Record<string, unknown>, now: 
   if (amount <= 0) throw new Error("存取金额需大于零。");
   if (input.direction !== "deposit" && input.direction !== "withdraw") throw new Error("请选择存入或取出。");
   const deposit = input.direction === "deposit";
+  if (deposit && amount > availableDayday(s, now)) throw new Error("可用余额不足，待收红包或转账的冻结金额不能存入银行。");
   ledger(s, deposit ? "deposit" : "withdraw", deposit ? -amount : amount, deposit ? amount : -amount, deposit ? "存入银行" : "从银行取出", now);
   event(s, `${deposit ? "存入银行" : "从银行取出"} ¥${money(amount)}。`, now);
   return { wallet: s.wallet, bank: s.bank };
+}
+export function initialDaydayGrant(s: DaydayState, now: number) {
+  if (s.initialGrant) return s.initialGrant;
+  ledger(s, "initial_grant", DAYDAY_ALLOWANCE, 0, "首次额度（一次性，独立于月度额度）", now);
+  s.initialGrant = { amount: DAYDAY_ALLOWANCE, at: now };
+  event(s, "她发放了首次额度 ¥2000.00，今后仍按每月15日发放月度额度。", now);
+  return s.initialGrant;
+}
+export function sendDaydayTransfer(s: DaydayState, input: Record<string, unknown>, now: number, sessionId?: string) {
+  requireDayday(s);
+  if (input.kind !== "redpacket" && input.kind !== "transfer") throw new Error("请选择红包或转账。");
+  const amount = toCents(input.amount);
+  if (amount <= 0) throw new Error("金额需大于零。");
+  if (amount > availableDayday(s, now)) throw new Error("余额不足，不能发出这个红包或转账。");
+  const transfer: DaydayTransfer = { id: crypto.randomUUID(), kind: input.kind, amount,
+    message: short(input.message, 200, "祝福或转账备注") || (input.kind === "redpacket" ? "给你一点小心意" : "给你的转账"),
+    sessionId: short(sessionId || input.sessionId, 100, "聊天窗口", true),
+    ...(typeof input.roundId === "string" ? { roundId: short(input.roundId, 100, "聊天轮次") } : {}),
+    createdAt: now, expiresAt: now + DAYDAY_TRANSFER_MS, status: "pending" };
+  s.transfers.unshift(transfer);
+  ledger(s, "transfer_hold", 0, 0, `${input.kind === "redpacket" ? "红包" : "转账"}待收取，冻结 ¥${money(amount)}`, now, transfer.id);
+  event(s, `发来${input.kind === "redpacket" ? "一个红包" : "一笔转账"}，等待你收取或退回。`, now, true, transfer.id, transfer.message);
+  return transfer;
+}
+export function settleDaydayTransfer(s: DaydayState, id: unknown, status: "accepted" | "returned" | "expired", now: number) {
+  const transfer = s.transfers.find((t) => t.id === id);
+  if (!transfer) throw new Error("红包或转账不存在。");
+  if (transfer.status !== "pending") return transfer;
+  if (transfer.expiresAt <= now) status = "expired";
+  if (status === "expired" && transfer.expiresAt > now) throw new Error("这笔金额尚未到期。");
+  const kind = transfer.kind === "redpacket" ? "红包" : "转账";
+  ledger(s, status === "accepted" ? "transfer_paid" : "transfer_release", status === "accepted" ? -transfer.amount : 0, 0,
+    status === "accepted" ? `她收取了${kind} ¥${money(transfer.amount)}` : status === "returned" ? `她退回了${kind}，解冻 ¥${money(transfer.amount)}` : `${kind}24小时未领取，解冻 ¥${money(transfer.amount)}`, now, transfer.id);
+  transfer.status = status; transfer.settledAt = now;
+  event(s, status === "accepted" ? `你收取了${kind} ¥${money(transfer.amount)}，已计入酥酥的支出。` : status === "returned" ? `你退回了${kind}，没有扣款。` : `${kind}到期未领取，已自动退回，没有扣款。`, now, false, transfer.id);
+  return transfer;
 }
 function addUsage(start: number, usage: DaydayUsage, quantity: number) {
   if (usage.unit === "day") return start + usage.amount * quantity * 86_400_000;
@@ -210,9 +263,10 @@ export function daydayInventory(s: DaydayState, now: number) {
 export function daydaySnapshot(s: DaydayState, now = Date.now()) {
   const current = cstParts(now);
   const monthly = s.ledger.filter((e) => { const d = cstParts(e.at); return d.year === current.year && d.month === current.month; });
-  const monthlySpent = monthly.filter((e) => ["purchase", "refund"].includes(e.type)).reduce((sum, e) => sum - e.wallet, 0);
+  const monthlySpent = monthly.filter((e) => ["purchase", "refund", "transfer_paid"].includes(e.type)).reduce((sum, e) => sum - e.wallet, 0);
   return { enabled: s.enabled, epoch: s.epoch, wallet: s.wallet, bank: s.bank, allowance: DAYDAY_ALLOWANCE, payday: 15,
-    monthlySpent,
+    monthlySpent, available: availableDayday(s, now), held: heldDayday(s, now), initialGrant: s.initialGrant,
+    transfers: s.transfers.slice(0, 100).map((t) => t.status === "pending" && t.expiresAt <= now ? { ...t, status: "expired" as const } : t),
     categories: [...new Set([...DAYDAY_CATEGORIES, ...s.products.map((p) => p.category)])],
     routine: s.routine, products: s.products, orders: s.orders.slice(0, 200), ledger: s.ledger.slice(0, 300),
     inventory: daydayInventory(s, now), events: s.events.slice(0, 100), serverTime: now };
@@ -223,8 +277,8 @@ export function canonical(value: unknown): string {
   if (value && typeof value === "object") return `{${Object.entries(value).sort(([a], [b]) => a.localeCompare(b)).map(([k, v]) => `${JSON.stringify(k)}:${canonical(v)}`).join(",")}}`;
   return JSON.stringify(value) ?? "null";
 }
-export function daydayCommand(s: DaydayState, action: string, input: Record<string, unknown>, now: number, manager = false) {
-  const admin = ["configure", "save_product"].includes(action);
+export function daydayCommand(s: DaydayState, action: string, input: Record<string, unknown>, now: number, manager = false, sessionId?: string) {
+  const admin = ["configure", "save_product", "initial_grant", "settle_transfer"].includes(action);
   if (admin && !manager) throw new Error("商品、价格、库存和开关只能由店长管理。");
   const requestId = short(input.requestId, 100, "请求编号", true);
   const fingerprint = canonical({ action, ...input });
@@ -241,6 +295,12 @@ export function daydayCommand(s: DaydayState, action: string, input: Record<stri
     // Refunds remain available while closed, so the switch cannot trap an existing order.
     case "refund": result = refundDayday(s, input.orderId, now); break;
     case "bank": result = bankDayday(s, input, now); break;
+    case "initial_grant": result = initialDaydayGrant(s, now); break;
+    case "send_transfer": result = sendDaydayTransfer(s, input, now, sessionId); break;
+    case "settle_transfer": {
+      if (input.decision !== "accepted" && input.decision !== "returned") throw new Error("请选择收取或退回。");
+      result = settleDaydayTransfer(s, input.transferId, input.decision, now); break;
+    }
     case "activity": {
       requireDayday(s);
       const text = short(input.text, 500, "活动记录", true);

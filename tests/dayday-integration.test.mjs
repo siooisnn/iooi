@@ -13,6 +13,7 @@ const { newDayday, saveDaydayProduct } = await import('../app/lib/dayday.ts');
 const { handleRpc, callTool } = await import('../app/lib/mcp-server.ts');
 const { createSessionSyncHandlers } = await import('../app/lib/session-sync.ts');
 const { daydayHeartbeat } = await import('../app/lib/dayday-beat.ts');
+const { runDaydayChatMarker } = await import('../app/lib/dayday-chat-actions.ts');
 const daydayApi = await import('../app/api/dayday/route.ts');
 process.chdir(home);
 test.after(() => {
@@ -26,6 +27,7 @@ test.beforeEach(async () => {
     s.enabled = true; s.wallet = 10000; s.routine.notify = false;
     const p = saveDaydayProduct(s, { name: '牙膏', category: '日用', price: '10', stock: 1, usage: { amount: 2, unit: 'month' } }, now);
     productId = p.id; store.dayday = s; store.lifeLog = [];
+    store.sessions = [{ id: 'private', name: '酥酥', messages: [{ role: 'user', content: '早安', date: '2026/10/17', time: '08:00' }] }];
   });
 });
 test('concurrent retries create one order, debit once, and record exactly one real activity', async () => {
@@ -116,4 +118,37 @@ test('management API is uncached, rejects malformed commands, and saves price an
   assert.equal(saved.status, 200);
   const data = await saved.json();
   assert.equal(data.result.price, 2050); assert.equal(data.result.stock, null); assert.deepEqual(data.result.usage, { amount: 1, unit: 'month' });
+});
+test('chat markers atomically save one money card with its hold and survive duplicate completion', async () => {
+  const text = '[dayday_money kind="redpacket" amount="52.00"]给你买奶茶[/dayday_money]';
+  const a = await runDaydayChatMarker(text, 'private', 'round-1', readDayday().epoch);
+  const b = await runDaydayChatMarker(text, 'private', 'round-1', readDayday().epoch);
+  assert.equal(a[0].id, b[0].id); assert.equal(readDayday().held, 5200); assert.equal(readDayday().wallet, 10000);
+  const cards = readStore().sessions[0].messages.filter((m) => m.source === 'dayday_card');
+  assert.equal(cards.length, 1); assert.equal(cards[0].dayday.id, a[0].id);
+  const response = await daydayApi.GET(new Request('http://localhost/api/dayday?transfer=' + a[0].id));
+  assert.equal((await response.json()).transfer.status, 'pending');
+});
+test('missing/private-vs-group chat validation cannot leave frozen money without a card', async () => {
+  const result = await executeDayday('send_transfer', { requestId: 'missing', sessionId: 'missing', kind: 'transfer', amount: '10' });
+  assert.equal(result.ok, false); assert.equal(readDayday().held, 0); assert.equal(readDayday().transfers.length, 0);
+  await withStore((store) => { store.sessions.push({ id: 'group', kind: 'group', messages: [] }); });
+  assert.equal((await executeDayday('send_transfer', { requestId: 'group', sessionId: 'group', kind: 'transfer', amount: '10' })).ok, false);
+});
+test('competing accept/return requests settle once; stale history sync cannot change financial status', async () => {
+  const sent = await executeDayday('send_transfer', { requestId: 'send', sessionId: 'private', kind: 'transfer', amount: '20' });
+  const outcomes = await Promise.all(['accepted', 'returned'].map((decision) => executeDayday('settle_transfer', { requestId: decision, transferId: sent.result.id, decision }, true)));
+  assert.ok(outcomes.every((r) => r.ok));
+  const tx = readDayday().transfers[0]; assert.equal(tx.status, 'accepted'); assert.equal(readDayday().wallet, 8000); assert.equal(readDayday().held, 0);
+  const sync = createSessionSyncHandlers({ read: readStore, write: withStore });
+  await sync.POST(new Request('http://localhost/api/sync', { method: 'POST', body: JSON.stringify({ dayday: { wallet: 100000 }, sessions: readStore().sessions }) }));
+  assert.equal(readDayday().transfers[0].status, 'accepted'); assert.equal(readDayday().wallet, 8000);
+});
+test('MCP can send a card but has no first-grant or recipient settlement privilege', async () => {
+  const result = await callTool('dayday_send', { request_id: 'mcp-send', amount: '10', kind: 'redpacket' }, 'full');
+  assert.equal(result.isError, false); assert.equal(readDayday().held, 1000);
+  assert.equal(readStore().sessions[0].messages.at(-1).source, 'dayday_card');
+  assert.equal((await callTool('dayday_send', { request_id: 'read-send', amount: '10', kind: 'redpacket' }, 'read')).isError, true);
+  assert.equal((await callTool('dayday_initial_grant', {}, 'full')).isError, true);
+  assert.equal((await callTool('dayday_settle_transfer', {}, 'full')).isError, true);
 });

@@ -1,0 +1,20 @@
+/* Payment cards share the dayday ledger in all private-chat appearances. */
+.msg-dayday-row { display: flex; justify-content: flex-start; padding: 7px 12px; }
+.msg-dayday-card { width: min(290px, 88%); border: 1px solid #b7cbe2; border-radius: 10px; padding: 15px; background: #eaf2fc; color: #3f6186; box-shadow: 0 2px 0 #52739812; font-size: 12px; }
+.msg-dayday-card.is-redpacket { border-color: #dcb8c2; background: linear-gradient(135deg, #f8e2e9, #fff0e5); color: #a25c75; }
+.msg-dayday-top { display: flex; gap: 12px; align-items: center; }
+.msg-dayday-top > span { font-size: 29px; }
+.msg-dayday-top b { font-size: 14px; }
+.msg-dayday-top p { margin: 7px 0 0; opacity: .85; font-size: 12px; line-height: 1.7; overflow-wrap: anywhere; }
+.msg-dayday-amount { display: block; font-size: 25px; margin: 15px 0 10px; font-variant-numeric: tabular-nums; }
+.msg-dayday-state { margin: 13px 0 0; font-size: 11px; opacity: .85; }
+.msg-dayday-actions { display: flex; gap: 9px; margin-top: 14px; }
+.msg-dayday-actions button { flex: 1; padding: 9px 5px; border: 1px solid #a6bdd5; border-radius: 5px; background: #fff9; color: inherit; cursor: pointer; font: inherit; }
+.is-redpacket .msg-dayday-actions button { border-color: #dab0bc; }
+.msg-dayday-actions button:first-child { background: #fff; font-weight: 600; }
+.msg-dayday-actions button:disabled { opacity: .5; cursor: default; }
+.msg-dayday-card > small { display: block; margin-top: 9px; font-size: 9px; opacity: .7; }
+.msg-dayday-error { max-width: 310px; padding: 10px; border: 1px solid #dac5b6; border-radius: 5px; background: #fff8ec; color: #8c6b55; font-size: 11px; line-height: 1.8; }
+.msg-dayday-error button { margin-left: 8px; border: 0; background: transparent; color: #597b9e; text-decoration: underline; cursor: pointer; }
+.msg-dayday-card .msg-dayday-error { margin-top: 10px; }
+.msg-dayday-card button:focus-visible { outline: 2px solid #4a78a7; outline-offset: 3px; }

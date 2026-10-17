@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect, useMemo } from "react";
 import { TypingKitty } from "./TypingKitty";
 import { ChatClawd } from "./TaskbarClawd";
+import { DaydayMoneyCard } from "./DaydayMoneyCard";
 import { sendHearts } from "../lib/cute-fx";
 import { ClaudeUsageCircle, ClaudeUsageDetails, useClaudeUsage } from "./ClaudeUsageBadge";
 import { ContextUsageBadge, type UsageMessage } from "./ContextUsageBadge";
@@ -178,7 +179,7 @@ export function ChatView({
     for (const { message, index } of displayMessages) {
       if (message.source === "summer_write_ignored") continue;
       const speakable = message.role === "assistant" && !isSummerUtilityMessage(message)
-        && message.source !== "chat_nudge" && message.source !== "blog_card" && hasSpeakableText(message.content);
+        && message.source !== "chat_nudge" && message.source !== "blog_card" && message.source !== "dayday_card" && hasSpeakableText(message.content);
       if (!speakable) { close(); continue; }
       if (run && run.date !== message.date) close();
       run ??= { key: `${session.id}:${index}`, texts: [], last: index, date: message.date };
@@ -579,7 +580,7 @@ export function ChatView({
           return {
             role: m.role,
             // He sees what the blog did, marked so he does not mistake it for something he said.
-            content: m.source === "blog_card" ? `【系统记录：博客】${m.content}` : m.content,
+            content: m.source === "dayday_card" ? `【系统记录：dayday，状态以后台为准】${m.content}` : m.source === "blog_card" ? `【系统记录：博客】${m.content}` : m.content,
             ...imageFields(messageImages(m)), ...(m.file ? { file: m.file } : {}),
           };
         }),
@@ -733,7 +734,10 @@ export function ChatView({
         role: "assistant" as const, source: "blog_card", content: card.text, blog: card,
         roundId: userMsg.roundId, time: now, date: today,
       }));
-      const finalMessages = [...messagesWithUser, ...summerCallMsgs, ...newMsgs, ...blogCardMsgs, ...nudgeMsgs, ...summerWriteMsgs];
+      const moneyCardMsgs: Message[] = (data.cache?.dayday_cards || []).map((card: NonNullable<Message["dayday"]>) => ({
+        role: "assistant", source: "dayday_card", content: card.text, dayday: card, roundId: userMsg.roundId, time: now, date: today,
+      }));
+      const finalMessages = [...messagesWithUser, ...summerCallMsgs, ...newMsgs, ...blogCardMsgs, ...moneyCardMsgs, ...nudgeMsgs, ...summerWriteMsgs];
       sessionMessagesRef.current = mergeChatMessages(sessionMessagesRef.current, finalMessages);
       updateMessages((msgs) => mergeChatMessages(msgs, finalMessages));
       if (nudgeMsgs.length) playNudge();
@@ -1078,6 +1082,7 @@ export function ChatView({
         )}
         {displayMessages.map(({ message, index }, displayIndex) => {
           if (message.source === "summer_write_ignored") return null;
+          if (message.source === "dayday_card" && message.dayday) return <DaydayMoneyCard key={message.dayday.id || index} card={message.dayday} />;
           if (message.source === "blog_card") {
             const target = blogCardTarget(message.blog);
             const label = message.content.replace(/^（|）$/g, "");

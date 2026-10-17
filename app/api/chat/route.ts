@@ -12,6 +12,9 @@ import { NUDGE_PROMPT, NUDGE_REPLY_TEXT, parseNudgeReply } from "@/app/lib/chat-
 import { isExplicitSummerWriteRequest } from "@/app/lib/summer-write-intent";
 import { asksForBlogPost, BLOG_CHAT_BRIDGE, mentionsBlog, parseBlogMarkers, stripBlogMarkers } from "@/app/lib/blog-markers";
 import { readBlogDigest, readBlogPostsAskedFor, runBlogMarkers } from "@/app/lib/blog-tools";
+import { DAYDAY_CHAT_BRIDGE, stripDaydayMarkers, type DaydayCard } from "@/app/lib/dayday-chat";
+import { runDaydayChatMarker } from "@/app/lib/dayday-chat-actions";
+import { readDayday } from "@/app/lib/dayday-store";
 import type { BlogCard } from "@/app/lib/app-types";
 import { todayLifeLines } from "@/app/lib/life-log";
 import {
@@ -34,7 +37,7 @@ function cstTime() {
 function cstToday() {
   return new Date().toLocaleDateString("zh-CN", { timeZone: "Asia/Shanghai" });
 }
-type StoreMsg = { role: string; content: string; time?: string; date?: string; thinking?: string; image?: string; images?: string[]; file?: string; source?: string; roundId?: string; speaker?: "claude" | "gpt"; proposal?: SummerWrite; blog?: BlogCard };
+type StoreMsg = { role: string; content: string; time?: string; date?: string; thinking?: string; image?: string; images?: string[]; file?: string; source?: string; roundId?: string; speaker?: "claude" | "gpt"; proposal?: SummerWrite; blog?: BlogCard; dayday?: DaydayCard };
 type TextBlock = {
   type: "text";
   text: string;
@@ -673,6 +676,7 @@ function hasLaterUserMessage(msgs: StoreMsg[], userMsg: StoreMsg | undefined) {
 }
 
 function storeMessageKey(message: StoreMsg) {
+  if (message.source === "dayday_card" && message.dayday?.id) return `dayday:${message.dayday.id}`;
   return [
     message.role || "",
     message.speaker || "",
@@ -718,9 +722,10 @@ async function persistRound(
   allowLaterUser = false,
   nudge = false,
   blogCards: BlogCard[] = [],
+  daydayCards: DaydayCard[] = [],
 ) {
   const stamp = { time: cstTime(), date: cstToday() };
-  if (!sessionId || (!reply && !nudge && !blogCards.length)) return stamp;
+  if (!sessionId || (!reply && !nudge && !blogCards.length && !daydayCards.length)) return stamp;
   try {
     const diaryRegex = /\[日记\]([\s\S]*?)\[\/日记\]/g;
     const cleanReply = reply.replace(diaryRegex, "").replace(/\[心情[:：].+?\]/g, "").trim();
@@ -775,6 +780,10 @@ async function persistRound(
       });
       for (const card of blogCards) {
         pushAssistant({ role: "assistant", source: "blog_card", content: card.text, blog: card,
+          time: now, date: today, roundId: userMsg?.roundId });
+      }
+      for (const card of daydayCards) {
+        pushAssistant({ role: "assistant", source: "dayday_card", content: card.text, dayday: card,
           time: now, date: today, roundId: userMsg?.roundId });
       }
       if (nudge) {
@@ -1092,6 +1101,11 @@ export async function POST(request: Request) {
   }
   // The blog is only his in the private chat; in a group he just talks.
   if (!skipPersist) system.push({ type: "text", text: BLOG_CHAT_BRIDGE, cache_control: cacheControl() });
+  let dayday: ReturnType<typeof readDayday> | null = null;
+  if (!skipPersist && !groupSessionId) {
+    try { dayday = readDayday(); } catch {}
+    if (dayday?.enabled) system.push({ type: "text", text: DAYDAY_CHAT_BRIDGE, cache_control: cacheControl() });
+  }
 
   let summerUsed = false;
   let summerNotice = "";
@@ -1243,6 +1257,7 @@ export async function POST(request: Request) {
 
   const combinedDynamicPrompt = [
     dynamicPrompt,
+    dayday?.enabled ? `【dayday现状：金额均为分】${JSON.stringify({ available: dayday.available, held: dayday.held, bank: dayday.bank, transfers: dayday.transfers.slice(0, 8).map((t) => ({ id: t.id, kind: t.kind, amount: t.amount, status: t.status })) })}` : "",
     lifeNote,
     summerNotice,
     directSummerWriteRequested
@@ -1406,7 +1421,9 @@ ${combinedDynamicPrompt}
       }
       const blogMarkers = skipPersist ? [] : parseBlogMarkers(reply);
       const blogCards = blogMarkers.length ? await runBlogMarkers(blogMarkers, { asked: asksForBlogPost(query) }) : [];
-      const nudgeResult = parseNudgeReply(stripVisibleSummerDiary(stripSummerWriteTags(stripBlogMarkers(reply))), nudgeEnabled);
+      const daydayCards = !skipPersist && !groupSessionId && sessionId
+        ? await runDaydayChatMarker(reply, String(sessionId), String(userMsg?.roundId || `${userMsg?.date}:${userMsg?.time}:${userMsg?.content}`), dayday?.epoch ?? -1) : [];
+      const nudgeResult = parseNudgeReply(stripVisibleSummerDiary(stripSummerWriteTags(stripBlogMarkers(stripDaydayMarkers(reply)))), nudgeEnabled);
       reply = nudgeResult.reply;
       const proposalMs = Date.now() - proposalStartedAt;
 
@@ -1415,7 +1432,7 @@ ${combinedDynamicPrompt}
       const groupPersistedDate = skipPersist && groupSessionId ? cstToday() : "";
       let replyStamp: { time: string; date: string } | undefined;
       if (!skipPersist) {
-        replyStamp = await persistRound(sessionId, userMsg, reply, thinkingContent, summerCalls, summerWriteProposals, undefined, false, nudgeResult.nudge, blogCards);
+        replyStamp = await persistRound(sessionId, userMsg, reply, thinkingContent, summerCalls, summerWriteProposals, undefined, false, nudgeResult.nudge, blogCards, daydayCards);
       } else if (groupSessionId) {
         await persistGroupRound(
           String(groupSessionId),
@@ -1484,6 +1501,7 @@ ${combinedDynamicPrompt}
             summer_write_proposals: summerWriteProposals,
             summer_calls: summerCalls,
             blog_cards: blogCards,
+            dayday_cards: daydayCards,
             reply_persisted_time: replyStamp?.time,
             reply_persisted_date: replyStamp?.date,
             web_search_used: data.webSearchUsed,

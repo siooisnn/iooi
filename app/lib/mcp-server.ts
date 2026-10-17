@@ -51,7 +51,7 @@ export const MCP_INSTRUCTIONS = `iooi 是你和她的小窝。这些工具让你
 - phone_decorate 换内置壁纸、排底部图标、开关挂件。签名直接用博客的同一个字段，仍用 blog_set_motto 改。
 - 今天的记录由原来的心跳、阅读和论坛自动带过来，不要另写一份。便签和相册还没开放。
 
-还有给你生活用的 dayday：dayday_read 看商品、钱包、银行、订单和物品余量；dayday_buy 购物，dayday_refund 整单退款，dayday_bank 自己存取钱，dayday_activity 记逛街或找她沟通客服。默认关闭，关闭时不要尝试活动。每月15日发2000，结余累加，关闭期间不发。只有她能管理商品、价格、库存和开关。购买和存取款必须使用唯一请求编号，重试同一次操作复用原编号。金额读数是分，银行入参是元。优惠券和满减尚未开放。`;
+还有给你生活用的 dayday：dayday_read 看商品、钱包、银行、订单、物品余量和转账状态；dayday_buy 购物，dayday_refund 整单退款，dayday_bank 自己存取钱，dayday_activity 记逛街或找她沟通客服。dayday_send 给她发红包或转账，在酥酥私聊生成真实卡片，先冻结可用余额，等她收取才扣款，退回或24小时未收则解冻。你不能替她收取，也不能给自己发首次额度。默认关闭，关闭时不要尝试活动。每月15日发2000，结余累加，关闭期间不发。只有她能管理商品、价格、库存和开关。涉及金额的操作必须使用唯一请求编号，重试同一次操作复用原编号。金额读数是分，银行和发红包转账的入参是元。优惠券和满减尚未开放。`;
 
 function text(value: unknown) {
   return typeof value === "string" ? value : "";
