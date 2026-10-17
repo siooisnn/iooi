@@ -152,3 +152,27 @@ test('MCP can send a card but has no first-grant or recipient settlement privile
   assert.equal((await callTool('dayday_initial_grant', {}, 'full')).isError, true);
   assert.equal((await callTool('dayday_settle_transfer', {}, 'full')).isError, true);
 });
+test('human sends an atomic user-side card and Claude reply marker receives it once', async () => {
+  const sent = await executeDayday('human_send', { requestId: 'human-card', kind: 'redpacket', amount: '52', sessionId: 'private', roundId: 'human-round' }, true);
+  assert.equal(sent.ok, true); assert.equal(readDayday().human.held, 5200);
+  const card = readStore().sessions[0].messages.at(-1); assert.equal(card.role, 'user'); assert.equal(card.dayday.id, sent.result.id);
+  const block = `[dayday_receive id="${sent.result.id}" decision="accepted"][/dayday_receive]`;
+  await runDaydayChatMarker(block, 'private', 'human-round', readDayday().epoch);
+  await runDaydayChatMarker(block, 'private', 'human-round', readDayday().epoch);
+  assert.equal(readDayday().human.wallet, 44800); assert.equal(readDayday().wallet, 15200);
+});
+test('a new empty private chat can send a human card without losing the payment or draft', async () => {
+  const sent = await executeDayday('human_send', { requestId: 'new-chat', sessionId: 'new-private', kind: 'transfer', amount: '5' }, true);
+  assert.equal(sent.ok, true); const session = readStore().sessions.find((s) => s.id === 'new-private');
+  assert.equal(session.messages.length, 1); assert.equal(session.messages[0].role, 'user'); assert.equal(readDayday().human.held, 500);
+});
+test('MCP receipt is limited to incoming transfers and cannot buy gifts using human money', async () => {
+  const sent = await executeDayday('human_send', { requestId: 'mcp-incoming', kind: 'transfer', amount: '10', sessionId: 'private' }, true);
+  const got = await callTool('dayday_receive', { request_id: 'mcp-receive', transfer_id: sent.result.id, decision: 'accepted' }, 'full');
+  assert.equal(got.isError, false); assert.equal(readDayday().human.wallet, 49000); assert.equal(readDayday().wallet, 11000);
+  assert.equal((await callTool('dayday_human_buy_gift', {}, 'full')).isError, true);
+});
+test('concurrent human transfers cannot overcommit the initial 500', async () => {
+  const results = await Promise.all(['h1', 'h2'].map((requestId) => executeDayday('human_send', { requestId, kind: 'transfer', amount: '400', sessionId: 'private' }, true)));
+  assert.equal(results.filter((r) => r.ok).length, 1); assert.equal(readDayday().human.held, 40000); assert.equal(readDayday().wallet, 10000);
+});

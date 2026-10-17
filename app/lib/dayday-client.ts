@@ -23,7 +23,7 @@ export async function postDayday(action: string, input: Record<string, unknown> 
   try { localStorage.setItem(KEY, JSON.stringify(requests)); } catch {}
   let response: Response;
   try { response = await apiFetch("/api/dayday", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...payload, requestId }) }); }
-  catch { throw new Error("网络中断，结果尚未确认。请先查看订单；重试相同操作会沿用原请求编号。"); }
+  catch { throw new Error("网络中断，结果尚未确认。请先查看订单或聊天卡片；重试相同操作会沿用原请求编号。"); }
   const data = await response.json();
   if (response.status < 500) {
     pending.delete(key);

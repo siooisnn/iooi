@@ -23,13 +23,25 @@ export async function executeDayday(action: string, input: Record<string, unknow
       const next = structuredClone(state);
       try {
         if (expectedEpoch !== undefined && (!next.enabled || next.epoch !== expectedEpoch)) throw new Error("dayday 开关已变更，本次生活活动取消。");
-        const target = action === "send_transfer" && !next.receipts.some((r) => r.id === input.requestId)
-          ? daydayTargetSession(store, input.sessionId).id : undefined;
+        let target: string | undefined;
+        let newSession: { id: string; name: string; messages: never[]; createdAt: string } | null = null;
+        if (["send_transfer", "human_send"].includes(action) && !next.receipts.some((r) => r.id === input.requestId)) {
+          try { target = daydayTargetSession(store, input.sessionId).id; }
+          catch (error) {
+            const sessions = (store.sessions || []) as { id: string }[];
+            if (action !== "human_send" || !manager || typeof input.sessionId !== "string" || !/^[A-Za-z0-9_-]{1,100}$/.test(input.sessionId) || sessions.some((s) => s.id === input.sessionId)) throw error;
+            target = input.sessionId;
+            newSession = { id: target, name: "新对话", messages: [], createdAt: new Date(now).toISOString() };
+          }
+        }
         result = daydayCommand(next, action, input, now, manager, target);
         // Append before committing the new journal; failure leaves both untouched.
-        if (action === "send_transfer" && !state.receipts.some((r) => r.id === input.requestId)) {
+        if (["send_transfer", "human_send"].includes(action) && !state.receipts.some((r) => r.id === input.requestId)) {
           const transfer = next.transfers.find((t) => t.id === (result as { id: string }).id);
-          if (transfer) appendDaydayTransferCard(store, transfer);
+          if (transfer) {
+            if (newSession) store.sessions = [newSession, ...((store.sessions || []) as unknown[])];
+            appendDaydayTransferCard(store, transfer);
+          }
         }
         state = next;
       } catch (err) {

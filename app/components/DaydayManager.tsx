@@ -4,6 +4,7 @@ import { useState } from "react";
 import NextImage from "next/image";
 import type { FormEvent } from "react";
 import { XpDialog } from "./XpDialog";
+import { DaydayHumanAccount } from "./DaydayHumanAccount";
 import { DAYDAY_CATEGORIES, money, type DaydayProduct, type DaydaySnapshot } from "../lib/dayday";
 import { apiFetch } from "../lib/client-api";
 import { prepareImageForUpload } from "../lib/image-compress";
@@ -62,6 +63,7 @@ function ProductEditor({ product, categories, busy, mutate, onClose, notice }: {
 export function DaydayManager({ state, mutate, busy, notice }: { state: DaydaySnapshot; mutate: Mutate; busy: boolean; notice: string }) {
   const [editing, setEditing] = useState<{ product: DaydayProduct | null } | null>(null);
   return <>
+    <DaydayHumanAccount state={state} />
     <section className="dd-paper"><h3>首次额度</h3><p className="dd-muted">由你手动发放一次 ¥2000，独立于每月15日的额度；关闭期间也可先准备好。不会自动开启 dayday。</p>
       {state.initialGrant ? <p className="dd-muted">已发放 ¥{money(state.initialGrant.amount)} · {new Date(state.initialGrant.at).toLocaleString("zh-CN", { timeZone: "Asia/Shanghai" })}</p> : <button type="button" className="dd-primary" disabled={busy} onClick={() => { if (window.confirm("给酥酥发放一次首次额度 ¥2000？不影响以后每月15日的额度，也不会开启 dayday。")) void mutate("initial_grant", {}, "首次额度 ¥2000 已到账，仅可发放一次。"); }}>发放首次额度 ¥2000</button>}
     </section>

@@ -1,10 +1,10 @@
-import type { DaydayTransfer } from "./dayday";
+import { isHumanTransfer, type DaydayTransfer } from "./dayday";
 import { latestUserSession } from "./chat-timeline";
 
 export type DaydayCard = { ok: boolean; text: string; id?: string };
 type Session = { id: string; kind?: string; messages: Array<{ role: string; content: string; source?: string; date?: string; time?: string; roundId?: string; dayday?: DaydayCard }> };
 export function daydayTransferCard(t: DaydayTransfer): DaydayCard {
-  return { ok: true, id: t.id, text: `酥酥发来${t.kind === "redpacket" ? "一个红包" : "一笔转账"} · ${t.id}` };
+  return { ok: true, id: t.id, text: `${isHumanTransfer(t) ? "你给酥酥发出" : "酥酥发来"}${t.kind === "redpacket" ? "一个红包" : "一笔转账"} · ${t.id}` };
 }
 export function daydayTargetSession(store: Record<string, unknown>, requested?: unknown) {
   const sessions = (Array.isArray(store.sessions) ? store.sessions : []) as Session[];
@@ -16,13 +16,24 @@ export function daydayTargetSession(store: Record<string, unknown>, requested?: 
 export function appendDaydayTransferCard(store: Record<string, unknown>, transfer: DaydayTransfer) {
   const session = daydayTargetSession(store, transfer.sessionId);
   if (session.messages.some((m) => m.dayday?.id === transfer.id)) return;
+  session.messages.push(daydayTransferMessage(transfer));
+}
+export function daydayTransferMessage(transfer: DaydayTransfer) {
   const card = daydayTransferCard(transfer), at = new Date(transfer.createdAt);
-  session.messages.push({ role: "assistant", content: card.text, source: "dayday_card", dayday: card,
+  return { role: (isHumanTransfer(transfer) ? "user" : "assistant") as "user" | "assistant", content: card.text, source: "dayday_card", dayday: card,
     ...(transfer.roundId ? { roundId: transfer.roundId } : {}),
     date: at.toLocaleDateString("zh-CN", { timeZone: "Asia/Shanghai" }),
-    time: at.toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Shanghai" }) });
+    time: at.toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Shanghai" }) };
 }
 const MARKER = /\[dayday_money\b([^\]]*)\]([\s\S]*?)\[\/dayday_money\]/gi;
+const RECEIVE_MARKER = /\[dayday_receive\b([^\]]*)\]([\s\S]*?)\[\/dayday_receive\]/gi;
+export function parseDaydayReceive(reply: string) {
+  const match = [...reply.matchAll(RECEIVE_MARKER)][0];
+  if (!match) return null;
+  const attrs: Record<string, string> = {};
+  for (const v of match[1].matchAll(/(id|decision)\s*=\s*(?:"([^"]*)"|'([^']*)')/gi)) attrs[v[1].toLowerCase()] = v[2] ?? v[3];
+  return { transferId: attrs.id, decision: attrs.decision };
+}
 export function parseDaydayMarker(reply: string) {
   const match = [...reply.matchAll(MARKER)][0];
   if (!match) return null;
@@ -31,10 +42,14 @@ export function parseDaydayMarker(reply: string) {
   return { kind: attrs.kind, amount: attrs.amount, message: match[2].trim().slice(0, 200) };
 }
 export function stripDaydayMarkers(reply: string) {
-  return reply.replace(MARKER, "").replace(/\[dayday_money\b[\s\S]*$/i, "").replace(/\n{3,}/g, "\n\n").trim();
+  return reply.replace(MARKER, "").replace(RECEIVE_MARKER, "").replace(/\[dayday_(?:money|receive)\b[\s\S]*$/i, "").replace(/\n{3,}/g, "\n\n").trim();
 }
 export const DAYDAY_CHAT_BRIDGE = `## dayday 红包与转账
 你可以用自己的 dayday 可用余额给她发红包或转账。在正常回复末尾最多附一个隐藏块：
 [dayday_money kind="redpacket" amount="52.00"]给她的祝福[/dayday_money]
 或 [dayday_money kind="transfer" amount="100.00"]转账备注[/dayday_money]
-金额单位是元，最多两位小数，只能给她，不能给自己充值、收取或改价格。后台会验证开关和余额，成功时显示真实卡片，不能靠文字声称已支付。发出先冻结，等她选择收取才计入支出，退回或24小时未收则解冻。不必每轮都发，也不要为了发钱把存款全部取出。她收取或退回的状态以本轮dayday现状为准。`;
+金额单位是元，最多两位小数，只能给她，不能给自己充值、替她收取或改价格。后台会验证开关和余额，成功时显示真实卡片，不能靠文字声称已支付。发出先冻结，等她选择收取才计入支出，退回或24小时未收则解冻。不必每轮都发，也不要为了发钱把存款全部取出。她收取或退回的状态以本轮dayday现状为准。
+她也可以给你发红包或转账。看到现状中 direction 为 human_to_susu 且 pending 的真实记录时，你自己决定收下或退回，每轮最多处理一笔：
+[dayday_receive id="真实转账id" decision="accepted"][/dayday_receive]
+或 [dayday_receive id="真实转账id" decision="returned"][/dayday_receive]
+只有后台确认才实际到账；不能处理你发给她的钱，也不能靠对话文字伪造余额。`;

@@ -1,7 +1,8 @@
-type HiddenSection = "summer" | "mood" | "nudge" | "blog_post" | "blog_comment" | "blog_motto" | "dayday_money" | null;
+type HiddenSection = "summer" | "mood" | "nudge" | "blog_post" | "blog_comment" | "blog_motto" | "dayday_money" | "dayday_receive" | null;
 
 const OPENERS = [
   { text: "[dayday_money", section: "dayday_money" as const },
+  { text: "[dayday_receive", section: "dayday_receive" as const },
   { text: "[iooi_nudge", section: "nudge" as const },
   { text: "[summer_remember", section: "summer" as const },
   { text: "[blog_post", section: "blog_post" as const },
@@ -36,7 +37,7 @@ export function createVisibleReplyStream() {
     while (buffer) {
       if (hidden) {
         const closer = hidden === "summer" ? "[/summer_remember]"
-          : hidden.startsWith("blog_") || hidden === "dayday_money" ? `[/${hidden}]` : "]";
+          : hidden.startsWith("blog_") || hidden.startsWith("dayday_") ? `[/${hidden}]` : "]";
         const closerIndex = buffer.toLowerCase().indexOf(closer.toLowerCase());
         if (closerIndex < 0) {
           // Hidden proposal content can be long. Only its possible closing
@@ -76,7 +77,7 @@ export function createVisibleReplyStream() {
       buffer = "";
       return "";
     }
-    const visible = buffer.length >= 2 && "[dayday_money".startsWith(buffer.toLowerCase()) ? "" : buffer;
+    const visible = buffer.length >= 2 && ["[dayday_money", "[dayday_receive"].some((p) => p.startsWith(buffer.toLowerCase())) ? "" : buffer;
     buffer = "";
     return visible;
   }

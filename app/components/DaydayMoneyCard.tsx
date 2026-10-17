@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { apiFetch } from "../lib/client-api";
 import { postDayday } from "../lib/dayday-client";
-import { money, type DaydayTransfer } from "../lib/dayday";
+import { isHumanTransfer, money, type DaydayTransfer } from "../lib/dayday";
 import type { DaydayCard } from "../lib/dayday-chat";
 
 export function DaydayMoneyCard({ card }: { card: DaydayCard }) {
@@ -41,12 +41,14 @@ export function DaydayMoneyCard({ card }: { card: DaydayCard }) {
   }
   if (!card.ok || !card.id) return <div className="msg-dayday-row"><div className="msg-dayday-error" role="status">{card.text}</div></div>;
   const red = transfer?.kind === "redpacket";
-  const labels = { pending: "等待你收取", accepted: "已收取", returned: "已退回 · 未扣款", expired: "已到期退回 · 未扣款" };
-  return <div className="msg-dayday-row"><article className={`msg-dayday-card ${red ? "is-redpacket" : "is-transfer"}`} aria-label={red ? "酥酥的红包" : "酥酥的转账"}>
-    <div className="msg-dayday-top"><span aria-hidden="true">{red ? "🧧" : "↗"}</span><div><b>{transfer ? red ? "酥酥的红包" : "酥酥的转账" : "正在读取…"}</b><p>{transfer?.message}</p></div></div>
-    {transfer && (!red || transfer.status === "accepted") && <strong className="msg-dayday-amount">¥ {money(transfer.amount)}</strong>}
+  const outgoing = transfer ? isHumanTransfer(transfer) : false;
+  const labels = { pending: outgoing ? "等待酥酥收取" : "等待你收取", accepted: outgoing ? "酥酥已收取" : "已收取", returned: "已退回 · 未扣款", expired: "已到期退回 · 未扣款" };
+  const title = outgoing ? red ? "你给酥酥的红包" : "你给酥酥的转账" : red ? "酥酥的红包" : "酥酥的转账";
+  return <div className={`msg-dayday-row${outgoing ? " is-outgoing" : ""}`}><article className={`msg-dayday-card ${red ? "is-redpacket" : "is-transfer"}`} aria-label={title}>
+    <div className="msg-dayday-top"><span aria-hidden="true">{red ? "🧧" : "↗"}</span><div><b>{transfer ? title : "正在读取…"}</b><p>{transfer?.message}</p></div></div>
+    {transfer && (outgoing || !red || transfer.status === "accepted") && <strong className="msg-dayday-amount">¥ {money(transfer.amount)}</strong>}
     <p className="msg-dayday-state" role="status">{transfer ? labels[transfer.status] : "以 dayday 账本为准"}</p>
-    {transfer?.status === "pending" && <><div className="msg-dayday-actions"><button type="button" disabled={busy} onClick={() => { void settle("accepted"); }}>{busy ? "处理中…" : red ? "拆开并收取" : "收取"}</button><button type="button" disabled={busy} onClick={() => { void settle("returned"); }}>退回</button></div><small>24小时未收取自动退回</small></>}
+    {transfer?.status === "pending" && <>{!outgoing && <div className="msg-dayday-actions"><button type="button" disabled={busy} onClick={() => { void settle("accepted"); }}>{busy ? "处理中…" : red ? "拆开并收取" : "收取"}</button><button type="button" disabled={busy} onClick={() => { void settle("returned"); }}>退回</button></div>}<small>24小时未收取自动退回</small></>}
     {error && <div className="msg-dayday-error" role="alert">{error}<button type="button" disabled={busy} onClick={() => { void refresh().then((value) => { if (value) { setTransfer(value); setError(""); } }).catch((e) => setError(e.message)); }}>刷新状态</button></div>}
   </article></div>;
 }

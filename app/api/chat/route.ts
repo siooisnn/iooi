@@ -1257,7 +1257,7 @@ export async function POST(request: Request) {
 
   const combinedDynamicPrompt = [
     dynamicPrompt,
-    dayday?.enabled ? `【dayday现状：金额均为分】${JSON.stringify({ available: dayday.available, held: dayday.held, bank: dayday.bank, transfers: dayday.transfers.slice(0, 8).map((t) => ({ id: t.id, kind: t.kind, amount: t.amount, status: t.status })) })}` : "",
+    dayday?.enabled ? `【dayday现状：金额均为分】${JSON.stringify({ available: dayday.available, held: dayday.held, bank: dayday.bank, transfers: dayday.transfers.slice(0, 8).map((t) => ({ id: t.id, kind: t.kind, direction: t.direction || "susu_to_human", amount: t.amount, message: t.message, status: t.status })) })}` : "",
     lifeNote,
     summerNotice,
     directSummerWriteRequested

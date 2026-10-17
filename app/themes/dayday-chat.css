@@ -1,5 +1,6 @@
 /* Payment cards share the dayday ledger in all private-chat appearances. */
 .msg-dayday-row { display: flex; justify-content: flex-start; padding: 7px 12px; }
+.msg-dayday-row.is-outgoing { justify-content: flex-end; }
 .msg-dayday-card { width: min(290px, 88%); border: 1px solid #b7cbe2; border-radius: 10px; padding: 15px; background: #eaf2fc; color: #3f6186; box-shadow: 0 2px 0 #52739812; font-size: 12px; }
 .msg-dayday-card.is-redpacket { border-color: #dcb8c2; background: linear-gradient(135deg, #f8e2e9, #fff0e5); color: #a25c75; }
 .msg-dayday-top { display: flex; gap: 12px; align-items: center; }

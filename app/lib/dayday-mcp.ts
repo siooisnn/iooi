@@ -2,6 +2,8 @@ import { executeDayday, readDayday } from "./dayday-store";
 import type { McpAccess } from "./mcp-oauth";
 
 export const DAYDAY_TOOLS = [
+  { name: "dayday_receive", description: "收取或退回她发给你的红包／转账，只能处理direction为human_to_susu的真实记录。收取才从她的可用账户转入你的钱包；不能替她收取你发给她的钱。",
+    inputSchema: { type: "object", properties: { request_id: { type: "string", maxLength: 100 }, transfer_id: { type: "string" }, decision: { type: "string", enum: ["accepted", "returned"] } }, required: ["request_id", "transfer_id", "decision"], additionalProperties: false } },
   { name: "dayday_read", description: "看 dayday 商品、余额、银行、订单和物品余量。金额均为分。关闭时只返回关闭提示。",
     inputSchema: { type: "object", properties: { section: { type: "string", enum: ["catalog", "account", "orders", "inventory", "transfers"] } }, additionalProperties: false } },
   { name: "dayday_send", description: "给她发红包或转账，自动在酥酥私聊中生成真实卡片。先冻结可用余额，等她收取才扣款，退回或24小时未收则解冻。不能替她收取，也不能给自己充值。金额单位元，重试复用request_id。不指定session_id则发到最近与她交流的私聊。",
@@ -34,6 +36,7 @@ export async function callDaydayTool(name: string, args: Record<string, unknown>
     const input: Record<string, unknown> = { requestId: args.request_id };
     let action: string;
     switch (name) {
+      case "dayday_receive": action = "receive_transfer"; Object.assign(input, { transferId: args.transfer_id, decision: args.decision }); break;
       case "dayday_send": action = "send_transfer"; Object.assign(input, { kind: args.kind, amount: args.amount, message: args.message, ...(args.session_id ? { sessionId: args.session_id } : {}) }); break;
       case "dayday_buy": action = "buy"; Object.assign(input, { items: args.items, reason: args.reason }); break;
       case "dayday_refund": action = "refund"; input.orderId = args.order_id; break;

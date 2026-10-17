@@ -1,4 +1,8 @@
 /* A little blue-and-pink shop inside the shared XP window. */
+:root[data-theme] .dd-screen .dd-human-account { background: linear-gradient(135deg, #fff, #fff5f9); }
+:root[data-theme] .dd-screen .dd-human-account > h3 { margin-top: 22px; }
+:root[data-theme] .dd-screen .dd-detail-actions { flex-wrap: wrap; }
+:root[data-theme] .dd-screen .dd-detail-actions button { min-width: 90px; }
 :root[data-theme] .dd-screen .dd-preview { align-items: center; }
 :root[data-theme] .dd-screen .dd-preview .dd-link { margin-left: auto; padding: 0 6px; }
 :root[data-theme] .dd-screen :is(.dd-art, .dd-detail-art, .dd-bag-art) > img { display: block; width: 100%; height: 100%; object-fit: contain; }
