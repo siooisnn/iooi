@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import NextImage from "next/image";
 import { apiFetch } from "../lib/client-api";
 import { postDayday } from "../lib/dayday-client";
 import { isHumanTransfer, money, type DaydayTransfer } from "../lib/dayday";
@@ -55,6 +56,34 @@ export function DaydayMoneyCard({ card }: { card: DaydayCard }) {
     </div>
     <footer className="msg-dayday-foot"><span role="status">{transfer ? labels[transfer.status] : "以 dayday 账本为准"}</span>{transfer?.status === "pending" ? <small>24小时未收自动退回</small> : <small>dayday</small>}</footer>
   </article></div>;
+}
+
+/** A purchase receipt: a snapshot of what was bought in chat, not a live order. */
+export function DaydayOrderCard({ card }: { card: DaydayCard }) {
+  const order = card.order;
+  if (!card.ok || !order) return <div className="msg-dayday-row"><div className="msg-dayday-error" role="status">{card.text}</div></div>;
+  return <div className="msg-dayday-row"><article className="msg-dayday-card is-order" aria-label="酥酥的购物小票">
+    <header className="msg-dayday-head"><DaydayBagIcon /><b>酥酥的购物小票</b></header>
+    <div className="msg-dayday-body">
+      <ul className="msg-dayday-lines">
+        {order.lines.map((line, index) => <li key={`${line.name}-${index}`}>
+          {line.photo ? <NextImage src={line.photo} alt="" width={32} height={32} unoptimized /> : <span className="msg-dayday-thumb" aria-hidden="true" />}
+          <span className="msg-dayday-line-name">{line.name}<small> ×{line.quantity}</small></span>
+          <span className="msg-dayday-line-price">¥{money(line.total)}</span>
+        </li>)}
+      </ul>
+      {order.reason && <p className="msg-dayday-note">{order.reason}</p>}
+      <div className="msg-dayday-total"><span>合计</span><strong><small>¥</small>{money(order.total)}</strong></div>
+    </div>
+    <footer className="msg-dayday-foot"><span role="status">已付款 · 从酥酥钱包</span><small>dayday</small></footer>
+  </article></div>;
+}
+
+function DaydayBagIcon() {
+  return <svg className="msg-dayday-icon" viewBox="0 0 16 16" aria-hidden="true">
+    <path d="M3 5.5h10l-.8 8.5H3.8z" fill="#f4d58a" stroke="#8a6414" strokeLinejoin="round" />
+    <path d="M5.6 7V4.6a2.4 2.4 0 0 1 4.8 0V7" fill="none" stroke="#8a6414" strokeWidth="1.2" strokeLinecap="round" />
+  </svg>;
 }
 
 /** Small XP-style coloured glyphs shared by the card header and the chat toolbar. */

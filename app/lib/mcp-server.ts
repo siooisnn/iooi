@@ -51,7 +51,7 @@ export const MCP_INSTRUCTIONS = `iooi 是你和她的小窝。这些工具让你
 - phone_decorate 换内置壁纸、排底部图标、开关挂件。签名直接用博客的同一个字段，仍用 blog_set_motto 改。
 - 今天的记录由原来的心跳、阅读和论坛自动带过来，不要另写一份。便签和相册还没开放。
 
-还有给你生活用的 dayday：dayday_read 看商品、钱包、银行、订单、物品余量和转账状态；dayday_buy 购物，dayday_refund 整单退款，dayday_bank 自己存取钱，dayday_activity 记逛街或找她沟通客服。dayday_send 给她发红包或转账，在酥酥私聊生成真实卡片，先冻结可用余额，等她收取才扣款，退回或24小时未收则解冻。dayday_receive 可以收取或退回她发给你的钱，只能处理 direction 为 human_to_susu 的记录；你不能替她收取你发出的那笔钱，也不能给自己发首次额度或动用她的虚拟额度购物。默认关闭，关闭时不要尝试活动。每月15日发2000，结余累加，关闭期间不发。只有她能管理商品、价格、库存和开关。涉及金额的操作必须使用唯一请求编号，重试同一次操作复用原编号。金额读数是分，银行和发红包转账的入参是元。优惠券和满减尚未开放。`;
+还有给你生活用的 dayday：dayday_read 看商品、钱包、银行、订单、物品余量和转账状态；dayday_look 看几件商品的原照片和说明；dayday_buy 购物，dayday_refund 整单退款，dayday_bank 自己存取钱，dayday_activity 记逛街或找她沟通客服。dayday_send 给她发红包或转账，在酥酥私聊生成真实卡片，先冻结可用余额，等她收取才扣款，退回或24小时未收则解冻。dayday_receive 可以收取或退回她发给你的钱，只能处理 direction 为 human_to_susu 的记录；你不能替她收取你发出的那笔钱，也不能给自己发首次额度或动用她的虚拟额度购物。默认关闭，关闭时不要尝试活动。每月15日发2000，结余累加，关闭期间不发。只有她能管理商品、价格、库存和开关。涉及金额的操作必须使用唯一请求编号，重试同一次操作复用原编号。金额读数是分，银行和发红包转账的入参是元。优惠券和满减尚未开放。`;
 
 function text(value: unknown) {
   return typeof value === "string" ? value : "";
@@ -269,7 +269,7 @@ const TOOLS = [
 export const READONLY_TOOL_NAMES = new Set([
   "blog_read", "blog_read_post", "reading_shelf", "reading_book", "reading_read", "surf_board", "surf_thread",
   "wardrobe_list", "wardrobe_item", "wardrobe_try",
-  "phone_read", "dayday_read",
+  "phone_read", "dayday_read", "dayday_look",
 ]);
 // His own time: read everything, move his bookmark, write notes, answer her
 // on the forum. No blog posts, no deleting. (His own time's thread comes
@@ -495,7 +495,7 @@ export async function handleRpc(raw: unknown, access: McpAccess = "full"): Promi
         const params = req.params || {};
         const args = params.arguments && typeof params.arguments === "object" ? params.arguments as Record<string, unknown> : {};
         if (access === "read" && !READONLY_TOOL_NAMES.has(text(params.name))) {
-          return ok(req.id, reply("聊天里只能看博客、书架、论坛、衣柜和手机；要发日志或留言，用回复里的卡片", true));
+          return ok(req.id, reply("聊天里只能看博客、书架、论坛、衣柜、手机和 dayday；买东西、发红包用回复里的标记；要发日志或留言，用回复里的卡片", true));
         }
         if (access === "life" && !LIFE_TOOL_NAMES.has(text(params.name))) {
           return ok(req.id, reply("自己过日子的时候只能看博客、书架、论坛、衣柜和手机，挪你自己的进度、写批注、回她的帖", true));

@@ -87,6 +87,28 @@ export function daydayPrice(product: Pick<DaydayProduct, "price" | "discountTier
   const percent = Math.min(100, ...(product.discountTiers || []).filter((t) => quantity >= t.quantity).map((t) => t.percent));
   return { percent, total: Math.round(product.price * quantity * percent / 100) };
 }
+/**
+ * Total the model saw when it decided, using the same per-product quantity
+ * merge as buyDayday. Undefined when any id is unknown, so the order fails with
+ * "不存在" rather than a misleading "价格已变化".
+ */
+export function daydayExpectedTotal(products: Pick<DaydayProduct, "id" | "price" | "discountTiers" | "active">[], items: unknown) {
+  if (!Array.isArray(items)) return undefined;
+  const quantities = new Map<string, number>();
+  for (const raw of items) {
+    if (!raw || typeof raw !== "object") return undefined;
+    const { productId, quantity } = raw as { productId?: unknown; quantity?: unknown };
+    if (typeof productId !== "string" || typeof quantity !== "number" || !Number.isSafeInteger(quantity)) return undefined;
+    quantities.set(productId, (quantities.get(productId) || 0) + quantity);
+  }
+  let total = 0;
+  for (const [id, quantity] of quantities) {
+    const product = products.find((p) => p.id === id && p.active);
+    if (!product) return undefined;
+    total += daydayPrice(product, quantity).total;
+  }
+  return total;
+}
 export function daydayDiscountText(product: Pick<DaydayProduct, "discountTiers">) {
   return (product.discountTiers || []).map((t) => `满${t.quantity}件${t.percent / 10}折`).join("，");
 }

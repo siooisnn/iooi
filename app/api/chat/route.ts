@@ -15,6 +15,7 @@ import { readBlogDigest, readBlogPostsAskedFor, runBlogMarkers } from "@/app/lib
 import { DAYDAY_CHAT_BRIDGE, stripDaydayMarkers, type DaydayCard } from "@/app/lib/dayday-chat";
 import { runDaydayChatMarker } from "@/app/lib/dayday-chat-actions";
 import { readDayday } from "@/app/lib/dayday-store";
+import { daydayDiscountText } from "@/app/lib/dayday";
 import type { BlogCard } from "@/app/lib/app-types";
 import { todayLifeLines } from "@/app/lib/life-log";
 import {
@@ -1257,7 +1258,8 @@ export async function POST(request: Request) {
 
   const combinedDynamicPrompt = [
     dynamicPrompt,
-    dayday?.enabled ? `【dayday现状：金额均为分】${JSON.stringify({ available: dayday.available, held: dayday.held, bank: dayday.bank, transfers: dayday.transfers.slice(0, 8).map((t) => ({ id: t.id, kind: t.kind, direction: t.direction || "susu_to_human", amount: t.amount, message: t.message, status: t.status })) })}` : "",
+    dayday?.enabled ? `【dayday现状：金额均为分】${JSON.stringify({ available: dayday.available, held: dayday.held, bank: dayday.bank, transfers: dayday.transfers.slice(0, 8).map((t) => ({ id: t.id, kind: t.kind, direction: t.direction || "susu_to_human", amount: t.amount, message: t.message, status: t.status })),
+      products: dayday.products.filter((p) => p.active).slice(0, 60).map((p) => ({ id: p.id, name: p.name, category: p.category, price: p.price, stock: p.stock, ...(p.discountTiers?.length ? { discount: daydayDiscountText(p) } : {}), hasPhoto: Boolean(p.photo) })) })}` : "",
     lifeNote,
     summerNotice,
     directSummerWriteRequested
@@ -1422,7 +1424,7 @@ ${combinedDynamicPrompt}
       const blogMarkers = skipPersist ? [] : parseBlogMarkers(reply);
       const blogCards = blogMarkers.length ? await runBlogMarkers(blogMarkers, { asked: asksForBlogPost(query) }) : [];
       const daydayCards = !skipPersist && !groupSessionId && sessionId
-        ? await runDaydayChatMarker(reply, String(sessionId), String(userMsg?.roundId || `${userMsg?.date}:${userMsg?.time}:${userMsg?.content}`), dayday?.epoch ?? -1) : [];
+        ? await runDaydayChatMarker(reply, String(sessionId), String(userMsg?.roundId || `${userMsg?.date}:${userMsg?.time}:${userMsg?.content}`), dayday?.epoch ?? -1, dayday?.products ?? []) : [];
       const nudgeResult = parseNudgeReply(stripVisibleSummerDiary(stripSummerWriteTags(stripBlogMarkers(stripDaydayMarkers(reply)))), nudgeEnabled);
       reply = nudgeResult.reply;
       const proposalMs = Date.now() - proposalStartedAt;

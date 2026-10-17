@@ -63,6 +63,25 @@
 :root[data-theme] .msg-dayday-card .msg-dayday-error { margin-top: 8px; }
 :root[data-theme] .msg-dayday-card button:focus-visible { outline: 1px dotted #000; outline-offset: 1px; }
 
+:root[data-theme] .msg-dayday-card.is-order {
+  --dd-card-line: #8f9a6a;
+  --dd-card-strip: linear-gradient(180deg, #8fbf5a 0%, #5f9a34 55%, #4f8a28 100%);
+  --dd-card-strip-ink: #fff;
+  --dd-card-paper: linear-gradient(180deg, #fdfdf6, #f3f4e6);
+  --dd-card-ink: #2f3a1e;
+  --dd-card-accent: #c2185b;
+}
+:root[data-theme] .msg-dayday-lines { margin: 0 0 6px; padding: 0; list-style: none; }
+:root[data-theme] .msg-dayday-lines li { display: flex; align-items: center; gap: 7px; padding: 3px 0; }
+:root[data-theme] .msg-dayday-lines li + li { border-top: 1px dotted #c9cdb0; }
+:root[data-theme] .msg-dayday-lines img, :root[data-theme] .msg-dayday-thumb { flex: none; width: 32px; height: 32px; border: 1px solid #c9cdb0; border-radius: 2px; background: #fff; object-fit: contain; }
+:root[data-theme] .msg-dayday-line-name { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+:root[data-theme] .msg-dayday-line-name small { color: #6b6b6b; font-size: 11px; }
+:root[data-theme] .msg-dayday-line-price { flex: none; font-variant-numeric: tabular-nums; }
+:root[data-theme] .msg-dayday-total { display: flex; align-items: baseline; justify-content: space-between; margin-top: 6px; padding-top: 4px; border-top: 1px solid #c9cdb0; }
+:root[data-theme] .msg-dayday-total strong { color: var(--dd-card-accent); font-size: 16px; font-variant-numeric: tabular-nums; }
+:root[data-theme] .msg-dayday-total small { margin-right: 2px; font-size: 11px; }
+
 /* Retro room with avatars: line the card up under the speaker name column. */
 :root[data-theme] .app-bg .chat-container[data-chat-ui="xp"][data-chat-view="room"] .chat-messages.xp-log-avatars .msg-dayday-row {
   padding-left: var(--xp-says-indent);

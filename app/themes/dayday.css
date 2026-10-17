@@ -76,9 +76,10 @@
 :root[data-theme] .dd-screen .dd-product-meta small { color: var(--dd-muted); font-size: 10px; }
 
 /* Art tiles: two quiet tints and a line icon when there is no photo */
-:root[data-theme] .dd-screen :is(.dd-art, .dd-detail-art, .dd-bag-art) { display: grid; place-items: center; overflow: hidden; color: #8fa8c4; }
-:root[data-theme] .dd-screen .dd-art { width: 100%; aspect-ratio: 1.15; border-radius: 7px; }
-:root[data-theme] .dd-screen :is(.dd-art, .dd-detail-art, .dd-bag-art) > img { display: block; width: 100%; height: 100%; object-fit: contain; }
+:root[data-theme] .dd-screen :is(.dd-art, .dd-detail-art, .dd-bag-art) { position: relative; display: grid; place-items: center; overflow: hidden; aspect-ratio: 1; color: #8fa8c4; }
+:root[data-theme] .dd-screen .dd-art { width: 100%; border-radius: 7px; }
+/* Percent heights inside an auto grid row fall back to the image's own ratio, so pin photos to the box instead. */
+:root[data-theme] .dd-screen :is(.dd-art, .dd-detail-art, .dd-bag-art) > img { position: absolute; inset: 0; display: block; width: 100%; height: 100%; object-fit: contain; }
 :root[data-theme] .dd-screen .dd-art-icon { width: 38%; height: 38%; stroke-width: 1.3; }
 :root[data-theme] .dd-screen .dd-blue { background: #edf3fa; }
 :root[data-theme] .dd-screen .dd-pink { background: #fbf0f4; color: #cf9aae; }
@@ -186,8 +187,8 @@
 
 /* Dialogs */
 :root[data-theme] .dd-screen .dd-dialog { width: min(420px, calc(100% - 24px)); max-height: 90dvh; color: var(--dd-ink); }
-:root[data-theme] .dd-screen .dd-dialog .rd-dialog-body { display: flex; flex-direction: column; gap: 12px; padding: 14px; background: var(--dd-bg); color: var(--dd-ink); }
-:root[data-theme] .dd-screen .dd-detail-art { height: 170px; border-radius: var(--dd-radius); }
+:root[data-theme] .dd-screen .dd-dialog .rd-dialog-body { display: flex; flex-direction: column; gap: 12px; min-height: 0; padding: 14px; overflow-y: auto; background: var(--dd-bg); color: var(--dd-ink); }
+:root[data-theme] .dd-screen .dd-detail-art { flex: none; width: min(100%, 280px); align-self: center; border-radius: var(--dd-radius); }
 :root[data-theme] .dd-screen .dd-detail-art .dd-art-icon { width: 64px; height: 64px; }
 :root[data-theme] .dd-screen .dd-detail-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
 :root[data-theme] .dd-screen .dd-detail-head h3 { margin-bottom: 2px; font-size: 16px; }

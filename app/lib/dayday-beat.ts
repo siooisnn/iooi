@@ -1,6 +1,6 @@
 import { readStore } from "./store";
 import { executeDayday, reserveDaydayBeat } from "./dayday-store";
-import { daydayState } from "./dayday";
+import { daydayExpectedTotal, daydayState } from "./dayday";
 import { isClaudeCodeEnabled, runClaudeCodeChat } from "./claude-code";
 import { normalizeSystemPrompt } from "./app-settings";
 import { readSummerLight } from "./summer-light";
@@ -33,10 +33,9 @@ export async function daydayHeartbeat() {
       const requestId = `beat:${beat.key}`;
       let done: Awaited<ReturnType<typeof executeDayday>> | undefined;
       if (decision.action === "buy") {
-        const prices = new Map(beat.state.products.map((p) => [p.id, p.price]));
-        const items = decision.items as { productId: string; quantity: number }[];
-        const expectedTotal = Array.isArray(items) ? items.reduce((sum, p) => sum + (prices.get(p.productId) ?? NaN) * p.quantity, 0) : NaN;
-        done = await executeDayday("buy", { requestId, items, reason: decision.reason, expectedTotal }, false, beat.epoch);
+        const items = decision.items;
+        const expectedTotal = daydayExpectedTotal(beat.state.products, items);
+        done = await executeDayday("buy", { requestId, items, reason: decision.reason, ...(expectedTotal === undefined ? {} : { expectedTotal }) }, false, beat.epoch);
       }
       else if (decision.action === "bank") done = await executeDayday("bank", { requestId, direction: decision.direction, amount: decision.amount }, false, beat.epoch);
       else if (decision.action === "receive") done = await executeDayday("receive_transfer", { requestId, transferId: decision.transferId, decision: decision.decision }, false, beat.epoch);

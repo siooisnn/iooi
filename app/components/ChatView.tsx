@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect, useMemo } from "react";
 import { TypingKitty } from "./TypingKitty";
 import { ChatClawd } from "./TaskbarClawd";
-import { DaydayMoneyCard, DaydayMoneyIcon } from "./DaydayMoneyCard";
+import { DaydayMoneyCard, DaydayMoneyIcon, DaydayOrderCard } from "./DaydayMoneyCard";
 import { DaydaySendDialog } from "./DaydaySendDialog";
 import { sendHearts } from "../lib/cute-fx";
 import { ClaudeUsageCircle, ClaudeUsageDetails, useClaudeUsage } from "./ClaudeUsageBadge";
@@ -1085,6 +1085,7 @@ export function ChatView({
         )}
         {displayMessages.map(({ message, index }, displayIndex) => {
           if (message.source === "summer_write_ignored") return null;
+          if (message.source === "dayday_card" && message.dayday?.order) return <DaydayOrderCard key={message.dayday.id || index} card={message.dayday} />;
           if (message.source === "dayday_card" && message.dayday) return <DaydayMoneyCard key={message.dayday.id || index} card={message.dayday} />;
           if (message.source === "blog_card") {
             const target = blogCardTarget(message.blog);
