@@ -13,11 +13,12 @@ import type { Settings } from "../lib/app-settings";
 import { apiFetch } from "../lib/client-api";
 import { GearGlyph } from "./RetroDesktop";
 import { BlogConnection } from "./BlogConnection";
+import { DaydayControl } from "./DaydayControl";
 
 const CONTROL_SECTIONS = [
   { title: "账号连接", items: [{ label: "独立博客连接", index: 11 }] },
   { title: "外观与身份", items: [{ label: "姓名与头像", index: 0 }, { label: "桌面背景", index: 1 }, { label: "聊天背景", index: 2 }] },
-  { title: "日常与提醒", items: [{ label: "主动关怀", index: 3 }, { label: "天气与城市", index: 4 }, { label: "纪念日", index: 5 }, { label: "消息通知", index: 6 }] },
+  { title: "日常与提醒", items: [{ label: "主动关怀", index: 3 }, { label: "day day", index: 12 }, { label: "天气与城市", index: 4 }, { label: "纪念日", index: 5 }, { label: "消息通知", index: 6 }] },
   { title: "运行信息", items: [{ label: "酥酥 · 缓存", index: 7 }, { label: "酥酥 · 上下文", index: 8 }, { label: "郁郁 · 缓存", index: 9 }, { label: "郁郁 · 上下文", index: 10 }] },
 ];
 
@@ -250,6 +251,7 @@ export function SettingsView({
           sessionUserTurns={gptSession?.messages.filter((m) => m.role === "user").length ?? 0}
         />
         <BlogConnection />
+        <DaydayControl />
       </section>
   );
 

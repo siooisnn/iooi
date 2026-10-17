@@ -287,6 +287,7 @@ function runQueued<T>(
 // comments, Summer memories) stays on the reply markers, which show her a
 // card and, for Summer, wait for her confirmation.
 export const CHAT_READ_TOOLS = [
+  "mcp__iooi__dayday_read",
   "mcp__iooi__phone_read",
   "mcp__iooi__blog_read",
   "mcp__iooi__blog_read_post",

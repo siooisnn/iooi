@@ -163,6 +163,9 @@ export function createSessionSyncHandlers(access: StoreAccess) {
       const body = await request.json();
       await access.write((store) => {
         const next = { ...body };
+        // Financial state only changes through dayday's transactional commands.
+        // A stale browser sync must never restore old money, orders or inventory.
+        delete next.dayday;
         const deletedIds = deletedIdSet(store.deletedSessionIds, body.deletedSessionIds);
         next.deletedSessionIds = Array.from(deletedIds);
         if (Array.isArray(body.sessions)) {

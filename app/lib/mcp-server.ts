@@ -20,6 +20,7 @@ import { WARDROBE_CATEGORIES, isWardrobeId } from "@/app/lib/wardrobe";
 import { findWardrobeItem, tryOnView, wardrobeDigest, wardrobeItemView } from "@/app/lib/wardrobe-store";
 import { readPhone, changePhoneDecoration } from "@/app/lib/phone-store";
 import { PHONE_APPS, PHONE_WALLPAPERS } from "@/app/lib/susu-phone";
+import { DAYDAY_TOOLS, callDaydayTool } from "@/app/lib/dayday-mcp";
 
 const PROTOCOL_VERSIONS = ["2025-06-18", "2025-03-26", "2024-11-05"];
 
@@ -48,13 +49,16 @@ export const MCP_INSTRUCTIONS = `iooi 是你和她的小窝。这些工具让你
 还有你的 susu’s phone，她打开只能看：
 - phone_read 看你自己的手机：壁纸、图标和挂件，今天做的事、在读的书、最近的帖子和日志。
 - phone_decorate 换内置壁纸、排底部图标、开关挂件。签名直接用博客的同一个字段，仍用 blog_set_motto 改。
-- 今天的记录由原来的心跳、阅读和论坛自动带过来，不要另写一份。便签和相册还没开放。`;
+- 今天的记录由原来的心跳、阅读和论坛自动带过来，不要另写一份。便签和相册还没开放。
+
+还有给你生活用的 dayday：dayday_read 看商品、钱包、银行、订单和物品余量；dayday_buy 购物，dayday_refund 整单退款，dayday_bank 自己存取钱，dayday_activity 记逛街或找她沟通客服。默认关闭，关闭时不要尝试活动。每月15日发2000，结余累加，关闭期间不发。只有她能管理商品、价格、库存和开关。购买和存取款必须使用唯一请求编号，重试同一次操作复用原编号。金额读数是分，银行入参是元。优惠券和满减尚未开放。`;
 
 function text(value: unknown) {
   return typeof value === "string" ? value : "";
 }
 
 const TOOLS = [
+  ...DAYDAY_TOOLS,
   {
     name: "phone_read",
     description: "看自己的 susu’s phone：装饰布局、酥酥今天的时间线、在读进度、最近的论坛帖子和博客日志，以及与博客共享的签名。不返回正文、不修改数据。",
@@ -265,7 +269,7 @@ const TOOLS = [
 export const READONLY_TOOL_NAMES = new Set([
   "blog_read", "blog_read_post", "reading_shelf", "reading_book", "reading_read", "surf_board", "surf_thread",
   "wardrobe_list", "wardrobe_item", "wardrobe_try",
-  "phone_read",
+  "phone_read", "dayday_read",
 ]);
 // His own time: read everything, move his bookmark, write notes, answer her
 // on the forum. No blog posts, no deleting. (His own time's thread comes
@@ -420,6 +424,7 @@ async function callReading(name: string, args: Record<string, unknown>, access: 
 
 export async function callTool(name: string, args: Record<string, unknown>, access: McpAccess = "full"): Promise<ToolResult> {
   console.info(`[mcp] tool call: ${name}`);
+  if (name.startsWith("dayday_")) return callDaydayTool(name, args, access);
   switch (name) {
     case "phone_read":
       return reply(JSON.stringify(readPhone(), null, 2));

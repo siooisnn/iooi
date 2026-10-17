@@ -2,6 +2,9 @@ import { readFileSync, writeFileSync, existsSync, mkdirSync, renameSync } from "
 import { join } from "path";
 
 const DATA_DIR = join(process.cwd(), "data");
+// Next route bundles can load this module separately; serialize by absolute file
+// across those bundles too (the app runs one PM2 process).
+const storeLocks = ((globalThis as { __iooiStoreLocks?: Map<string, Promise<void>> }).__iooiStoreLocks ??= new Map());
 
 function ensureDir() {
   if (!existsSync(DATA_DIR)) mkdirSync(DATA_DIR, { recursive: true });
@@ -10,14 +13,18 @@ function ensureDir() {
 function createJsonStore(filename: string, privateFile = false) {
   const dataFile = join(DATA_DIR, filename);
   const tmpFile = join(DATA_DIR, filename.replace(/\.json$/i, ".tmp.json"));
-  let writeLock: Promise<void> = Promise.resolve();
 
   function read(): Record<string, unknown> | null {
     ensureDir();
     if (!existsSync(dataFile)) return null;
     try {
-      return JSON.parse(readFileSync(dataFile, "utf-8"));
+      const parsed = JSON.parse(readFileSync(dataFile, "utf-8"));
+      if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) throw new Error("invalid store");
+      return parsed;
     } catch {
+      // The main store includes dayday's financial journal. An unreadable file
+      // must not be replaced with a fresh, empty account on the next write.
+      if (filename === "store.json") throw new Error("主数据文件无法读取，已停止写入以保护现有数据。");
       return null;
     }
   }
@@ -25,8 +32,8 @@ function createJsonStore(filename: string, privateFile = false) {
   async function write<T>(fn: (store: Record<string, unknown>) => T): Promise<T> {
     let resolve!: () => void;
     const next = new Promise<void>((r) => { resolve = r; });
-    const prev = writeLock;
-    writeLock = next;
+    const prev = storeLocks.get(dataFile) || Promise.resolve();
+    storeLocks.set(dataFile, next);
 
     try {
       await prev;

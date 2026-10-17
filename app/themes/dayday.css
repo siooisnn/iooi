@@ -1,4 +1,23 @@
 /* A little blue-and-pink shop inside the shared XP window. */
+:root[data-theme] .dd-screen .dd-preview { align-items: center; }
+:root[data-theme] .dd-screen .dd-preview .dd-link { margin-left: auto; padding: 0 6px; }
+:root[data-theme] .dd-screen :is(.dd-art, .dd-detail-art, .dd-bag-art) > img { display: block; width: 100%; height: 100%; object-fit: contain; }
+:root[data-theme] .dd-screen .dd-art { overflow: hidden; }
+:root[data-theme] .dd-screen .dd-bag-art { display: grid; place-items: center; width: 100%; height: 100%; }
+:root[data-theme] .dd-screen .dd-form fieldset { display: flex; flex-direction: column; gap: 14px; min-width: 0; border: 0; }
+:root[data-theme] .dd-screen .dd-form label { display: flex; flex-direction: column; gap: 7px; font-size: 12px; line-height: 1.7; }
+:root[data-theme] .dd-screen .dd-form label.dd-setting { flex-direction: row; }
+:root[data-theme] .dd-screen .dd-form :is(input:not([type=checkbox]), textarea, select) { min-width: 0; width: 100%; padding: 8px; border: 1px solid #cbd9e9; border-radius: 4px; background: white; color: #465e7b; font: inherit; }
+:root[data-theme] .dd-screen .dd-form small { color: #8493a6; font-size: 10px; }
+:root[data-theme] .dd-screen .dd-inline { display: flex; gap: 8px; }
+:root[data-theme] .dd-screen .dd-edit-photo { display: flex; align-items: center; gap: 14px; }
+:root[data-theme] .dd-screen .dd-edit-photo img { width: 90px; height: 90px; object-fit: contain; border: 1px solid #dae3ee; }
+:root[data-theme] .dd-screen .dd-edit-photo button { padding: 8px; border: 1px solid #d9dfea; border-radius: 4px; background: #fff4f8; color: #a27287; }
+:root[data-theme] .dd-screen .dd-inventory { display: flex; flex-direction: column; gap: 8px; padding: 13px 0; border-bottom: 1px dashed #dfe6ef; font-size: 12px; }
+:root[data-theme] .dd-screen .dd-inventory progress { width: 100%; height: 8px; accent-color: #91b0cb; }
+:root[data-theme] .dd-screen :is(.dd-inventory, .dd-order) small { color: #8e9bab; font-size: 10px; line-height: 1.8; overflow-wrap: anywhere; }
+:root[data-theme] .dd-screen .dd-order { padding: 15px 0; border-bottom: 1px dashed #dfe6ef; font-size: 12px; line-height: 1.9; }
+:root[data-theme] .dd-screen .dd-order .dd-heading { margin-bottom: 6px; }
 :root[data-theme] .dd-screen { color: #384c67; }
 :root[data-theme] .dd-screen .dd-title-icon { width: 22px; height: 22px; flex: none; }
 :root[data-theme] .dd-screen .dd-title-icon svg { width: 100%; height: 100%; }
