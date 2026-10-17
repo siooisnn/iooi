@@ -3,6 +3,8 @@
 // time, actions nudge them back, and nothing ever dies — at worst he sulks.
 
 export const CLAWD_STORAGE_KEY = "iooi-clawd";
+/** His name. Pets saved under the old default "clawd" take it on load. */
+export const CLAWD_NAME = "小砖";
 
 export type ClawdStatKey = "hunger" | "mood" | "energy" | "clean";
 export type ClawdStats = Record<ClawdStatKey, number>;
@@ -42,7 +44,7 @@ const round = (value: number) => Math.round(value * 10) / 10;
 export function createClawd(now: number): ClawdPet {
   return {
     version: 1,
-    name: "clawd",
+    name: CLAWD_NAME,
     bornAt: now,
     updatedAt: now,
     asleep: false,
@@ -59,9 +61,10 @@ export function parseClawd(raw: unknown, now: number): ClawdPet {
   if (!stats || !CLAWD_STATS.every(({ key }) => finite(stats[key])) || !finite(data.bornAt) || !finite(data.updatedAt)) {
     return createClawd(now);
   }
+  const name = typeof data.name === "string" ? data.name.trim().slice(0, 12) : "";
   return {
     version: 1,
-    name: typeof data.name === "string" && data.name.trim() ? data.name.trim().slice(0, 12) : "clawd",
+    name: name && name !== "clawd" ? name : CLAWD_NAME,
     bornAt: Math.min(data.bornAt, now),
     updatedAt: Math.min(data.updatedAt, now),
     asleep: Boolean(data.asleep),

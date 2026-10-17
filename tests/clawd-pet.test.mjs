@@ -48,6 +48,8 @@ test('stored data is validated and a clock in the future is not trusted', () => 
   assert.equal(parseClawd({ stats: { hunger: 'x' } }, T0).stats.hunger, 80);
   const restored = parseClawd({ ...createClawd(T0 - 3 * 24 * HOUR), updatedAt: T0 + HOUR, name: '  ' }, T0);
   assert.equal(restored.updatedAt, T0);
-  assert.equal(restored.name, 'clawd');
+  assert.equal(restored.name, '小砖');
+  assert.equal(parseClawd({ ...createClawd(T0), name: 'clawd' }, T0).name, '小砖');
+  assert.equal(parseClawd({ ...createClawd(T0), name: '砖砖' }, T0).name, '砖砖');
   assert.equal(clawdAgeDays(restored, T0), 4);
 });
