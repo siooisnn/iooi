@@ -1,21 +1,90 @@
-/* Payment cards share the dayday ledger in all private-chat appearances. */
-.msg-dayday-row { display: flex; justify-content: flex-start; padding: 7px 12px; }
-.msg-dayday-row.is-outgoing { justify-content: flex-end; }
-.msg-dayday-card { width: min(290px, 88%); border: 1px solid #b7cbe2; border-radius: 10px; padding: 15px; background: #eaf2fc; color: #3f6186; box-shadow: 0 2px 0 #52739812; font-size: 12px; }
-.msg-dayday-card.is-redpacket { border-color: #dcb8c2; background: linear-gradient(135deg, #f8e2e9, #fff0e5); color: #a25c75; }
-.msg-dayday-top { display: flex; gap: 12px; align-items: center; }
-.msg-dayday-top > span { font-size: 29px; }
-.msg-dayday-top b { font-size: 14px; }
-.msg-dayday-top p { margin: 7px 0 0; opacity: .85; font-size: 12px; line-height: 1.7; overflow-wrap: anywhere; }
-.msg-dayday-amount { display: block; font-size: 25px; margin: 15px 0 10px; font-variant-numeric: tabular-nums; }
-.msg-dayday-state { margin: 13px 0 0; font-size: 11px; opacity: .85; }
-.msg-dayday-actions { display: flex; gap: 9px; margin-top: 14px; }
-.msg-dayday-actions button { flex: 1; padding: 9px 5px; border: 1px solid #a6bdd5; border-radius: 5px; background: #fff9; color: inherit; cursor: pointer; font: inherit; }
-.is-redpacket .msg-dayday-actions button { border-color: #dab0bc; }
-.msg-dayday-actions button:first-child { background: #fff; font-weight: 600; }
-.msg-dayday-actions button:disabled { opacity: .5; cursor: default; }
-.msg-dayday-card > small { display: block; margin-top: 9px; font-size: 9px; opacity: .7; }
-.msg-dayday-error { max-width: 310px; padding: 10px; border: 1px solid #dac5b6; border-radius: 5px; background: #fff8ec; color: #8c6b55; font-size: 11px; line-height: 1.8; }
-.msg-dayday-error button { margin-left: 8px; border: 0; background: transparent; color: #597b9e; text-decoration: underline; cursor: pointer; }
-.msg-dayday-card .msg-dayday-error { margin-top: 10px; }
-.msg-dayday-card button:focus-visible { outline: 2px solid #4a78a7; outline-offset: 3px; }
+/* Payment cards share the dayday ledger in all private-chat appearances.
+   They read like a 2007 IM attachment: a thin bevelled frame, a coloured
+   title strip and a dotted status footer. Both directions sit on the left,
+   in the same column as the "名字 说" log lines. */
+:root[data-theme] .msg-dayday-row { display: flex; justify-content: flex-start; padding: 6px 0 8px; }
+:root[data-theme] .msg-dayday-card {
+  --dd-card-line: #7f9db9;
+  --dd-card-strip: linear-gradient(180deg, #6f9be0 0%, #3a6fcf 55%, #2c5bb8 100%);
+  --dd-card-strip-ink: #fff;
+  --dd-card-paper: linear-gradient(180deg, #fbfdff, #edf3fb);
+  --dd-card-ink: #1d2b4f;
+  --dd-card-accent: #1f4f9e;
+  width: min(248px, 100%);
+  overflow: hidden;
+  border: 1px solid var(--dd-card-line);
+  border-radius: 3px;
+  background: var(--dd-card-paper);
+  color: var(--dd-card-ink);
+  box-shadow: 1px 1px 0 rgba(0, 0, 0, 0.12);
+  font-family: Tahoma, Verdana, "PingFang SC", "Microsoft YaHei", sans-serif;
+  font-size: 12px;
+  line-height: 18px;
+}
+:root[data-theme] .msg-dayday-card.is-redpacket {
+  --dd-card-line: #b9483c;
+  --dd-card-strip: linear-gradient(180deg, #ef6b55 0%, #d63a2a 55%, #c22f22 100%);
+  --dd-card-strip-ink: #ffefc2;
+  --dd-card-paper: linear-gradient(180deg, #fffaf2, #fbefe0);
+  --dd-card-ink: #5a2a20;
+  --dd-card-accent: #c22f22;
+}
+:root[data-theme] .msg-dayday-card.is-closed { filter: saturate(.45); opacity: .85; }
+:root[data-theme] .msg-dayday-head { display: flex; align-items: center; gap: 6px; padding: 4px 8px; background: var(--dd-card-strip); color: var(--dd-card-strip-ink); text-shadow: 0 1px 0 rgba(0, 0, 0, 0.25); }
+:root[data-theme] .msg-dayday-head b { min-width: 0; font-size: 12px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+:root[data-theme] .msg-dayday-icon { display: block; width: 16px; height: 16px; flex: none; }
+:root[data-theme] .msg-dayday-body { padding: 8px 10px 9px; }
+:root[data-theme] .msg-dayday-body:empty { display: none; }
+:root[data-theme] .msg-dayday-note { margin: 0; color: var(--dd-card-ink); overflow-wrap: anywhere; }
+:root[data-theme] .msg-dayday-note::before { content: "“"; }
+:root[data-theme] .msg-dayday-note::after { content: "”"; }
+:root[data-theme] .msg-dayday-amount { display: block; margin-top: 4px; color: var(--dd-card-accent); font-size: 20px; line-height: 26px; font-weight: 700; font-variant-numeric: tabular-nums; }
+:root[data-theme] .msg-dayday-amount small { margin-right: 3px; font-size: 13px; }
+:root[data-theme] .msg-dayday-note + .msg-dayday-actions, :root[data-theme] .msg-dayday-amount + .msg-dayday-actions { margin-top: 8px; }
+:root[data-theme] .msg-dayday-actions { display: flex; gap: 6px; }
+:root[data-theme] .msg-dayday-actions button {
+  flex: 1;
+  height: 24px;
+  padding: 0 6px;
+  border: 1px solid #003c74;
+  border-radius: 3px;
+  background: linear-gradient(180deg, #fff 0%, #ece9d8 100%);
+  color: #000;
+  font: inherit;
+  cursor: pointer;
+}
+:root[data-theme] .msg-dayday-actions button:first-child { font-weight: 700; }
+:root[data-theme] .msg-dayday-actions button:not(:disabled):active { background: linear-gradient(180deg, #e3e0d2, #f7f6f0); }
+:root[data-theme] .msg-dayday-actions button:disabled { opacity: .5; cursor: default; }
+:root[data-theme] .msg-dayday-foot { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; padding: 3px 10px 4px; border-top: 1px dotted var(--dd-card-line); color: #6b6b6b; font-size: 11px; }
+:root[data-theme] .msg-dayday-foot small { flex: none; color: #9a9a9a; font-size: 10px; }
+:root[data-theme] .msg-dayday-error { max-width: 248px; padding: 6px 8px; border: 1px solid #c9b48a; border-radius: 2px; background: #fffbe6; color: #6b5420; font-size: 11px; line-height: 1.7; }
+:root[data-theme] .msg-dayday-error button { margin-left: 6px; border: 0; padding: 0; background: transparent; color: #0645ad; text-decoration: underline; cursor: pointer; font: inherit; }
+:root[data-theme] .msg-dayday-card .msg-dayday-error { margin-top: 8px; }
+:root[data-theme] .msg-dayday-card button:focus-visible { outline: 1px dotted #000; outline-offset: 1px; }
+
+/* Retro room with avatars: line the card up under the speaker name column. */
+:root[data-theme] .app-bg .chat-container[data-chat-ui="xp"][data-chat-view="room"] .chat-messages.xp-log-avatars .msg-dayday-row {
+  padding-left: var(--xp-says-indent);
+}
+
+/* Send dialog opened from the chat toolbar: same icons and red/blue as the cards. */
+:root[data-theme] .dd-screen .dd-send-dialog { width: min(340px, calc(100% - 24px)); }
+:root[data-theme] .dd-screen .dd-send { --dd-send-accent: #c22f22; --dd-send-deep: #9c1f16; }
+:root[data-theme] .dd-screen .dd-send.is-transfer { --dd-send-accent: #2f5fae; --dd-send-deep: #1f4687; }
+:root[data-theme] .dd-screen .dd-send fieldset { gap: 11px; }
+:root[data-theme] .dd-screen .dd-send-kinds { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+:root[data-theme] .dd-screen .dd-send-kinds button { display: flex; align-items: center; justify-content: center; gap: 6px; height: 34px; border: 1px solid #c5d2e2; border-radius: 3px; background: #fff; color: var(--dd-soft); font-size: 12px; }
+:root[data-theme] .dd-screen .dd-send-kinds button.is-on { border-color: var(--dd-send-accent); background: #fff; color: var(--dd-send-accent); font-weight: 700; box-shadow: inset 0 0 0 1px var(--dd-send-accent); }
+:root[data-theme] .dd-screen .dd-send-kinds .msg-dayday-icon { width: 16px; height: 16px; }
+:root[data-theme] .dd-screen .dd-send-amount { display: flex; align-items: center; border: 1px solid #d3deea; border-radius: 7px; background: #fff; }
+:root[data-theme] .dd-screen .dd-send-amount:focus-within { border-color: var(--dd-send-accent); }
+:root[data-theme] .dd-screen .dd-send-amount i { padding-left: 10px; color: var(--dd-send-accent); font: 700 18px/1 Tahoma, sans-serif; font-style: normal; }
+:root[data-theme] .dd-screen .dd-form .dd-send-amount input { border: 0; padding: 8px 10px 8px 6px; background: transparent; color: var(--dd-send-accent); font: 700 20px/1.3 Tahoma, sans-serif; font-variant-numeric: tabular-nums; }
+:root[data-theme] .dd-screen .dd-form .dd-send-amount input:focus-visible { outline: 0; }
+:root[data-theme] .dd-screen .dd-send-balance { margin: -4px 0 0; color: var(--dd-muted); font-size: 11px; }
+:root[data-theme] .dd-screen .dd-send-balance b { color: var(--dd-ink); font-weight: 600; font-variant-numeric: tabular-nums; }
+:root[data-theme] .dd-screen .dd-send-submit { margin-top: 2px; padding: 10px; border: 1px solid var(--dd-send-deep); border-radius: 999px; background: var(--dd-send-accent); color: #fff; font-size: 13px; font-weight: 600; letter-spacing: 1px; }
+:root[data-theme] .dd-screen .dd-send-submit:not(:disabled):hover { background: var(--dd-send-deep); }
+:root[data-theme] .dd-screen .dd-send-hint { margin: -2px 0 0; color: var(--dd-muted); font-size: 10px; line-height: 1.7; text-align: center; }
+:root[data-theme] .dd-screen .dd-send-error { margin: 0; padding: 6px 8px; border: 1px solid #e6c9a8; border-radius: 6px; background: #fff8ec; color: #8c5a2b; font-size: 11px; }

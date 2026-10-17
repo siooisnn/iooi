@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect, useMemo } from "react";
 import { TypingKitty } from "./TypingKitty";
 import { ChatClawd } from "./TaskbarClawd";
-import { DaydayMoneyCard } from "./DaydayMoneyCard";
+import { DaydayMoneyCard, DaydayMoneyIcon } from "./DaydayMoneyCard";
 import { DaydaySendDialog } from "./DaydaySendDialog";
 import { sendHearts } from "../lib/cute-fx";
 import { ClaudeUsageCircle, ClaudeUsageDetails, useClaudeUsage } from "./ClaudeUsageBadge";
@@ -1346,7 +1346,7 @@ export function ChatView({
                 </svg>
                 <span>抖一抖</span>
               </button>
-              {!isGpt && !developmentMode && <button type="button" className="xp-chat-tool" onClick={() => setShowMoneyDialog(true)} disabled={loading || uploading} title="从你的虚拟额度发红包或转账"><span aria-hidden="true">🧧</span><span>红包/转账</span></button>}
+              {!isGpt && !developmentMode && <button type="button" className="xp-chat-tool" onClick={() => setShowMoneyDialog(true)} disabled={loading || uploading} title="从你的虚拟额度发红包或转账"><DaydayMoneyIcon kind="redpacket" /><span>红包/转账</span></button>}
               <span className="xp-chat-toolbar-gap" />
               {developmentMode && (
                 <ContextUsageBadge kind="work" sessionId={session.id} project={developmentProject} messages={workUsageMessages} />
