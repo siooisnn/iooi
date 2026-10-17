@@ -76,6 +76,13 @@ export function DaydayManager({ state, mutate, busy, notice }: { state: DaydaySn
   const categories = [...new Set([...DAYDAY_CATEGORIES, ...state.products.map((p) => p.category)])].filter((c) => state.products.some((p) => p.category === c));
   const current = category === "全部" || categories.includes(category) ? category : "全部";
   const visible = current === "全部" ? state.products : state.products.filter((p) => p.category === current);
+  // Same full save as the editor, so stock and price checks stay in one place.
+  const toggle = (p: DaydayProduct) => mutate("save_product", { id: p.id, expectedUpdatedAt: p.updatedAt, name: p.name, category: p.category, price: money(p.price), description: p.description, photo: p.photo,
+    discountTiers: p.discountTiers || [], stock: p.stock, usage: p.usage, active: !p.active }, p.active ? `「${p.name}」已下架，商城里不再显示。` : `「${p.name}」已重新上架。`);
+  const remove = async (p: DaydayProduct) => {
+    if (!window.confirm(`删除「${p.name}」？删除后不能恢复，商城和这里都不再显示。已买过的订单、物品和收支统计会保留。只是暂时不卖的话，可以点「下架」。`)) return;
+    await mutate("delete_product", { id: p.id }, `「${p.name}」已删除，历史订单保持原样。`);
+  };
   return <>
     <DaydayHumanAccount state={state} />
     <section className="dd-paper"><h3>首次额度</h3><p className="dd-muted">由你手动发放一次 ¥2000，独立于每月15日的额度；关闭期间也可先准备好。不会自动开启 dayday。</p>
@@ -83,10 +90,10 @@ export function DaydayManager({ state, mutate, busy, notice }: { state: DaydaySn
     </section>
     <DaydayFold title="分类与商品管理" meta={`${state.products.length} 件`}
       action={<button type="button" className="dd-primary dd-fold-action" disabled={busy} onClick={(e) => { e.preventDefault(); setEditing({ product: null }); }}>＋ 上传商品</button>}>
-      <p className="dd-muted">选择分类，设置单价、多件折扣、库存、上／下架和日用品消耗时长。</p>
+      <p className="dd-muted">选择分类，设置单价、多件折扣、库存和日用品消耗时长。「下架」先藏起来，以后还能上架；「删除」会彻底移除，买过的订单不受影响。</p>
       {state.products.length > 0 && <DaydayChips label="按分类查看商品" value={current} onChange={(id) => { setCategory(id); setShown(PAGE); }}
         options={[{ id: "全部", name: "全部", count: state.products.length }, ...categories.map((c) => ({ id: c, name: c, count: state.products.filter((p) => p.category === c).length }))]} />}
-      {!state.products.length ? <p className="dd-empty">还没有商品，先布置酥酥的小货架吧。</p> : !visible.length ? <p className="dd-empty">这个分类还没有商品。</p> : visible.slice(0, shown).map((p) => <div className="dd-setting" key={p.id}><span><b>{p.name}</b><small>{p.category} · ¥{money(p.price)} · {p.stock === null ? "不限量" : `库存 ${p.stock}`}{daydayDiscountText(p) ? ` · ${daydayDiscountText(p)}` : ""} · {p.active ? "已上架" : "已下架"}{p.usage ? ` · 每份 ${p.usage.amount}${p.usage.unit === "month" ? "个月" : "天"}` : ""}</small></span><button type="button" className="dd-link" disabled={busy} onClick={() => setEditing({ product: p })}>编辑</button></div>)}
+      {!state.products.length ? <p className="dd-empty">还没有商品，先布置酥酥的小货架吧。</p> : !visible.length ? <p className="dd-empty">这个分类还没有商品。</p> : visible.slice(0, shown).map((p) => <div className="dd-setting" key={p.id}><span><b>{p.name}</b><small>{p.category} · ¥{money(p.price)} · {p.stock === null ? "不限量" : `库存 ${p.stock}`}{daydayDiscountText(p) ? ` · ${daydayDiscountText(p)}` : ""} · {p.active ? "已上架" : "已下架"}{p.usage ? ` · 每份 ${p.usage.amount}${p.usage.unit === "month" ? "个月" : "天"}` : ""}</small></span><span className="dd-setting-actions"><button type="button" className="dd-link" disabled={busy} onClick={() => setEditing({ product: p })}>编辑</button><button type="button" className="dd-link" disabled={busy} onClick={() => { void toggle(p); }}>{p.active ? "下架" : "上架"}</button><button type="button" className="dd-link dd-danger" disabled={busy} onClick={() => { void remove(p); }}>删除</button></span></div>)}
       {shown < visible.length && <button type="button" className="dd-link dd-fold-more" onClick={() => setShown(shown + PAGE)}>再看 {Math.min(PAGE, visible.length - shown)} 件（还有 {visible.length - shown}）</button>}
     </DaydayFold>
     <section className="dd-paper"><h3>生活心跳与通知</h3><p className="dd-muted">总开关在控制面板 → day day。关闭时不唤醒、不发月度额度；已有日用品继续按购买规则计算余量。</p>

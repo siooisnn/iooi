@@ -218,6 +218,17 @@ export function saveDaydayProduct(s: DaydayState, input: Record<string, unknown>
   if (previous) s.products[s.products.indexOf(previous)] = product; else s.products.push(product);
   return product;
 }
+/**
+ * Takes a product off the shelf for good. Orders keep their own snapshot of
+ * name, photo, category and price, so history, inventory and spending stats
+ * stay intact; the uploaded photo stays because old receipts still show it.
+ */
+export function deleteDaydayProduct(s: DaydayState, id: unknown) {
+  const index = s.products.findIndex((p) => p.id === id);
+  if (index < 0) throw new Error("商品不存在，可能已经删除了。");
+  const [removed] = s.products.splice(index, 1);
+  return { id: removed.id, name: removed.name };
+}
 export function requireDayday(s: DaydayState) {
   if (!s.enabled) throw new Error("dayday 已关闭，不能购物、存取款或开展活动。请等她在控制面板开启。");
 }
@@ -348,6 +359,85 @@ export function daydayInventory(s: DaydayState, now: number) {
     return { ...line, orderId: order.id, giftedByHuman: order.payer === "human", startsAt, endsAt, remaining, remainingDays: endsAt ? Math.max(0, Math.ceil((endsAt - Math.max(now, startsAt)) / 86_400_000)) : null };
   }));
 }
+type DaydayInventoryItem = ReturnType<typeof daydayInventory>[number];
+const sameCstDay = (a: number, b: number) => { const x = cstParts(a), y = cstParts(b); return x.year === y.year && x.month === y.month && x.day === y.day; };
+const cstTime = (at: number) => { const d = cstParts(at); return `${String(d.hour).padStart(2, "0")}:${String(d.minute).padStart(2, "0")}`; };
+/**
+ * What he has right now, for the chat and his own dayday time. Food is eaten
+ * on the spot, so only today's meals (Beijing calendar day) show, with times;
+ * daily goods show days left per product; clothes, books and the rest are
+ * merged per product like the "他的用品" page. Orders themselves are untouched.
+ */
+export function daydayHoldings(inventory: DaydayInventoryItem[], now: number) {
+  const todayMeals = inventory.filter((i) => i.category === "饮食" && sameCstDay(i.startsAt, now) && i.startsAt <= now)
+    .sort((a, b) => a.startsAt - b.startsAt)
+    .map((i) => ({ time: cstTime(i.startsAt), name: i.name, quantity: i.quantity, ...(i.giftedByHuman ? { gift: true } : {}) }));
+  const dailyByProduct = new Map<string, { name: string; quantity: number; endsAt: number | null }>();
+  const goodsByProduct = new Map<string, { name: string; category: string; quantity: number; at: number; gift: boolean }>();
+  for (const i of inventory) {
+    if (i.category === "饮食" && !i.endsAt) continue;
+    if (i.category === "日用" || i.endsAt) {
+      if (i.endsAt && i.remaining === 0) continue;
+      const prev = dailyByProduct.get(i.productId);
+      dailyByProduct.set(i.productId, { name: i.name, quantity: (prev?.quantity || 0) + i.quantity, endsAt: i.endsAt === null ? prev?.endsAt ?? null : Math.max(prev?.endsAt || 0, i.endsAt) });
+    } else {
+      const prev = goodsByProduct.get(i.productId);
+      goodsByProduct.set(i.productId, { name: i.name, category: i.category, quantity: (prev?.quantity || 0) + i.quantity, at: Math.max(prev?.at || 0, i.startsAt), gift: Boolean(prev?.gift || i.giftedByHuman) });
+    }
+  }
+  const daily = [...dailyByProduct.values()].sort((a, b) => (a.endsAt ?? Infinity) - (b.endsAt ?? Infinity))
+    .map((d) => ({ name: d.name, quantity: d.quantity, daysLeft: d.endsAt === null ? null : Math.max(0, Math.ceil((d.endsAt - now) / 86_400_000)) }));
+  const goods = [...goodsByProduct.values()].sort((a, b) => b.at - a.at).slice(0, 40)
+    .map((g) => ({ name: g.name, category: g.category, quantity: g.quantity, ...(g.gift ? { gift: true } : {}) }));
+  return { todayMeals, daily, goods };
+}
+export type DaydayMonthStats = {
+  month: string;
+  /** Net purchase spending by product category at the time of purchase (refunds already taken back). */
+  spending: { category: string; amount: number }[];
+  transfers: { amount: number; count: number };
+  income: { allowance: number; initialGrant: number; fromHer: number; fromHerCount: number };
+  /** Bought for him with her own virtual balance; never touches his wallet. */
+  gifts: { amount: number; count: number };
+};
+const monthKey = (at: number) => { const d = cstParts(at); return `${d.year}-${String(d.month + 1).padStart(2, "0")}`; };
+/**
+ * Month by month, newest first. Purchases count in the month they were made
+ * and refunds in the month they were refunded, the same way the ledger nets
+ * 本月净支出, so the categories add up to it.
+ */
+export function daydayMonthStats(s: Pick<DaydayState, "orders" | "ledger">): DaydayMonthStats[] {
+  const months = new Map<string, { spending: Map<string, number>; transfers: { amount: number; count: number }; income: DaydayMonthStats["income"]; gifts: { amount: number; count: number } }>();
+  const bucket = (at: number) => {
+    const key = monthKey(at);
+    let m = months.get(key);
+    if (!m) months.set(key, m = { spending: new Map(), transfers: { amount: 0, count: 0 }, income: { allowance: 0, initialGrant: 0, fromHer: 0, fromHerCount: 0 }, gifts: { amount: 0, count: 0 } });
+    return m;
+  };
+  const addLines = (at: number, lines: DaydayLine[], sign: 1 | -1) => {
+    const m = bucket(at);
+    for (const l of lines) m.spending.set(l.category, (m.spending.get(l.category) || 0) + sign * (l.total ?? l.price * l.quantity));
+  };
+  for (const order of s.orders) {
+    if (order.payer === "human") {
+      if (order.status === "paid") { const g = bucket(order.createdAt).gifts; g.amount += order.total; g.count++; }
+      continue;
+    }
+    addLines(order.createdAt, order.lines, 1);
+    if (order.status === "refunded") addLines(order.refundedAt ?? order.createdAt, order.lines, -1);
+  }
+  for (const e of s.ledger) {
+    if (e.type === "transfer_paid") { const t = bucket(e.at).transfers; t.amount -= e.wallet; t.count++; }
+    else if (e.type === "allowance") bucket(e.at).income.allowance += e.wallet;
+    else if (e.type === "initial_grant") bucket(e.at).income.initialGrant += e.wallet;
+    else if (e.type === "transfer_received") { const i = bucket(e.at).income; i.fromHer += e.wallet; i.fromHerCount++; }
+  }
+  const order = (c: string) => { const i = (DAYDAY_CATEGORIES as readonly string[]).indexOf(c); return i < 0 ? DAYDAY_CATEGORIES.length : i; };
+  return [...months.entries()].sort((a, b) => b[0].localeCompare(a[0])).map(([month, m]) => ({
+    month, transfers: m.transfers, income: m.income, gifts: m.gifts,
+    spending: [...m.spending.entries()].filter(([, amount]) => amount !== 0).sort((a, b) => order(a[0]) - order(b[0]) || a[0].localeCompare(b[0])).map(([category, amount]) => ({ category, amount })),
+  }));
+}
 export function daydaySnapshot(s: DaydayState, now = Date.now()) {
   const current = cstParts(now);
   const monthly = s.ledger.filter((e) => { const d = cstParts(e.at); return d.year === current.year && d.month === current.month; });
@@ -360,7 +450,7 @@ export function daydaySnapshot(s: DaydayState, now = Date.now()) {
     transfers: s.transfers.slice(0, 100).map((t) => t.status === "pending" && t.expiresAt <= now ? { ...t, status: "expired" as const } : t),
     categories: [...new Set([...DAYDAY_CATEGORIES, ...s.products.map((p) => p.category)])],
     routine: s.routine, products: s.products, orders: s.orders.slice(0, 200), ledger: s.ledger.slice(0, 300),
-    inventory: daydayInventory(s, now), events: s.events.slice(0, 100), serverTime: now };
+    inventory: daydayInventory(s, now), monthStats: daydayMonthStats(s).slice(0, 24), events: s.events.slice(0, 100), serverTime: now };
 }
 export type DaydaySnapshot = ReturnType<typeof daydaySnapshot>;
 export function canonical(value: unknown): string {
@@ -369,7 +459,7 @@ export function canonical(value: unknown): string {
   return JSON.stringify(value) ?? "null";
 }
 export function daydayCommand(s: DaydayState, action: string, input: Record<string, unknown>, now: number, manager = false, sessionId?: string) {
-  const admin = ["configure", "save_product", "initial_grant", "settle_transfer", "human_send", "human_buy_gift", "human_initialize"].includes(action);
+  const admin = ["configure", "save_product", "delete_product", "initial_grant", "settle_transfer", "human_send", "human_buy_gift", "human_initialize"].includes(action);
   if (admin && !manager) throw new Error("商品、价格、库存和开关只能由店长管理。");
   const requestId = short(input.requestId, 100, "请求编号", true);
   const fingerprint = canonical({ action, ...input });
@@ -382,6 +472,7 @@ export function daydayCommand(s: DaydayState, action: string, input: Record<stri
   switch (action) {
     case "configure": result = configureDayday(s, input, now); break;
     case "save_product": result = saveDaydayProduct(s, input, now); break;
+    case "delete_product": result = deleteDaydayProduct(s, input.id); break;
     case "buy": result = buyDayday(s, input, now); break;
     // Refunds remain available while closed, so the switch cannot trap an existing order.
     case "refund": result = refundDayday(s, input.orderId, now, manager); break;

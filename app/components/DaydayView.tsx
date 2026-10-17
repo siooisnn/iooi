@@ -6,6 +6,7 @@ import { DaydayGlyph } from "./RetroDesktop";
 import { XpDialog } from "./XpDialog";
 import { DaydayManager } from "./DaydayManager";
 import { DaydayFold, DaydayPocket } from "./DaydayPocket";
+import { DaydayStats } from "./DaydayStats";
 import { DaydayIcon } from "./DaydayIcons";
 import type { Settings } from "../lib/app-settings";
 import { daydayPrice, daydayDiscountText, money, type DaydayProduct, type DaydaySnapshot } from "../lib/dayday";
@@ -136,6 +137,7 @@ export function DaydayView({ settings, onBack, onOpenHeartbeat }: {
           {page === "mine" && <>
             <section className="dd-profile"><span aria-hidden="true"><DaydayIcon name="heart" /></span><div><small>MY LITTLE LIFE</small><h3>酥酥的生活口袋</h3><p>每天认真生活一点点。</p></div></section>
             <div className="dd-two"><section className="dd-paper"><p className="dd-muted">钱包余额</p><strong className="dd-number">¥{money(state.available)}</strong></section><section className="dd-paper"><p className="dd-muted">本月净支出</p><strong className="dd-number">¥{money(spent)}</strong></section><section className="dd-paper"><p className="dd-muted">本月收入</p><strong className="dd-number">¥{money(state.monthlyIncome)}</strong></section><section className="dd-paper"><p className="dd-muted">今日支出</p><strong className="dd-number">¥{money(state.todaySpent)}</strong></section></div>
+            <DaydayStats months={state.monthStats} />
             <DaydayPocket state={state} busy={busy} mutate={mutate} />
             <DaydayFold title="收支明细" meta="最近 40 笔">{state.ledger.slice(0, 40).map((e) => <div className="dd-setting" key={e.id}><span>{e.text}<small>{date(e.at)}</small></span><b>{e.wallet >= 0 ? "+" : "−"}¥{money(Math.abs(e.wallet))}</b></div>)}<p className="dd-muted">收入含额度与收到的转账；支出按购买、已收转账减退款统计，银行存取不算收支。</p></DaydayFold>
             <section className="dd-paper"><div className="dd-heading"><h3>心愿单</h3><span>本机保存</span></div>{wishes.length ? cards(products.filter((p) => wishes.includes(p.id))) : <p className="dd-empty">喜欢的东西，先记在这里。</p>}</section>

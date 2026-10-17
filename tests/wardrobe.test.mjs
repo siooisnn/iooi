@@ -13,7 +13,7 @@ const pixels = await import('../app/lib/wardrobe-pixels.ts');
 const { gridsToPng } = await import('../app/lib/wardrobe-png.ts');
 const colors = await import('../app/lib/wardrobe-colors.ts');
 const { handleRpc } = await import('../app/lib/mcp-server.ts');
-const { CHAT_READ_TOOLS } = await import('../app/lib/claude-code.ts').catch(() => ({}));
+const { CHAT_TOOLS } = await import('../app/lib/claude-code.ts').catch(() => ({}));
 const route = await import('../app/api/wardrobe/route.ts');
 process.chdir(home);
 test.after(() => rmSync(scratch, { recursive: true, force: true }));
@@ -103,7 +103,7 @@ test('her page adds, combines and removes; he only looks, from any access level'
     const list = await names(access);
     for (const name of ['wardrobe_list', 'wardrobe_item', 'wardrobe_try']) assert.ok(list.includes(name), `${access} ${name}`);
   }
-  if (CHAT_READ_TOOLS) assert.ok([...CHAT_READ_TOOLS].includes('mcp__iooi__wardrobe_try'));
+  if (CHAT_TOOLS) assert.ok([...CHAT_TOOLS].includes('mcp__iooi__wardrobe_try'));
   assert.match((await call('wardrobe_list', {}, 'read')).result.content[0].text, /空的/);
 
   const bad = await post({ action: 'add', item: { category: 'top' } });

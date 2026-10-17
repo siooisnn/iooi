@@ -53,16 +53,14 @@ test('phone decoration validates the entire patch and keeps a complete dock', ()
   ]) assert.throws(() => decoratePhone(defaults, input));
 });
 
-test('read, life and full MCP scopes see the phone; only full can decorate, including direct calls', async () => {
+test('read, life and full MCP scopes see the phone; chat and full can decorate, his own time cannot', async () => {
   for (const access of ['read', 'life', 'full']) {
     assert.ok((await names(access)).includes('phone_read'));
-    assert.equal((await names(access)).includes('phone_decorate'), access === 'full');
+    assert.equal((await names(access)).includes('phone_decorate'), access !== 'life');
     assert.equal((await call('phone_read', {}, access)).result.isError, false);
   }
-  for (const access of ['read', 'life']) {
-    assert.equal((await call('phone_decorate', { wallpaper: 'deep-sea' }, access)).result.isError, true);
-    assert.equal((await callTool('phone_decorate', { wallpaper: 'deep-sea' }, access)).isError, true);
-  }
+  assert.equal((await call('phone_decorate', { wallpaper: 'deep-sea' }, 'life')).result.isError, true);
+  assert.equal((await callTool('phone_decorate', { wallpaper: 'deep-sea' }, 'life')).isError, true);
   assert.equal(stores.readPhoneSettingsStore(), null);
   assert.equal(route.POST, undefined);
   assert.equal(route.PUT, undefined);

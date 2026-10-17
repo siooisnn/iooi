@@ -19,14 +19,13 @@ const call = (name, args, access) => handleRpc({ jsonrpc: '2.0', id: 1, method: 
 const names = async (access) => (await handleRpc({ jsonrpc: '2.0', id: 1, method: 'tools/list' }, access)).result.tools.map((tool) => tool.name);
 const post = (body) => route.POST(new Request('http://x/api/surf', { method: 'POST', body: JSON.stringify(body) }));
 
-test('the chat only reads the forum, his own time can also answer her, full can post', async () => {
+test('the chat reads, answers her and posts on the forum; his own time only answers; nobody deletes from chat', async () => {
   const read = await names('read');
-  assert.ok(read.includes('surf_board') && read.includes('surf_thread'));
-  assert.ok(!read.includes('surf_post') && !read.includes('surf_reply'));
+  assert.ok(['surf_board', 'surf_thread', 'surf_reply', 'surf_post'].every((name) => read.includes(name)));
+  assert.ok(!read.some((name) => name.includes('delete')));
   const life = await names('life');
   assert.ok(life.includes('surf_reply') && !life.includes('surf_post'));
   assert.ok((await names('full')).includes('surf_post'));
-  assert.equal((await call('surf_post', { title: 'x', content: 'y' }, 'read')).result.isError, true);
   assert.equal((await call('surf_post', { title: 'x', content: 'y' }, 'life')).result.isError, true);
 });
 
@@ -51,6 +50,12 @@ test('his post lands on the board and in his life log, her reply waits for him',
   assert.match(thread, /https:\/\/old\.example\//);
 
   assert.equal((await call('surf_reply', { thread_id: id, content: '我也是' }, 'life')).result.isError, false);
+  assert.doesNotMatch((await call('surf_board', {}, 'read')).result.content[0].text, /等你回/);
+
+  // From the private chat he can answer her too, and it lands as his floor.
+  assert.equal((await (await post({ action: 'reply', thread: id, content: '你怎么不回我' })).json()).ok, true);
+  assert.equal((await call('surf_reply', { thread_id: id, content: '来了来了' }, 'read')).result.isError, false);
+  assert.match((await call('surf_thread', { thread_id: id }, 'read')).result.content[0].text, /来了来了/);
   assert.doesNotMatch((await call('surf_board', {}, 'read')).result.content[0].text, /等你回/);
 });
 

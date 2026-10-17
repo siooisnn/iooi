@@ -249,3 +249,12 @@
 :root[data-theme] .dd-screen .dd-fold-sub { margin-top: 8px; padding-top: 8px; border-top: 1px dashed var(--dd-line); }
 :root[data-theme] .dd-screen .dd-fold-sub > summary { color: var(--dd-muted); font-size: 12px; font-weight: 500; }
 @media (prefers-reduced-motion: reduce) { :root[data-theme] .dd-screen .dd-fold-caret { transition: none; } }
+:root[data-theme] .dd-screen .dd-stat-title { display: flex; justify-content: space-between; margin: 14px 0 2px; padding-bottom: 6px; border-bottom: 1px solid var(--dd-line); color: var(--dd-blue-deep); font-size: 12px; font-weight: 600; }
+:root[data-theme] .dd-screen .dd-stat-title:first-of-type { margin-top: 6px; }
+:root[data-theme] .dd-screen .dd-stat-title span { font-variant-numeric: tabular-nums; }
+:root[data-theme] .dd-screen .dd-stat { gap: 4px; padding: 8px 0; }
+:root[data-theme] .dd-screen .dd-stat-head { display: flex; justify-content: space-between; gap: 12px; }
+:root[data-theme] .dd-screen .dd-stat-head b { font-weight: 500; font-variant-numeric: tabular-nums; }
+:root[data-theme] .dd-screen .dd-stat-head b:last-child { flex: none; font-weight: 600; }
+:root[data-theme] .dd-screen .dd-setting-actions { display: flex; flex: none; gap: 10px; }
+:root[data-theme] .dd-screen .dd-link.dd-danger { color: #b04a4a; }

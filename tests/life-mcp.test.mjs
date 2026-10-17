@@ -31,7 +31,11 @@ test('his own time sees the blog and the shelf, moves his bookmark and writes no
   assert.ok(!life.some((name) => ['blog_write_post', 'blog_comment', 'blog_set_motto', 'reading_delete_note', 'blog_delete_post'].includes(name)));
   const refused = await call('blog_write_post', { title: 'x', content: 'y' }, 'life');
   assert.equal(refused.result.isError, true);
-  assert.ok((await names('read')).every((name) => !['reading_mark', 'reading_note'].includes(name)));
+  // The private chat can move his bookmark and write notes too, but not delete them.
+  const chat = await names('read');
+  assert.ok(chat.includes('reading_mark') && chat.includes('reading_note') && !chat.includes('reading_delete_note'));
+  assert.ok(!chat.some((name) => ['blog_write_post', 'blog_comment', 'blog_set_motto', 'blog_delete_post', 'blog_delete_comment'].includes(name)));
+  assert.equal((await call('reading_delete_note', { book_id: book.id, note_id: 'x' }, 'read')).result.isError, true);
   assert.ok((await names('full')).includes('reading_delete_note'));
 });
 

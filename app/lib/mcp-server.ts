@@ -263,13 +263,20 @@ const TOOLS = [
   },
 ];
 
-// The private chat gets these only: writing from chat goes through the reply
-// markers so she sees a card (and confirms Summer writes) instead of a silent
-// tool call.
+// Looking only: everything that cannot change anything.
 export const READONLY_TOOL_NAMES = new Set([
   "blog_read", "blog_read_post", "reading_shelf", "reading_book", "reading_read", "surf_board", "surf_thread",
   "wardrobe_list", "wardrobe_item", "wardrobe_try",
   "phone_read", "dayday_read", "dayday_look",
+]);
+// The private chat (the "read" key): looking, plus the things whose result
+// she sees where it lands (a forum floor, a note in the book, his phone).
+// Blog writes, Summer and dayday money stay on the reply markers, so she
+// gets a card in the chat (and confirms Summer writes) instead of a silent
+// tool call. No deleting here either.
+export const CHAT_TOOL_NAMES = new Set([
+  ...READONLY_TOOL_NAMES,
+  "surf_reply", "surf_post", "reading_mark", "reading_note", "phone_decorate",
 ]);
 // His own time: read everything, move his bookmark, write notes, answer her
 // on the forum. No blog posts, no deleting. (His own time's thread comes
@@ -277,7 +284,7 @@ export const READONLY_TOOL_NAMES = new Set([
 export const LIFE_TOOL_NAMES = new Set([...READONLY_TOOL_NAMES, "reading_mark", "reading_note", "surf_reply"]);
 
 function allowedTools(access: McpAccess) {
-  return access === "read" ? READONLY_TOOL_NAMES : access === "life" ? LIFE_TOOL_NAMES : null;
+  return access === "read" ? CHAT_TOOL_NAMES : access === "life" ? LIFE_TOOL_NAMES : null;
 }
 
 /** Bookmarks and notes land in his life log by themselves; a failed log never fails the tool. */
@@ -429,7 +436,7 @@ export async function callTool(name: string, args: Record<string, unknown>, acce
     case "phone_read":
       return reply(JSON.stringify(readPhone(), null, 2));
     case "phone_decorate": {
-      if (access !== "full") return reply("布置手机需要完整的 MCP 连接；这个连接只能看手机。", true);
+      if (access === "life") return reply("自己过日子的时候只能看手机，布置手机在聊天里或完整连接里做。", true);
       try { return reply(JSON.stringify({ message: "手机布置好了。", settings: await changePhoneDecoration(args) }, null, 2)); }
       catch (error) { return failure(error); }
     }
@@ -494,8 +501,8 @@ export async function handleRpc(raw: unknown, access: McpAccess = "full"): Promi
       case "tools/call": {
         const params = req.params || {};
         const args = params.arguments && typeof params.arguments === "object" ? params.arguments as Record<string, unknown> : {};
-        if (access === "read" && !READONLY_TOOL_NAMES.has(text(params.name))) {
-          return ok(req.id, reply("聊天里只能看博客、书架、论坛、衣柜、手机和 dayday；买东西、退款、存取款、发红包用回复里的 dayday 标记；要发日志或留言，用回复里的卡片", true));
+        if (access === "read" && !CHAT_TOOL_NAMES.has(text(params.name))) {
+          return ok(req.id, reply("聊天里这个工具用不了：发日志、留言、改签名用回复里的博客标记；买东西、退款、存取款、发红包用回复里的 dayday 标记；删除类的操作聊天里不做", true));
         }
         if (access === "life" && !LIFE_TOOL_NAMES.has(text(params.name))) {
           return ok(req.id, reply("自己过日子的时候只能看博客、书架、论坛、衣柜和手机，挪你自己的进度、写批注、回她的帖", true));
