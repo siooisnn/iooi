@@ -252,6 +252,11 @@ export function buyDayday(s: DaydayState, input: Record<string, unknown>, now: n
   event(s, `${human ? "她买来送给酥酥" : "买了"}${lines.map((p) => `「${p.name}」×${p.quantity}`).join("、")}，花费 ¥${money(total)}。`, now, !human, order.id, reason);
   return order;
 }
+/** Mirrors refundDayday's checks so the UI and chat context never offer a refund that would fail. */
+export function daydayRefundable(order: Pick<DaydayOrder, "status" | "payer" | "lines" | "createdAt">, now: number, manager = false) {
+  return order.status === "paid" && (manager || order.payer !== "human") && !order.lines.some((p) => p.category === "饮食")
+    && now >= order.createdAt && now - order.createdAt <= DAYDAY_REFUND_MS;
+}
 export function refundDayday(s: DaydayState, id: unknown, now: number, manager = false) {
   const order = s.orders.find((o) => o.id === id);
   if (!order) throw new Error("订单不存在。");

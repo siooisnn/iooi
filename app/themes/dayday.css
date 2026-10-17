@@ -233,3 +233,19 @@
 :root[data-theme] .dd-screen .dd-human-account > .dd-collapse { margin-top: 14px; padding-top: 10px; border-top: 1px dashed var(--dd-line); }
 :root[data-theme] .dd-screen .dd-discount-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto; align-items: end; gap: 8px; }
 :root[data-theme] .dd-screen .dd-pricing { display: grid; gap: 10px; }
+
+/* Folded cards for lists that keep growing: heading, count, caret. */
+:root[data-theme] .dd-screen .dd-fold > summary { display: flex; align-items: center; gap: 8px; min-height: 22px; cursor: pointer; list-style: none; -webkit-user-select: none; user-select: none; }
+:root[data-theme] .dd-screen .dd-fold > summary::-webkit-details-marker { display: none; }
+:root[data-theme] .dd-screen .dd-fold > summary h3 { margin: 0; flex: 1; min-width: 0; }
+:root[data-theme] .dd-screen .dd-fold-caret { flex: none; width: 0; height: 0; border-top: 4px solid transparent; border-bottom: 4px solid transparent; border-left: 6px solid var(--dd-blue-deep); transition: transform .15s; }
+:root[data-theme] .dd-screen .dd-fold[open] .dd-fold-caret { transform: rotate(90deg); }
+:root[data-theme] .dd-screen .dd-fold-meta { flex: none; color: var(--dd-muted); font-size: 10px; }
+:root[data-theme] .dd-screen .dd-fold-action { flex: none; padding: 6px 12px; }
+:root[data-theme] .dd-screen .dd-fold > summary:focus-visible { outline: 1px dotted var(--dd-blue-deep); outline-offset: 3px; }
+:root[data-theme] .dd-screen .dd-fold-body { margin-top: 12px; }
+:root[data-theme] .dd-screen .dd-fold-chips { padding-top: 0; }
+:root[data-theme] .dd-screen .dd-fold-more { display: block; margin: 10px auto 0; }
+:root[data-theme] .dd-screen .dd-fold-sub { margin-top: 8px; padding-top: 8px; border-top: 1px dashed var(--dd-line); }
+:root[data-theme] .dd-screen .dd-fold-sub > summary { color: var(--dd-muted); font-size: 12px; font-weight: 500; }
+@media (prefers-reduced-motion: reduce) { :root[data-theme] .dd-screen .dd-fold-caret { transition: none; } }

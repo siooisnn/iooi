@@ -82,6 +82,29 @@
 :root[data-theme] .msg-dayday-total strong { color: var(--dd-card-accent); font-size: 16px; font-variant-numeric: tabular-nums; }
 :root[data-theme] .msg-dayday-total small { margin-right: 2px; font-size: 11px; }
 
+/* Refund slip: soft violet; bank slip: teal. Both are finished records. */
+:root[data-theme] .msg-dayday-card.is-refund {
+  --dd-card-line: #9a86b8;
+  --dd-card-strip: linear-gradient(180deg, #a58ad6 0%, #7d5fba 55%, #6c4fa8 100%);
+  --dd-card-strip-ink: #fff;
+  --dd-card-paper: linear-gradient(180deg, #fcfaff, #f1ecf9);
+  --dd-card-ink: #34284a;
+  --dd-card-accent: #6c4fa8;
+}
+:root[data-theme] .msg-dayday-card.is-bank {
+  --dd-card-line: #6aa3a0;
+  --dd-card-strip: linear-gradient(180deg, #5cbcb3 0%, #2f9488 55%, #26806f 100%);
+  --dd-card-strip-ink: #fff;
+  --dd-card-paper: linear-gradient(180deg, #f8fdfc, #e8f4f2);
+  --dd-card-ink: #1f3b38;
+  --dd-card-accent: #26806f;
+}
+:root[data-theme] .msg-dayday-detail { margin: 0; color: var(--dd-card-ink); overflow-wrap: anywhere; }
+
+/* Bubble chat: the sender's avatar sits beside the card, like any message. */
+:root[data-theme] .msg-dayday-row > .msg-dayday-avatar { margin-right: 8px; }
+:root[data-theme] .msg-dayday-turn .xp-msg-says + .msg-dayday-row { padding-top: 2px; }
+
 /* Retro room with avatars: line the card up under the speaker name column. */
 :root[data-theme] .app-bg .chat-container[data-chat-ui="xp"][data-chat-view="room"] .chat-messages.xp-log-avatars .msg-dayday-row {
   padding-left: var(--xp-says-indent);

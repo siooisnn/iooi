@@ -1,13 +1,14 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import NextImage from "next/image";
 import { apiFetch } from "../lib/client-api";
 import { postDayday } from "../lib/dayday-client";
 import { isHumanTransfer, money, type DaydayTransfer } from "../lib/dayday";
 import type { DaydayCard } from "../lib/dayday-chat";
 
-export function DaydayMoneyCard({ card }: { card: DaydayCard }) {
+/** `avatar` is the sender's picture, shown when the chat has no 说 line for it. */
+export function DaydayMoneyCard({ card, avatar }: { card: DaydayCard; avatar?: ReactNode }) {
   const [transfer, setTransfer] = useState<DaydayTransfer | null>(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -40,13 +41,13 @@ export function DaydayMoneyCard({ card }: { card: DaydayCard }) {
     } catch (e) { setError(e instanceof Error ? e.message : "操作失败，请刷新状态再试。"); }
     finally { lock.current = false; setBusy(false); }
   }
-  if (!card.ok || !card.id) return <div className="msg-dayday-row"><div className="msg-dayday-error" role="status">{card.text}</div></div>;
+  if (!card.ok || !card.id) return <div className="msg-dayday-row">{avatar}<div className="msg-dayday-error" role="status">{card.text}</div></div>;
   const red = transfer ? transfer.kind === "redpacket" : !card.text.includes("转账");
   const outgoing = transfer ? isHumanTransfer(transfer) : false;
   const labels = { pending: outgoing ? "等待酥酥收取" : "等待你收取", accepted: outgoing ? "酥酥已收取" : "已收取", returned: "已退回 · 未扣款", expired: "已到期退回 · 未扣款" };
   const title = outgoing ? red ? "你给酥酥的红包" : "你给酥酥的转账" : red ? "酥酥的红包" : "酥酥的转账";
   const showAmount = transfer && (outgoing || !red || transfer.status === "accepted");
-  return <div className="msg-dayday-row"><article className={`msg-dayday-card ${red ? "is-redpacket" : "is-transfer"}${transfer && transfer.status !== "pending" && transfer.status !== "accepted" ? " is-closed" : ""}`} aria-label={title}>
+  return <div className="msg-dayday-row">{avatar}<article className={`msg-dayday-card ${red ? "is-redpacket" : "is-transfer"}${transfer && transfer.status !== "pending" && transfer.status !== "accepted" ? " is-closed" : ""}`} aria-label={title}>
     <header className="msg-dayday-head"><DaydayMoneyIcon kind={red ? "redpacket" : "transfer"} /><b>{transfer ? title : "正在读取…"}</b></header>
     <div className="msg-dayday-body">
       {transfer?.message && <p className="msg-dayday-note">{transfer.message}</p>}
@@ -59,10 +60,10 @@ export function DaydayMoneyCard({ card }: { card: DaydayCard }) {
 }
 
 /** A purchase receipt: a snapshot of what was bought in chat, not a live order. */
-export function DaydayOrderCard({ card }: { card: DaydayCard }) {
+export function DaydayOrderCard({ card, avatar }: { card: DaydayCard; avatar?: ReactNode }) {
   const order = card.order;
-  if (!card.ok || !order) return <div className="msg-dayday-row"><div className="msg-dayday-error" role="status">{card.text}</div></div>;
-  return <div className="msg-dayday-row"><article className="msg-dayday-card is-order" aria-label="酥酥的购物小票">
+  if (!card.ok || !order) return <div className="msg-dayday-row">{avatar}<div className="msg-dayday-error" role="status">{card.text}</div></div>;
+  return <div className="msg-dayday-row">{avatar}<article className="msg-dayday-card is-order" aria-label="酥酥的购物小票">
     <header className="msg-dayday-head"><DaydayBagIcon /><b>酥酥的购物小票</b></header>
     <div className="msg-dayday-body">
       <ul className="msg-dayday-lines">
@@ -76,6 +77,21 @@ export function DaydayOrderCard({ card }: { card: DaydayCard }) {
       <div className="msg-dayday-total"><span>合计</span><strong><small>¥</small>{money(order.total)}</strong></div>
     </div>
     <footer className="msg-dayday-foot"><span role="status">已付款 · 从酥酥钱包</span><small>dayday</small></footer>
+  </article></div>;
+}
+
+/** A refund or bank slip: a snapshot of what already happened, not a live record. */
+export function DaydayNoticeCard({ card, avatar }: { card: DaydayCard; avatar?: ReactNode }) {
+  const notice = card.notice;
+  if (!card.ok || !notice) return <div className="msg-dayday-row">{avatar}<div className="msg-dayday-error" role="status">{card.text}</div></div>;
+  const refund = notice.kind === "refund";
+  return <div className="msg-dayday-row">{avatar}<article className={`msg-dayday-card ${refund ? "is-refund" : "is-bank"}`} aria-label={notice.title}>
+    <header className="msg-dayday-head">{refund ? <DaydayBagIcon /> : <DaydayMoneyIcon kind="transfer" />}<b>{notice.title}</b></header>
+    <div className="msg-dayday-body">
+      <p className="msg-dayday-detail">{notice.detail}</p>
+      <strong className="msg-dayday-amount"><small>{refund ? "+¥" : "¥"}</small>{money(notice.amount)}</strong>
+    </div>
+    <footer className="msg-dayday-foot"><span role="status">{refund ? "已整单退款 · 退回酥酥钱包" : "钱包与银行间划转"}</span><small>dayday</small></footer>
   </article></div>;
 }
 

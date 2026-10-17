@@ -5,10 +5,12 @@ import NextImage from "next/image";
 import type { FormEvent } from "react";
 import { XpDialog } from "./XpDialog";
 import { DaydayHumanAccount } from "./DaydayHumanAccount";
+import { DaydayChips, DaydayFold } from "./DaydayPocket";
 import { DAYDAY_CATEGORIES, daydayDiscountText, money, type DaydayProduct, type DaydaySnapshot } from "../lib/dayday";
 import { apiFetch } from "../lib/client-api";
 import { prepareImageForUpload } from "../lib/image-compress";
 
+const PAGE = 30;
 type Mutate = (action: string, input: Record<string, unknown>, message?: string) => Promise<boolean>;
 function ProductEditor({ product, busy, mutate, onClose, notice }: {
   product: DaydayProduct | null; busy: boolean; mutate: Mutate; onClose: () => void; notice: string;
@@ -68,14 +70,25 @@ function ProductEditor({ product, busy, mutate, onClose, notice }: {
 
 export function DaydayManager({ state, mutate, busy, notice }: { state: DaydaySnapshot; mutate: Mutate; busy: boolean; notice: string }) {
   const [editing, setEditing] = useState<{ product: DaydayProduct | null } | null>(null);
+  const [category, setCategory] = useState("全部");
+  const [shown, setShown] = useState(PAGE);
+  // Only categories that hold products; a stale filter falls back to 全部.
+  const categories = [...new Set([...DAYDAY_CATEGORIES, ...state.products.map((p) => p.category)])].filter((c) => state.products.some((p) => p.category === c));
+  const current = category === "全部" || categories.includes(category) ? category : "全部";
+  const visible = current === "全部" ? state.products : state.products.filter((p) => p.category === current);
   return <>
     <DaydayHumanAccount state={state} />
     <section className="dd-paper"><h3>首次额度</h3><p className="dd-muted">由你手动发放一次 ¥2000，独立于每月15日的额度；关闭期间也可先准备好。不会自动开启 dayday。</p>
       {state.initialGrant ? <p className="dd-muted">已发放 ¥{money(state.initialGrant.amount)} · {new Date(state.initialGrant.at).toLocaleString("zh-CN", { timeZone: "Asia/Shanghai" })}</p> : <button type="button" className="dd-primary" disabled={busy} onClick={() => { if (window.confirm("给酥酥发放一次首次额度 ¥2000？不影响以后每月15日的额度，也不会开启 dayday。")) void mutate("initial_grant", {}, "首次额度 ¥2000 已到账，仅可发放一次。"); }}>发放首次额度 ¥2000</button>}
     </section>
-    <section className="dd-paper"><div className="dd-heading"><h3>分类与商品管理</h3><button type="button" className="dd-primary" disabled={busy} onClick={() => setEditing({ product: null })}>＋ 上传商品</button></div><p className="dd-muted">选择分类，设置单价、多件折扣、库存、上／下架和日用品消耗时长。</p>
-      {!state.products.length ? <p className="dd-empty">还没有商品，先布置酥酥的小货架吧。</p> : state.products.map((p) => <div className="dd-setting" key={p.id}><span><b>{p.name}</b><small>{p.category} · ¥{money(p.price)} · {p.stock === null ? "不限量" : `库存 ${p.stock}`}{daydayDiscountText(p) ? ` · ${daydayDiscountText(p)}` : ""} · {p.active ? "已上架" : "已下架"}{p.usage ? ` · 每份 ${p.usage.amount}${p.usage.unit === "month" ? "个月" : "天"}` : ""}</small></span><button type="button" className="dd-link" disabled={busy} onClick={() => setEditing({ product: p })}>编辑</button></div>)}
-    </section>
+    <DaydayFold title="分类与商品管理" meta={`${state.products.length} 件`}
+      action={<button type="button" className="dd-primary dd-fold-action" disabled={busy} onClick={(e) => { e.preventDefault(); setEditing({ product: null }); }}>＋ 上传商品</button>}>
+      <p className="dd-muted">选择分类，设置单价、多件折扣、库存、上／下架和日用品消耗时长。</p>
+      {state.products.length > 0 && <DaydayChips label="按分类查看商品" value={current} onChange={(id) => { setCategory(id); setShown(PAGE); }}
+        options={[{ id: "全部", name: "全部", count: state.products.length }, ...categories.map((c) => ({ id: c, name: c, count: state.products.filter((p) => p.category === c).length }))]} />}
+      {!state.products.length ? <p className="dd-empty">还没有商品，先布置酥酥的小货架吧。</p> : !visible.length ? <p className="dd-empty">这个分类还没有商品。</p> : visible.slice(0, shown).map((p) => <div className="dd-setting" key={p.id}><span><b>{p.name}</b><small>{p.category} · ¥{money(p.price)} · {p.stock === null ? "不限量" : `库存 ${p.stock}`}{daydayDiscountText(p) ? ` · ${daydayDiscountText(p)}` : ""} · {p.active ? "已上架" : "已下架"}{p.usage ? ` · 每份 ${p.usage.amount}${p.usage.unit === "month" ? "个月" : "天"}` : ""}</small></span><button type="button" className="dd-link" disabled={busy} onClick={() => setEditing({ product: p })}>编辑</button></div>)}
+      {shown < visible.length && <button type="button" className="dd-link dd-fold-more" onClick={() => setShown(shown + PAGE)}>再看 {Math.min(PAGE, visible.length - shown)} 件（还有 {visible.length - shown}）</button>}
+    </DaydayFold>
     <section className="dd-paper"><h3>生活心跳与通知</h3><p className="dd-muted">总开关在控制面板 → day day。关闭时不唤醒、不发月度额度；已有日用品继续按购买规则计算余量。</p>
       {([{ key: "meals", label: "早、中、晚考虑吃饭" }, { key: "walks", label: "白天与晚间逛一逛" }, { key: "notify", label: "下单、退款、余额不足和客服通知" }] as const).map(({ key, label }) => <label className="dd-setting" key={key}><span>{label}</span><input type="checkbox" disabled={busy} checked={state.routine[key]} onChange={(e) => { void mutate("configure", { routine: { [key]: e.target.checked } }, "生活安排已保存。"); }} /></label>)}
       <label className="dd-setting"><span>每天最多几次生活机会<small>沿用现有半小时心跳；错过时段不集中补醒。</small></span><select disabled={busy} aria-label="每天生活唤醒机会" value={state.routine.times} onChange={(e) => { void mutate("configure", { routine: { times: Number(e.target.value) } }, "生活次数已保存。"); }}>{Array.from({ length: 10 }, (_, i) => i + 3).map((n) => <option key={n} value={n}>{n} 次</option>)}</select></label>

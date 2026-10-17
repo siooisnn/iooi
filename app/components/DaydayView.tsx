@@ -5,6 +5,7 @@ import NextImage from "next/image";
 import { DaydayGlyph } from "./RetroDesktop";
 import { XpDialog } from "./XpDialog";
 import { DaydayManager } from "./DaydayManager";
+import { DaydayFold, DaydayPocket } from "./DaydayPocket";
 import { DaydayIcon } from "./DaydayIcons";
 import type { Settings } from "../lib/app-settings";
 import { daydayPrice, daydayDiscountText, money, type DaydayProduct, type DaydaySnapshot } from "../lib/dayday";
@@ -12,7 +13,7 @@ import { getDayday, postDayday } from "../lib/dayday-client";
 
 const PAGES = [
   { id: "shop", name: "商城", icon: "shop" }, { id: "cart", name: "购物车", icon: "bag" },
-  { id: "bank", name: "银行", icon: "bank" }, { id: "mine", name: "我的", icon: "heart" },
+  { id: "bank", name: "银行", icon: "bank" }, { id: "mine", name: "他的", icon: "heart" },
   { id: "settings", name: "设置", icon: "gear" },
 ] as const;
 type Page = typeof PAGES[number]["id"];
@@ -135,9 +136,8 @@ export function DaydayView({ settings, onBack, onOpenHeartbeat }: {
           {page === "mine" && <>
             <section className="dd-profile"><span aria-hidden="true"><DaydayIcon name="heart" /></span><div><small>MY LITTLE LIFE</small><h3>酥酥的生活口袋</h3><p>每天认真生活一点点。</p></div></section>
             <div className="dd-two"><section className="dd-paper"><p className="dd-muted">钱包余额</p><strong className="dd-number">¥{money(state.available)}</strong></section><section className="dd-paper"><p className="dd-muted">本月净支出</p><strong className="dd-number">¥{money(spent)}</strong></section><section className="dd-paper"><p className="dd-muted">本月收入</p><strong className="dd-number">¥{money(state.monthlyIncome)}</strong></section><section className="dd-paper"><p className="dd-muted">今日支出</p><strong className="dd-number">¥{money(state.todaySpent)}</strong></section></div>
-            <section className="dd-paper"><div className="dd-heading"><h3>我的物品与日用品余量</h3><span>{state.inventory.length} 项</span></div>{state.inventory.length ? state.inventory.map((item) => <div className="dd-inventory" key={`${item.orderId}-${item.productId}`}><b>{item.name} ×{item.quantity}{item.giftedByHuman ? " · 你送的" : ""}</b>{item.endsAt ? <><progress max="1" value={item.remaining} aria-label={`${item.name}剩余比例`} /><small>{item.remaining === 0 ? "已用完" : item.startsAt > state.serverTime ? `接着上一份，${date(item.startsAt)} 开始使用` : `预计还可用 ${item.remainingDays} 天`} · 到 {date(item.endsAt)}</small></> : <small>已入库 · 不自动消耗</small>}</div>) : <p className="dd-empty">买回来的物品与日用品余量会放在这里。</p>}</section>
-            <section className="dd-paper"><div className="dd-heading"><h3>订单与整单退款</h3><span>最近 {state.orders.length} 单</span></div>{!state.orders.length && <p className="dd-empty">还没有订单。</p>}{state.orders.map((order) => <div className="dd-order" key={order.id}><div className="dd-heading"><b>¥{money(order.total)}{order.payer === "human" ? " · 你送的礼物" : ""}</b><span>{order.status === "refunded" ? "已退款" : "已付款"} · {date(order.createdAt)}</span></div><p>{order.lines.map((p) => `${p.name} ×${p.quantity}`).join("、")}</p><small>订单 {order.id}</small>{order.reason && <p className="dd-muted">{order.reason}</p>}{order.status === "paid" && !order.lines.some((p) => p.category === "饮食") && state.serverTime - order.createdAt <= 600_000 && <button type="button" className="dd-link" disabled={busy} onClick={() => { if (window.confirm(`退回这整单 ¥${money(order.total)}？物品也会退回。`)) void mutate("refund", { orderId: order.id }, "整单已退款，余额与库存已恢复。"); }}>整单退款</button>}</div>)}</section>
-            <details className="dd-paper dd-collapse"><summary>收支明细</summary>{state.ledger.slice(0, 40).map((e) => <div className="dd-setting" key={e.id}><span>{e.text}<small>{date(e.at)}</small></span><b>{e.wallet >= 0 ? "+" : "−"}¥{money(Math.abs(e.wallet))}</b></div>)}<p className="dd-muted">收入含额度与收到的转账；支出按购买、已收转账减退款统计，银行存取不算收支。</p></details>
+            <DaydayPocket state={state} busy={busy} mutate={mutate} />
+            <DaydayFold title="收支明细" meta="最近 40 笔">{state.ledger.slice(0, 40).map((e) => <div className="dd-setting" key={e.id}><span>{e.text}<small>{date(e.at)}</small></span><b>{e.wallet >= 0 ? "+" : "−"}¥{money(Math.abs(e.wallet))}</b></div>)}<p className="dd-muted">收入含额度与收到的转账；支出按购买、已收转账减退款统计，银行存取不算收支。</p></DaydayFold>
             <section className="dd-paper"><div className="dd-heading"><h3>心愿单</h3><span>本机保存</span></div>{wishes.length ? cards(products.filter((p) => wishes.includes(p.id))) : <p className="dd-empty">喜欢的东西，先记在这里。</p>}</section>
             <section className="dd-paper dd-life"><div><h3>酥酥的生活动态</h3><p>吃饭、逛街、购物与客服记录都在心跳日志的 dayday 板块。</p></div><button type="button" onClick={onOpenHeartbeat}>打开心跳日志 ↗</button></section>
           </>}

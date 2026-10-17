@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect, useMemo } from "react";
 import { TypingKitty } from "./TypingKitty";
 import { ChatClawd } from "./TaskbarClawd";
-import { DaydayMoneyCard, DaydayMoneyIcon, DaydayOrderCard } from "./DaydayMoneyCard";
+import { DaydayMoneyCard, DaydayMoneyIcon, DaydayNoticeCard, DaydayOrderCard } from "./DaydayMoneyCard";
 import { DaydaySendDialog } from "./DaydaySendDialog";
 import { sendHearts } from "../lib/cute-fx";
 import { ClaudeUsageCircle, ClaudeUsageDetails, useClaudeUsage } from "./ClaudeUsageBadge";
@@ -1085,8 +1085,24 @@ export function ChatView({
         )}
         {displayMessages.map(({ message, index }, displayIndex) => {
           if (message.source === "summer_write_ignored") return null;
-          if (message.source === "dayday_card" && message.dayday?.order) return <DaydayOrderCard key={message.dayday.id || index} card={message.dayday} />;
-          if (message.source === "dayday_card" && message.dayday) return <DaydayMoneyCard key={message.dayday.id || index} card={message.dayday} />;
+          if (message.source === "dayday_card" && message.dayday) {
+            // Money cards always name their sender: both directions sit in the
+            // same column, so without this a card reads as part of the last run.
+            const fromUser = message.role === "user";
+            const avatar = retro ? undefined : fromUser
+              ? settings.userAvatar ? <img src={settings.userAvatar} className="avatar avatar-img msg-dayday-avatar" alt="" /> : <div className="avatar avatar-user msg-dayday-avatar" aria-hidden="true" />
+              : assistantAvatar ? <img src={assistantAvatar} className="avatar avatar-img msg-dayday-avatar" alt="" /> : <div className="avatar avatar-ai msg-dayday-avatar" aria-hidden="true" />;
+            const card = message.dayday;
+            return <div key={card.id || `dayday-${index}`} className={`msg-dayday-turn ${fromUser ? "is-user" : "is-ai"}`}>
+              {retro && <div className={`xp-msg-says ${fromUser ? "xp-msg-says-user" : "xp-msg-says-ai"}`}>
+                {saysAvatar(fromUser)}
+                {fromUser ? retroUserName : assistantName} 说{message.time ? ` (${message.time})` : ""}:
+              </div>}
+              {card.order ? <DaydayOrderCard card={card} avatar={avatar} />
+                : card.notice ? <DaydayNoticeCard card={card} avatar={avatar} />
+                : <DaydayMoneyCard card={card} avatar={avatar} />}
+            </div>;
+          }
           if (message.source === "blog_card") {
             const target = blogCardTarget(message.blog);
             const label = message.content.replace(/^（|）$/g, "");

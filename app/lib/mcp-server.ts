@@ -495,7 +495,7 @@ export async function handleRpc(raw: unknown, access: McpAccess = "full"): Promi
         const params = req.params || {};
         const args = params.arguments && typeof params.arguments === "object" ? params.arguments as Record<string, unknown> : {};
         if (access === "read" && !READONLY_TOOL_NAMES.has(text(params.name))) {
-          return ok(req.id, reply("聊天里只能看博客、书架、论坛、衣柜、手机和 dayday；买东西、发红包用回复里的标记；要发日志或留言，用回复里的卡片", true));
+          return ok(req.id, reply("聊天里只能看博客、书架、论坛、衣柜、手机和 dayday；买东西、退款、存取款、发红包用回复里的 dayday 标记；要发日志或留言，用回复里的卡片", true));
         }
         if (access === "life" && !LIFE_TOOL_NAMES.has(text(params.name))) {
           return ok(req.id, reply("自己过日子的时候只能看博客、书架、论坛、衣柜和手机，挪你自己的进度、写批注、回她的帖", true));

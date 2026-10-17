@@ -1,6 +1,6 @@
 import { executeDayday } from "./dayday-store";
-import { daydayOrderCard, daydayTransferCard, parseDaydayBuy, parseDaydayMarker, parseDaydayReceive, type DaydayCard } from "./dayday-chat";
-import { daydayExpectedTotal, type DaydayOrder, type DaydayProduct, type DaydayTransfer } from "./dayday";
+import { daydayBankCard, daydayOrderCard, daydayRefundCard, daydayTransferCard, parseDaydayBank, parseDaydayBuy, parseDaydayMarker, parseDaydayReceive, parseDaydayRefund, type DaydayCard } from "./dayday-chat";
+import { daydayExpectedTotal, toCents, type DaydayOrder, type DaydayProduct, type DaydayTransfer } from "./dayday";
 import { createHash } from "node:crypto";
 
 /**
@@ -11,7 +11,9 @@ export async function runDaydayChatMarker(reply: string, sessionId: string, roun
   const marker = parseDaydayMarker(reply);
   const receive = parseDaydayReceive(reply);
   const buy = parseDaydayBuy(reply);
-  if (!marker && !receive && !buy) return [];
+  const refund = parseDaydayRefund(reply);
+  const bank = parseDaydayBank(reply);
+  if (!marker && !receive && !buy && !refund && !bank) return [];
   const key = createHash("sha256").update(`${sessionId}:${roundId}`).digest("hex");
   const cards: DaydayCard[] = [];
   let step = "红包／转账";
@@ -20,6 +22,18 @@ export async function runDaydayChatMarker(reply: string, sessionId: string, roun
       step = "收取／退回";
       const received = await executeDayday("receive_transfer", { ...receive, requestId: `chat-receive:${key}` }, false, epoch);
       if (!received.ok) return [{ ok: false, text: `收取／退回未完成：${received.error}` }];
+    }
+    if (refund) {
+      step = "退款";
+      const refunded = refund.orderId ? await executeDayday("refund", { orderId: refund.orderId, requestId: `chat-refund:${key}` }, false, epoch) : { ok: false as const, error: "退款块里没有订单id。" };
+      cards.push(refunded.ok ? daydayRefundCard(refunded.result as DaydayOrder) : { ok: false, text: `退款未完成，钱和物品都没动：${refunded.error}` });
+    }
+    if (bank) {
+      step = "存取款";
+      const banked = await executeDayday("bank", { ...bank, requestId: `chat-bank:${key}` }, false, epoch);
+      cards.push(banked.ok
+        ? daydayBankCard(bank.direction as "deposit" | "withdraw", toCents(bank.amount), banked.result as { wallet: number; bank: number })
+        : { ok: false, text: `存取款未完成：${banked.error}` });
     }
     if (buy) {
       step = "购物";

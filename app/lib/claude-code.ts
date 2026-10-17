@@ -319,7 +319,7 @@ const CHAT_TOOL_RULES = [
   "这轮你可以调用只读工具：mcp__iooi__blog_read（博客目录）、mcp__iooi__blog_read_post（某篇日志全文、留言和配图）、mcp__iooi__reading_shelf / mcp__iooi__reading_book / mcp__iooi__reading_read（书架、一本书的进度目录和你的批注、正文）、mcp__iooi__surf_board / mcp__iooi__surf_thread（你们俩的小论坛：帖子列表、一个帖子的全部楼层）、mcp__iooi__wardrobe_list / mcp__iooi__wardrobe_item / mcp__iooi__wardrobe_try（她的衣柜：衣服列表、一件的原照片和备注、一起看几件真实衣服的搭配）、mcp__iooi__dayday_read / mcp__iooi__dayday_look（dayday 的账户订单余量、几件商品的原照片和说明）、mcp__summer__search / mcp__summer__read（翻 Summer 记忆）。",
   "上下文里已经有的内容直接用，别为了确认再查一遍。只有她这条消息需要、而上下文里没有或只有摘要时才去看，比如她让你看某篇日志、问你读到哪了、问你记不记得某件事、问你这件衣服怎么搭。普通聊天不要调用工具。",
   "调用工具前不要先写“我去看看”之类的过渡句，她看不到中间过程，直接在看完之后回她。",
-  "这些工具只能看。要发日志、留言、改签名、记进 Summer，照旧用回复里的标记。聊天里挪不了读书进度、写不了批注，也发不了帖、回不了帖。",
+  "这些工具只能看。要发日志、留言、改签名、记进 Summer，照旧用回复里的标记；dayday 的购物、退款、存取款、红包转账也用回复里的 dayday 标记，不要去调 dayday_refund 之类的写工具。聊天里挪不了读书进度、写不了批注，也发不了帖、回不了帖。",
 ].join("\n");
 
 function chatMcpUrl() {

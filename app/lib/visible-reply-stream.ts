@@ -1,9 +1,11 @@
-type HiddenSection = "summer" | "mood" | "nudge" | "blog_post" | "blog_comment" | "blog_motto" | "dayday_money" | "dayday_receive" | "dayday_buy" | null;
+type HiddenSection = "summer" | "mood" | "nudge" | "blog_post" | "blog_comment" | "blog_motto" | "dayday_money" | "dayday_receive" | "dayday_buy" | "dayday_refund" | "dayday_bank" | null;
 
 const OPENERS = [
   { text: "[dayday_money", section: "dayday_money" as const },
   { text: "[dayday_receive", section: "dayday_receive" as const },
   { text: "[dayday_buy", section: "dayday_buy" as const },
+  { text: "[dayday_refund", section: "dayday_refund" as const },
+  { text: "[dayday_bank", section: "dayday_bank" as const },
   { text: "[iooi_nudge", section: "nudge" as const },
   { text: "[summer_remember", section: "summer" as const },
   { text: "[blog_post", section: "blog_post" as const },
@@ -78,7 +80,7 @@ export function createVisibleReplyStream() {
       buffer = "";
       return "";
     }
-    const visible = buffer.length >= 2 && ["[dayday_money", "[dayday_receive", "[dayday_buy"].some((p) => p.startsWith(buffer.toLowerCase())) ? "" : buffer;
+    const visible = buffer.length >= 2 && ["[dayday_money", "[dayday_receive", "[dayday_buy", "[dayday_refund", "[dayday_bank"].some((p) => p.startsWith(buffer.toLowerCase())) ? "" : buffer;
     buffer = "";
     return visible;
   }
