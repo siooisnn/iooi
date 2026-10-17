@@ -224,3 +224,11 @@
   :root[data-theme] .dd-screen .dd-product { transition: none; }
   :root[data-theme] .dd-screen .dd-product:hover { transform: none; }
 }
+
+/* Keep long account histories tucked away until requested. */
+:root[data-theme] .dd-screen .dd-collapse { min-width: 0; }
+:root[data-theme] .dd-screen .dd-collapse > summary { padding: 4px 0; cursor: pointer; color: var(--dd-blue-deep); font-size: 13px; font-weight: 600; }
+:root[data-theme] .dd-screen .dd-collapse[open] > summary { margin-bottom: 10px; }
+:root[data-theme] .dd-screen .dd-human-account > .dd-collapse { margin-top: 14px; padding-top: 10px; border-top: 1px dashed var(--dd-line); }
+:root[data-theme] .dd-screen .dd-discount-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto; align-items: end; gap: 8px; }
+:root[data-theme] .dd-screen .dd-pricing { display: grid; gap: 10px; }

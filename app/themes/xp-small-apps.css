@@ -4,10 +4,13 @@
    come from reading-room.css. Only what's their own lives here. */
 
 /* ━━ heartbeat: his own doings, a day at a time ━━ */
-:root[data-theme] .hb-screen .rd-tabs { overflow-x: auto; padding-top: 3px; scrollbar-width: none; }
+:root[data-theme] .hb-screen .hb-content { overflow: hidden; }
+:root[data-theme] .hb-screen .rd-tabs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; padding: 3px 0 6px; overflow: visible; }
 :root[data-theme] .hb-screen .rd-tabs::-webkit-scrollbar { display: none; }
-:root[data-theme] .hb-screen .rd-tabs > button { flex: none; padding: 3px 10px; }
-:root[data-theme] .hb-screen .hb-panel { display: flex; flex-direction: column; gap: 14px; padding: 8px; }
+:root[data-theme] .hb-screen .rd-tabs > button { top: 0; min-width: 0; margin: 0; padding: 4px 2px; border: 1px solid #919b9c; border-radius: 3px; }
+:root[data-theme] .hb-screen .rd-tabs > button[aria-selected="true"] { margin: 0; min-height: 28px; border-top: 3px solid #ffc83c; }
+:root[data-theme] .hb-screen .hb-panel { display: flex; flex: 1 1 0; min-height: 0; flex-direction: column; gap: 14px; padding: 8px; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
+:root[data-theme] .hb-screen .hb-day { flex: none; }
 :root[data-theme] .hb-screen .rd-empty > svg { width: 40px; height: 40px; }
 
 :root[data-theme] .hb-screen .hb-day { display: flex; flex-direction: column; gap: 4px; }
@@ -22,6 +25,7 @@
 :root[data-theme] .hb-screen :is(.hb-kind-comment, .hb-kind-post) { --hb-line: #f1c27d; --hb-fill: #fff6e2; --hb-ink: #9a5d00; }
 :root[data-theme] .hb-screen .hb-kind-read { --hb-line: #e3a79c; --hb-fill: #fdf0ed; --hb-ink: #a3301f; }
 :root[data-theme] .hb-screen .hb-kind-surf { --hb-line: #9fc0ef; --hb-fill: #eaf2ff; --hb-ink: #1f56b8; }
+:root[data-theme] .hb-screen .hb-kind-dayday { --hb-line: #e3b2c5; --hb-fill: #fff0f6; --hb-ink: #a4486c; }
 :root[data-theme] .hb-screen .hb-main { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
 :root[data-theme] .hb-screen .hb-text { font-size: 13px; line-height: 1.6; white-space: pre-wrap; overflow-wrap: anywhere; }
 :root[data-theme] .hb-screen .hb-note { color: #666; font-size: 11.5px; line-height: 1.5; overflow-wrap: anywhere; }

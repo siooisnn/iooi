@@ -10,14 +10,17 @@ export type DaydayTransfer = {
   status: "pending" | "accepted" | "returned" | "expired"; settledAt?: number;
 };
 export type DaydayUsage = { amount: number; unit: "day" | "month" };
+export type DaydayDiscount = { quantity: number; percent: number };
 export type DaydayProduct = {
   id: string; name: string; category: string; description: string; photo: string;
   price: number; stock: number | null; active: boolean; usage: DaydayUsage | null;
   createdAt: number; updatedAt: number;
+  discountTiers?: DaydayDiscount[];
 };
 export type DaydayLine = {
   productId: string; name: string; category: string; photo: string; price: number;
   quantity: number; usage: DaydayUsage | null;
+  total?: number; discountPercent?: number;
 };
 export type DaydayOrder = {
   payer?: "susu" | "human";
@@ -79,6 +82,14 @@ export function cstParts(now: number) {
   return { year: d.getUTCFullYear(), month: d.getUTCMonth(), day: d.getUTCDate(), hour: d.getUTCHours(), minute: d.getUTCMinutes() };
 }
 export function money(cents: number) { return (cents / 100).toFixed(2); }
+/** Same-product quantity tiers apply to every item; round the line once to cents. */
+export function daydayPrice(product: Pick<DaydayProduct, "price" | "discountTiers">, quantity: number) {
+  const percent = Math.min(100, ...(product.discountTiers || []).filter((t) => quantity >= t.quantity).map((t) => t.percent));
+  return { percent, total: Math.round(product.price * quantity * percent / 100) };
+}
+export function daydayDiscountText(product: Pick<DaydayProduct, "discountTiers">) {
+  return (product.discountTiers || []).map((t) => `满${t.quantity}件${t.percent / 10}折`).join("，");
+}
 export function toCents(value: unknown): number {
   if (typeof value !== "number" && typeof value !== "string") throw new Error("金额不正确。");
   const text = String(value).trim();
@@ -163,6 +174,16 @@ export function saveDaydayProduct(s: DaydayState, input: Record<string, unknown>
   if (photo && (!/^\/uploads\/[A-Za-z0-9_-][A-Za-z0-9._-]*\.(jpg|jpeg|png|gif|webp)$/i.test(photo) || photo.includes(".."))) throw new Error("请上传商品图片，不支持外部图片地址。");
   const stock = input.stock === null || input.stock === undefined ? null : integer(input.stock, 0, 1_000_000, "库存");
   const price = toCents(input.price);
+  const discountTiers: DaydayDiscount[] = [];
+  const rawTiers = input.discountTiers === undefined ? previous?.discountTiers || [] : input.discountTiers;
+  if (!Array.isArray(rawTiers) || rawTiers.length > 8) throw new Error("多件折扣最多设置8档。");
+  for (const raw of rawTiers) {
+    if (!raw || typeof raw !== "object") throw new Error("多件折扣格式不正确。");
+    const quantity = integer(raw.quantity, 2, 99, "折扣件数"), percent = integer(raw.percent, 1, 99, "折扣百分比");
+    if (discountTiers.some((t) => t.quantity === quantity)) throw new Error("同一件数不能重复设置折扣。");
+    discountTiers.push({ quantity, percent });
+  }
+  discountTiers.sort((a, b) => a.quantity - b.quantity);
   let usage: DaydayUsage | null = null;
   if (input.usage !== null && input.usage !== undefined) {
     const u = input.usage as Record<string, unknown>;
@@ -170,7 +191,7 @@ export function saveDaydayProduct(s: DaydayState, input: Record<string, unknown>
     usage = { amount: integer(u.amount, 1, u.unit === "month" ? 120 : 3650, "每份可用时长"), unit: u.unit as "day" | "month" };
   }
   if (input.active !== undefined && typeof input.active !== "boolean") throw new Error("上架状态不正确。");
-  const product: DaydayProduct = { id: previous?.id || crypto.randomUUID(), name, category, photo, price, stock, usage,
+  const product: DaydayProduct = { id: previous?.id || crypto.randomUUID(), name, category, photo, price, stock, usage, discountTiers,
     description: short(input.description, 2000, "商品说明"), active: input.active !== false, createdAt: previous?.createdAt || now, updatedAt: Math.max(now, (previous?.updatedAt || 0) + 1) };
   if (previous) s.products[s.products.indexOf(previous)] = product; else s.products.push(product);
   return product;
@@ -193,9 +214,10 @@ export function buyDayday(s: DaydayState, input: Record<string, unknown>, now: n
     if (!p) throw new Error("有商品已下架或不存在，请刷新购物车。");
     if (quantity > 99) throw new Error("同一商品每单最多 99 份。");
     if (p.stock !== null && p.stock < quantity) throw new Error(`「${p.name}」库存不足。`);
-    lines.push({ productId: p.id, name: p.name, category: p.category, photo: p.photo, price: p.price, quantity, usage: p.usage ? { ...p.usage } : null });
+    const quote = daydayPrice(p, quantity);
+    lines.push({ productId: p.id, name: p.name, category: p.category, photo: p.photo, price: p.price, quantity, total: quote.total, discountPercent: quote.percent, usage: p.usage ? { ...p.usage } : null });
   }
-  const total = lines.reduce((sum, p) => sum + p.price * p.quantity, 0);
+  const total = lines.reduce((sum, p) => sum + (p.total ?? p.price * p.quantity), 0);
   if (input.expectedTotal !== undefined && input.expectedTotal !== total) throw new Error("商品价格已变化，请刷新购物车后重新确认。");
   if (!Number.isSafeInteger(total) || total > (human ? humanAvailableDayday(s, now) : availableDayday(s, now))) throw new Error(human ? "你的可用虚拟余额不足，请减少商品。" : "余额不足（含待收红包／转账的冻结金额），请减少商品或从银行取款。");
   const reason = short(input.reason, 500, "购物理由");
@@ -303,8 +325,10 @@ export function daydaySnapshot(s: DaydayState, now = Date.now()) {
   const current = cstParts(now);
   const monthly = s.ledger.filter((e) => { const d = cstParts(e.at); return d.year === current.year && d.month === current.month; });
   const monthlySpent = monthly.filter((e) => ["purchase", "refund", "transfer_paid"].includes(e.type)).reduce((sum, e) => sum - e.wallet, 0);
+  const monthlyIncome = monthly.filter((e) => ["allowance", "initial_grant", "transfer_received"].includes(e.type)).reduce((sum, e) => sum + e.wallet, 0);
+  const todaySpent = monthly.filter((e) => cstParts(e.at).day === current.day && ["purchase", "refund", "transfer_paid"].includes(e.type)).reduce((sum, e) => sum - e.wallet, 0);
   return { enabled: s.enabled, epoch: s.epoch, wallet: s.wallet, bank: s.bank, allowance: DAYDAY_ALLOWANCE, payday: 15,
-    monthlySpent, available: availableDayday(s, now), held: heldDayday(s, now), initialGrant: s.initialGrant,
+    monthlySpent, monthlyIncome, todaySpent, available: availableDayday(s, now), held: heldDayday(s, now), initialGrant: s.initialGrant,
     human: { wallet: s.human.wallet, available: humanAvailableDayday(s, now), held: humanHeldDayday(s, now), initialAmount: 50_000, ledger: s.human.ledger.slice(0, 300) },
     transfers: s.transfers.slice(0, 100).map((t) => t.status === "pending" && t.expiresAt <= now ? { ...t, status: "expired" as const } : t),
     categories: [...new Set([...DAYDAY_CATEGORIES, ...s.products.map((p) => p.category)])],
