@@ -1,4 +1,4 @@
-/* 小砖 (clawd): one terracotta crab-ish friend on the grayscale page. */
+/* 小砖: sprite motions plus a dayday-style XP room. */
 
 :root[data-theme] .clawd-room {
   --clawd: #d77757;
@@ -415,6 +415,83 @@
 :root[data-theme] .clawd-talk-history .clawd-talk-last { overflow-wrap: anywhere; white-space: pre-wrap; }
 :root[data-theme] .clawd-error { margin: 8px 0; color: #a43e39; font-size: 12px; line-height: 1.6; }
 :root[data-theme] .clawd-room button:disabled { cursor: default; opacity: .55; }
+
+/* Share dayday's window, dotted paper and toolbar; keep his orange sprite. */
+:root[data-theme] .clawd-screen .dd-body.clawd-room {
+  --clawd-dark: #623a31;
+  --clawd-soft: #fff0e5;
+  gap: 12px;
+  padding: 14px 14px 18px;
+  color: var(--dd-ink);
+}
+:root[data-theme] .clawd-screen .clawd-nav-icon { display: block; width: 22px; height: 22px; shape-rendering: crispEdges; }
+:root[data-theme] .clawd-screen .dd-title-icon .clawd-nav-icon { width: 20px; height: 20px; }
+:root[data-theme] .clawd-screen .clawd-room :is(button, input):focus-visible { outline: 2px dotted var(--dd-pink-deep); outline-offset: 2px; }
+:root[data-theme] .clawd-screen .clawd-stage {
+  padding: 12px 14px 14px;
+  border: 1px solid var(--dd-sky-line);
+  border-radius: 7px;
+  background: linear-gradient(180deg, #e7f4ff, #fbfdff 68%, #fff4dc 68%);
+  box-shadow: 3px 3px 0 #cce4f5;
+}
+:root[data-theme] .clawd-screen .clawd-stage.is-night { background: linear-gradient(180deg, #31466c, #50678e 68%, #5b5670 68%); }
+:root[data-theme] .clawd-screen .clawd-stage-top { margin-bottom: 12px; }
+:root[data-theme] .clawd-screen .clawd-stage-time { gap: 6px; color: #52759b; font-size: 11.5px; }
+:root[data-theme] .clawd-screen .clawd-stage.is-night .clawd-stage-time { color: #d6e6ff; }
+:root[data-theme] .clawd-screen .clawd-state-chip { padding: 2px 7px; border: 1px solid var(--dd-sky-line); border-radius: 3px; background: #fff; color: #43638c; font-size: 11px; letter-spacing: 0; }
+:root[data-theme] .clawd-screen .clawd-state-chip:is(.clawd-state-hungry, .clawd-state-tired, .clawd-state-dirty, .clawd-state-sad) { border-color: #e6ba7b; background: #fff8df; color: #9c6b2b; }
+:root[data-theme] .clawd-screen .clawd-stage.is-night .clawd-state-chip { border-color: #91a7ce; background: #ecf3ff; color: #49638e; }
+:root[data-theme] .clawd-screen .clawd-bubble { padding: 8px 12px; margin-bottom: 10px; border: 1px solid var(--dd-line); border-radius: 5px; background: #fffafb; color: var(--dd-ink); font-size: 12.5px; box-shadow: 2px 2px 0 #ead3df; }
+:root[data-theme] .clawd-screen .clawd-bubble::after { border-right: 1px solid var(--dd-line); border-bottom: 1px solid var(--dd-line); }
+:root[data-theme] .clawd-screen .clawd-pet-button { width: min(48%, 160px); margin-top: 6px; }
+:root[data-theme] .clawd-screen .clawd-floor { height: 42px; border-top-color: #e2c995; background: #fff1d555; }
+:root[data-theme] .clawd-screen .clawd-stage.is-night .clawd-floor { border-top-color: #9da3c0; background: #2b365433; }
+:root[data-theme] .clawd-screen .clawd-hint { margin-top: 10px; color: #9a795b; font-size: 10.5px; }
+:root[data-theme] .clawd-screen .clawd-stage.is-night .clawd-hint { color: #e3d7ef; }
+:root[data-theme] .clawd-screen .clawd-shadow { width: 36%; }
+:root[data-theme] .clawd-screen .clawd-stats { gap: 8px; }
+:root[data-theme] .clawd-screen .clawd-stat { gap: 7px; padding: 9px 10px; border: 1px solid var(--dd-line); border-radius: 5px; box-shadow: 2px 2px 0 var(--dd-shadow); }
+:root[data-theme] .clawd-screen .clawd-stat-label { color: var(--dd-soft); font-size: 11px; }
+:root[data-theme] .clawd-screen .clawd-stat-value { color: #416b9a; font-size: 17px; font-family: Tahoma, sans-serif; }
+:root[data-theme] .clawd-screen .clawd-stat-bar { height: 7px; border: 1px solid #bad3eb; border-radius: 0; background: #edf5ff; }
+:root[data-theme] .clawd-screen .clawd-stat-bar > span { border-radius: 0; background: repeating-linear-gradient(90deg, #8ab9ed 0 5px, #c2ddfa 5px 7px); }
+:root[data-theme] .clawd-screen .clawd-stat.is-low .clawd-stat-bar > span { background: #f2aa72; }
+:root[data-theme] .clawd-screen .clawd-actions { gap: 6px; }
+:root[data-theme] .clawd-screen .clawd-actions button { gap: 4px; padding: 9px 3px; border: 1px solid #c6a2ba; border-radius: 4px; background: linear-gradient(#fff, #ffeaf3); color: var(--dd-soft); font-size: 11.5px; box-shadow: inset 1px 1px 0 #fff, 1px 2px 0 var(--dd-shadow); }
+:root[data-theme] .clawd-screen .clawd-action-icon { width: 18px; height: 18px; fill: #bd7196; }
+:root[data-theme] .clawd-screen .clawd-card { padding: 12px; border: 1px solid var(--dd-line); border-radius: 6px; background: #fff; box-shadow: 3px 3px 0 var(--dd-shadow); }
+:root[data-theme] .clawd-screen .clawd-card-head { gap: 8px; padding-bottom: 9px; border-bottom: 1px dashed var(--dd-line); }
+:root[data-theme] .clawd-screen .clawd-card-head h2 { color: var(--dd-pink-deep); font-size: 13px; }
+:root[data-theme] .clawd-screen .clawd-soon-tag { border: 1px solid var(--dd-sky-line); border-radius: 3px; background: var(--dd-sky); color: #557da6; font-size: 10px; }
+:root[data-theme] .clawd-screen .clawd-slots { gap: 6px; }
+:root[data-theme] .clawd-screen .clawd-dress-preview { display: grid; place-items: center; min-height: 126px; padding: 18px; border: 1px solid var(--dd-sky-line); border-radius: 4px; background: linear-gradient(#eaf5ff, #fff9ed); }
+:root[data-theme] .clawd-screen .clawd-dress-preview .clawd-sprite { width: 116px; }
+:root[data-theme] .clawd-screen .clawd-slot { padding: 8px 5px; border: 1px solid var(--dd-line); border-radius: 4px; background: #fff6fb; }
+:root[data-theme] .clawd-screen .clawd-slot.is-active { border-color: var(--dd-pink); background: var(--dd-pink-soft); }
+:root[data-theme] .clawd-screen .clawd-slot span { color: var(--dd-muted); font-size: 10px; }
+:root[data-theme] .clawd-screen .clawd-slot b { color: var(--dd-soft); font-size: 11px; }
+:root[data-theme] .clawd-screen .clawd-pieces { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+:root[data-theme] .clawd-screen .clawd-piece { padding: 10px 5px 8px; border: 1px solid #e6d6df; border-radius: 5px; background: linear-gradient(#fff, #fff7fb); color: var(--dd-soft); font-size: 11px; }
+:root[data-theme] .clawd-screen .clawd-piece.is-worn { border-color: var(--dd-pink); background: var(--dd-pink-soft); color: var(--dd-pink-deep); }
+:root[data-theme] .clawd-screen .clawd-piece.is-worn::after { background: var(--dd-pink); }
+:root[data-theme] .clawd-screen .clawd-talk { gap: 10px; }
+:root[data-theme] .clawd-screen .clawd-talk-empty { display: grid; justify-items: center; gap: 10px; padding: 38px 8px; text-align: center; color: var(--dd-muted); line-height: 1.8; }
+:root[data-theme] .clawd-screen .clawd-talk-empty .clawd-nav-icon { width: 32px; height: 32px; }
+:root[data-theme] .clawd-screen .clawd-talk-history { max-height: min(46dvh, 400px); padding: 4px; border: 1px solid #d4e2f2; background: #f8fcff; }
+:root[data-theme] .clawd-screen .clawd-talk-last { gap: 7px; padding: 5px 0; }
+:root[data-theme] .clawd-screen .clawd-talk-last p { max-width: 90%; padding: 7px 9px; border: 1px solid var(--dd-line); border-radius: 4px; font-size: 12px; }
+:root[data-theme] .clawd-screen .clawd-talk-last .is-mine { background: #fff0f7; color: #905274; }
+:root[data-theme] .clawd-screen .clawd-talk-last .is-his { border-color: #b9d4ee; background: #eaf5ff; color: #45658c; }
+:root[data-theme] .clawd-screen .clawd-talk-bar { gap: 6px; padding: 5px; border: 1px solid #b4cbe2; border-radius: 4px; background: #fff; box-shadow: inset 1px 1px 0 #e5ecf5; }
+:root[data-theme] .clawd-screen .clawd-talk-bar input { padding: 7px 5px; color: var(--dd-ink); font-size: 16px; }
+:root[data-theme] .clawd-screen .clawd-talk-bar input::placeholder { color: var(--dd-muted); }
+:root[data-theme] .clawd-screen .clawd-talk-bar button { width: 32px; height: 32px; border: 1px solid #d35d96; border-radius: 3px; background: var(--dd-gloss); box-shadow: inset 1px 1px 0 #ffe4f0; }
+:root[data-theme] .clawd-screen .clawd-soon { padding: 0; color: var(--dd-muted); line-height: 1.7; }
+:root[data-theme] .clawd-screen :is(.clawd-card-note, .clawd-card-empty, .clawd-note) { color: var(--dd-muted); font-size: 11px; line-height: 1.8; }
+:root[data-theme] .clawd-screen .clawd-visits li { gap: 8px; padding: 10px 0; border-bottom-color: var(--dd-line); font-size: 12px; }
+:root[data-theme] .clawd-screen .clawd-visit-who { border: 1px solid var(--dd-line); border-radius: 3px; background: var(--dd-pink-soft); color: var(--dd-pink-deep); }
+:root[data-theme] .clawd-screen .clawd-visit-what { color: var(--dd-soft); }
+:root[data-theme] .clawd-screen .clawd-visits time { color: var(--dd-muted); font-size: 10.5px; }
 
 @keyframes clawdBubble { from { opacity: 0; transform: translateY(4px) scale(0.96); } }
 @keyframes clawdBob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-0.35px); } }

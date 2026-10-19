@@ -2,7 +2,6 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { FormEvent, ReactNode } from "react";
-import { PageBack } from "./PageBack";
 import {
   CLAWD_STATS, CLAWD_STORAGE_KEY, advanceClawd, clawdAgeDays, clawdLine, clawdReaction,
   clawdState, createClawd, parseClawd,
@@ -11,6 +10,21 @@ import type { ClawdAction, ClawdPet, ClawdState } from "../lib/clawd-pet";
 import { CLAWD_PIECES, CLAWD_SLOTS, ClawdPieceThumb, ClawdWear, clawdPiece } from "./ClawdOutfit";
 import type { ClawdOutfit, ClawdSlot } from "./ClawdOutfit";
 import { useClawd } from "./use-clawd";
+
+const ROOM_PAGES = [
+  { id: "home", label: "小窝" }, { id: "talk", label: "说话" },
+  { id: "wardrobe", label: "衣柜" }, { id: "visits", label: "来访" },
+] as const;
+type RoomPage = typeof ROOM_PAGES[number]["id"];
+
+function RoomIcon({ page }: { page: RoomPage }) {
+  return <svg className="clawd-nav-icon" viewBox="0 0 16 16" aria-hidden="true">
+    {page === "home" ? <><path d="M1 7 8 1l7 6" fill="#ff9fc4" stroke="#c24a83" /><path d="M3 7h10v8H3z" fill="#fff0f7" stroke="#c24a83" /><path d="M6 10h4v5H6z" fill="#a8d9f7" stroke="#588dbd" /></>
+      : page === "talk" ? <><path d="M1 2h14v10H8l-4 3v-3H1z" fill="#e7f4ff" stroke="#588dbd" /><path d="M4 5h8M4 8h5" stroke="#588dbd" /></>
+      : page === "wardrobe" ? <><path d="m5 2 3 2 3-2 4 3-2 4-2-1v7H5V8L3 9 1 5z" fill="#ffc0dc" stroke="#c24a83" /><path d="M6 6h4" stroke="#fff" /></>
+      : <><rect x="2" y="2" width="12" height="13" rx="1" fill="#fff7d9" stroke="#b9a36d" /><path d="M5 1v3M11 1v3M5 7h6M5 10h6M5 13h4" stroke="#b9a36d" /></>}
+  </svg>;
+}
 
 // The page only mounts after the app has, so localStorage is there.
 function loadClawd(): ClawdPet {
@@ -155,9 +169,12 @@ export function ClawdView({ onBack }: { onBack: () => void }) {
   const [now, setNow] = useState(() => localPet.updatedAt);
   const [slotFilter, setSlotFilter] = useState<ClawdSlot | "all">("all");
   const [draft, setDraft] = useState("");
+  const [page, setPage] = useState<RoomPage>("home");
+  const bodyRef = useRef<HTMLDivElement>(null);
   const historyRef = useRef<HTMLDivElement>(null);
   const lastTalkId = shared.state?.talks.at(-1)?.id;
-  useEffect(() => { if (historyRef.current) historyRef.current.scrollTop = historyRef.current.scrollHeight; }, [lastTalkId]);
+  useEffect(() => { if (historyRef.current) historyRef.current.scrollTop = historyRef.current.scrollHeight; }, [lastTalkId, page]);
+  useEffect(() => { bodyRef.current?.scrollTo({ top: 0 }); }, [page]);
   const pet = advanceClawd(shared.state?.pet || localPet, now);
   const outfit: ClawdOutfit = shared.state?.outfit || {};
   const visits = shared.state?.visits || [];
@@ -222,15 +239,17 @@ export function ClawdView({ onBack }: { onBack: () => void }) {
   const pieces = slotFilter === "all" ? CLAWD_PIECES : CLAWD_PIECES.filter((piece) => piece.slot === slotFilter);
 
   return (
-    <>
-      <section className="diary-body clawd-room">
-        <header className="clawd-head">
-          <span className="clawd-eyebrow">clawd</span>
-          <h1>{pet.name}</h1>
-          <p>来家里的第 {days} 天</p>
+    <div className="xp-summer-screen rd-screen dd-screen clawd-screen">
+      <section className="xp-summer-window" aria-label="小砖的小窝">
+        <header className="xp-summer-titlebar">
+          <span className="dd-title-icon"><RoomIcon page="home" /></span><h1>{pet.name}的小窝</h1>
+          <div className="xp-summer-controls"><button type="button" className="xp-summer-window-button xp-summer-close" aria-label="关闭小砖" onClick={onBack}>
+            <svg viewBox="0 0 10 10" aria-hidden="true"><path d="M2 2l6 6M8 2l-6 6" /></svg>
+          </button></div>
         </header>
-
-        <div className={`clawd-stage${pet.asleep ? " is-night" : ""}`}>
+        <div className="dd-strip"><b>{pet.name}</b><span>来家里的第 {days} 天 · 小姿和酥酥的小孩</span></div>
+        <div className="dd-body clawd-room" ref={bodyRef}>
+        {page === "home" && <div className={`clawd-stage${pet.asleep ? " is-night" : ""}`}>
           <div className="clawd-stage-top">
             <span className="clawd-stage-time"><RoomWindow night={night} />{dayPart(now)}</span>
             <span className={`clawd-state-chip clawd-state-${state}`}>{STATE_WORDS[state]}</span>
@@ -246,9 +265,12 @@ export function ClawdView({ onBack }: { onBack: () => void }) {
           <span className="clawd-shadow" aria-hidden="true" />
           <span className="clawd-floor" aria-hidden="true" />
           <span className="clawd-hint">点点他，摸摸头</span>
-        </div>
+        </div>}
 
+        {page === "talk" && <section className="clawd-card clawd-talk-card" aria-label="和小砖说话">
+          <div className="clawd-card-head"><h2>和{pet.name}说说话</h2><span className="dd-chip is-blue">{STATE_WORDS[state]}</span></div>
         <form className="clawd-talk" onSubmit={talk}>
+          {!shared.state?.talks.length && <div className="clawd-talk-empty"><RoomIcon page="talk" /><p>小姿、酥酥，今天有什么想和我说的呀？</p></div>}
           {!!shared.state?.talks.length && <div className="clawd-talk-history" ref={historyRef} aria-live="polite">{shared.state.talks.slice(-12).map((t) => (
             <div className="clawd-talk-last" key={t.id}>
               <p className="is-mine">{t.by === "susu" ? "酥酥" : "你"}：{t.mine}</p>
@@ -274,8 +296,9 @@ export function ClawdView({ onBack }: { onBack: () => void }) {
           </div>
           <span className="clawd-soon" role="status">{shared.busy ? "等小砖一下…" : !shared.ready ? "正在接小砖回家…" : shared.state?.modelReady ? "你和酥酥都可以陪小砖说话" : "小砖的 DeepSeek 还没接好，先陪他玩吧"}</span>
           {shared.error && <p className="clawd-error" role="alert">{shared.error}</p>}
-        </form>
+        </form></section>}
 
+        {page === "home" && <>
         <div className="clawd-stats">
           {CLAWD_STATS.map(({ key, label }) => {
             const value = Math.round(pet.stats[key]);
@@ -302,12 +325,14 @@ export function ClawdView({ onBack }: { onBack: () => void }) {
             ? <button type="button" disabled={!shared.ready || shared.busy} className="is-lit" onClick={() => void act("wake")}><ActionIcon action="wake" />叫醒</button>
             : <button type="button" disabled={!shared.ready || shared.busy} onClick={() => void act("sleep")}><ActionIcon action="sleep" />睡觉</button>}
         </div>
+        </>}
 
-        <section className="clawd-card clawd-wardrobe" aria-labelledby="clawd-wardrobe-title">
+        {page === "wardrobe" && <section className="clawd-card clawd-wardrobe" aria-labelledby="clawd-wardrobe-title">
           <div className="clawd-card-head">
             <h2 id="clawd-wardrobe-title">{pet.name}的衣柜</h2>
             <span className="clawd-soon-tag">共用衣柜</span>
           </div>
+          <div className="clawd-dress-preview" aria-label="小砖当前穿戴"><ClawdSprite state={state} motion={reaction?.motion ?? null} outfit={outfit} /></div>
           <div className="clawd-slots">
             {CLAWD_SLOTS.map(({ key, label }) => {
               const piece = clawdPiece(outfit[key]);
@@ -344,9 +369,9 @@ export function ClawdView({ onBack }: { onBack: () => void }) {
             })}
           </div>
           <p className="clawd-card-note">穿戴会保存下来，你和酥酥都能帮他换。</p>
-        </section>
+        </section>}
 
-        <section className="clawd-card clawd-visits" aria-labelledby="clawd-visits-title">
+        {page === "visits" && <section className="clawd-card clawd-visits" aria-labelledby="clawd-visits-title">
           <div className="clawd-card-head">
             <h2 id="clawd-visits-title">今天谁来过</h2>
           </div>
@@ -364,11 +389,17 @@ export function ClawdView({ onBack }: { onBack: () => void }) {
             <p className="clawd-card-empty">今天还没人来过</p>
           )}
           <p className="clawd-card-note">你和酥酥照顾小砖的记录都留在这里。</p>
-        </section>
+        </section>}
 
-        <p className="clawd-note">{shared.ready ? `${pet.name}现在住在你们共同的小窝里，你不在的时候他也会慢慢饿。` : "正在连接共同的小窝，本机原来的养成记录会保留。"}</p>
+        {page === "home" && <p className="clawd-note">{shared.ready ? `${pet.name}现在住在你们共同的小窝里，你不在的时候他也会慢慢饿。` : "正在连接共同的小窝，本机原来的养成记录会保留。"}</p>}
+        {page !== "talk" && shared.error && <p className="clawd-error" role="alert">{shared.error}</p>}
+        </div>
+        <nav className="dd-nav" aria-label="小砖">
+          {ROOM_PAGES.map((item) => <button type="button" key={item.id} aria-current={page === item.id ? "page" : undefined} onClick={() => setPage(item.id)}>
+            <RoomIcon page={item.id} /><span>{item.label}</span>
+          </button>)}
+        </nav>
       </section>
-      <PageBack onBack={onBack} />
-    </>
+    </div>
   );
 }
