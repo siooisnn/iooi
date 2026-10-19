@@ -147,6 +147,10 @@ export function SettingsView({
             {settings.blogAutonomy ? "On" : "Off"}
           </button>
           <p className="settings-hint" style={{ marginTop: 6 }}>His own time: once a morning, afternoon and evening at most (9:00–23:00), {aiName} picks one thing to do among those switched on below. It waits while you are chatting.</p>
+          <p className="settings-hint" style={{ marginTop: 6 }}>小砖：酥酥会在自己的时间看看小砖，按状态喂饭、摸摸、陪玩或换装，记录留在心跳的“小砖”里，不额外发推送。先在原设备打开小砖页面迁入记录。</p>
+          <button type="button" className={`model-option ${settings.lifeClawd ? "model-option-active" : ""}`} aria-pressed={!!settings.lifeClawd} onClick={() => updateSettings({ lifeClawd: !settings.lifeClawd })}>
+            <span className="model-option-dot" />小砖 {settings.lifeClawd ? "On" : "Off"}
+          </button>
           <p className="settings-hint" style={{ marginTop: 6 }}>Reading: he reads a bit on the shelf, moves his bookmark and may leave a note.</p>
           <button
             className={`model-option ${settings.lifeRead ? "model-option-active" : ""}`}

@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { XpDialog } from "../XpDialog";
 import { apiFetch } from "@/app/lib/client-api";
 import { categoryOf, ledgerView, dayKey, dayLabel, timeOf, parseYuan, yuan, type DaydayBook, type Entry } from "@/app/lib/dayday-ledger";
-import type { LedgerCard } from "@/app/lib/dayday-markers";
+import { daydayCommentForCard, type LedgerCard } from "@/app/lib/dayday-markers";
 
 // One shared book per chat, rather than one request per historical card.
 export function useChatLedger(enabled: boolean) {
@@ -40,6 +40,7 @@ export function LedgerChatCard({ card, book }: { card: LedgerCard; book: DaydayB
   const [note, setNote] = useState("");
   const entry = book?.entries.find((e) => e.id === card.targetId);
   const gift = book?.gifts.find((g) => g.id === card.targetId);
+  const comment = daydayCommentForCard(card, book?.receiptResults[card.id]);
   async function act(action: string, input: Record<string, unknown>, label: string) {
     if (busy) return;
     setBusy(true); setError("");
@@ -51,6 +52,15 @@ export function LedgerChatCard({ card, book }: { card: LedgerCard; book: DaydayB
   // Historical reminder cards stay in storage, but no longer interrupt the chat.
   if (card.kind === "fixed") return null;
   if (!card.ok) return <div className="msg-dayday-row"><div className="msg-dayday-error" role="status">{card.text}</div></div>;
+  // Keep the saved comment, even if the product is later edited or removed.
+  if (comment) return <div className="msg-dayday-row"><article className="msg-dayday-card is-product-comment" aria-label="酥酥的商品评论">
+    <header className="msg-dayday-head"><span aria-hidden="true">♧</span><b>酥酥说</b><span className="msg-dayday-stamp">dayday</span></header>
+    <div className="msg-dayday-body">
+      <p className="msg-dayday-product-name">{comment.name}</p>
+      <p className="msg-dayday-comment">{comment.text || "这条评论已收起。"}</p>
+    </div>
+    <footer className="msg-dayday-foot"><span>{comment.text ? "已留在商品下" : "已收起商品评论"}</span><small>酥酥说</small></footer>
+  </article></div>;
   if (card.kind === "money") {
     const red = gift ? gift.kind === "redpacket" : card.text.includes("红包");
     const outgoing = gift ? gift.from === "her" : card.text.startsWith("你");

@@ -411,6 +411,10 @@
 :root[data-theme] .clawd-visits time { color: #aaa; font-size: 11.5px; font-variant-numeric: tabular-nums; }
 
 :root[data-theme] .clawd-note { color: #a5a5a5; font-size: 11px; line-height: 1.7; text-align: center; }
+:root[data-theme] .clawd-talk-history { max-height: 240px; overflow-y: auto; overscroll-behavior: contain; }
+:root[data-theme] .clawd-talk-history .clawd-talk-last { overflow-wrap: anywhere; white-space: pre-wrap; }
+:root[data-theme] .clawd-error { margin: 8px 0; color: #a43e39; font-size: 12px; line-height: 1.6; }
+:root[data-theme] .clawd-room button:disabled { cursor: default; opacity: .55; }
 
 @keyframes clawdBubble { from { opacity: 0; transform: translateY(4px) scale(0.96); } }
 @keyframes clawdBob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-0.35px); } }

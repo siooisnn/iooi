@@ -1,6 +1,7 @@
 import { readStickers } from "./sticker-store";
 import { loadUploadImages } from "./upload-images";
 import { DAYDAY_TOOLS, callDaydayTool } from "./dayday-mcp";
+import { CLAWD_TOOLS, callClawdTool } from "./clawd-mcp";
 // The iooi MCP: JSON-RPC over Streamable HTTP, answered as one SSE message
 // per request like summer does. One server for everything in iooi he can
 // reach from another window: the blog, the bookshelf, the forum, and later the pet.
@@ -47,13 +48,16 @@ export const MCP_INSTRUCTIONS = `iooi 是你和她的小窝。这些工具让你
 还有你的 susu’s phone，她打开只能看：
 - phone_read 看你自己的手机：壁纸、图标和挂件，今天做的事、在读的书、最近的帖子和日志。
 - phone_decorate 换内置壁纸、排底部图标、开关挂件。签名直接用博客的同一个字段，仍用 blog_set_motto 改。
-- 今天的记录由原来的心跳、阅读和论坛自动带过来，不要另写一份。便签和相册还没开放。`;
+- 今天的记录由原来的心跳、阅读和论坛自动带过来，不要另写一份。便签和相册还没开放。
+
+还有你和她一起养的小砖：clawd_read看状态、共用衣柜、来访和对话；clawd_action喂饭、摸摸、玩耍、洗澡、睡觉、叫醒或穿戴，署名酥酥。按状态自然照顾，不要重复刷操作。clawd_talk能和他自己的DeepSeek模型说句话，回复和你们的对话她也看得见，不要循环调用。写操作必须带requestId，重试复用；尚未迁移时请她先打开小砖页面，不要替她创建新宠物。自主活动可以查看和照顾，不能自动发起模型对话。`;
 
 function text(value: unknown) {
   return typeof value === "string" ? value : "";
 }
 
 const TOOLS = [
+  ...CLAWD_TOOLS,
   ...DAYDAY_TOOLS,
   { name: "sticker_read", description: "看共用表情库。省略id看名字清单；填真实id看原图，方便选合适表情。聊天发送用回复末尾[sticker]id[/sticker]。", inputSchema: { type: "object", properties: { id: { type: "string" } } } },
   {
@@ -242,7 +246,7 @@ const TOOLS = [
 // Looking only: everything that cannot change anything.
 export const READONLY_TOOL_NAMES = new Set([
   "blog_read", "blog_read_post", "reading_shelf", "reading_book", "reading_read", "surf_board", "surf_thread",
-  "phone_read", "dayday_book", "dayday_shop", "dayday_items",
+  "phone_read", "dayday_book", "dayday_shop", "dayday_items", "clawd_read",
 ]);
 // The private chat (the "read" key): looking, plus the things whose result
 // she sees where it lands (a forum floor, a note in the book, his phone).
@@ -251,12 +255,12 @@ export const READONLY_TOOL_NAMES = new Set([
 // tool call. No deleting here either.
 export const CHAT_TOOL_NAMES = new Set([
   ...READONLY_TOOL_NAMES,
-  "sticker_read", "surf_reply", "surf_post", "reading_mark", "reading_note", "phone_decorate",
+  "sticker_read", "surf_reply", "surf_post", "reading_mark", "reading_note", "phone_decorate", "clawd_action", "clawd_talk",
 ]);
 // His own time: read everything, move his bookmark, write notes, answer her
 // on the forum. No blog posts, no deleting. (His own time's thread comes
 // from life-beat, not a tool, so it can't post twice.)
-export const LIFE_TOOL_NAMES = new Set([...READONLY_TOOL_NAMES, "reading_mark", "reading_note", "surf_reply"]);
+export const LIFE_TOOL_NAMES = new Set([...READONLY_TOOL_NAMES, "reading_mark", "reading_note", "surf_reply", "clawd_action"]);
 
 function allowedTools(access: McpAccess) {
   return access === "read" ? CHAT_TOOL_NAMES : access === "life" ? LIFE_TOOL_NAMES : null;
@@ -381,6 +385,9 @@ async function callReading(name: string, args: Record<string, unknown>, access: 
 
 export async function callTool(name: string, args: Record<string, unknown>, access: McpAccess = "full"): Promise<ToolResult> {
   console.info(`[mcp] tool call: ${name}`);
+  if (name.startsWith("clawd_")) {
+    try { return await callClawdTool(name, args, access); } catch (error) { return failure(error); }
+  }
   if (name.startsWith("dayday_")) {
     try { return await callDaydayTool(name, args, access); } catch (error) { return failure(error); }
   }

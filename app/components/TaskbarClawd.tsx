@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { PixelSprite } from "./PixelSprite";
 import { CLAWD_STORAGE_KEY, advanceClawd, clawdState, parseClawd } from "../lib/clawd-pet";
+import { apiFetch } from "../lib/client-api";
 
 // clawd strolls along the XP taskbar or chat composer. Poke him and he rolls over;
 // if he is asleep in his room he naps here too and only mumbles.
@@ -47,12 +48,27 @@ export function TaskbarClawd() {
   const pokes = useRef(0);
 
   useEffect(() => {
-    const check = () => setAsleep(readAsleep());
-    check();
+    let alive = true;
+    let ticket = 0;
+    const check = async () => {
+      if (document.visibilityState !== "visible") return;
+      const mine = ++ticket;
+      try {
+        const response = await apiFetch("/api/clawd", { cache: "no-store" });
+        const data = await response.json();
+        if (alive && mine === ticket && response.ok && data.ok) setAsleep(data.pet ? data.pet.asleep : readAsleep());
+      } catch { /* Keep the last known sleep state if disconnected. */ }
+    };
+    void check();
     const id = window.setInterval(check, 5 * 60 * 1000);
+    window.addEventListener("clawd-change", check);
+    document.addEventListener("visibilitychange", check);
     const list = timers.current;
     return () => {
       window.clearInterval(id);
+      alive = false;
+      window.removeEventListener("clawd-change", check);
+      document.removeEventListener("visibilitychange", check);
       list.forEach((timer) => window.clearTimeout(timer));
     };
   }, []);

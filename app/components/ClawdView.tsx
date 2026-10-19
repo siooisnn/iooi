@@ -1,15 +1,16 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { FormEvent, ReactNode } from "react";
 import { PageBack } from "./PageBack";
 import {
-  CLAWD_STATS, CLAWD_STORAGE_KEY, actClawd, advanceClawd, clawdAgeDays, clawdLine, clawdReaction,
-  clawdRefusal, clawdState, createClawd, parseClawd,
+  CLAWD_STATS, CLAWD_STORAGE_KEY, advanceClawd, clawdAgeDays, clawdLine, clawdReaction,
+  clawdState, createClawd, parseClawd,
 } from "../lib/clawd-pet";
 import type { ClawdAction, ClawdPet, ClawdState } from "../lib/clawd-pet";
 import { CLAWD_PIECES, CLAWD_SLOTS, ClawdPieceThumb, ClawdWear, clawdPiece } from "./ClawdOutfit";
 import type { ClawdOutfit, ClawdSlot } from "./ClawdOutfit";
+import { useClawd } from "./use-clawd";
 
 // The page only mounts after the app has, so localStorage is there.
 function loadClawd(): ClawdPet {
@@ -22,38 +23,12 @@ function loadClawd(): ClawdPet {
   }
 }
 
-// Who came by today. Only this device's visits for now; once 小砖 lives on
-// the server, 酥酥's visits will land in the same list.
-const LOG_KEY = "iooi-clawd-log";
-type Visit = { at: number; action: ClawdAction; count: number };
 const VISIT_WORDS: Record<ClawdAction, string> = {
   feed: "喂了饭", pet: "摸了摸头", play: "陪他玩了一会儿", bath: "给他洗了澡", sleep: "哄他睡觉", wake: "把他叫醒了",
 };
 
-function loadVisits(): Visit[] {
-  try {
-    const raw = JSON.parse(localStorage.getItem(LOG_KEY) || "[]");
-    if (!Array.isArray(raw)) return [];
-    return raw.filter((item): item is Visit => (
-      item && typeof item.at === "number" && typeof item.action === "string" && item.action in VISIT_WORDS
-      && typeof item.count === "number"
-    )).slice(-30);
-  } catch {
-    return [];
-  }
-}
-
-function addVisit(list: Visit[], action: ClawdAction, at: number): Visit[] {
-  const last = list[list.length - 1];
-  // A run of head pats within ten minutes is one visit.
-  if (last && last.action === action && action === "pet" && at - last.at < 10 * 60 * 1000) {
-    return [...list.slice(0, -1), { at, action, count: last.count + 1 }];
-  }
-  return [...list, { at, action, count: 1 }].slice(-30);
-}
-
-const sameDay = (a: number, b: number) => new Date(a).toDateString() === new Date(b).toDateString();
-const clock = (at: number) => new Date(at).toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit", hour12: false });
+const sameDay = (a: number, b: number) => new Date(a).toLocaleDateString("sv-SE", { timeZone: "Asia/Shanghai" }) === new Date(b).toLocaleDateString("sv-SE", { timeZone: "Asia/Shanghai" });
+const clock = (at: number) => new Date(at).toLocaleTimeString("zh-CN", { timeZone: "Asia/Shanghai", hour: "2-digit", minute: "2-digit", hour12: false });
 
 function dayPart(at: number) {
   const hour = new Date(at).getHours();
@@ -71,9 +46,6 @@ const isNightHour = (at: number) => { const hour = new Date(at).getHours(); retu
 const STATE_WORDS: Record<ClawdState, string> = {
   sleeping: "在睡觉", hungry: "饿了", tired: "困了", dirty: "想洗澡", sad: "有点闷", happy: "很开心", ok: "还不错",
 };
-
-// He can't talk yet; until the model is wired up he only listens.
-const LISTENING = ["（歪着头听你说完）", "（认真点头）", "唔……我还在学说话", "等我学会了就回你！", "（眨眨眼，记住了）"];
 
 type Motion = "hop" | "eat" | "wiggle" | "splash" | null;
 const MOTIONS: Partial<Record<ClawdAction, Motion>> = { feed: "eat", pet: "wiggle", play: "hop", bath: "splash" };
@@ -175,23 +147,26 @@ function ActionIcon({ action }: { action: ClawdAction }) {
 }
 
 export function ClawdView({ onBack }: { onBack: () => void }) {
-  const [pet, setPet] = useState<ClawdPet>(loadClawd);
-  const [visits, setVisits] = useState<Visit[]>(loadVisits);
+  const shared = useClawd();
+  const [localPet] = useState<ClawdPet>(loadClawd);
   const [reaction, setReaction] = useState<{ text: string; motion: Motion; key: number } | null>(null);
   const [hearts, setHearts] = useState<number[]>([]);
   const [lineSeed] = useState(() => Math.floor(Math.random() * 1000));
-  const [now, setNow] = useState(() => pet.updatedAt);
-  const [outfit, setOutfit] = useState<ClawdOutfit>({});
+  const [now, setNow] = useState(() => localPet.updatedAt);
   const [slotFilter, setSlotFilter] = useState<ClawdSlot | "all">("all");
   const [draft, setDraft] = useState("");
-  const [lastTalk, setLastTalk] = useState<{ mine: string; his: string } | null>(null);
+  const historyRef = useRef<HTMLDivElement>(null);
+  const lastTalkId = shared.state?.talks.at(-1)?.id;
+  useEffect(() => { if (historyRef.current) historyRef.current.scrollTop = historyRef.current.scrollHeight; }, [lastTalkId]);
+  const pet = advanceClawd(shared.state?.pet || localPet, now);
+  const outfit: ClawdOutfit = shared.state?.outfit || {};
+  const visits = shared.state?.visits || [];
 
   // Real time keeps passing while the page is open.
   useEffect(() => {
     const tick = () => {
       const current = Date.now();
       setNow(current);
-      setPet((value) => advanceClawd(value, current));
     };
     const timer = window.setInterval(tick, 30_000);
     const visible = () => { if (document.visibilityState === "visible") tick(); };
@@ -200,29 +175,20 @@ export function ClawdView({ onBack }: { onBack: () => void }) {
   }, []);
 
   useEffect(() => {
-    try { localStorage.setItem(CLAWD_STORAGE_KEY, JSON.stringify(pet)); } catch { /* storage full or blocked */ }
-  }, [pet]);
-
-  useEffect(() => {
-    try { localStorage.setItem(LOG_KEY, JSON.stringify(visits)); } catch { /* storage full or blocked */ }
-  }, [visits]);
-
-  useEffect(() => {
     if (!reaction) return;
     const timer = window.setTimeout(() => setReaction(null), 2600);
     return () => window.clearTimeout(timer);
   }, [reaction]);
 
-  function act(action: ClawdAction) {
+  async function act(action: ClawdAction) {
+    const result = await shared.send(action);
+    if (!result?.pet) return;
     const current = Date.now();
-    const caughtUp = advanceClawd(pet, current);
-    const refusal = clawdRefusal(caughtUp, action);
+    const refusal = result.refusal;
     const seed = Math.floor(Math.random() * 1000);
     setNow(current);
-    setPet(refusal ? caughtUp : actClawd(caughtUp, action, current));
-    if (!refusal) setVisits((list) => addVisit(list, action, current));
     setReaction({
-      text: refusal || (action === "pet" && caughtUp.asleep ? "（翻了个身）" : clawdReaction(action, seed)),
+      text: refusal || (action === "pet" && result.pet.asleep ? "（翻了个身）" : clawdReaction(action, seed)),
       motion: refusal ? null : MOTIONS[action] ?? null,
       key: current,
     });
@@ -232,19 +198,19 @@ export function ClawdView({ onBack }: { onBack: () => void }) {
     }
   }
 
-  function talk(event: FormEvent) {
+  async function talk(event: FormEvent) {
     event.preventDefault();
     const text = draft.trim();
     if (!text) return;
-    const current = Date.now();
-    const his = pet.asleep ? "（睡着了，没听见）" : LISTENING[Math.floor(Math.random() * LISTENING.length)];
-    setDraft("");
-    setLastTalk({ mine: text, his });
-    setReaction({ text: his, motion: pet.asleep ? null : "wiggle", key: current });
+    const result = await shared.send("talk", { text });
+    if (!result?.reply) return;
+    setDraft((current) => current === text ? "" : current);
+    setReaction({ text: result.reply, motion: pet.asleep ? null : "wiggle", key: Date.now() });
   }
 
-  function tryOn(slot: ClawdSlot, id: string) {
-    setOutfit((worn) => ({ ...worn, [slot]: worn[slot] === id ? undefined : id }));
+  async function tryOn(slot: ClawdSlot, id: string) {
+    const result = await shared.send("wear", { slot, id: outfit[slot] === id ? null : id });
+    if (!result) return;
     if (!pet.asleep) setReaction({ text: outfit[slot] === id ? "脱掉啦" : "好看吗？", motion: "hop", key: (reaction?.key ?? 0) + 1 });
   }
 
@@ -270,7 +236,7 @@ export function ClawdView({ onBack }: { onBack: () => void }) {
             <span className={`clawd-state-chip clawd-state-${state}`}>{STATE_WORDS[state]}</span>
           </div>
           <p className="clawd-bubble" key={reaction?.key ?? "idle"} role="status">{line}</p>
-          <button type="button" className="clawd-pet-button" onClick={() => act("pet")} aria-label={`摸摸${pet.name}`}>
+          <button type="button" className="clawd-pet-button" disabled={!shared.ready || shared.busy} onClick={() => void act("pet")} aria-label={`摸摸${pet.name}`}>
             <ClawdSprite key={reaction?.key ?? "idle"} state={state} motion={reaction?.motion ?? null} outfit={outfit} />
             {pet.asleep && <span className="clawd-zzz" aria-hidden="true"><span>z</span><span>z</span><span>Z</span></span>}
             {hearts.map((id, index) => (
@@ -283,22 +249,22 @@ export function ClawdView({ onBack }: { onBack: () => void }) {
         </div>
 
         <form className="clawd-talk" onSubmit={talk}>
-          {lastTalk && (
-            <div className="clawd-talk-last" aria-live="polite">
-              <p className="is-mine">{lastTalk.mine}</p>
-              <p className="is-his">{lastTalk.his}</p>
+          {!!shared.state?.talks.length && <div className="clawd-talk-history" ref={historyRef} aria-live="polite">{shared.state.talks.slice(-12).map((t) => (
+            <div className="clawd-talk-last" key={t.id}>
+              <p className="is-mine">{t.by === "susu" ? "酥酥" : "你"}：{t.mine}</p>
+              <p className="is-his">{pet.name}：{t.his}</p>
             </div>
-          )}
+          ))}</div>}
           <div className="clawd-talk-bar">
             <input
               value={draft}
               onChange={(event) => setDraft(event.target.value)}
               placeholder={`跟${pet.name}说句话…`}
-              maxLength={200}
+              maxLength={500}
               enterKeyHint="send"
               aria-label={`跟${pet.name}说话`}
             />
-            <button type="submit" disabled={!draft.trim()} aria-label="发送">
+            <button type="submit" disabled={!draft.trim() || !shared.ready || shared.busy || (!shared.state?.modelReady && !pet.asleep)} aria-label="发送">
               <svg viewBox="0 0 9 9" aria-hidden="true">
                 <rect x="4" y="1" width="1" height="7" /><rect x="3" y="2" width="3" height="1" />
                 <rect x="2" y="3" width="2" height="1" /><rect x="5" y="3" width="2" height="1" />
@@ -306,7 +272,8 @@ export function ClawdView({ onBack }: { onBack: () => void }) {
               </svg>
             </button>
           </div>
-          <span className="clawd-soon">{pet.name}还在学说话，现在只会听</span>
+          <span className="clawd-soon" role="status">{shared.busy ? "等小砖一下…" : !shared.ready ? "正在接小砖回家…" : shared.state?.modelReady ? "你和酥酥都可以陪小砖说话" : "小砖的 DeepSeek 还没接好，先陪他玩吧"}</span>
+          {shared.error && <p className="clawd-error" role="alert">{shared.error}</p>}
         </form>
 
         <div className="clawd-stats">
@@ -326,20 +293,20 @@ export function ClawdView({ onBack }: { onBack: () => void }) {
 
         <div className="clawd-actions">
           {(["feed", "play", "bath"] as const).map((action) => (
-            <button type="button" key={action} onClick={() => act(action)} disabled={pet.asleep}>
+            <button type="button" key={action} onClick={() => void act(action)} disabled={pet.asleep || !shared.ready || shared.busy}>
               <ActionIcon action={action} />
               {{ feed: "喂饭", play: "玩耍", bath: "洗澡" }[action]}
             </button>
           ))}
           {pet.asleep
-            ? <button type="button" className="is-lit" onClick={() => act("wake")}><ActionIcon action="wake" />叫醒</button>
-            : <button type="button" onClick={() => act("sleep")}><ActionIcon action="sleep" />睡觉</button>}
+            ? <button type="button" disabled={!shared.ready || shared.busy} className="is-lit" onClick={() => void act("wake")}><ActionIcon action="wake" />叫醒</button>
+            : <button type="button" disabled={!shared.ready || shared.busy} onClick={() => void act("sleep")}><ActionIcon action="sleep" />睡觉</button>}
         </div>
 
         <section className="clawd-card clawd-wardrobe" aria-labelledby="clawd-wardrobe-title">
           <div className="clawd-card-head">
             <h2 id="clawd-wardrobe-title">{pet.name}的衣柜</h2>
-            <span className="clawd-soon-tag">试穿</span>
+            <span className="clawd-soon-tag">共用衣柜</span>
           </div>
           <div className="clawd-slots">
             {CLAWD_SLOTS.map(({ key, label }) => {
@@ -366,7 +333,8 @@ export function ClawdView({ onBack }: { onBack: () => void }) {
                   type="button"
                   key={piece.id}
                   className={`clawd-piece${worn ? " is-worn" : ""}`}
-                  onClick={() => tryOn(piece.slot, piece.id)}
+                  disabled={!shared.ready || shared.busy}
+                  onClick={() => void tryOn(piece.slot, piece.id)}
                   aria-pressed={worn}
                 >
                   <ClawdPieceThumb piece={piece} />
@@ -375,7 +343,7 @@ export function ClawdView({ onBack }: { onBack: () => void }) {
               );
             })}
           </div>
-          <p className="clawd-card-note">现在只是试穿，离开就脱下了。</p>
+          <p className="clawd-card-note">穿戴会保存下来，你和酥酥都能帮他换。</p>
         </section>
 
         <section className="clawd-card clawd-visits" aria-labelledby="clawd-visits-title">
@@ -386,7 +354,7 @@ export function ClawdView({ onBack }: { onBack: () => void }) {
             <ol>
               {todayVisits.slice(0, 8).map((visit) => (
                 <li key={`${visit.at}-${visit.action}`}>
-                  <span className="clawd-visit-who">你</span>
+                  <span className="clawd-visit-who">{visit.by === "susu" ? "酥酥" : "你"}</span>
                   <span className="clawd-visit-what">{VISIT_WORDS[visit.action]}{visit.count > 1 ? ` ×${visit.count}` : ""}</span>
                   <time>{clock(visit.at)}</time>
                 </li>
@@ -395,10 +363,10 @@ export function ClawdView({ onBack }: { onBack: () => void }) {
           ) : (
             <p className="clawd-card-empty">今天还没人来过</p>
           )}
-          <p className="clawd-card-note">{pet.name}搬去服务器以后，酥酥来喂他、陪他玩也会记在这里。</p>
+          <p className="clawd-card-note">你和酥酥照顾小砖的记录都留在这里。</p>
         </section>
 
-        <p className="clawd-note">{pet.name}现在住在这台设备里，你不在的时候他也会慢慢饿。</p>
+        <p className="clawd-note">{shared.ready ? `${pet.name}现在住在你们共同的小窝里，你不在的时候他也会慢慢饿。` : "正在连接共同的小窝，本机原来的养成记录会保留。"}</p>
       </section>
       <PageBack onBack={onBack} />
     </>

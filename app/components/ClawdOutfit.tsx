@@ -2,8 +2,7 @@
 
 import type { ReactNode } from "react";
 
-// 小砖's wardrobe, for now only a try-on preview: nothing here is bought,
-// saved or shared. Each piece is drawn in the sprite's own 16×12 grid
+// 小砖's shared wardrobe. Each piece is drawn in the sprite's own 16×12 grid
 // (body x 3–13, y 2–8.2; arms at y 4–6), so it sits on him at any size.
 
 export type ClawdSlot = "head" | "body" | "hand";

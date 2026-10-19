@@ -65,3 +65,38 @@ Wallpapers: `night-blue`, `moon-mist`, `deep-sea`. Icon order must contain all f
 ## dayday
 
 dayday is being rebuilt as her real-money ledger with a small shop inside. Susu's old virtual wallet, heartbeat shopping, MCP tools, chat red packets and the old wardrobe backend were removed. The window is a placeholder for now. Old `store.dayday` data and old `dayday_card` chat messages are left untouched; old cards show as plain lines in the chat.
+
+# 小砖共享存档与 DeepSeek
+
+服务器私密环境文件中配置下列变量（不提交到 Git）：
+
+```dotenv
+CLAWD_DEEPSEEK_API_KEY=填入真实密钥
+CLAWD_DEEPSEEK_MODEL=deepseek-flash
+```
+
+也兼容已有的 `DEEPSEEK_API_KEY`，小砖专用密钥优先。默认调用 DeepSeek 官方的
+`https://api.deepseek.com/chat/completions`，默认模型为 `deepseek-flash`，关闭思考模式，
+单次最多 256 输出 tokens、25 秒超时。模型名称可通过环境变量调整。
+接口格式参考 [DeepSeek 官方文档](https://api-docs.deepseek.com/)。
+
+按 iooi 受控发布流程上线。不要把 Key 写入网页、本地存储或 MCP 参数；前端仅收到配置是否齐全。
+没有 Key 时照顾与换装可用，对话处如实显示尚未接好，睡着时只保存睡眠回应，不请求模型。
+
+发布后先在原来养小砖的设备上打开小砖页面。首次访问把该浏览器的 `iooi-clawd` 和
+`iooi-clawd-log` 导入 `data/clawd.json`。后来的设备读同一份服务器记录，不覆盖已经迁入的记录。
+原本两个本地存储键不删除、不改写，保留作恢复来源；衣柜此前只是临时试穿，因此没有旧穿戴可迁移。
+数据文件与现有 `data` 一起备份，损坏时停止写入。
+
+共用记录保留最近 100 条来访、60 轮对话、200 个照顾操作回执；模型看到最近 12 轮对话和
+当前真实状态，不读取 iooi 主聊天、博客、账本或 Summer 记忆。对话中会标明 小姿（妈妈）/酥酥（爸爸），双方都可见。
+操作拒绝不计来访。相同操作重试复用 requestId，不重复扣增数值；网络失败后同一句话可重试。
+
+iooi MCP 新增 `clawd_read`、`clawd_action`、`clawd_talk`，私聊 Claude 的工具列表也已接入。
+照顾操作和说话固定署名酥酥，网页固定署名你，不能通过参数冒用另一方。
+`clawd_action` 支持 feed/pet/play/bath/sleep/wake/wear。
+wear 的 slot 为 head/body/hand，id 必须是对应现有饰品 ID，null 表示脱下。
+life 连接只开放查看和照顾，不开放付费模型对话。设置中的“小砖”开关控制是否参与已有心跳的自己的时间；不额外增加定时任务或推送。成功照顾会记入“小砖”日志，关闭后会阻止尚未执行的照顾操作。
+
+必要验证：`node --test tests/clawd*.test.mjs`、TypeScript、改动文件 lint。
+模型测试使用模拟接口；配置真实 Key 并上线后再做一次真实对话验证。

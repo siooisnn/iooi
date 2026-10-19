@@ -1,8 +1,20 @@
 export type LedgerMarker = { action: string; input: Record<string, unknown> };
 export type LedgerCard = {
-  id: string; kind: "entry" | "fixed" | "money" | "notice"; ok: boolean; text: string;
+  id: string; kind: "entry" | "fixed" | "money" | "notice" | "product-comment"; ok: boolean; text: string;
   targetId?: string; cycle?: string;
+  productName?: string; comment?: string;
 };
+
+/** Older generic notices can recover their comment from the saved operation receipt. */
+export function daydayCommentForCard(card: LedgerCard, receipt?: unknown): { name: string; text: string } | null {
+  if (!card.ok) return null;
+  if (card.kind === "product-comment") return { name: card.productName || "商品评论", text: card.comment || "" };
+  if (card.kind !== "notice" || card.text !== "dayday · 已更新" || !receipt || typeof receipt !== "object") return null;
+  const p = receipt as Record<string, unknown>;
+  if (typeof p.id !== "string" || typeof p.name !== "string" || typeof p.price !== "number" || typeof p.shelf !== "string"
+    || typeof p.faved !== "boolean" || typeof p.carted !== "boolean" || (p.susuSays !== undefined && typeof p.susuSays !== "string")) return null;
+  return { name: p.name, text: typeof p.susuSays === "string" ? p.susuSays : "" };
+}
 
 const BLOCK = /\[dayday\]([\s\S]*?)\[\/dayday\]/gi;
 export function parseDaydayMarkers(reply: string): LedgerMarker[] {

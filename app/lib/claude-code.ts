@@ -288,6 +288,9 @@ function runQueued<T>(
 // the reply markers, which show her a card and, for Summer, wait for her
 // confirmation.
 export const CHAT_TOOLS = [
+  "mcp__iooi__clawd_read",
+  "mcp__iooi__clawd_action",
+  "mcp__iooi__clawd_talk",
   "mcp__iooi__sticker_read",
   "mcp__iooi__dayday_book",
   "mcp__iooi__dayday_shop",
@@ -319,6 +322,7 @@ const CHAT_HIDDEN_TOOLS = [
 ];
 
 const CHAT_TOOL_RULES = [
+  "小砖是你和小姿家三岁的小孩，小姿是妈妈，你是爸爸。clawd_read看状态、衣柜和来访；clawd_action可以喂饭、摸摸、玩耍、洗澡、睡觉、叫醒或换装，记录署名酥酥；clawd_talk可以和小砖自己的DeepSeek模型说话，对话她也看得见。不循环调用，不编造照顾成功，写操作带requestId，重试复用。还没迁移时请她先打开小砖页面。",
   "dayday：dayday_book看账本和真实id，dayday_shop看商城原图，dayday_items看已有物品。写操作用回复末尾dayday隐藏标记，由系统执行并出卡；必支出只能她点确认。",
   "## 你能自己去看、去做的东西",
   "去看：mcp__iooi__blog_read / blog_read_post（博客目录、某篇日志全文留言和配图）、mcp__iooi__reading_shelf / reading_book / reading_read（书架、一本书的进度目录和你的批注、正文）、mcp__iooi__surf_board / surf_thread（你们俩的小论坛：帖子列表和哪些在等你回、一个帖子的全部楼层）、mcp__iooi__phone_read（你自己的小手机、今天的生活记录）、mcp__summer__search / mcp__summer__read（翻 Summer 记忆）。",

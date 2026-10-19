@@ -82,6 +82,17 @@
 }
 :root[data-theme] .msg-dayday-card.is-receipt .msg-dayday-head { border-bottom: 1px dashed var(--dd-card-line); background: transparent; text-shadow: none; }
 :root[data-theme] .msg-dayday-stamp { margin-left: auto; font-size: 10px; color: #9a8970; }
+:root[data-theme] .msg-dayday-card.is-product-comment {
+  --dd-card-line: #d3b6bf;
+  --dd-card-strip: #f8e9ee;
+  --dd-card-strip-ink: #805363;
+  --dd-card-paper: #fffafb;
+  --dd-card-ink: #604650;
+}
+:root[data-theme] .msg-dayday-card.is-product-comment .msg-dayday-head { text-shadow: none; }
+:root[data-theme] .is-product-comment .msg-dayday-stamp { color: inherit; }
+:root[data-theme] .msg-dayday-product-name { margin: 0 0 6px; font-weight: 700; overflow-wrap: anywhere; }
+:root[data-theme] .msg-dayday-comment { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.8; }
 :root[data-theme] .msg-dayday-receipt-name { margin: 0; overflow-wrap: anywhere; font-weight: 700; }
 :root[data-theme] .msg-dayday-card.is-receipt .msg-dayday-amount { margin: 7px 0; font-family: "Courier New", monospace; }
 :root[data-theme] .msg-dayday-amount.is-income { color: #568153; }

@@ -25,6 +25,7 @@
 :root[data-theme] .hb-screen :is(.hb-kind-comment, .hb-kind-post) { --hb-line: #f1c27d; --hb-fill: #fff6e2; --hb-ink: #9a5d00; }
 :root[data-theme] .hb-screen .hb-kind-read { --hb-line: #e3a79c; --hb-fill: #fdf0ed; --hb-ink: #a3301f; }
 :root[data-theme] .hb-screen .hb-kind-surf { --hb-line: #9fc0ef; --hb-fill: #eaf2ff; --hb-ink: #1f56b8; }
+:root[data-theme] .hb-screen .hb-kind-clawd { --hb-line: #dfa17f; --hb-fill: #fff1e7; --hb-ink: #9c4f2d; }
 :root[data-theme] .hb-screen .hb-main { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
 :root[data-theme] .hb-screen .hb-text { font-size: 13px; line-height: 1.6; white-space: pre-wrap; overflow-wrap: anywhere; }
 :root[data-theme] .hb-screen .hb-note { color: #666; font-size: 11.5px; line-height: 1.5; overflow-wrap: anywhere; }

@@ -1,6 +1,6 @@
 import { createHash } from "crypto";
 import { readBook, runDayday } from "./dayday-store";
-import { categoryOf, ledgerView, yuan, type Entry, type MoneyGift } from "./dayday-ledger";
+import { categoryOf, ledgerView, yuan, type Entry, type MoneyGift, type Product } from "./dayday-ledger";
 import type { LedgerCard, LedgerMarker } from "./dayday-markers";
 
 export const DAYDAY_AI_ACTIONS = ["entry.add", "entry.update", "entry.remove", "fixed.add", "fixed.update", "fixed.remove", "refill.add", "refill.update", "refill.done", "product.say", "money.send", "money.receive", "money.return"];
@@ -39,6 +39,10 @@ export async function runDaydayMarkers(markers: LedgerMarker[], key: string): Pr
       } else if (marker.action.startsWith("money.")) {
         const g = result as MoneyGift;
         cards.push({ id, kind: "money", ok: true, targetId: g.id, text: `${g.from === "susu" ? "酥酥" : "你"}的${g.kind === "redpacket" ? "红包" : "转账"} · ${yuan(g.amount)}${g.note ? ` · ${g.note}` : ""}` });
+      } else if (marker.action === "product.say") {
+        const p = result as Product;
+        cards.push({ id, kind: "product-comment", ok: true, targetId: p.id, productName: p.name, comment: p.susuSays || "",
+          text: p.susuSays ? `酥酥说 · ${p.name}：${p.susuSays}` : `酥酥已收起对「${p.name}」的评论` });
       } else cards.push({ id, kind: "notice", ok: true, text: "dayday · 已更新" });
     } catch (error) {
       cards.push({ id, kind: "notice", ok: false, text: `dayday · ${error instanceof Error ? error.message : "没存上，请稍后再试"}` });

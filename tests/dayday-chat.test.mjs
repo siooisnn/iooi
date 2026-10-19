@@ -13,7 +13,7 @@ const { applyDayday, emptyBook, ledgerView, parseBook } = await import('../app/l
 const { runDayday, readBook } = await import('../app/lib/dayday-store.ts');
 const { runDaydayAI, runDaydayMarkers, daydayCareOverview } = await import('../app/lib/dayday-tools.ts');
 const { callDaydayTool } = await import('../app/lib/dayday-mcp.ts');
-const { parseDaydayMarkers, stripDaydayMarkers } = await import('../app/lib/dayday-markers.ts');
+const { parseDaydayMarkers, stripDaydayMarkers, daydayCommentForCard } = await import('../app/lib/dayday-markers.ts');
 const { createVisibleReplyStream } = await import('../app/lib/visible-reply-stream.ts');
 const NOW = new Date('2026-10-19T12:00:00+08:00');
 const run = (book, action, input, bySusu = false, now = NOW) => applyDayday(book, action, input, { now, bySusu });
@@ -118,6 +118,35 @@ test('MCP reads current book and restricts writes to full access with valid requ
   assert.ok(JSON.parse(result.content[0].text).view.cycleEntries.length);
   await assert.rejects(() => callDaydayTool('dayday_action', { action: 'entry.add', input: {} }, 'read'), /dayday标记/);
   await assert.rejects(() => callDaydayTool('dayday_action', { action: 'entry.add', input: {}, requestId: 'bad' }, 'full'), /requestId/);
+});
+
+test('product comments produce durable chat cards from the saved result, including retries and removal', async () => {
+  const { result: product } = await runDayday('product.add', { name: '薄荷绿小狗睡衣', price: 8600, shelf: 'top' });
+  const markers = [{ action: 'product.say', input: { id: product.id, text: '  长袖法兰绒，\n可以买下来。  ' } }];
+  const [card] = await runDaydayMarkers(markers, 'comment-snapshot');
+  assert.equal(card.kind, 'product-comment');
+  assert.equal(card.ok, true);
+  assert.equal(card.targetId, product.id);
+  assert.equal(card.productName, product.name);
+  assert.equal(card.comment, '长袖法兰绒， 可以买下来。');
+  const oldCard = { id: card.id, kind: 'notice', ok: true, text: 'dayday · 已更新' };
+  assert.deepEqual(daydayCommentForCard(oldCard, (await readBook()).receiptResults[card.id]), { name: product.name, text: card.comment });
+  assert.deepEqual(daydayCommentForCard(card), { name: product.name, text: card.comment });
+  assert.equal(daydayCommentForCard(oldCard), null);
+  assert.equal(daydayCommentForCard(oldCard, { id: 'fixed', name: '房租', amount: 80000, day: 1 }), null);
+  assert.equal(daydayCommentForCard({ ...oldCard, ok: false }, product), null);
+  assert.match(card.text, /薄荷绿小狗睡衣.*长袖法兰绒/);
+  await runDayday('product.say', { id: product.id, text: '后来改了主意' }, { bySusu: true });
+  assert.deepEqual((await runDaydayMarkers(markers, 'comment-snapshot'))[0], card, 'retry retains the original saved comment');
+  const [cleared] = await runDaydayMarkers([{ action: 'product.say', input: { id: product.id, text: '' } }], 'comment-clear');
+  assert.equal(cleared.comment, '');
+  assert.match(cleared.text, /已收起.*薄荷绿小狗睡衣/);
+  await runDayday('product.remove', { id: product.id });
+  assert.deepEqual((await runDaydayMarkers(markers, 'comment-snapshot'))[0], card, 'historical card survives product deletion');
+  const [failed] = await runDaydayMarkers(markers, 'comment-missing-product');
+  assert.equal(failed.ok, false);
+  assert.equal(failed.kind, 'notice');
+  assert.equal(failed.comment, undefined);
 });
 
 test('human money send saves a recoverable chat card and retries do not duplicate it', async () => {

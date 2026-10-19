@@ -48,6 +48,7 @@ export type Settings = {
   lifeRead?: boolean;
   lifeSurf?: boolean;
   lifeDayday?: boolean;
+  lifeClawd?: boolean;
   // Push when he has read / surfed. On unless turned off (only matters with lifeRead / lifeSurf).
   lifePushRead?: boolean;
   lifePushSurf?: boolean;
