@@ -3,7 +3,7 @@
    The XP title bar stays blue. The 收件人 strip and the composer turn into
    dayday's pink strips. Behind the log is dayday's polka-dot paper. Every
    run opens with a little name-and-time tab on the bubble's top edge, like
-   dayday's group titles, and a tail pointing at the speaker's avatar.
+   dayday's group titles. Bubbles are dayday's flat cards, no tails.
    His bubbles take the sky blue of dayday's balance screen, hers are pink.
    Stickers, Summer notes and the payment cards keep their own look. */
 
@@ -42,7 +42,6 @@
   --dots-gap: 0px;
   /* his: dayday's sky-blue balance screen */
   --dots-his-bg: linear-gradient(180deg, #eaf5ff 0%, #d7eafc 100%);
-  --dots-his-tail: #eaf5ff;
   --dots-his-line: #9fc6ee;
   --dots-his-shadow: #c9e2fb;
   --dots-his-ink: #1d3f70;
@@ -50,7 +49,6 @@
   --dots-his-time: #7f9fc6;
   /* hers: dayday's pink card */
   --dots-her-bg: linear-gradient(180deg, #fff2f8 0%, #ffe3f0 100%);
-  --dots-her-tail: #fff2f8;
   --dots-her-line: #f6b3d2;
   --dots-her-shadow: #ffd0e5;
   --dots-her-ink: #5e2a4d;
@@ -62,8 +60,7 @@
 
 :root[data-theme] .app-bg .chat-container[data-chat-ui="xp"][data-chat-view="room"] > .chat-messages.xp-log-dots.xp-log-avatars {
   --dots-av: 32px;
-  /* The tail pokes ~8px past the bubble; leave a clear gap before the picture. */
-  --dots-gap: 16px;
+  --dots-gap: 8px;
 }
 
 :root[data-theme] .app-bg .chat-container[data-chat-ui="xp"][data-chat-view="room"] > .chat-messages.xp-log-dots::-webkit-scrollbar-thumb {
@@ -145,7 +142,7 @@
   max-width: 100%;
 }
 
-/* Avatars on: the picture opens each run, beside the bubble's tail. */
+/* Avatars on: the picture opens each run, beside its first bubble. */
 :root[data-theme] .app-bg .chat-container[data-chat-ui="xp"][data-chat-view="room"] > .chat-messages.xp-log-dots.xp-log-avatars .msg-row-says:not(.msg-row-summer-utility) > :is(.avatar, .avatar-img) {
   display: block;
   grid-row: 1 / span 2;
@@ -259,27 +256,6 @@
   align-self: stretch;
   margin-top: 0;
   padding-top: 13px;
-}
-
-:root[data-theme] .app-bg .chat-container[data-chat-ui="xp"][data-chat-view="room"] > .chat-messages.xp-log-dots .msg-row-says .msg-bubble:not(.msg-bubble-img, .msg-bubble-summer-utility, .reply-status-bubble)::before {
-  content: "";
-  position: absolute;
-  top: 12px;
-  left: -6px;
-  width: 9px;
-  height: 9px;
-  border: solid var(--dots-his-line);
-  border-width: 0 0 1px 1px;
-  background: var(--dots-his-tail);
-  transform: rotate(45deg);
-}
-
-:root[data-theme] .app-bg .chat-container[data-chat-ui="xp"][data-chat-view="room"] > .chat-messages.xp-log-dots .msg-row-says .msg-bubble-user:not(.msg-bubble-img, .msg-bubble-summer-utility)::before {
-  right: -6px;
-  left: auto;
-  border-color: var(--dots-her-line);
-  border-width: 1px 1px 0 0;
-  background: var(--dots-her-tail);
 }
 
 :root[data-theme] .app-bg .chat-container[data-chat-ui="xp"][data-chat-view="room"] > .chat-messages.xp-log-dots .msg-bubble-ai .chat-message-link {
