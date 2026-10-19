@@ -11,7 +11,7 @@ export async function daydayCareOverview() {
   const book = await readBook();
   if (!book.configured) return "";
   const v = ledgerView(book);
-  return `【dayday生活背景，只读】剩余${yuan(v.remaining)}；今日支出${yuan(v.todaySpent)}；运输中${yuan(v.transit)}；红包转账暂扣${yuan(v.giftHeld)}；到期未确认的必支出${v.due.length}项。\n这些数只帮助理解她的生活，不要仅因余额或账务提醒而主动发消息；待补项不发推送。你不能记账、扣款、发或领红包转账、改设置；必支出等她回到聊天后点卡片确认。`;
+  return `【dayday生活背景，只读】剩余${yuan(v.remaining)}；今日支出${yuan(v.todaySpent)}；运输中${yuan(v.transit)}；红包转账暂扣${yuan(v.giftHeld)}；到期未确认的必支出${v.due.length}项。\n这些数只帮助理解她的生活，不要仅因余额或账务提醒而主动发消息；待补项不发推送。你不能记账、扣款、发或领红包转账、改设置；必支出等她在dayday账本首页点确认。`;
 }
 
 export async function daydayOverview() {
@@ -21,7 +21,7 @@ export async function daydayOverview() {
 }
 
 export async function runDaydayAI(action: string, input: Record<string, unknown>, requestId?: string) {
-  if (!DAYDAY_AI_ACTIONS.includes(action)) throw new Error("酥酥不能执行这个操作，必支出请她点卡片，设置由她自己改。");
+  if (!DAYDAY_AI_ACTIONS.includes(action)) throw new Error("酥酥不能执行这个操作，必支出请她在账本确认，设置由她自己改。");
   return runDayday(action, input, { bySusu: true, requestId });
 }
 
@@ -44,10 +44,5 @@ export async function runDaydayMarkers(markers: LedgerMarker[], key: string): Pr
       cards.push({ id, kind: "notice", ok: false, text: `dayday · ${error instanceof Error ? error.message : "没存上，请稍后再试"}` });
     }
   }
-  try {
-    const book = await readBook();
-    const view = ledgerView(book);
-    cards.push(...view.due.map((f): LedgerCard => ({ id: `due_${view.cycle.startKey}_${f.id}`, kind: "fixed", ok: true, targetId: f.id, cycle: view.cycle.startKey, text: `待确认 · ${f.name} ${yuan(f.amount)}` })));
-  } catch { /* A temporarily unavailable ledger must not interrupt her chat. */ }
   return cards;
 }

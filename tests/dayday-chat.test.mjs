@@ -150,3 +150,16 @@ test('heartbeat sees budget context without refill names and cannot write to day
   assert.ok(names.includes('dayday_book') && names.includes('dayday_shop') && names.includes('dayday_items'));
   assert.ok(!names.includes('dayday_action'));
 });
+
+test('chat bookkeeping never appends due reminders or deducts fixed expenses', async () => {
+  const { dayKey } = await import('../app/lib/dayday-ledger.ts');
+  await runDayday('fixed.add', { name: '不要弹出的订阅', amount: 13500, day: Number(dayKey().slice(8)) });
+  const before = await readBook();
+  assert.ok(ledgerView(before).due.some((f) => f.name === '不要弹出的订阅'), 'the reminder remains available on the ledger page');
+  assert.deepEqual(await runDaydayMarkers([], 'quiet-reminder-round'), []);
+  assert.deepEqual(await readBook(), before, 'no cost is paid or skipped');
+  const cards = await runDaydayMarkers([{ action: 'entry.add', input: { kind: 'expense', cat: 'food', amount: 1200, note: '午饭' } }], 'lunch-without-reminder');
+  assert.equal(cards.length, 1);
+  assert.equal(cards[0].kind, 'entry');
+  assert.equal(ledgerView(await readBook()).due.length, ledgerView(before).due.length);
+});

@@ -13,6 +13,7 @@ export function blogToolsForScope(scope: string) {
     ["blog_write_post", "blog:write"], ["blog_update_post", "blog:write"], ["blog_delete_post", "blog:write"],
     ["blog_comment", "blog:comment"], ["blog_set_motto", "profile:write"],
     ["blog_add_friend", "friends:write"], ["blog_accept_friend", "friends:write"], ["blog_remove_friend", "friends:write"],
+    ["blog_set_special_friend", "friends:write"],
   ];
   return tools.filter(([, permission]) => granted.has(permission)).map(([name]) => `mcp__iooiblog__${name}`);
 }
