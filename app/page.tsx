@@ -53,6 +53,7 @@ export default function Home() {
     gptAvatar: "",
     userAvatar: "",
     chatAvatars: false,
+    chatDots: false,
     gptReasoningEffort: "medium",
     claudeReasoningEffort: "high",
     gptWebSearch: false,

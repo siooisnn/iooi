@@ -1,0 +1,204 @@
+/* ━━ 粉波点对话框: dayday's candy paper inside the MSN private room ━━
+   Only with the room setting on: ChatView adds .xp-log-dots to the log.
+   The title bar, 收件人 line and toolbar stay XP blue. Behind the log is
+   dayday's pink polka-dot paper; every line sits in one of dayday's white
+   frames (pink line, flat pink shadow) with a little tail, hers on the
+   right in pink, his on the left in white. Stickers, Summer notes and the
+   payment cards keep their own look. */
+
+:root[data-theme] .app-bg .chat-container[data-chat-ui="xp"][data-chat-view="room"] > .chat-messages.xp-log-dots {
+  --dots-ink: #3b2f52;
+  --dots-muted: #9a8daa;
+  --dots-line: #ecc9dc;
+  --dots-shadow: #ffd0e5;
+  --dots-mine: #fff0f7;
+  --dots-mine-line: #f6b3d2;
+  --dots-pink-deep: #d63d84;
+  padding: 10px 12px 18px;
+  background: radial-gradient(circle, rgba(255, 140, 196, .2) 1.5px, transparent 2px) 0 0 / 16px 16px, #fff6fb;
+}
+
+:root[data-theme] .app-bg .chat-container[data-chat-ui="xp"][data-chat-view="room"] > .chat-messages.xp-log-dots::-webkit-scrollbar-thumb {
+  background: #f3c6dc;
+}
+
+/* "酥酥 说 (18:49):" stays as a small label above each run, on the speaker's side. */
+:root[data-theme] .app-bg .chat-container[data-chat-ui="xp"][data-chat-view="room"] > .chat-messages.xp-log-dots .xp-msg-says {
+  margin-top: 12px;
+  color: var(--dots-muted);
+  font-size: 12px;
+}
+
+:root[data-theme] .app-bg .chat-container[data-chat-ui="xp"][data-chat-view="room"] > .chat-messages.xp-log-dots .xp-msg-says-user {
+  text-align: right;
+}
+
+:root[data-theme] .app-bg .chat-container[data-chat-ui="xp"][data-chat-view="room"] > .chat-messages.xp-log-dots .date-separator::before,
+:root[data-theme] .app-bg .chat-container[data-chat-ui="xp"][data-chat-view="room"] > .chat-messages.xp-log-dots .date-separator::after {
+  height: 0;
+  border-top: 1px dashed var(--dots-line);
+  background: transparent;
+}
+
+:root[data-theme] .app-bg .chat-container[data-chat-ui="xp"][data-chat-view="room"] > .chat-messages.xp-log-dots .date-separator-text {
+  padding: 1px 10px;
+  border: 1px solid var(--dots-line);
+  border-radius: 999px;
+  background: #fff;
+  color: var(--dots-muted);
+}
+
+/* Rows stack the bubble and the speaker button on the speaker's side. */
+:root[data-theme] .app-bg .chat-container[data-chat-ui="xp"][data-chat-view="room"] > .chat-messages.xp-log-dots .msg-row {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  padding: 0 0 0 2px;
+}
+
+:root[data-theme] .app-bg .chat-container[data-chat-ui="xp"][data-chat-view="room"] > .chat-messages.xp-log-dots .msg-row-user {
+  align-items: flex-end;
+  padding: 0 4px 0 0;
+}
+
+:root[data-theme] .app-bg .chat-container[data-chat-ui="xp"][data-chat-view="room"] > .chat-messages.xp-log-dots .msg-row-summer-utility {
+  align-items: stretch;
+  padding: 0;
+}
+
+:root[data-theme] .app-bg .chat-container[data-chat-ui="xp"][data-chat-view="room"] > .chat-messages.xp-log-dots :is(.msg-content-ai, .msg-content-user) {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  min-width: 0;
+  max-width: min(84%, 560px);
+}
+
+:root[data-theme] .app-bg .chat-container[data-chat-ui="xp"][data-chat-view="room"] > .chat-messages.xp-log-dots .msg-content-user {
+  align-items: flex-end;
+}
+
+:root[data-theme] .app-bg .chat-container[data-chat-ui="xp"][data-chat-view="room"] > .chat-messages.xp-log-dots .msg-row-summer-utility > :is(.msg-content-ai, .msg-content-user) {
+  align-items: stretch;
+  max-width: 100%;
+}
+
+/* The bubble: dayday's white frame with its flat pink shadow. */
+:root[data-theme] .app-bg .chat-container[data-chat-ui="xp"][data-chat-view="room"] > .chat-messages.xp-log-dots .msg-bubble:not(.msg-bubble-img, .msg-bubble-summer-utility, .reply-status-bubble) {
+  position: relative;
+  box-sizing: border-box;
+  max-width: 100%;
+  margin: 6px 0 2px;
+  padding: 7px 11px;
+  border: 1px solid var(--dots-line);
+  border-radius: 10px;
+  background: #fff;
+  box-shadow: 3px 3px 0 var(--dots-shadow);
+  color: var(--dots-ink);
+  overflow-wrap: anywhere;
+}
+
+:root[data-theme] .app-bg .chat-container[data-chat-ui="xp"][data-chat-view="room"] > .chat-messages.xp-log-dots .msg-bubble-user:not(.msg-bubble-img, .msg-bubble-summer-utility) {
+  border-color: var(--dots-mine-line);
+  background: var(--dots-mine);
+}
+
+/* A small tail pointing back at the speaker, on the first line of a run. */
+:root[data-theme] .app-bg .chat-container[data-chat-ui="xp"][data-chat-view="room"] > .chat-messages.xp-log-dots .msg-row:not(.msg-row-compact-top) .msg-bubble:not(.msg-bubble-img, .msg-bubble-summer-utility, .reply-status-bubble)::before {
+  content: "";
+  position: absolute;
+  top: 9px;
+  left: -6px;
+  width: 9px;
+  height: 9px;
+  border: solid var(--dots-line);
+  border-width: 0 0 1px 1px;
+  background: inherit;
+  transform: rotate(45deg);
+}
+
+:root[data-theme] .app-bg .chat-container[data-chat-ui="xp"][data-chat-view="room"] > .chat-messages.xp-log-dots .msg-row:not(.msg-row-compact-top) .msg-bubble-user:not(.msg-bubble-img, .msg-bubble-summer-utility)::before {
+  right: -6px;
+  left: auto;
+  border-color: var(--dots-mine-line);
+  border-width: 1px 1px 0 0;
+}
+
+:root[data-theme] .app-bg .chat-container[data-chat-ui="xp"][data-chat-view="room"] > .chat-messages.xp-log-dots .msg-row:not(.msg-row-compact-top) .msg-bubble-ai:not(.msg-bubble-img, .msg-bubble-summer-utility, .reply-status-bubble) {
+  border-top-left-radius: 4px;
+}
+
+:root[data-theme] .app-bg .chat-container[data-chat-ui="xp"][data-chat-view="room"] > .chat-messages.xp-log-dots .msg-row:not(.msg-row-compact-top) .msg-bubble-user:not(.msg-bubble-img, .msg-bubble-summer-utility) {
+  border-top-right-radius: 4px;
+}
+
+:root[data-theme] .app-bg .chat-container[data-chat-ui="xp"][data-chat-view="room"] > .chat-messages.xp-log-dots .msg-bubble .chat-message-link {
+  color: var(--dots-pink-deep);
+}
+
+/* Photos keep a frame, in pink. Stickers stay frameless (stickers.css). */
+:root[data-theme] .app-bg .chat-container[data-chat-ui="xp"][data-chat-view="room"] > .chat-messages.xp-log-dots .msg-bubble.msg-bubble-img:not(.msg-bubble-sticker, .msg-bubble-sticker-message) {
+  margin: 6px 0 2px;
+  border-color: var(--dots-line);
+  border-radius: 8px;
+  box-shadow: 3px 3px 0 var(--dots-shadow);
+}
+
+:root[data-theme] .app-bg .chat-container[data-chat-ui="xp"][data-chat-view="room"] > .chat-messages.xp-log-dots .msg-bubble.msg-bubble-img:not(.msg-bubble-sticker, .msg-bubble-sticker-message) :is(.msg-image, .msg-image-tile) {
+  border-radius: 5px;
+}
+
+:root[data-theme] .app-bg .chat-container[data-chat-ui="xp"][data-chat-view="room"] > .chat-messages.xp-log-dots .msg-bubble-sticker,
+:root[data-theme] .app-bg .chat-container[data-chat-ui="xp"][data-chat-view="room"] > .chat-messages.xp-log-dots .msg-bubble-sticker-message {
+  margin: 6px 0 2px;
+}
+
+:root[data-theme] .app-bg .chat-container[data-chat-ui="xp"][data-chat-view="room"] > .chat-messages.xp-log-dots .thinking-row {
+  padding-left: 2px;
+}
+
+:root[data-theme] .app-bg .chat-container[data-chat-ui="xp"][data-chat-view="room"] > .chat-messages.xp-log-dots .thinking-toggle {
+  color: var(--dots-pink-deep);
+}
+
+:root[data-theme] .app-bg .chat-container[data-chat-ui="xp"][data-chat-view="room"] > .chat-messages.xp-log-dots .thinking-content {
+  border-left-color: var(--dots-mine-line);
+  background: #fff;
+}
+
+:root[data-theme] .app-bg .chat-container[data-chat-ui="xp"][data-chat-view="room"] > .chat-messages.xp-log-dots :is(.reply-status-text, .empty-chat p) {
+  color: var(--dots-muted);
+}
+
+:root[data-theme] .app-bg .chat-container[data-chat-ui="xp"][data-chat-view="room"] > .chat-messages.xp-log-dots .msg-speak-row {
+  margin: 3px 0 0;
+}
+
+/* Avatars on as well: the picture sits on the speaker's side of the 说 line. */
+:root[data-theme] .app-bg .chat-container[data-chat-ui="xp"][data-chat-view="room"] > .chat-messages.xp-log-dots.xp-log-avatars .xp-msg-says-user {
+  padding-right: var(--xp-says-indent);
+  padding-left: 0;
+}
+
+:root[data-theme] .app-bg .chat-container[data-chat-ui="xp"][data-chat-view="room"] > .chat-messages.xp-log-dots.xp-log-avatars .xp-msg-says-user .xp-says-avatar {
+  right: 0;
+  left: auto;
+}
+
+:root[data-theme] .app-bg .chat-container[data-chat-ui="xp"][data-chat-view="room"] > .chat-messages.xp-log-dots.xp-log-avatars .xp-says-avatar {
+  border-color: var(--dots-line);
+  border-radius: 6px;
+}
+
+:root[data-theme] .app-bg .chat-container[data-chat-ui="xp"][data-chat-view="room"] > .chat-messages.xp-log-dots.xp-log-avatars :is(.msg-row, .thinking-row) {
+  padding-left: var(--xp-says-indent);
+}
+
+:root[data-theme] .app-bg .chat-container[data-chat-ui="xp"][data-chat-view="room"] > .chat-messages.xp-log-dots.xp-log-avatars .msg-row-user {
+  padding-right: var(--xp-says-indent);
+  padding-left: 0;
+}
+
+:root[data-theme] .app-bg .chat-container[data-chat-ui="xp"][data-chat-view="room"] > .chat-messages.xp-log-dots.xp-log-avatars .msg-row-summer-utility {
+  padding-right: 0;
+}

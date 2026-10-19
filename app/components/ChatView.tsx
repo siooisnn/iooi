@@ -895,6 +895,8 @@ export function ChatView({
   const retroUserName = settings.userName || "我";
   // XP rooms only: the avatar sits on each run's "说" line; off keeps the plain log.
   const saysAvatars = retro && settings.chatAvatars === true;
+  // XP rooms only: dayday's pink dots behind the log, each line in a speech bubble.
+  const dotBubbles = retro && settings.chatDots === true;
   const saysAvatar = (user: boolean) => {
     if (!saysAvatars) return null;
     const src = user ? settings.userAvatar : assistantAvatar;
@@ -1069,6 +1071,21 @@ export function ChatView({
               </button>
             </section>
           )}
+          {retro && (
+            <section className="chat-config-section chat-config-toggle-section">
+              <p>粉波点对话框</p>
+              <button
+                type="button"
+                className={`chat-config-switch${settings.chatDots ? " chat-config-switch-on" : ""}`}
+                role="switch"
+                aria-checked={settings.chatDots === true}
+                aria-label="粉波点背景和对话框"
+                onClick={() => updateSettings({ chatDots: !settings.chatDots })}
+              >
+                <span>{settings.chatDots ? "On" : "Off"}</span><i />
+              </button>
+            </section>
+          )}
           {!isGpt && (
             <section className="chat-config-section">
               <div className="chat-config-toggle-section development-mode-heading">
@@ -1100,7 +1117,7 @@ export function ChatView({
         </div>
       )}
 
-      <section className={`chat-messages${saysAvatars ? " xp-log-avatars" : ""}`} ref={scrollRef} onScroll={handleScroll}>
+      <section className={`chat-messages${saysAvatars ? " xp-log-avatars" : ""}${dotBubbles ? " xp-log-dots" : ""}`} ref={scrollRef} onScroll={handleScroll}>
         {session.messages.length === 0 && (
           <div className="empty-chat"><p>说点什么开始聊天吧</p></div>
         )}

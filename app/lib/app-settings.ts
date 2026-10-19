@@ -33,6 +33,8 @@ export type Settings = {
   userAvatar: string;
   // XP private rooms: a small avatar heads each "说" line. Off keeps the plain log.
   chatAvatars?: boolean;
+  // XP private rooms: dayday's pink dotted paper with speech bubbles. Off keeps the white log.
+  chatDots?: boolean;
   gptReasoningEffort: GptReasoningEffort;
   claudeReasoningEffort: ClaudeReasoningEffort;
   gptWebSearch: boolean;
