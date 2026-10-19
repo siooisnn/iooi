@@ -9,7 +9,6 @@ type StoredMessage = {
   thinking?: string;
   source?: string;
   roundId?: string;
-  dayday?: { id?: string };
   speaker?: "claude" | "gpt";
   proposal?: { id?: string; status?: string };
 };
@@ -52,7 +51,6 @@ function imageKey(message: StoredMessage) {
 }
 
 function messageKey(message: StoredMessage) {
-  if (message.source === "dayday_card" && message.dayday?.id) return `dayday:${message.dayday.id}`;
   const proposalId = message.proposal?.id;
   if (proposalId && message.source?.startsWith("summer_write_")) {
     return ["summer_proposal", proposalId].join("\u0001");
@@ -165,9 +163,6 @@ export function createSessionSyncHandlers(access: StoreAccess) {
       const body = await request.json();
       await access.write((store) => {
         const next = { ...body };
-        // Financial state only changes through dayday's transactional commands.
-        // A stale browser sync must never restore old money, orders or inventory.
-        delete next.dayday;
         const deletedIds = deletedIdSet(store.deletedSessionIds, body.deletedSessionIds);
         next.deletedSessionIds = Array.from(deletedIds);
         if (Array.isArray(body.sessions)) {

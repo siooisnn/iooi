@@ -2,35 +2,21 @@
    Every rule starts with :root[data-theme] .dd-screen so it outranks the shared XP window. */
 :root[data-theme] .dd-screen {
   --dd-ink: #34506f;
-  --dd-soft: #5d7695;
   --dd-muted: #8a97a8;
   --dd-line: #e0e7f0;
   --dd-paper: #fff;
   --dd-bg: #f5f8fc;
-  --dd-blue: #4f7bab;
   --dd-blue-deep: #3f6893;
-  --dd-blue-soft: #e8f0fa;
   --dd-pink: #b0657f;
-  --dd-pink-soft: #fbeef3;
-  --dd-pink-line: #ecd3dc;
   --dd-radius: 10px;
   color: var(--dd-ink);
 }
 :root[data-theme] .dd-screen button { cursor: pointer; font: inherit; }
-:root[data-theme] .dd-screen button:disabled { cursor: default; opacity: .5; }
-:root[data-theme] .dd-screen :is(button, input, select, textarea):focus-visible { outline: 2px solid var(--dd-blue); outline-offset: 2px; }
 :root[data-theme] .dd-screen h3 { margin: 0; font-size: 14px; font-weight: 600; color: var(--dd-ink); }
-:root[data-theme] .dd-screen svg { flex: none; }
 
 /* Window chrome */
 :root[data-theme] .dd-screen .dd-title-icon { width: 22px; height: 22px; flex: none; }
 :root[data-theme] .dd-screen .dd-title-icon svg { width: 100%; height: 100%; }
-:root[data-theme] .dd-screen .dd-preview { display: flex; align-items: center; gap: 10px; min-width: 0; padding: 6px 14px; border-bottom: 1px solid var(--dd-line); background: #fbfcfe; color: var(--dd-muted); font-size: 11px; }
-:root[data-theme] .dd-screen .dd-preview > b { display: inline-flex; flex: none; align-items: center; gap: 6px; color: var(--dd-soft); font-weight: 600; }
-:root[data-theme] .dd-screen .dd-preview > b i { width: 7px; height: 7px; border-radius: 50%; background: #b8c2cf; }
-:root[data-theme] .dd-screen .dd-preview.is-on > b i { background: #7fbf8e; box-shadow: 0 0 0 3px #7fbf8e33; }
-:root[data-theme] .dd-screen .dd-preview > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-:root[data-theme] .dd-screen .dd-preview .dd-link { flex: none; margin-left: auto; padding: 2px 0; }
 :root[data-theme] .dd-screen .dd-body { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 14px 18px 18px; background: var(--dd-bg); color: var(--dd-ink); font-size: 12px; }
 :root[data-theme] .dd-screen .dd-footer { margin-top: 22px; text-align: center; color: #aab4c2; font: 10px Georgia, serif; letter-spacing: 1px; }
 
@@ -38,223 +24,15 @@
 :root[data-theme] .dd-screen .dd-brand { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
 :root[data-theme] .dd-screen .dd-brand h2 { display: flex; align-items: baseline; gap: 10px; margin: 0; font: 26px/1.1 Georgia, serif; color: var(--dd-blue-deep); letter-spacing: -1px; }
 :root[data-theme] .dd-screen .dd-brand h2 span { font: 11px Tahoma, sans-serif; color: var(--dd-pink); letter-spacing: 1px; }
-:root[data-theme] .dd-screen .dd-brand > button { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border: 1px solid var(--dd-pink-line); border-radius: 999px; background: var(--dd-paper); color: var(--dd-pink); font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; }
-:root[data-theme] .dd-screen .dd-brand > button svg { width: 14px; height: 14px; }
 
-/* Hero */
-:root[data-theme] .dd-screen .dd-hero { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 18px 20px; border: 1px solid #d3e1f0; border-radius: var(--dd-radius); background: linear-gradient(115deg, #e4effb, #fbedf3); }
-:root[data-theme] .dd-screen .dd-sticker { display: inline-block; padding: 3px 7px; border: 1px dashed #b4c9df; background: #fffdf8; color: var(--dd-soft); font-size: 9px; letter-spacing: 1px; transform: rotate(-2deg); }
-:root[data-theme] .dd-screen .dd-hero h3 { margin: 10px 0 6px; font-size: 19px; line-height: 1.5; color: var(--dd-blue-deep); letter-spacing: 1px; }
-:root[data-theme] .dd-screen .dd-hero p { margin: 0; font-size: 11px; color: var(--dd-soft); line-height: 1.8; }
-:root[data-theme] .dd-screen .dd-hero button { margin-top: 12px; padding: 7px 14px; border: 0; border-radius: 999px; background: var(--dd-blue); color: #fff; font-size: 11px; }
-:root[data-theme] .dd-screen .dd-hero-art { display: flex; flex: none; flex-direction: column; align-items: center; gap: 8px; color: var(--dd-pink); transform: rotate(6deg); }
-:root[data-theme] .dd-screen .dd-hero-art svg { width: 64px; height: 64px; stroke-width: 1.2; }
-:root[data-theme] .dd-screen .dd-hero-art i { padding: 3px 8px; background: #fffaf2; color: #9b7f8a; font: italic 11px Georgia, serif; white-space: nowrap; box-shadow: 1px 2px 0 #b9c9de55; }
-
-/* Shop navigation: one segmented control, one search, one row of pills */
-:root[data-theme] .dd-screen .dd-areas { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 3px; margin: 14px 0 10px; padding: 3px; border-radius: 999px; background: #e7edf5; }
-:root[data-theme] .dd-screen .dd-areas button { padding: 7px 4px; border: 0; border-radius: 999px; background: transparent; color: var(--dd-soft); font-size: 12px; }
-:root[data-theme] .dd-screen .dd-areas button[aria-pressed=true] { background: var(--dd-paper); color: var(--dd-blue-deep); font-weight: 600; box-shadow: 0 1px 2px #3f68931f; }
-:root[data-theme] .dd-screen .dd-search { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border: 1px solid var(--dd-line); border-radius: 999px; background: var(--dd-paper); color: var(--dd-muted); }
-:root[data-theme] .dd-screen .dd-search svg { width: 15px; height: 15px; }
-:root[data-theme] .dd-screen .dd-search input { width: 100%; min-width: 0; padding: 0; border: 0; outline: 0; background: transparent; color: var(--dd-ink); font: inherit; font-size: 12px; }
-:root[data-theme] .dd-screen .dd-categories { display: flex; gap: 6px; overflow-x: auto; padding: 10px 0 12px; scrollbar-width: none; }
-:root[data-theme] .dd-screen .dd-categories button { flex: none; padding: 5px 12px; border: 1px solid transparent; border-radius: 999px; background: transparent; color: var(--dd-muted); font-size: 12px; }
-:root[data-theme] .dd-screen .dd-categories button[aria-pressed=true] { border-color: var(--dd-pink-line); background: var(--dd-pink-soft); color: var(--dd-pink); }
-:root[data-theme] .dd-screen .dd-heading { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px; margin-bottom: 10px; }
-:root[data-theme] .dd-screen .dd-heading > span { font-size: 10px; color: var(--dd-muted); }
-
-/* Product cards */
-:root[data-theme] .dd-screen .dd-products { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
-:root[data-theme] .dd-screen .dd-product { display: flex; flex-direction: column; min-width: 0; padding: 6px 6px 10px; border: 1px solid var(--dd-line); border-radius: var(--dd-radius); background: var(--dd-paper); color: var(--dd-ink); text-align: left; transition: border-color .15s, transform .15s; }
-:root[data-theme] .dd-screen .dd-product:hover { border-color: #c7d6e8; transform: translateY(-1px); }
-:root[data-theme] .dd-screen .dd-product-art { position: relative; display: block; }
-:root[data-theme] .dd-screen .dd-product-art > small { position: absolute; top: 6px; left: 6px; padding: 2px 6px; border-radius: 999px; background: #ffffffd9; color: var(--dd-soft); font-size: 9px; }
-:root[data-theme] .dd-screen .dd-product-name { display: -webkit-box; min-height: 3em; margin: 8px 4px 4px; overflow: hidden; font-size: 12px; line-height: 1.5; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
-:root[data-theme] .dd-screen .dd-product-meta { display: flex; align-items: baseline; justify-content: space-between; gap: 6px; margin: auto 4px 0; }
-:root[data-theme] .dd-screen .dd-product-meta b { color: var(--dd-pink); font-size: 14px; font-variant-numeric: tabular-nums; }
-:root[data-theme] .dd-screen .dd-product-meta small { color: var(--dd-muted); font-size: 10px; }
-
-/* Art tiles: two quiet tints and a line icon when there is no photo */
-:root[data-theme] .dd-screen :is(.dd-art, .dd-detail-art, .dd-bag-art) { position: relative; display: grid; place-items: center; overflow: hidden; aspect-ratio: 1; color: #8fa8c4; }
-:root[data-theme] .dd-screen .dd-art { width: 100%; border-radius: 7px; }
-/* Percent heights inside an auto grid row fall back to the image's own ratio, so pin photos to the box instead. */
-:root[data-theme] .dd-screen :is(.dd-art, .dd-detail-art, .dd-bag-art) > img { position: absolute; inset: 0; display: block; width: 100%; height: 100%; object-fit: contain; }
-:root[data-theme] .dd-screen .dd-art-icon { width: 38%; height: 38%; stroke-width: 1.3; }
-:root[data-theme] .dd-screen .dd-blue { background: #edf3fa; }
-:root[data-theme] .dd-screen .dd-pink { background: #fbf0f4; color: #cf9aae; }
-
-/* Paper sections */
+/* Paper */
 :root[data-theme] .dd-screen .dd-paper { margin-bottom: 12px; padding: 16px; border: 1px solid var(--dd-line); border-radius: var(--dd-radius); background: var(--dd-paper); }
-:root[data-theme] .dd-screen .dd-paper > h3 { margin-bottom: 8px; }
-:root[data-theme] .dd-screen .dd-paper > h3:not(:first-child) { margin-top: 20px; }
-:root[data-theme] .dd-screen .dd-page-heading { padding: 4px 0 14px; }
-:root[data-theme] .dd-screen .dd-page-heading > small { color: var(--dd-muted); font-size: 9px; letter-spacing: 2px; }
-:root[data-theme] .dd-screen .dd-page-heading h3 { margin: 4px 0 2px; font-size: 18px; color: var(--dd-blue-deep); }
-:root[data-theme] .dd-screen :is(.dd-page-heading p, .dd-muted) { margin: 0; color: var(--dd-muted); font-size: 11px; line-height: 1.8; }
-:root[data-theme] .dd-screen .dd-paper .dd-muted + .dd-muted { margin-top: 4px; }
 :root[data-theme] .dd-screen .dd-empty { margin: 0; padding: 18px 8px; text-align: center; color: var(--dd-muted); font-size: 11px; line-height: 1.8; }
 :root[data-theme] .dd-screen .dd-paper.dd-empty { padding: 26px 16px; }
 :root[data-theme] .dd-screen .dd-paper.dd-empty h3 { margin-bottom: 4px; }
 :root[data-theme] .dd-screen .dd-paper.dd-empty p { margin: 4px 0 14px; }
-:root[data-theme] .dd-screen .dd-empty-icon { display: block; width: 34px; height: 34px; margin: 0 auto 10px; color: #a9bdd3; }
-:root[data-theme] .dd-screen .dd-number { display: block; margin: 6px 0 4px; color: var(--dd-ink); font-size: 22px; font-weight: 600; font-variant-numeric: tabular-nums; letter-spacing: -.3px; }
-:root[data-theme] .dd-screen .dd-two { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
-:root[data-theme] .dd-screen .dd-two .dd-paper { margin-bottom: 12px; }
-:root[data-theme] .dd-screen .dd-two .dd-paper > h3 { margin-bottom: 0; font-size: 12px; font-weight: 400; color: var(--dd-muted); }
-:root[data-theme] .dd-screen .dd-two small { color: var(--dd-muted); font-size: 10px; }
-
-/* Buttons */
-:root[data-theme] .dd-screen :is(.dd-primary, .dd-secondary) { padding: 9px 16px; border-radius: 999px; font-size: 12px; }
-:root[data-theme] .dd-screen .dd-primary { border: 1px solid var(--dd-blue); background: var(--dd-blue); color: #fff; }
-:root[data-theme] .dd-screen .dd-primary:not(:disabled):hover { background: var(--dd-blue-deep); }
-:root[data-theme] .dd-screen .dd-secondary { border: 1px solid var(--dd-pink-line); background: var(--dd-pink-soft); color: var(--dd-pink); }
-:root[data-theme] .dd-screen .dd-link { border: 0; background: transparent; padding: 6px 0; color: var(--dd-pink); font-size: 11px; }
-
-/* Cart */
-:root[data-theme] .dd-screen .dd-cart-row { display: flex; align-items: center; gap: 12px; padding: 12px 0; border-bottom: 1px dashed var(--dd-line); }
-:root[data-theme] .dd-screen .dd-cart-row:first-child { padding-top: 0; }
-:root[data-theme] .dd-screen .dd-cart-row:last-child { padding-bottom: 0; border: 0; }
-:root[data-theme] .dd-screen .dd-cart-art { flex: none; width: 60px; height: 60px; padding: 0; overflow: hidden; border: 0; border-radius: 8px; background: transparent; }
-:root[data-theme] .dd-screen .dd-bag-art { width: 100%; height: 100%; }
-:root[data-theme] .dd-screen .dd-bag-art .dd-art-icon { width: 46%; height: 46%; }
-:root[data-theme] .dd-screen .dd-cart-info { flex: 1; min-width: 0; font-size: 12px; }
-:root[data-theme] .dd-screen .dd-cart-info small { display: block; margin: 3px 0 7px; color: var(--dd-pink); font-size: 11px; font-variant-numeric: tabular-nums; }
-:root[data-theme] .dd-screen .dd-quantity { display: inline-flex; align-items: center; overflow: hidden; border: 1px solid var(--dd-line); border-radius: 999px; }
-:root[data-theme] .dd-screen .dd-quantity button { width: 28px; height: 26px; border: 0; background: var(--dd-blue-soft); color: var(--dd-blue-deep); }
-:root[data-theme] .dd-screen .dd-quantity span { min-width: 30px; text-align: center; font-variant-numeric: tabular-nums; }
-:root[data-theme] .dd-screen .dd-total p { display: flex; justify-content: space-between; align-items: baseline; margin: 0 0 8px; font-size: 12px; color: var(--dd-soft); }
-:root[data-theme] .dd-screen .dd-total p > span { color: var(--dd-muted); }
-:root[data-theme] .dd-screen .dd-total hr { margin: 12px 0; border: 0; border-top: 1px dashed var(--dd-line); }
-:root[data-theme] .dd-screen .dd-total strong { color: var(--dd-pink); font-size: 20px; font-variant-numeric: tabular-nums; }
-:root[data-theme] .dd-screen .dd-total > button { width: 100%; margin-top: 8px; padding: 10px; }
-:root[data-theme] .dd-screen .dd-total > small { display: block; margin-top: 10px; text-align: center; color: var(--dd-muted); font-size: 10px; line-height: 1.7; }
-
-/* Bank */
-:root[data-theme] .dd-screen .dd-bank-card { margin-bottom: 12px; padding: 20px 22px; border-radius: 14px; background: radial-gradient(ellipse at 100% 0%, #fdf1f5, transparent 60%), linear-gradient(120deg, #d9e8f8, #e9e6f5); color: var(--dd-blue-deep); box-shadow: 0 6px 18px #3f68931a; }
-:root[data-theme] .dd-screen .dd-bank-card > span { font: italic 17px Georgia, serif; }
-:root[data-theme] .dd-screen .dd-bank-card > p { margin: 18px 0 0; font-size: 11px; color: var(--dd-soft); }
-:root[data-theme] .dd-screen .dd-bank-card > strong { display: block; margin: 4px 0; font-size: 30px; font-weight: 600; font-variant-numeric: tabular-nums; }
-:root[data-theme] .dd-screen .dd-bank-card > small { color: var(--dd-soft); font-size: 10px; }
-:root[data-theme] .dd-screen .dd-bank-card footer { display: flex; align-items: center; justify-content: space-between; margin-top: 18px; color: var(--dd-soft); font-size: 11px; }
-:root[data-theme] .dd-screen .dd-bank-card footer svg { width: 15px; height: 15px; color: var(--dd-pink); }
-
-/* Mine */
-:root[data-theme] .dd-screen .dd-profile { display: flex; align-items: center; gap: 14px; padding: 2px 0 14px; }
-:root[data-theme] .dd-screen .dd-profile > span { display: grid; place-items: center; width: 50px; height: 50px; border: 3px solid #fff; border-radius: 50%; background: var(--dd-pink-soft); color: var(--dd-pink); box-shadow: 0 0 0 1px var(--dd-pink-line); }
-:root[data-theme] .dd-screen .dd-profile > span svg { width: 24px; height: 24px; }
-:root[data-theme] .dd-screen .dd-profile small { color: var(--dd-muted); font-size: 9px; letter-spacing: 2px; }
-:root[data-theme] .dd-screen .dd-profile h3 { margin: 2px 0; font-size: 17px; color: var(--dd-blue-deep); }
-:root[data-theme] .dd-screen .dd-profile p { margin: 0; color: var(--dd-muted); font-size: 11px; }
-:root[data-theme] .dd-screen .dd-inventory { display: flex; flex-direction: column; gap: 6px; padding: 10px 0; border-bottom: 1px dashed var(--dd-line); font-size: 12px; }
-:root[data-theme] .dd-screen .dd-inventory:last-child { border: 0; }
-:root[data-theme] .dd-screen .dd-inventory progress { width: 100%; height: 6px; overflow: hidden; border: 0; border-radius: 999px; background: var(--dd-blue-soft); -webkit-appearance: none; appearance: none; }
-:root[data-theme] .dd-screen .dd-inventory progress::-webkit-progress-bar { border-radius: 999px; background: var(--dd-blue-soft); }
-:root[data-theme] .dd-screen .dd-inventory progress::-webkit-progress-value { border-radius: 999px; background: #8fb0d3; }
-:root[data-theme] .dd-screen .dd-inventory progress::-moz-progress-bar { border-radius: 999px; background: #8fb0d3; }
-:root[data-theme] .dd-screen :is(.dd-inventory, .dd-order) small { color: var(--dd-muted); font-size: 10px; line-height: 1.7; overflow-wrap: anywhere; }
-:root[data-theme] .dd-screen .dd-order { padding: 12px 0; border-bottom: 1px dashed var(--dd-line); font-size: 12px; line-height: 1.8; }
-:root[data-theme] .dd-screen .dd-order:last-child { border: 0; }
-:root[data-theme] .dd-screen .dd-order p { margin: 0; }
-:root[data-theme] .dd-screen .dd-order .dd-heading { margin-bottom: 2px; }
-:root[data-theme] .dd-screen .dd-order > small { display: block; }
-:root[data-theme] .dd-screen .dd-order > .dd-link { display: block; margin: 4px 0 0 auto; padding: 4px 12px; border: 1px solid var(--dd-pink-line); border-radius: 999px; background: var(--dd-pink-soft); }
-:root[data-theme] .dd-screen .dd-life { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-:root[data-theme] .dd-screen .dd-life p { margin: 4px 0 0; color: var(--dd-muted); font-size: 11px; line-height: 1.7; }
-:root[data-theme] .dd-screen .dd-life button { flex: none; padding: 7px 12px; border: 1px solid #cfdcec; border-radius: 999px; background: var(--dd-blue-soft); color: var(--dd-blue-deep); font-size: 11px; }
-
-/* Rows used by ledgers and settings */
-:root[data-theme] .dd-screen .dd-setting { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 11px 0; border-bottom: 1px dashed var(--dd-line); font-size: 12px; }
-:root[data-theme] .dd-screen .dd-setting:last-of-type { border-bottom: 0; }
-:root[data-theme] .dd-screen .dd-setting > b { flex: none; font-weight: 600; font-variant-numeric: tabular-nums; }
-:root[data-theme] .dd-screen .dd-setting small { display: block; margin-top: 3px; color: var(--dd-muted); font-size: 10px; line-height: 1.7; }
-:root[data-theme] .dd-screen .dd-setting input { width: 18px; height: 18px; flex: none; accent-color: var(--dd-blue); }
-:root[data-theme] .dd-screen .dd-setting select { max-width: 90px; padding: 5px 6px; border: 1px solid var(--dd-line); border-radius: 6px; background: var(--dd-bg); color: var(--dd-ink); }
-:root[data-theme] .dd-screen .dd-human-account { background: linear-gradient(135deg, #fff, #fff6f9); }
-
-/* Notice */
-:root[data-theme] .dd-screen .dd-notice { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 12px; padding: 7px 8px 7px 12px; border: 1px solid #d3e0ee; border-radius: 8px; background: var(--dd-blue-soft); color: var(--dd-blue-deep); font-size: 11px; line-height: 1.6; }
-:root[data-theme] .dd-screen .dd-notice button { flex: none; width: 24px; height: 24px; border: 0; background: transparent; color: inherit; font-size: 17px; }
-
-/* Bottom navigation */
-:root[data-theme] .dd-screen .dd-nav { display: flex; flex: none; padding: 4px 6px max(4px, env(safe-area-inset-bottom)); border-top: 1px solid var(--dd-line); background: #fff; }
-:root[data-theme] .dd-screen .dd-nav button { position: relative; display: flex; flex: 1; flex-direction: column; align-items: center; gap: 2px; padding: 6px 0 4px; border: 0; background: transparent; color: #98a4b4; font-size: 10px; }
-:root[data-theme] .dd-screen .dd-nav button[aria-current=page] { color: var(--dd-blue-deep); font-weight: 600; }
-:root[data-theme] .dd-screen .dd-nav button[aria-current=page]::before { content: ""; position: absolute; top: -3px; width: 18px; height: 2px; border-radius: 2px; background: var(--dd-pink); }
-:root[data-theme] .dd-screen .dd-nav button > span { position: relative; display: grid; place-items: center; width: 24px; height: 24px; }
-:root[data-theme] .dd-screen .dd-nav button > span svg { width: 22px; height: 22px; }
-:root[data-theme] .dd-screen .dd-nav i { position: absolute; left: 15px; top: -3px; min-width: 15px; padding: 1px 4px; border-radius: 10px; background: var(--dd-pink); color: #fff; font: 600 9px/1.3 Tahoma, sans-serif; font-style: normal; text-align: center; }
-
-/* Dialogs */
-:root[data-theme] .dd-screen .dd-dialog { width: min(420px, calc(100% - 24px)); max-height: 90dvh; color: var(--dd-ink); }
-:root[data-theme] .dd-screen .dd-dialog .rd-dialog-body { display: flex; flex-direction: column; gap: 12px; min-height: 0; padding: 14px; overflow-y: auto; background: var(--dd-bg); color: var(--dd-ink); }
-:root[data-theme] .dd-screen .dd-detail-art { flex: none; width: min(100%, 280px); align-self: center; border-radius: var(--dd-radius); }
-:root[data-theme] .dd-screen .dd-detail-art .dd-art-icon { width: 64px; height: 64px; }
-:root[data-theme] .dd-screen .dd-detail-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
-:root[data-theme] .dd-screen .dd-detail-head h3 { margin-bottom: 2px; font-size: 16px; }
-:root[data-theme] .dd-screen .dd-price { flex: none; color: var(--dd-pink); font-size: 22px; font-variant-numeric: tabular-nums; }
-:root[data-theme] .dd-screen .dd-detail-desc { margin: 0; font-size: 12px; line-height: 1.8; }
-:root[data-theme] .dd-screen .dd-detail-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 4px; }
-:root[data-theme] .dd-screen .dd-detail-actions button { padding: 9px 6px; font-size: 12px; }
-:root[data-theme] .dd-screen .dd-detail-actions .dd-primary { grid-column: 1 / -1; order: -1; padding: 10px; }
-
-/* Forms (product editor, send dialog) */
-:root[data-theme] .dd-screen .dd-form fieldset { display: flex; flex-direction: column; gap: 12px; min-width: 0; margin: 0; padding: 0; border: 0; }
-:root[data-theme] .dd-screen .dd-form label { display: flex; flex-direction: column; gap: 6px; font-size: 12px; line-height: 1.6; }
-:root[data-theme] .dd-screen .dd-form label.dd-setting { flex-direction: row; }
-:root[data-theme] .dd-screen .dd-form :is(input:not([type=checkbox]), textarea, select) { width: 100%; min-width: 0; padding: 8px 10px; border: 1px solid #d3deea; border-radius: 7px; background: #fff; color: var(--dd-ink); font: inherit; }
-:root[data-theme] .dd-screen .dd-form small { color: var(--dd-muted); font-size: 10px; }
-:root[data-theme] .dd-screen .dd-form .dd-two .dd-paper { margin: 0; }
-:root[data-theme] .dd-screen .dd-inline { display: flex; gap: 8px; }
-:root[data-theme] .dd-screen .dd-edit-photo { display: flex; align-items: center; gap: 14px; }
-:root[data-theme] .dd-screen .dd-edit-photo img { width: 88px; height: 88px; object-fit: contain; border: 1px solid var(--dd-line); border-radius: 8px; background: #fff; }
-:root[data-theme] .dd-screen .dd-edit-photo button { padding: 7px 12px; border: 1px solid var(--dd-pink-line); border-radius: 999px; background: var(--dd-pink-soft); color: var(--dd-pink); }
 
 @media (max-width: 480px) {
   :root[data-theme] .dd-screen .dd-body { padding: 12px 12px 16px; }
-  :root[data-theme] .dd-screen .dd-brand h2 { font-size: 23px; }
-  :root[data-theme] .dd-screen .dd-hero { padding: 16px; }
-  :root[data-theme] .dd-screen .dd-hero h3 { font-size: 17px; }
-  :root[data-theme] .dd-screen .dd-hero-art svg { width: 48px; height: 48px; }
-  :root[data-theme] .dd-screen .dd-hero-art i { display: none; }
-  :root[data-theme] .dd-screen .dd-products { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
   :root[data-theme] .dd-screen .dd-paper { padding: 14px; }
-  :root[data-theme] .dd-screen .dd-life { flex-direction: column; align-items: flex-start; }
 }
-@media (prefers-reduced-motion: reduce) {
-  :root[data-theme] .dd-screen .dd-product { transition: none; }
-  :root[data-theme] .dd-screen .dd-product:hover { transform: none; }
-}
-
-/* Keep long account histories tucked away until requested. */
-:root[data-theme] .dd-screen .dd-collapse { min-width: 0; }
-:root[data-theme] .dd-screen .dd-collapse > summary { padding: 4px 0; cursor: pointer; color: var(--dd-blue-deep); font-size: 13px; font-weight: 600; }
-:root[data-theme] .dd-screen .dd-collapse[open] > summary { margin-bottom: 10px; }
-:root[data-theme] .dd-screen .dd-human-account > .dd-collapse { margin-top: 14px; padding-top: 10px; border-top: 1px dashed var(--dd-line); }
-:root[data-theme] .dd-screen .dd-discount-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto; align-items: end; gap: 8px; }
-:root[data-theme] .dd-screen .dd-pricing { display: grid; gap: 10px; }
-
-/* Folded cards for lists that keep growing: heading, count, caret. */
-:root[data-theme] .dd-screen .dd-fold > summary { display: flex; align-items: center; gap: 8px; min-height: 22px; cursor: pointer; list-style: none; -webkit-user-select: none; user-select: none; }
-:root[data-theme] .dd-screen .dd-fold > summary::-webkit-details-marker { display: none; }
-:root[data-theme] .dd-screen .dd-fold > summary h3 { margin: 0; flex: 1; min-width: 0; }
-:root[data-theme] .dd-screen .dd-fold-caret { flex: none; width: 0; height: 0; border-top: 4px solid transparent; border-bottom: 4px solid transparent; border-left: 6px solid var(--dd-blue-deep); transition: transform .15s; }
-:root[data-theme] .dd-screen .dd-fold[open] .dd-fold-caret { transform: rotate(90deg); }
-:root[data-theme] .dd-screen .dd-fold-meta { flex: none; color: var(--dd-muted); font-size: 10px; }
-:root[data-theme] .dd-screen .dd-fold-action { flex: none; padding: 6px 12px; }
-:root[data-theme] .dd-screen .dd-fold > summary:focus-visible { outline: 1px dotted var(--dd-blue-deep); outline-offset: 3px; }
-:root[data-theme] .dd-screen .dd-fold-body { margin-top: 12px; }
-:root[data-theme] .dd-screen .dd-fold-chips { padding-top: 0; }
-:root[data-theme] .dd-screen .dd-fold-more { display: block; margin: 10px auto 0; }
-:root[data-theme] .dd-screen .dd-fold-sub { margin-top: 8px; padding-top: 8px; border-top: 1px dashed var(--dd-line); }
-:root[data-theme] .dd-screen .dd-fold-sub > summary { color: var(--dd-muted); font-size: 12px; font-weight: 500; }
-@media (prefers-reduced-motion: reduce) { :root[data-theme] .dd-screen .dd-fold-caret { transition: none; } }
-:root[data-theme] .dd-screen .dd-stat-title { display: flex; justify-content: space-between; margin: 14px 0 2px; padding-bottom: 6px; border-bottom: 1px solid var(--dd-line); color: var(--dd-blue-deep); font-size: 12px; font-weight: 600; }
-:root[data-theme] .dd-screen .dd-stat-title:first-of-type { margin-top: 6px; }
-:root[data-theme] .dd-screen .dd-stat-title span { font-variant-numeric: tabular-nums; }
-:root[data-theme] .dd-screen .dd-stat { gap: 4px; padding: 8px 0; }
-:root[data-theme] .dd-screen .dd-stat-head { display: flex; justify-content: space-between; gap: 12px; }
-:root[data-theme] .dd-screen .dd-stat-head b { font-weight: 500; font-variant-numeric: tabular-nums; }
-:root[data-theme] .dd-screen .dd-stat-head b:last-child { flex: none; font-weight: 600; }
-:root[data-theme] .dd-screen .dd-setting-actions { display: flex; flex: none; gap: 10px; }
-:root[data-theme] .dd-screen .dd-link.dd-danger { color: #b04a4a; }

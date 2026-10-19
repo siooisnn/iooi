@@ -363,7 +363,7 @@ export function RetroDesktop({ settings, onOpen }: {
                 <MenuItem icon={<BookGlyph />} label="reading" onClick={() => open("reading")} />
                 <MenuItem icon={<IeGlyph />} label="internet" note="我们俩的小论坛" onClick={() => open("surf")} />
                 <MenuItem icon={<MoodGlyph />} label="mood" note="今天是什么心情" onClick={() => open("mood")} />
-                <MenuItem icon={<DaydayGlyph />} label="dayday" note="酥酥的生活小商城" onClick={() => open("dayday")} />
+                <MenuItem icon={<DaydayGlyph />} label="dayday" note="记账和小商城" onClick={() => open("dayday")} />
                 <MenuItem icon={<HeartGlyph />} label="heartbeat" onClick={() => open("heartbeat")} />
                 <MenuItem icon={<PhoneGlyph />} label="susu’s phone" onClick={() => open("susu-phone")} />
               </div>

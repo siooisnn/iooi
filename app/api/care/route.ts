@@ -4,7 +4,6 @@ import { isClaudeCodeEnabled, runClaudeCodeChat } from "@/app/lib/claude-code";
 import { latestUserSession } from "@/app/lib/chat-timeline";
 import { blogHeartbeat } from "@/app/lib/blog-him";
 import { lifeHeartbeat } from "@/app/lib/life-beat";
-import { daydayHeartbeat } from "@/app/lib/dayday-beat";
 import { ensureLifeLog, noteLifeEntry, todayLifeLines } from "@/app/lib/life-log";
 import { readSummerLight } from "@/app/lib/summer-light";
 import { normalizeSystemPrompt } from "@/app/lib/app-settings";
@@ -62,7 +61,6 @@ export async function POST() {
   // His own time (reading, wandering online) rides it too, same idea:
   // settings.lifeRead / lifeSurf, store.lifeBeat. It decides for itself whether now is the time.
   after(() => lifeHeartbeat().catch(() => undefined));
-  after(() => daydayHeartbeat().catch((error) => console.error("[dayday] heartbeat", error instanceof Error ? error.message : "failed")));
   try {
     const snapshot = readStore();
     if (!snapshot) return Response.json({ action: "silent", reason: "no data" });

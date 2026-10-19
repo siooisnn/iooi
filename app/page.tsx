@@ -760,7 +760,7 @@ export default function Home() {
         {tab === "reading" && <ReadingView key={readingTarget || "reading"} settings={settings} initialBook={readingTarget} onBack={goHome} />}
         {tab === "surf" && <SurfView key={surfTarget || "surf"} settings={settings} initialThread={surfTarget}
           onBack={surfTarget && !phoneReturn ? () => { setSurfTarget(null); setTab("heartbeat"); } : goHome} />}
-        {tab === "dayday" && <DaydayView settings={settings} onBack={goHome} onOpenHeartbeat={() => setTab("heartbeat")} />}
+        {tab === "dayday" && <DaydayView onBack={goHome} />}
         {tab === "clawd" && <ClawdView onBack={goHome} />}
         {tab === "mood" && <MoodPage mood={dailyMood} retro={settings.retroDesktop} onBack={goHome} />}
         {(tab === "summer-claude" || tab === "summer-gpt") && (

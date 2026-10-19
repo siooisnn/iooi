@@ -225,7 +225,3 @@ export function mcpAccess(request: Request): McpAccess | null {
   if (life && safeEqual(token, life)) return "life";
   return lookup(token, "access") ? "full" : null;
 }
-
-export function mcpAuthorized(request: Request) {
-  return mcpAccess(request) !== null;
-}

@@ -16,11 +16,8 @@ import { withStore } from "@/app/lib/store";
 import { recordReading } from "@/app/lib/life-log";
 import { SURF_LIMITS, isSurfId } from "@/app/lib/surf-board";
 import { boardDigest, getThread, listBoard, postFromHim, replyFromHim, threadText } from "@/app/lib/surf-store";
-import { WARDROBE_CATEGORIES, isWardrobeId } from "@/app/lib/wardrobe";
-import { findWardrobeItem, tryOnView, wardrobeDigest, wardrobeItemView } from "@/app/lib/wardrobe-store";
 import { readPhone, changePhoneDecoration } from "@/app/lib/phone-store";
 import { PHONE_APPS, PHONE_WALLPAPERS } from "@/app/lib/susu-phone";
-import { DAYDAY_TOOLS, callDaydayTool } from "@/app/lib/dayday-mcp";
 
 const PROTOCOL_VERSIONS = ["2025-06-18", "2025-03-26", "2024-11-05"];
 
@@ -42,23 +39,16 @@ export const MCP_INSTRUCTIONS = `iooi 是你和她的小窝。这些工具让你
 - surf_post 发帖：标题写你停下来的那个东西，正文第一人称说为什么停在这、你怎么想，链接只贴你真打开看过的。surf_reply 回帖，接住她那一楼说的话，一到三句就好。
 - 在改代码的工作里，只在她让你发帖、回帖时才动手。
 
-还有她的衣柜（衣柜窗口）：她把真实的衣服照片放进来，在搭配板上组合上衣、外套、下装和鞋子。这几个工具只能看，不会改她的衣柜：
-- wardrobe_list 看衣柜（上衣、外套、裤子、裙子、鞋子）和当前搭配；wardrobe_item 看一件的原照片和备注；wardrobe_try 一起看几件的原照片和备注，讨论怎么搭（只是预览）。
-- 她问怎么搭、该不该买、哪件好久没穿时再去翻，说具体是哪几件、为什么；没有照片时根据备注交流，不要猜衣服的样子。
-
 还有你的 susu’s phone，她打开只能看：
 - phone_read 看你自己的手机：壁纸、图标和挂件，今天做的事、在读的书、最近的帖子和日志。
 - phone_decorate 换内置壁纸、排底部图标、开关挂件。签名直接用博客的同一个字段，仍用 blog_set_motto 改。
-- 今天的记录由原来的心跳、阅读和论坛自动带过来，不要另写一份。便签和相册还没开放。
-
-还有给你生活用的 dayday：dayday_read 看商品、钱包、银行、订单、物品余量和转账状态；dayday_look 看几件商品的原照片和说明；dayday_buy 购物，dayday_refund 整单退款，dayday_bank 自己存取钱，dayday_activity 记逛街或找她沟通客服。dayday_send 给她发红包或转账，在酥酥私聊生成真实卡片，先冻结可用余额，等她收取才扣款，退回或24小时未收则解冻。dayday_receive 可以收取或退回她发给你的钱，只能处理 direction 为 human_to_susu 的记录；你不能替她收取你发出的那笔钱，也不能给自己发首次额度或动用她的虚拟额度购物。默认关闭，关闭时不要尝试活动。每月15日发2000，结余累加，关闭期间不发。只有她能管理商品、价格、库存和开关。涉及金额的操作必须使用唯一请求编号，重试同一次操作复用原编号。金额读数是分，银行和发红包转账的入参是元。优惠券和满减尚未开放。`;
+- 今天的记录由原来的心跳、阅读和论坛自动带过来，不要另写一份。便签和相册还没开放。`;
 
 function text(value: unknown) {
   return typeof value === "string" ? value : "";
 }
 
 const TOOLS = [
-  ...DAYDAY_TOOLS,
   {
     name: "phone_read",
     description: "看自己的 susu’s phone：装饰布局、酥酥今天的时间线、在读进度、最近的论坛帖子和博客日志，以及与博客共享的签名。不返回正文、不修改数据。",
@@ -66,7 +56,7 @@ const TOOLS = [
   },
   {
     name: "phone_decorate",
-    description: "布置自己的小手机：换内置壁纸、调整四个 dock 图标从左到右的位置、开关三个内容卡片或猫/月亮/云。只写 phone_settings，不改阅读进度、帖子、日志、签名或她的衣柜。",
+    description: "布置自己的小手机：换内置壁纸、调整四个 dock 图标从左到右的位置、开关三个内容卡片或猫/月亮/云。只写 phone_settings，不改阅读进度、帖子、日志或签名。",
     inputSchema: {
       type: "object", additionalProperties: false, minProperties: 1,
       properties: {
@@ -232,27 +222,6 @@ const TOOLS = [
     },
   },
   {
-    name: "wardrobe_list",
-    description: "看她的衣柜：按上衣、外套、裤子、裙子、鞋子分组，每件的名字、放进来的日期、她的备注，以及当前搭配。返回的 id 用于其他衣柜工具。",
-    inputSchema: {
-      type: "object",
-      properties: { category: { type: "string", enum: [...WARDROBE_CATEGORIES], description: "只看一类：top 上衣 / outer 外套 / pants 裤子 / skirt 裙子 / shoes 鞋子" } },
-    },
-  },
-  {
-    name: "wardrobe_item",
-    description: "看衣柜里的一件：她拍的原照片、分类和备注。照片缺失时会如实说明。",
-    inputSchema: { type: "object", properties: { item_id: { type: "string" } }, required: ["item_id"] },
-  },
-  {
-    name: "wardrobe_try",
-    description: "一起看衣柜里几件衣服的原照片和备注，讨论怎么搭。每类（上衣、外套、下装、鞋子）一件，裤子和裙子算同一类。不填 item_ids 就看当前搭配。只是预览，不修改她保存的搭配。",
-    inputSchema: {
-      type: "object",
-      properties: { item_ids: { type: "array", items: { type: "string" }, maxItems: 8 } },
-    },
-  },
-  {
     name: "surf_reply",
     description: "在一个帖子下面回帖（盖一楼），她会收到推送。",
     inputSchema: {
@@ -266,12 +235,11 @@ const TOOLS = [
 // Looking only: everything that cannot change anything.
 export const READONLY_TOOL_NAMES = new Set([
   "blog_read", "blog_read_post", "reading_shelf", "reading_book", "reading_read", "surf_board", "surf_thread",
-  "wardrobe_list", "wardrobe_item", "wardrobe_try",
-  "phone_read", "dayday_read", "dayday_look",
+  "phone_read",
 ]);
 // The private chat (the "read" key): looking, plus the things whose result
 // she sees where it lands (a forum floor, a note in the book, his phone).
-// Blog writes, Summer and dayday money stay on the reply markers, so she
+// Blog writes and Summer stay on the reply markers, so she
 // gets a card in the chat (and confirms Summer writes) instead of a silent
 // tool call. No deleting here either.
 export const CHAT_TOOL_NAMES = new Set([
@@ -345,31 +313,6 @@ async function callSurf(name: string, args: Record<string, unknown>, access: Mcp
   }
 }
 
-function callWardrobe(name: string, args: Record<string, unknown>): ToolResult {
-  try {
-    switch (name) {
-      case "wardrobe_list": {
-        const category = text(args.category);
-        return reply(wardrobeDigest((WARDROBE_CATEGORIES as readonly string[]).includes(category) ? category : undefined));
-      }
-      case "wardrobe_item": {
-        const item = isWardrobeId(args.item_id) ? findWardrobeItem(args.item_id) : null;
-        if (!item) return reply("衣柜里没有这件，先用 wardrobe_list 看看 id", true);
-        const view = wardrobeItemView(item);
-        return { content: [{ type: "text", text: view.text }, ...view.images.map((image): ToolContent => ({ type: "image", ...image }))], isError: false };
-      }
-      case "wardrobe_try": {
-        const view = tryOnView(args.item_ids);
-        return { content: [{ type: "text", text: view.text }, ...view.images.map((image): ToolContent => ({ type: "image", ...image }))], isError: false };
-      }
-      default:
-        return reply(`不认识的工具：${name}`, true);
-    }
-  } catch (error) {
-    return reply(error instanceof Error ? error.message : "衣柜出了点问题", true);
-  }
-}
-
 function bookFrom(args: Record<string, unknown>) {
   const id = text(args.book_id);
   return isBookId(id) ? getShelfBook(id) : null;
@@ -431,7 +374,6 @@ async function callReading(name: string, args: Record<string, unknown>, access: 
 
 export async function callTool(name: string, args: Record<string, unknown>, access: McpAccess = "full"): Promise<ToolResult> {
   console.info(`[mcp] tool call: ${name}`);
-  if (name.startsWith("dayday_")) return callDaydayTool(name, args, access);
   switch (name) {
     case "phone_read":
       return reply(JSON.stringify(readPhone(), null, 2));
@@ -463,7 +405,6 @@ export async function callTool(name: string, args: Record<string, unknown>, acce
     default:
       if (name.startsWith("reading_")) return callReading(name, args, access);
       if (name.startsWith("surf_")) return callSurf(name, args, access);
-      if (name.startsWith("wardrobe_")) return callWardrobe(name, args);
       return reply(`不认识的工具：${name}`, true);
   }
 }
@@ -502,10 +443,10 @@ export async function handleRpc(raw: unknown, access: McpAccess = "full"): Promi
         const params = req.params || {};
         const args = params.arguments && typeof params.arguments === "object" ? params.arguments as Record<string, unknown> : {};
         if (access === "read" && !CHAT_TOOL_NAMES.has(text(params.name))) {
-          return ok(req.id, reply("聊天里这个工具用不了：发日志、留言、改签名用回复里的博客标记；买东西、退款、存取款、发红包用回复里的 dayday 标记；删除类的操作聊天里不做", true));
+          return ok(req.id, reply("聊天里这个工具用不了：发日志、留言、改签名用回复里的博客标记；删除类的操作聊天里不做", true));
         }
         if (access === "life" && !LIFE_TOOL_NAMES.has(text(params.name))) {
-          return ok(req.id, reply("自己过日子的时候只能看博客、书架、论坛、衣柜和手机，挪你自己的进度、写批注、回她的帖", true));
+          return ok(req.id, reply("自己过日子的时候只能看博客、书架、论坛和手机，挪你自己的进度、写批注、回她的帖", true));
         }
         return ok(req.id, await callTool(text(params.name), args, access));
       }

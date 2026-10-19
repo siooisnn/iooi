@@ -13,8 +13,6 @@ export type BlogMarker =
 
 const MARKER_RE = /\[blog_(post|comment|motto)\b([^\]]*)\]([\s\S]*?)\[\/blog_\1\]/gi;
 
-export const BLOG_MARKER_OPENERS = ["[blog_post", "[blog_comment", "[blog_motto"] as const;
-
 function attrs(raw: string) {
   const found: Record<string, string> = {};
   const re = /(\w+)\s*=\s*(?:"([^"]*)"|“([^”]*)”|'([^']*)'|([^\s"'“”]+))/g;

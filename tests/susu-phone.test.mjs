@@ -72,7 +72,6 @@ test('reading and shared blog motto appear directly; read-only snapshots and dec
     settings: { aiName: '酥酥' }, sessions: [], fragments: [{ id: 'her-post', content: '她的正文' }],
     blog: { him: { motto: '原签名', posts: [{ id: 'his-post', title: '一篇日志', content: '原来的正文', createdAt: now.toISOString() }] } },
   }));
-  await stores.withWardrobeStore((store) => Object.assign(store, { items: [{ id: 'her-clothes', note: '保留' }], outfit: { top: 'her-clothes' } }));
   await stores.withSurfStore((store) => Object.assign(store, { threads: [
     { id: 'susu-thread', at: stamp, lastAt: stamp, who: 'him', title: '酥酥的帖', content: '正文不复制', links: [], replies: [] },
     { id: 'her-thread', at: stamp + 1, lastAt: stamp + 1, who: 'her', title: '她的帖', content: '保留', links: [], replies: [] },

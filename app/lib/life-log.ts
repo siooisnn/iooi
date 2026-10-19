@@ -4,7 +4,7 @@
 // Kept in `store.lifeLog`, a server-only key the page reads but never syncs back.
 // No imports, so the page and node tests can load it directly.
 
-export type LifeKind = "care" | "comment" | "post" | "read" | "surf" | "dayday";
+export type LifeKind = "care" | "comment" | "post" | "read" | "surf";
 
 /** A page he kept while wandering online. */
 export type LifeLink = { title: string; url: string; why?: string };
@@ -34,7 +34,7 @@ export type LifeEntry = {
 };
 
 export const LIFE_LOG_LIMIT = 300;
-const KINDS: readonly LifeKind[] = ["care", "comment", "post", "read", "surf", "dayday"];
+const KINDS: readonly LifeKind[] = ["care", "comment", "post", "read", "surf"];
 // Old logs only ever had these three.
 const LEGACY_KINDS: readonly LifeKind[] = ["care", "comment", "post"];
 

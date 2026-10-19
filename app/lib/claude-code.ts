@@ -284,12 +284,10 @@ function runQueued<T>(
 }
 
 // Tools the private chat may call on its own (mcp-server.ts CHAT_TOOL_NAMES).
-// Blog posts, comments, the motto, Summer memories and dayday money stay on
+// Blog posts, comments, the motto and Summer memories stay on
 // the reply markers, which show her a card and, for Summer, wait for her
 // confirmation.
 export const CHAT_TOOLS = [
-  "mcp__iooi__dayday_read",
-  "mcp__iooi__dayday_look",
   "mcp__iooi__phone_read",
   "mcp__iooi__phone_decorate",
   "mcp__iooi__blog_read",
@@ -303,9 +301,6 @@ export const CHAT_TOOLS = [
   "mcp__iooi__surf_thread",
   "mcp__iooi__surf_reply",
   "mcp__iooi__surf_post",
-  "mcp__iooi__wardrobe_list",
-  "mcp__iooi__wardrobe_item",
-  "mcp__iooi__wardrobe_try",
   "mcp__summer__search",
   "mcp__summer__read",
 ];
@@ -321,11 +316,11 @@ const CHAT_HIDDEN_TOOLS = [
 
 const CHAT_TOOL_RULES = [
   "## 你能自己去看、去做的东西",
-  "去看：mcp__iooi__blog_read / blog_read_post（博客目录、某篇日志全文留言和配图）、mcp__iooi__reading_shelf / reading_book / reading_read（书架、一本书的进度目录和你的批注、正文）、mcp__iooi__surf_board / surf_thread（你们俩的小论坛：帖子列表和哪些在等你回、一个帖子的全部楼层）、mcp__iooi__wardrobe_list / wardrobe_item / wardrobe_try（她的衣柜：衣服列表、一件的原照片和备注、几件一起搭）、mcp__iooi__dayday_read / dayday_look（dayday 的账户订单余量、几件商品的原照片和说明）、mcp__iooi__phone_read（你自己的小手机、今天的生活记录）、mcp__summer__search / mcp__summer__read（翻 Summer 记忆）。",
+  "去看：mcp__iooi__blog_read / blog_read_post（博客目录、某篇日志全文留言和配图）、mcp__iooi__reading_shelf / reading_book / reading_read（书架、一本书的进度目录和你的批注、正文）、mcp__iooi__surf_board / surf_thread（你们俩的小论坛：帖子列表和哪些在等你回、一个帖子的全部楼层）、mcp__iooi__phone_read（你自己的小手机、今天的生活记录）、mcp__summer__search / mcp__summer__read（翻 Summer 记忆）。",
   "去做：mcp__iooi__surf_reply 在论坛回她的帖（先用 surf_thread 看清她那一楼说了什么，一到三句，接住她的话）；mcp__iooi__surf_post 发新帖（她让你发，或聊到真想分享的东西才发，链接只贴你真打开看过的）；mcp__iooi__reading_mark 记下你读到哪（只挪你自己的进度，没读过的部分别往前挪）；mcp__iooi__reading_note 在书边写批注给她看（读到真有话说的地方才写，别剧透她还没读到的）；mcp__iooi__phone_decorate 布置你自己的小手机（换壁纸、排图标、开关挂件）。",
-  "上下文里已经有的内容直接用，别为了确认再查一遍。只有她这条消息需要、而上下文里没有或只有摘要时才去看，比如她让你看某篇日志、问你读到哪了、问你论坛怎么不回她、问你记不记得某件事、问你这件衣服怎么搭。普通聊天不要调用工具。",
+  "上下文里已经有的内容直接用，别为了确认再查一遍。只有她这条消息需要、而上下文里没有或只有摘要时才去看，比如她让你看某篇日志、问你读到哪了、问你论坛怎么不回她、问你记不记得某件事。普通聊天不要调用工具。",
   "调用工具前不要先写“我去看看”之类的过渡句，她看不到中间过程，直接在看完、做完之后回她。工具返回成功才能说回好了、记好了；失败就如实说没成，说明原因。",
-  "发日志、留言、改签名、记进 Summer，照旧用回复里的标记；dayday 的购物、退款、存取款、红包转账也用回复里的 dayday 标记，不要去调 dayday_buy、dayday_refund 之类的写工具。聊天里不删帖、不删批注、不删日志。",
+  "发日志、留言、改签名、记进 Summer，照旧用回复里的标记。聊天里不删帖、不删批注、不删日志。",
 ].join("\n");
 
 function chatMcpUrl() {

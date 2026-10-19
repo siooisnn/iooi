@@ -13,7 +13,6 @@ import type { Settings } from "../lib/app-settings";
 import { apiFetch } from "../lib/client-api";
 import { GearGlyph } from "./RetroDesktop";
 import { BlogConnection } from "./BlogConnection";
-import { DaydayControl } from "./DaydayControl";
 
 const CONTROL_SECTIONS = [
   { title: "账号连接", items: [{ label: "独立博客连接", index: 11 }] },
@@ -251,7 +250,6 @@ export function SettingsView({
           sessionUserTurns={gptSession?.messages.filter((m) => m.role === "user").length ?? 0}
         />
         <BlogConnection />
-        <DaydayControl />
       </section>
   );
 

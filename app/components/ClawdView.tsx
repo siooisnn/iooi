@@ -375,7 +375,7 @@ export function ClawdView({ onBack }: { onBack: () => void }) {
               );
             })}
           </div>
-          <p className="clawd-card-note">现在只是试穿，离开就脱下了。以后 dayday 的{pet.name}专区买到的衣服会放进这里，穿上就一直穿着。</p>
+          <p className="clawd-card-note">现在只是试穿，离开就脱下了。</p>
         </section>
 
         <section className="clawd-card clawd-visits" aria-labelledby="clawd-visits-title">

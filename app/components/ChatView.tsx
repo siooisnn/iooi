@@ -3,8 +3,6 @@
 import { useState, useRef, useEffect, useMemo } from "react";
 import { TypingKitty } from "./TypingKitty";
 import { ChatClawd } from "./TaskbarClawd";
-import { DaydayMoneyCard, DaydayMoneyIcon, DaydayNoticeCard, DaydayOrderCard } from "./DaydayMoneyCard";
-import { DaydaySendDialog } from "./DaydaySendDialog";
 import { sendHearts } from "../lib/cute-fx";
 import { ClaudeUsageCircle, ClaudeUsageDetails, useClaudeUsage } from "./ClaudeUsageBadge";
 import { ContextUsageBadge, type UsageMessage } from "./ContextUsageBadge";
@@ -115,7 +113,6 @@ export function ChatView({
   const claudeUsage = useClaudeUsage(!isGpt);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
-  const [showMoneyDialog, setShowMoneyDialog] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState("");
   const [attachments, setAttachments] = useState<PendingAttachment[]>([]);
@@ -522,33 +519,33 @@ export function ChatView({
     }));
   }
 
-  async function sendMessage(nudge = false, moneyMessage?: Message) {
-    if ((!nudge && !moneyMessage && !input.trim() && !attachments.length) || loading || uploading || sendingRef.current) return;
+  async function sendMessage(nudge = false) {
+    if ((!nudge && !input.trim() && !attachments.length) || loading || uploading || sendingRef.current) return;
     if (nudge && (isGpt || developmentMode || !retro)) return;
     const codeRequest = !isGpt && developmentMode;
     // Work mode only takes screenshots; a stray file must not block the send.
-    const sendable = nudge || moneyMessage ? [] : codeRequest ? attachments.filter((item) => item.kind === "image") : attachments;
-    const typed = moneyMessage ? moneyMessage.content : nudge ? NUDGE_USER_TEXT : stripObjectPlaceholders(input);
+    const sendable = nudge ? [] : codeRequest ? attachments.filter((item) => item.kind === "image") : attachments;
+    const typed = nudge ? NUDGE_USER_TEXT : stripObjectPlaceholders(input);
     if (!typed.trim() && !sendable.length) return;
     sendingRef.current = true;
     if (!nudge) sendHearts();
     const pendingFile = sendable.find((item) => item.kind === "file");
     const userText = typed.trim() || !pendingFile ? typed : `📄 ${pendingFile.name}`;
-    const userMsg: Message = moneyMessage || { role: "user", content: userText, time: getTime(), date: getTodayStr(),
+    const userMsg: Message = { role: "user", content: userText, time: getTime(), date: getTodayStr(),
       ...imageFields(sendable.filter((item) => item.kind === "image").map((item) => item.url)),
       ...(pendingFile ? { file: pendingFile.url } : {}),
       ...(!isGpt ? { roundId: genId() } : {}),
       ...(codeRequest ? { source: `code_task_${developmentProject}` } : {}),
       ...(nudge ? { source: "chat_nudge" } : {}),
     };
-    if (!nudge && !moneyMessage) {
+    if (!nudge) {
       setAttachments([]);
       setUploadError("");
       setInput("");
       if (inputRef.current) inputRef.current.style.height = "auto";
     }
     followLatest();
-    const baseMessages = moneyMessage?.dayday?.id ? sessionMessagesRef.current.filter((m) => m.dayday?.id !== moneyMessage.dayday?.id) : sessionMessagesRef.current;
+    const baseMessages = sessionMessagesRef.current;
     const messagesWithUser = [...baseMessages, userMsg];
     sessionMessagesRef.current = messagesWithUser;
     updateMessages((msgs) => mergeChatMessages(msgs, messagesWithUser));
@@ -582,7 +579,7 @@ export function ChatView({
           return {
             role: m.role,
             // He sees what the blog did, marked so he does not mistake it for something he said.
-            content: m.source === "dayday_card" ? `【系统记录：dayday，状态以后台为准】${m.content}` : m.source === "blog_card" ? `【系统记录：博客】${m.content}` : m.content,
+            content: m.source === "dayday_card" ? `【系统记录：旧 dayday】${m.content}` : m.source === "blog_card" ? `【系统记录：博客】${m.content}` : m.content,
             ...imageFields(messageImages(m)), ...(m.file ? { file: m.file } : {}),
           };
         }),
@@ -736,13 +733,9 @@ export function ChatView({
         role: "assistant" as const, source: "blog_card", content: card.text, blog: card,
         roundId: userMsg.roundId, time: now, date: today,
       }));
-      const moneyCardMsgs: Message[] = (data.cache?.dayday_cards || []).map((card: NonNullable<Message["dayday"]>) => ({
-        role: "assistant", source: "dayday_card", content: card.text, dayday: card, roundId: userMsg.roundId, time: now, date: today,
-      }));
-      const finalMessages = [...messagesWithUser, ...summerCallMsgs, ...newMsgs, ...blogCardMsgs, ...moneyCardMsgs, ...nudgeMsgs, ...summerWriteMsgs];
+      const finalMessages = [...messagesWithUser, ...summerCallMsgs, ...newMsgs, ...blogCardMsgs, ...nudgeMsgs, ...summerWriteMsgs];
       sessionMessagesRef.current = mergeChatMessages(sessionMessagesRef.current, finalMessages);
       updateMessages((msgs) => mergeChatMessages(msgs, finalMessages));
-      if (!isGpt) window.dispatchEvent(new Event("dayday:changed"));
       if (nudgeMsgs.length) playNudge();
       setReplyRequestState("idle");
       setReplyRequestDetail("");
@@ -1085,24 +1078,13 @@ export function ChatView({
         )}
         {displayMessages.map(({ message, index }, displayIndex) => {
           if (message.source === "summer_write_ignored") return null;
-          if (message.source === "dayday_card" && message.dayday) {
-            // Money cards always name their sender: both directions sit in the
-            // same column, so without this a card reads as part of the last run.
-            const fromUser = message.role === "user";
-            const avatar = retro ? undefined : fromUser
-              ? settings.userAvatar ? <img src={settings.userAvatar} className="avatar avatar-img msg-dayday-avatar" alt="" /> : <div className="avatar avatar-user msg-dayday-avatar" aria-hidden="true" />
-              : assistantAvatar ? <img src={assistantAvatar} className="avatar avatar-img msg-dayday-avatar" alt="" /> : <div className="avatar avatar-ai msg-dayday-avatar" aria-hidden="true" />;
-            const card = message.dayday;
-            return <div key={card.id || `dayday-${index}`} className={`msg-dayday-turn ${fromUser ? "is-user" : "is-ai"}`}>
-              {retro && <div className={`xp-msg-says ${fromUser ? "xp-msg-says-user" : "xp-msg-says-ai"}`}>
-                {saysAvatar(fromUser)}
-                {fromUser ? retroUserName : assistantName} 说{message.time ? ` (${message.time})` : ""}:
-              </div>}
-              {card.order ? <DaydayOrderCard card={card} avatar={avatar} />
-                : card.notice ? <DaydayNoticeCard card={card} avatar={avatar} />
-                : <DaydayMoneyCard card={card} avatar={avatar} />}
-            </div>;
-          }
+          // Old dayday receipts stay in the history as a plain line; that shop is gone.
+          if (message.source === "dayday_card") return <div key={index} className="msg-blog-card-row">
+            <div className="msg-blog-card msg-blog-card-off" role="status">
+              <span className="msg-blog-card-icon" aria-hidden>🧾</span>
+              <span className="msg-blog-card-text">{message.content}</span>
+            </div>
+          </div>;
           if (message.source === "blog_card") {
             const target = blogCardTarget(message.blog);
             const label = message.content.replace(/^（|）$/g, "");
@@ -1312,7 +1294,6 @@ export function ChatView({
         </div>
       )}
 
-      {showMoneyDialog && <DaydaySendDialog sessionId={session.id} onClose={() => setShowMoneyDialog(false)} onSent={(message) => { setShowMoneyDialog(false); void sendMessage(false, message); }} />}
       <footer className={`chat-footer single-chat-footer${retro ? " xp-chat-footer" : ""}`}>
         <ChatClawd />
         {uploadError && <p className="composer-upload-error" role="alert">{uploadError}</p>}
@@ -1363,7 +1344,6 @@ export function ChatView({
                 </svg>
                 <span>抖一抖</span>
               </button>
-              {!isGpt && !developmentMode && <button type="button" className="xp-chat-tool" onClick={() => setShowMoneyDialog(true)} disabled={loading || uploading} title="从你的虚拟额度发红包或转账"><DaydayMoneyIcon kind="redpacket" /><span>红包/转账</span></button>}
               <span className="xp-chat-toolbar-gap" />
               {developmentMode && (
                 <ContextUsageBadge kind="work" sessionId={session.id} project={developmentProject} messages={workUsageMessages} />
