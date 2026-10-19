@@ -128,13 +128,13 @@ test('bad input is refused with a message and leaves nothing behind', () => {
   assert.throws(() => run(book, 'bank.move', { direction: 'in', amount: 300000 }), /剩余/);
   const product = run(book, 'product.add', { name: 'x', price: 100, shelf: 'top' });
   assert.throws(() => run(book, 'order.place', { lines: [{ id: product.id, paid: 100 }, { id: product.id, paid: 100 }] }), /两次/);
-  assert.throws(() => run(book, 'product.say', { id: product.id, text: '好看' }), /小砖/);
+  assert.throws(() => run(book, 'product.say', { id: product.id, text: '好看' }), /酥酥/);
   assert.throws(() => run(book, 'settings.set', { payday: 15, startAmount: 0 }, now, true), /她/);
   assert.throws(() => run(book, 'nope'), /不认识/);
   assert.equal(book.entries.length, 0);
 });
 
-test('his entries carry the 小砖记 tag and he can leave a note on a product', () => {
+test('his entries carry the 酥酥记 tag and he can leave a note on a product', () => {
   const book = startedBook();
   const entry = run(book, 'entry.add', { kind: 'expense', cat: 'food', amount: 1800, note: '午饭' }, at('2026-10-19'), true);
   assert.equal(entry.bySusu, true);

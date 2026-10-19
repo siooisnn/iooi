@@ -1,5 +1,8 @@
 "use client";
 
+import { ChatMoneyComposer, LedgerChatCard, useChatLedger } from "./dayday/LedgerChatCard";
+import type { LedgerCard } from "../lib/dayday-markers";
+
 import { useState, useRef, useEffect, useMemo } from "react";
 import { TypingKitty } from "./TypingKitty";
 import { ChatClawd } from "./TaskbarClawd";
@@ -110,6 +113,7 @@ export function ChatView({
   onOpenBlogPost?: (target: BlogTarget) => void;
 }) {
   const isGpt = assistantMode === "gpt";
+  const ledgerBook = useChatLedger(!isGpt);
   const claudeUsage = useClaudeUsage(!isGpt);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -178,7 +182,7 @@ export function ChatView({
     for (const { message, index } of displayMessages) {
       if (message.source === "summer_write_ignored") continue;
       const speakable = message.role === "assistant" && !isSummerUtilityMessage(message)
-        && message.source !== "chat_nudge" && message.source !== "blog_card" && message.source !== "dayday_card" && hasSpeakableText(message.content);
+        && message.source !== "chat_nudge" && message.source !== "blog_card" && message.source !== "dayday_card" && message.source !== "ledger_card" && hasSpeakableText(message.content);
       if (!speakable) { close(); continue; }
       if (run && run.date !== message.date) close();
       run ??= { key: `${session.id}:${index}`, texts: [], last: index, date: message.date };
@@ -519,13 +523,13 @@ export function ChatView({
     }));
   }
 
-  async function sendMessage(nudge = false) {
-    if ((!nudge && !input.trim() && !attachments.length) || loading || uploading || sendingRef.current) return;
+  async function sendMessage(nudge = false, moneyCard?: LedgerCard) {
+    if ((!moneyCard && !nudge && !input.trim() && !attachments.length) || loading || uploading || sendingRef.current) return;
     if (nudge && (isGpt || developmentMode || !retro)) return;
     const codeRequest = !isGpt && developmentMode;
     // Work mode only takes screenshots; a stray file must not block the send.
-    const sendable = nudge ? [] : codeRequest ? attachments.filter((item) => item.kind === "image") : attachments;
-    const typed = nudge ? NUDGE_USER_TEXT : stripObjectPlaceholders(input);
+    const sendable = nudge || moneyCard ? [] : codeRequest ? attachments.filter((item) => item.kind === "image") : attachments;
+    const typed = moneyCard ? moneyCard.text : nudge ? NUDGE_USER_TEXT : stripObjectPlaceholders(input);
     if (!typed.trim() && !sendable.length) return;
     sendingRef.current = true;
     if (!nudge) sendHearts();
@@ -537,8 +541,9 @@ export function ChatView({
       ...(!isGpt ? { roundId: genId() } : {}),
       ...(codeRequest ? { source: `code_task_${developmentProject}` } : {}),
       ...(nudge ? { source: "chat_nudge" } : {}),
+      ...(moneyCard ? { source: "ledger_card", ledger: moneyCard } : {}),
     };
-    if (!nudge) {
+    if (!nudge && !moneyCard) {
       setAttachments([]);
       setUploadError("");
       setInput("");
@@ -579,7 +584,7 @@ export function ChatView({
           return {
             role: m.role,
             // He sees what the blog did, marked so he does not mistake it for something he said.
-            content: m.source === "dayday_card" ? `【系统记录：旧 dayday】${m.content}` : m.source === "blog_card" ? `【系统记录：博客】${m.content}` : m.content,
+            content: m.source === "ledger_card" ? `【系统记录：dayday，以当前账本为准，id=${m.ledger?.targetId || ""}】${m.content}` : m.source === "dayday_card" ? `【系统记录：旧 dayday】${m.content}` : m.source === "blog_card" ? `【系统记录：博客】${m.content}` : m.content,
             ...imageFields(messageImages(m)), ...(m.file ? { file: m.file } : {}),
           };
         }),
@@ -733,7 +738,9 @@ export function ChatView({
         role: "assistant" as const, source: "blog_card", content: card.text, blog: card,
         roundId: userMsg.roundId, time: now, date: today,
       }));
-      const finalMessages = [...messagesWithUser, ...summerCallMsgs, ...newMsgs, ...blogCardMsgs, ...nudgeMsgs, ...summerWriteMsgs];
+      const ledgerCardMsgs: Message[] = (data.cache?.ledger_cards || []).map((card: LedgerCard) => ({ role: "assistant", source: "ledger_card", content: card.text, ledger: card, roundId: userMsg.roundId, time: now, date: today }));
+      if (ledgerCardMsgs.length) window.dispatchEvent(new Event("dayday-change"));
+      const finalMessages = [...messagesWithUser, ...summerCallMsgs, ...newMsgs, ...ledgerCardMsgs, ...blogCardMsgs, ...nudgeMsgs, ...summerWriteMsgs];
       sessionMessagesRef.current = mergeChatMessages(sessionMessagesRef.current, finalMessages);
       updateMessages((msgs) => mergeChatMessages(msgs, finalMessages));
       if (nudgeMsgs.length) playNudge();
@@ -1078,6 +1085,7 @@ export function ChatView({
         )}
         {displayMessages.map(({ message, index }, displayIndex) => {
           if (message.source === "summer_write_ignored") return null;
+          if (message.source === "ledger_card" && message.ledger) return <LedgerChatCard key={message.ledger.id} card={message.ledger} book={ledgerBook} />;
           // Old dayday receipts stay in the history as a plain line; that shop is gone.
           if (message.source === "dayday_card") return <div key={index} className="msg-blog-card-row">
             <div className="msg-blog-card msg-blog-card-off" role="status">
@@ -1296,6 +1304,7 @@ export function ChatView({
 
       <footer className={`chat-footer single-chat-footer${retro ? " xp-chat-footer" : ""}`}>
         <ChatClawd />
+        {!isGpt && !developmentMode && <ChatMoneyComposer sessionId={session.id} disabled={loading || uploading} onSent={(card) => void sendMessage(false, card)} />}
         {uploadError && <p className="composer-upload-error" role="alert">{uploadError}</p>}
         {attachments.length > 0 && (
           <div className="composer-attachments" aria-label="待发送的附件">

@@ -84,6 +84,8 @@ export function useDayday() {
         if (await send("fixed.pay", { id })) say(`${name} 扣好了。`);
       },
       async skipFixed(id: string) { if (await send("fixed.skip", { id })) say("这期先不扣了。"); },
+      async receiveMoney(id: string) { if (await send("money.receive", { id })) say("领取了，钱回到共同余额啦。"); },
+      async returnMoney(id: string) { if (await send("money.return", { id })) say("退回了，钱回到共同余额啦。"); },
       async addFixed(name: string, amount: number, day: number) { return !!(await send("fixed.add", { name, amount, day })); },
       async removeFixed(id: string) { await send("fixed.remove", { id }); },
 

@@ -38,6 +38,7 @@ function isRemovedMemo(session: { kind?: string }) {
 }
 
 export function chatMessageKey(message: Message) {
+  if (message.source === "ledger_card" && message.ledger?.id) return `ledger:${message.ledger.id}`;
   const proposalId = message.proposal?.id;
   if (proposalId && message.source?.startsWith("summer_write_")) {
     return ["summer_proposal", proposalId].join("\u0001");

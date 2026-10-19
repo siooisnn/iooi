@@ -30,6 +30,7 @@ export function LedgerPage({ dd, onWrite, onEdit, onSetup }: { dd: Dayday; onWri
         <small>本周期剩余</small>
         <strong>{yuan(view.remaining)}</strong>
         {view.transit > 0 && <em>{yuan(view.transit)} 冻结在运输中 · 退货会回来</em>}
+        {view.giftHeld > 0 && <em>{yuan(view.giftHeld)} 暂扣在红包和转账中 · 领取或退回会回来</em>}
       </div>
       <CycleBar total={cycle.total} passed={cycle.passed} />
     </section>
@@ -54,6 +55,12 @@ export function LedgerPage({ dd, onWrite, onEdit, onSetup }: { dd: Dayday; onWri
       <button type="button" className="dd-btn is-pink" onClick={onSetup}>去填</button>
     </div>}
 
+    {dd.state.gifts.some((g) => g.status === "pending") && <Group title="待领取的红包与转账">
+      {dd.state.gifts.filter((g) => g.status === "pending").map((g) => <div className="dd-balloon" key={g.id}>
+        <p><b>{g.from === "susu" ? "酥酥发来的" : "你发给酥酥的"}{g.kind === "redpacket" ? "红包" : "转账"} {yuan(g.amount)}</b>{g.note && <span> · {g.note}</span>}</p>
+        {g.from === "susu" ? <><button type="button" className="dd-btn" onClick={() => void actions.returnMoney(g.id)}>退回</button><button type="button" className="dd-btn is-pink" onClick={() => void actions.receiveMoney(g.id)}>领取</button></> : <small>等酥酥领取</small>}
+      </div>)}
+    </Group>}
     <button type="button" className="dd-write" onClick={onWrite}><span>＋</span>记一笔</button>
 
     {view.cats.length > 0 && <Group title="这期钱去哪了" extra={<span className="dd-group-note">收入 {yuan(view.cycleIncome)}</span>}>
@@ -94,7 +101,7 @@ function DayList({ dd, entries, empty, onEdit }: { dd: Dayday; entries: Entry[];
           <span className="dd-entry-text">
             <b>{entry.note || categoryOf(entry.cat).label}</b>
             <small>{categoryOf(entry.cat).label} · {timeOf(entry.at)}
-              {entry.bySusu && <em className="dd-chip is-blue">小砖记</em>}
+              {entry.bySusu && <em className="dd-chip is-blue">酥酥记</em>}
               {entry.status === "transit" && <em className="dd-chip is-yellow">运输中</em>}</small>
           </span>
           <span className={`dd-amount${entry.kind === "income" ? " is-in" : ""}`}>{entry.kind === "income" ? yuan(entry.amount, true) : `-${yuan(entry.amount)}`}</span>

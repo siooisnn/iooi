@@ -119,6 +119,8 @@ test('his own time only gets the tools for what is switched on', () => {
   assert.ok(!lifeToolNames({ read: true, surf: true }).includes('mcp__iooi__surf_post'));
   for (const names of [readOnly, surfOnly, lifeToolNames({ read: true, surf: true })]) {
     assert.ok(names.includes('mcp__summer__read'));
+    for (const name of ['dayday_book', 'dayday_shop', 'dayday_items']) assert.ok(names.includes(`mcp__iooi__${name}`));
+    assert.ok(!names.includes('mcp__iooi__dayday_action'));
     assert.ok(!names.some((name) => /blog_(write|comment|delete)|summer__edit/.test(name)));
   }
 });

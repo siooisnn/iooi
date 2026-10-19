@@ -54,6 +54,10 @@ export type Item = { id: string; name: string; shelf: string; paid?: number; ima
 export type Fixed = { id: string; name: string; amount: number; day: number; paidCycle?: string };
 export type Refill = { id: string; name: string; addedAt: string };
 export type BankMove = { id: string; at: string; amount: number };
+export type MoneyGift = {
+  id: string; kind: "redpacket" | "transfer"; from: "her" | "susu";
+  amount: number; note: string; at: string; status: "pending" | "received" | "returned";
+};
 export type Summary = {
   id: string; startKey: string; range: string; income: number; expense: number; saved: number;
   cats: { cat: string; amount: number }[];
@@ -78,6 +82,8 @@ export type DaydayBook = {
   summaries: Summary[];
   shelves: Shelf[];
   receipts: string[];
+  gifts: MoneyGift[];
+  receiptResults: Record<string, unknown>;
 };
 
 /** Old cycles keep their details this many days into the new one, so she can still fix them. */
@@ -154,7 +160,7 @@ export function fixedDueKey(day: number, cycle: { startKey: string; endKey: stri
 export function emptyBook(): DaydayBook {
   return {
     version: 1, configured: false, payday: 15, startAmount: 0, folded: 0, bank: 0, bankMoves: [],
-    entries: [], products: [], orders: [], items: [], fixed: [], refills: [], summaries: [], shelves: [...BASE_SHELVES], receipts: [],
+    entries: [], products: [], orders: [], items: [], fixed: [], refills: [], summaries: [], shelves: [...BASE_SHELVES], receipts: [], gifts: [], receiptResults: {},
   };
 }
 
@@ -183,6 +189,8 @@ export function parseBook(raw: unknown): DaydayBook {
     summaries: list(r.summaries),
     shelves: [...BASE_SHELVES, ...shelves.filter((s) => !BASE_SHELVES.some((b) => b.id === s.id))],
     receipts: list(r.receipts),
+    gifts: list(r.gifts),
+    receiptResults: r.receiptResults && typeof r.receiptResults === "object" ? r.receiptResults as Record<string, unknown> : {},
   };
 }
 
@@ -199,7 +207,8 @@ export function ledgerView(book: DaydayBook, today = dayKey()) {
   const prevEntries = book.entries.filter((e) => e.status === "done" && inside(dayKey(e.at), prevCycle)).sort(newest);
   const expenses = book.entries.filter((e) => e.kind === "expense");
   const income = sum(book.entries.filter((e) => e.kind === "income"));
-  const remaining = book.startAmount + book.folded + income - sum(expenses) - book.bank;
+  const giftHeld = sum(book.gifts.filter((g) => g.status === "pending"));
+  const remaining = book.startAmount + book.folded + income - sum(expenses) - book.bank - giftHeld;
   const transit = sum(expenses.filter((e) => e.status === "transit"));
   const doneCycle = cycleEntries.filter((e) => e.kind === "expense" && e.status === "done");
   const spent = sum(doneCycle);
@@ -213,7 +222,7 @@ export function ledgerView(book: DaydayBook, today = dayKey()) {
   for (const e of doneCycle) byCat.set(e.cat, (byCat.get(e.cat) || 0) + e.amount);
   const cats = [...byCat].map(([cat, amount]) => ({ cat, amount })).sort((a, b) => b.amount - a.amount);
   return {
-    cycle, cycleEntries, remaining, transit, spent, cycleIncome, todaySpent, reserved, perDay, due, cats,
+    cycle, cycleEntries, remaining, transit, giftHeld, spent, cycleIncome, todaySpent, reserved, perDay, due, cats,
     prev: prevEntries.length ? { cycle: prevCycle, entries: prevEntries, foldsOn: addDays(cycle.startKey, GRACE_DAYS) } : null,
   };
 }
@@ -328,12 +337,31 @@ export function applyDayday(book: DaydayBook, action: string, input: Record<stri
   };
 
   switch (action) {
+    case "money.send": {
+      if (!book.configured) fail("先在 dayday 填好起始余额。");
+      if (input.kind !== "redpacket" && input.kind !== "transfer") fail("红包还是转账？");
+      const amount = cents(input.amount);
+      if (amount > ledgerView(book, today).remaining) fail("余额不够啦。");
+      room(book.gifts, 3000, "红包转账记录");
+      const gift: MoneyGift = { id: newId("g"), kind: input.kind as MoneyGift["kind"], from: ctx.bySusu ? "susu" : "her", amount,
+        note: text(input.note, 40, "留言"), at: nowIso, status: "pending" };
+      book.gifts.push(gift);
+      return gift;
+    }
+    case "money.receive":
+    case "money.return": {
+      const gift = find(book.gifts, input.id, "这笔红包或转账");
+      if (gift.from === (ctx.bySusu ? "susu" : "her")) fail("要收款方来领取或退回。");
+      if (gift.status !== "pending") return gift;
+      gift.status = action === "money.receive" ? "received" : "returned";
+      return gift;
+    }
     case "entry.add":
       return addEntry({ ...entryFields(), status: "done" });
     case "entry.update": {
       const entry = find(book.entries, input.id, "这一笔");
       if (entry.status === "transit") fail("这一笔还在运输中，去商城确认收货或退货。");
-      Object.assign(entry, entryFields());
+      Object.assign(entry, { ...entryFields(), at: input.at === undefined ? entry.at : moment(input.at, ctx.now) });
       return entry;
     }
     case "entry.remove": {
@@ -343,6 +371,11 @@ export function applyDayday(book: DaydayBook, action: string, input: Record<stri
       return entry;
     }
 
+    case "fixed.update": {
+      const fixed = find(book.fixed, input.id, "这项必支出");
+      Object.assign(fixed, { name: text(input.name, 16, "名称", true), amount: cents(input.amount), day: whole(input.day, 1, 31, "日子") });
+      return fixed;
+    }
     case "fixed.add": {
       room(book.fixed, DAYDAY_LIMITS.fixed, "必支出");
       const fixed: Fixed = { id: newId("f"), name: text(input.name, 16, "名称", true), amount: cents(input.amount), day: whole(input.day, 1, 31, "日子") };
@@ -356,8 +389,10 @@ export function applyDayday(book: DaydayBook, action: string, input: Record<stri
     }
     case "fixed.pay":
     case "fixed.skip": {
+      if (ctx.bySusu) fail("必支出要她点卡片确认，不能自动扣或跳过。");
       const fixed = find(book.fixed, input.id, "这项必支出");
       const cycle = cycleOf(book.payday, today);
+      if (input.cycle !== undefined && input.cycle !== cycle.startKey) fail("这是旧周期的提醒，请刷新后再处理。");
       if (fixed.paidCycle === cycle.startKey) fail(`${fixed.name}这期已经处理过了。`);
       fixed.paidCycle = cycle.startKey;
       return action === "fixed.pay" ? addEntry({ kind: "expense", cat: "phone", amount: fixed.amount, note: fixed.name, at: nowIso, status: "done" }) : fixed;
@@ -385,9 +420,9 @@ export function applyDayday(book: DaydayBook, action: string, input: Record<stri
       return product;
     }
     case "product.say": {
-      if (!ctx.bySusu) fail("「小砖说」只有小砖能写。");
+      if (!ctx.bySusu) fail("「酥酥说」只有酥酥能写。");
       const product = find(book.products, input.id, "这件");
-      const said = text(input.text, 300, "小砖说");
+      const said = text(input.text, 300, "酥酥说");
       if (said) product.susuSays = said; else delete product.susuSays;
       return product;
     }
@@ -456,6 +491,11 @@ export function applyDayday(book: DaydayBook, action: string, input: Record<stri
       return item;
     }
 
+    case "refill.update": {
+      const refill = find(book.refills, input.id, "这项待补");
+      refill.name = text(input.name, 30, "名称", true);
+      return refill;
+    }
     case "refill.add": {
       const name = text(input.name, 20, "名字", true);
       const same = book.refills.find((r) => r.name === name);

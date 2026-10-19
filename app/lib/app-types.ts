@@ -1,3 +1,4 @@
+import type { LedgerCard } from "./dayday-markers";
 
 // ━━━━━━━━━━━━━━━ Types ━━━━━━━━━━━━━━━
 export type Message = {
@@ -14,6 +15,7 @@ export type Message = {
   speaker?: "claude" | "gpt";
   proposal?: SummerWriteProposal;
   blog?: BlogCard;
+  ledger?: LedgerCard;
 };
 
 /** What he did on the blog from the private chat, shown as a card under his reply. */
@@ -92,6 +94,7 @@ export type CacheStats = {
   summer_calls?: SummerCall[];
   summer_write_proposals?: SummerWriteProposal[];
   blog_cards?: BlogCard[];
+  ledger_cards?: LedgerCard[];
   time?: string;
 };
 

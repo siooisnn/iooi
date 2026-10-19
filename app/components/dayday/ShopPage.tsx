@@ -57,7 +57,7 @@ export function ShopPage({ dd, onAddShelf }: { dd: Dayday; onAddShelf: () => voi
         : <div className="dd-grid">{shown.map((p) => <button type="button" className="dd-card" key={p.id} onClick={() => setOpen(p.id)}>
           <span className="dd-card-art"><Art image={p.image} shelf={p.shelf} name={p.name} />
             <span className="dd-badges">{p.faved && <em className="dd-chip is-pink">♡ 已收藏</em>}{p.carted && <em className="dd-chip is-blue">已加购</em>}</span>
-            {p.susuSays && <i className="dd-said" title="小砖说过话">砖</i>}
+            {p.susuSays && <i className="dd-said" title="酥酥说过话">酥</i>}
           </span>
           <span className="dd-card-name">{p.name}</span>
           <span className="dd-card-meta"><b>{yuan(p.price)}</b><small>{shelfLabel(p.shelf)}</small></span>
@@ -124,7 +124,7 @@ function ProductDialog({ dd, product, shelfLabel, onClose }: { dd: Dayday; produ
     <div className="dd-detail-head"><b>{yuan(product.price)}</b><span className="dd-chip">{shelfLabel}</span>
       {product.link && <a href={product.link} target="_blank" rel="noreferrer">打开链接</a>}</div>
     <div className="dd-note-paper"><small>我为什么想要</small><p>{product.reason || "（还没写）"}</p></div>
-    <div className="dd-susu-says"><span aria-hidden="true">砖</span><p>{product.susuSays || "小砖还没看过这件。等接上聊天，他会在这里说说看法。"}</p></div>
+    <div className="dd-susu-says"><span aria-hidden="true">酥</span><p>{product.susuSays || "酥酥还没看过这件。"}</p></div>
     <div className="dd-dialog-buttons">
       <button type="button" className="dd-btn is-danger" onClick={() => { if (window.confirm(`不要「${product.name}」了？`)) { actions.removeProduct(product.id); onClose(); } }}>删掉</button>
       <span />
@@ -163,7 +163,7 @@ function UploadDialog({ dd, onAddShelf, onClose }: { dd: Dayday; onAddShelf: () 
       <label><span>分类</span><span className="dd-select-row">
         <select value={shelf} onChange={(e) => setShelf(e.target.value)}>{dd.state.shelves.map((s) => <option key={s.id} value={s.id}>{s.label}</option>)}</select>
         <button type="button" className="dd-btn" onClick={onAddShelf}>＋</button></span></label>
-      <label className="is-tall"><span>为什么想要</span><textarea rows={3} value={reason} maxLength={300} placeholder="写给小砖看" onChange={(e) => setReason(e.target.value)} /></label>
+      <label className="is-tall"><span>为什么想要</span><textarea rows={3} value={reason} maxLength={300} placeholder="写给酥酥看" onChange={(e) => setReason(e.target.value)} /></label>
       <label><span>链接</span><input value={link} placeholder="可以不填" onChange={(e) => setLink(e.target.value)} /></label>
     </div>
     {error && <p className="dd-error" role="alert">{error}</p>}

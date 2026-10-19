@@ -144,7 +144,8 @@ export function lifeKinds(settings: Record<string, unknown>): LifeKinds {
   return { read: settings.lifeRead === true, surf: settings.lifeSurf === true };
 }
 
-const LIFE_BASE_TOOLS = ["mcp__iooi__blog_read", "mcp__iooi__blog_read_post", "mcp__summer__search", "mcp__summer__read"];
+const LIFE_BASE_TOOLS = ["mcp__iooi__blog_read", "mcp__iooi__blog_read_post", "mcp__summer__search", "mcp__summer__read",
+  "mcp__iooi__dayday_book", "mcp__iooi__dayday_shop", "mcp__iooi__dayday_items"];
 const LIFE_READ_TOOLS = [
   "mcp__iooi__reading_shelf",
   "mcp__iooi__reading_book",

@@ -1,3 +1,4 @@
+import { DAYDAY_TOOLS, callDaydayTool } from "./dayday-mcp";
 // The iooi MCP: JSON-RPC over Streamable HTTP, answered as one SSE message
 // per request like summer does. One server for everything in iooi he can
 // reach from another window: the blog, the bookshelf, the forum, and later the pet.
@@ -39,6 +40,8 @@ export const MCP_INSTRUCTIONS = `iooi 是你和她的小窝。这些工具让你
 - surf_post 发帖：标题写你停下来的那个东西，正文第一人称说为什么停在这、你怎么想，链接只贴你真打开看过的。surf_reply 回帖，接住她那一楼说的话，一到三句就好。
 - 在改代码的工作里，只在她让你发帖、回帖时才动手。
 
+还有dayday记账：dayday_book看账本，dayday_shop看商城原图，dayday_items看已有物品，dayday_action记账、管理必支出和待补、写酥酥说、红包转账。金额整数分，不能改设置，不能代她扣必支出。聊天写操作走dayday隐藏标记。
+
 还有你的 susu’s phone，她打开只能看：
 - phone_read 看你自己的手机：壁纸、图标和挂件，今天做的事、在读的书、最近的帖子和日志。
 - phone_decorate 换内置壁纸、排底部图标、开关挂件。签名直接用博客的同一个字段，仍用 blog_set_motto 改。
@@ -49,6 +52,7 @@ function text(value: unknown) {
 }
 
 const TOOLS = [
+  ...DAYDAY_TOOLS,
   {
     name: "phone_read",
     description: "看自己的 susu’s phone：装饰布局、酥酥今天的时间线、在读进度、最近的论坛帖子和博客日志，以及与博客共享的签名。不返回正文、不修改数据。",
@@ -235,7 +239,7 @@ const TOOLS = [
 // Looking only: everything that cannot change anything.
 export const READONLY_TOOL_NAMES = new Set([
   "blog_read", "blog_read_post", "reading_shelf", "reading_book", "reading_read", "surf_board", "surf_thread",
-  "phone_read",
+  "phone_read", "dayday_book", "dayday_shop", "dayday_items",
 ]);
 // The private chat (the "read" key): looking, plus the things whose result
 // she sees where it lands (a forum floor, a note in the book, his phone).
@@ -374,6 +378,9 @@ async function callReading(name: string, args: Record<string, unknown>, access: 
 
 export async function callTool(name: string, args: Record<string, unknown>, access: McpAccess = "full"): Promise<ToolResult> {
   console.info(`[mcp] tool call: ${name}`);
+  if (name.startsWith("dayday_")) {
+    try { return await callDaydayTool(name, args, access); } catch (error) { return failure(error); }
+  }
   switch (name) {
     case "phone_read":
       return reply(JSON.stringify(readPhone(), null, 2));

@@ -1,5 +1,5 @@
 // dayday 记账 on disk (data/dayday.json). Her page goes through /api/dayday;
-// his tools call runDayday with bySusu so his entries carry the 小砖记 tag.
+// his tools call runDayday with bySusu so his entries carry the 酥酥记 tag.
 
 import { readDaydayStore, withDaydayStore } from "./store";
 import { applyDayday, dayKey, DAYDAY_LIMITS, parseBook, settleBook, type DaydayBook } from "./dayday-ledger";
@@ -33,12 +33,16 @@ export async function runDayday(action: string, input: Record<string, unknown>, 
     settleBook(book, dayKey(now));
     if (requestId && book.receipts.includes(requestId)) {
       save(store, book);
-      return { book, result: null, repeated: true };
+      return { book, result: book.receiptResults[requestId] ?? null, repeated: true };
     }
     const next = structuredClone(book);
     const result = applyDayday(next, action, input, { now, bySusu: options.bySusu });
     settleBook(next, dayKey(now));
-    if (requestId) next.receipts = [...next.receipts, requestId].slice(-DAYDAY_LIMITS.receipts);
+    if (requestId) {
+      next.receipts = [...next.receipts, requestId].slice(-DAYDAY_LIMITS.receipts);
+      next.receiptResults[requestId] = result;
+      next.receiptResults = Object.fromEntries(next.receipts.filter((id) => id in next.receiptResults).map((id) => [id, next.receiptResults[id]]));
+    }
     save(store, next);
     return { book: next, result, repeated: false };
   });

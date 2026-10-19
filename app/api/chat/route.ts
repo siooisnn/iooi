@@ -1,3 +1,5 @@
+import { DAYDAY_CHAT_BRIDGE, parseDaydayMarkers, stripDaydayMarkers, type LedgerCard } from "@/app/lib/dayday-markers";
+import { daydayOverview, runDaydayMarkers } from "@/app/lib/dayday-tools";
 import { readStore, withGroupStore, withStore } from "@/app/lib/store";
 import { isClaudeCodeEnabled, normalizeClaudeCodeModel, runClaudeCodeChat } from "@/app/lib/claude-code";
 import { isCodeProject, isCodeTaskRunning, runClaudeCodeTask } from "@/app/lib/claude-code-task";
@@ -34,7 +36,7 @@ function cstTime() {
 function cstToday() {
   return new Date().toLocaleDateString("zh-CN", { timeZone: "Asia/Shanghai" });
 }
-type StoreMsg = { role: string; content: string; time?: string; date?: string; thinking?: string; image?: string; images?: string[]; file?: string; source?: string; roundId?: string; speaker?: "claude" | "gpt"; proposal?: SummerWrite; blog?: BlogCard };
+type StoreMsg = { role: string; content: string; time?: string; date?: string; thinking?: string; image?: string; images?: string[]; file?: string; source?: string; roundId?: string; speaker?: "claude" | "gpt"; proposal?: SummerWrite; blog?: BlogCard; ledger?: LedgerCard };
 type TextBlock = {
   type: "text";
   text: string;
@@ -660,6 +662,7 @@ function hasUserPayload(message: StoreMsg | undefined): message is StoreMsg {
 }
 
 function sameUserMessage(a: StoreMsg, b: StoreMsg) {
+  if (a.role === "user" && b.role === "user" && a.ledger?.id && b.ledger?.id) return a.ledger.id === b.ledger.id;
   return a.role === "user" && a.content === b.content && a.time === b.time && a.date === b.date
     && imageKey(a) === imageKey(b)
     && (!a.roundId || !b.roundId || a.roundId === b.roundId);
@@ -673,6 +676,7 @@ function hasLaterUserMessage(msgs: StoreMsg[], userMsg: StoreMsg | undefined) {
 }
 
 function storeMessageKey(message: StoreMsg) {
+  if (message.source === "ledger_card" && message.ledger?.id) return `ledger:${message.ledger.id}`;
   return [
     message.role || "",
     message.speaker || "",
@@ -718,9 +722,10 @@ async function persistRound(
   allowLaterUser = false,
   nudge = false,
   blogCards: BlogCard[] = [],
+  ledgerCards: LedgerCard[] = [],
 ) {
   const stamp = { time: cstTime(), date: cstToday() };
-  if (!sessionId || (!reply && !nudge && !blogCards.length)) return stamp;
+  if (!sessionId || (!reply && !nudge && !blogCards.length && !ledgerCards.length)) return stamp;
   try {
     const diaryRegex = /\[日记\]([\s\S]*?)\[\/日记\]/g;
     const cleanReply = reply.replace(diaryRegex, "").replace(/\[心情[:：].+?\]/g, "").trim();
@@ -773,6 +778,10 @@ async function persistRound(
           ...(i === 0 && thinkingContent ? { thinking: thinkingContent } : {}),
         });
       });
+      for (const card of ledgerCards) {
+        if (card.kind === "fixed" && msgs.some((m) => m.ledger?.id === card.id)) continue;
+        pushAssistant({ role: "assistant", source: "ledger_card", content: card.text, ledger: card, time: now, date: today, roundId: userMsg?.roundId });
+      }
       for (const card of blogCards) {
         pushAssistant({ role: "assistant", source: "blog_card", content: card.text, blog: card,
           time: now, date: today, roundId: userMsg?.roundId });
@@ -1092,6 +1101,7 @@ export async function POST(request: Request) {
   }
   // The blog is only his in the private chat; in a group he just talks.
   if (!skipPersist) system.push({ type: "text", text: BLOG_CHAT_BRIDGE, cache_control: cacheControl() });
+  if (!skipPersist && !groupSessionId) system.push({ type: "text", text: DAYDAY_CHAT_BRIDGE, cache_control: cacheControl() });
 
   let summerUsed = false;
   let summerNotice = "";
@@ -1241,7 +1251,12 @@ export async function POST(request: Request) {
     } catch {}
   }
 
+  let ledgerNote = "";
+  if (!skipPersist && !groupSessionId) {
+    try { ledgerNote = await daydayOverview(); } catch { ledgerNote = "【dayday概况】账本暂时不可读，请不要声称已查询或已记账。"; }
+  }
   const combinedDynamicPrompt = [
+    ledgerNote,
     dynamicPrompt,
     lifeNote,
     summerNotice,
@@ -1404,9 +1419,11 @@ ${combinedDynamicPrompt}
           });
         }
       }
+      const ledgerCards = !skipPersist && !groupSessionId
+        ? await runDaydayMarkers(parseDaydayMarkers(reply), `${sessionId}:${userMsg?.roundId || `${userMsg?.date}:${userMsg?.time}:${userMsg?.content}`}`) : [];
       const blogMarkers = skipPersist ? [] : parseBlogMarkers(reply);
       const blogCards = blogMarkers.length ? await runBlogMarkers(blogMarkers, { asked: asksForBlogPost(query) }) : [];
-      const nudgeResult = parseNudgeReply(stripVisibleSummerDiary(stripSummerWriteTags(stripBlogMarkers(reply))), nudgeEnabled);
+      const nudgeResult = parseNudgeReply(stripVisibleSummerDiary(stripSummerWriteTags(stripDaydayMarkers(stripBlogMarkers(reply)))), nudgeEnabled);
       reply = nudgeResult.reply;
       const proposalMs = Date.now() - proposalStartedAt;
 
@@ -1415,7 +1432,7 @@ ${combinedDynamicPrompt}
       const groupPersistedDate = skipPersist && groupSessionId ? cstToday() : "";
       let replyStamp: { time: string; date: string } | undefined;
       if (!skipPersist) {
-        replyStamp = await persistRound(sessionId, userMsg, reply, thinkingContent, summerCalls, summerWriteProposals, undefined, false, nudgeResult.nudge, blogCards);
+        replyStamp = await persistRound(sessionId, userMsg, reply, thinkingContent, summerCalls, summerWriteProposals, undefined, false, nudgeResult.nudge, blogCards, ledgerCards);
       } else if (groupSessionId) {
         await persistGroupRound(
           String(groupSessionId),
@@ -1484,6 +1501,7 @@ ${combinedDynamicPrompt}
             summer_write_proposals: summerWriteProposals,
             summer_calls: summerCalls,
             blog_cards: blogCards,
+            ledger_cards: ledgerCards,
             reply_persisted_time: replyStamp?.time,
             reply_persisted_date: replyStamp?.date,
             web_search_used: data.webSearchUsed,

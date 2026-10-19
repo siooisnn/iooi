@@ -1,4 +1,5 @@
 import { readStore, withStore } from "@/app/lib/store";
+import { daydayCareOverview } from "@/app/lib/dayday-tools";
 import { describePushResult, sendPushToAll } from "@/app/lib/push";
 import { isClaudeCodeEnabled, runClaudeCodeChat } from "@/app/lib/claude-code";
 import { latestUserSession } from "@/app/lib/chat-timeline";
@@ -97,6 +98,8 @@ export async function POST() {
           const lifeLines = todayLifeLines(snapshot);
           // Only now, when he may speak, does he read summer.
           const memory = await readSummerLight({ xiaoshu: 3 });
+          // Read only when this existing heartbeat is eligible to speak; no new timer.
+          const daydayContext = await daydayCareOverview().catch(() => "");
 
           const todayMsgCount = sessions.reduce(
             (n, s) => n + (s.messages || []).filter((m) => m.role === "user" && m.date === today).length, 0
@@ -138,6 +141,7 @@ export async function POST() {
 - 不需要每次都等到重大事情发生，日常的小念头也可以自然地分享。
 
 【此刻状态】
+${daydayContext}
 - 现在:${today} ${cstTime()}(${hour}点)
 - 她离开了:${awayHours.toFixed(1)}小时
 - 今天她发过${todayMsgCount}条消息${todayMood ? `\n- 她今天的心情打卡:${todayMood.emoji}${todayMood.note ? " " + todayMood.note : ""}` : ""}${weatherLine}

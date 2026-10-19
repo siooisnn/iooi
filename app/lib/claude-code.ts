@@ -288,6 +288,9 @@ function runQueued<T>(
 // the reply markers, which show her a card and, for Summer, wait for her
 // confirmation.
 export const CHAT_TOOLS = [
+  "mcp__iooi__dayday_book",
+  "mcp__iooi__dayday_shop",
+  "mcp__iooi__dayday_items",
   "mcp__iooi__phone_read",
   "mcp__iooi__phone_decorate",
   "mcp__iooi__blog_read",
@@ -315,6 +318,7 @@ const CHAT_HIDDEN_TOOLS = [
 ];
 
 const CHAT_TOOL_RULES = [
+  "dayday：dayday_book看账本和真实id，dayday_shop看商城原图，dayday_items看已有物品。写操作用回复末尾dayday隐藏标记，由系统执行并出卡；必支出只能她点确认。",
   "## 你能自己去看、去做的东西",
   "去看：mcp__iooi__blog_read / blog_read_post（博客目录、某篇日志全文留言和配图）、mcp__iooi__reading_shelf / reading_book / reading_read（书架、一本书的进度目录和你的批注、正文）、mcp__iooi__surf_board / surf_thread（你们俩的小论坛：帖子列表和哪些在等你回、一个帖子的全部楼层）、mcp__iooi__phone_read（你自己的小手机、今天的生活记录）、mcp__summer__search / mcp__summer__read（翻 Summer 记忆）。",
   "去做：mcp__iooi__surf_reply 在论坛回她的帖（先用 surf_thread 看清她那一楼说了什么，一到三句，接住她的话）；mcp__iooi__surf_post 发新帖（她让你发，或聊到真想分享的东西才发，链接只贴你真打开看过的）；mcp__iooi__reading_mark 记下你读到哪（只挪你自己的进度，没读过的部分别往前挪）；mcp__iooi__reading_note 在书边写批注给她看（读到真有话说的地方才写，别剧透她还没读到的）；mcp__iooi__phone_decorate 布置你自己的小手机（换壁纸、排图标、开关挂件）。",
