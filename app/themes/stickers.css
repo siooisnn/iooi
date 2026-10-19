@@ -11,7 +11,7 @@
 :root[data-theme] .sticker-library-item small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-top: 4px; font-size: 10px; }
 :root[data-theme] .sticker-library-item input { box-sizing: border-box; width: 100%; padding: 4px; border: 1px solid #7f9db9; background: white; color: #283d60; font: inherit; font-size: 12px; }
 :root[data-theme] .sticker-library-item-actions { display: flex; justify-content: center; gap: 4px; margin-top: 5px; font-size: 11px; }
-:root[data-theme] .app-bg .chat-container .msg-bubble.msg-bubble-sticker { padding: 2px; border: 0; background: transparent; box-shadow: none; }
+:root[data-theme] .app-bg .chat-container .msg-bubble.msg-bubble-sticker { padding: 0 !important; border: 0; background: transparent; box-shadow: none; }
 :root[data-theme] .app-bg .chat-container .msg-bubble-sticker .msg-image { display: block; width: auto; height: auto; max-width: 128px; max-height: 160px; border: 0; border-radius: 0; object-fit: contain; }
 :root[data-theme] .app-bg .chat-container .msg-bubble-sticker-message .msg-image { width: auto; max-width: 128px; max-height: 160px; object-fit: contain; }
 :root[data-theme] .app-bg .chat-container :is(.msg-bubble-sticker,.msg-bubble-sticker-message) .msg-image-grid { max-width: 200px; }
@@ -22,3 +22,11 @@
 :root[data-theme] .sticker-upload-list img { width: 48px; height: 48px; object-fit: contain; }
 :root[data-theme] .sticker-upload-list input { box-sizing: border-box; width: 100%; min-width: 0; border: 1px solid #7f9db9; padding: 6px; background: #fff; color: #283d60; font: inherit; font-size: 16px; }
 :root[data-theme] .sticker-library .rd-dialog-body { max-height: 75dvh; overflow-y: auto; }
+
+/* XP photo frames do not apply to sticker messages, including captions. */
+:root[data-theme] .app-bg .chat-container[data-chat-ui="xp"]:is([data-chat-view="room"], [data-chat-view="group"]) .msg-bubble.msg-bubble-img:is(.msg-bubble-sticker, .msg-bubble-sticker-message) {
+  padding: 0 !important;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
