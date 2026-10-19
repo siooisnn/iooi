@@ -904,11 +904,17 @@ export function ChatView({
       ? <img src={src} className="xp-says-avatar" alt="" />
       : <span className={`xp-says-avatar ${user ? "avatar-user" : "avatar-ai"}`} aria-hidden="true" />;
   };
+  // Dots style: the name and time ride on the bubble's top edge like dayday's group tabs.
+  const dotsTag = (user: boolean, time?: string) => (
+    <span className={`xp-dots-tag ${user ? "xp-dots-tag-user" : "xp-dots-tag-ai"}`}>
+      <b>{user ? retroUserName : assistantName}</b>{time && <small>{time}</small>}
+    </span>
+  );
 
   return (
     <>
       {listEntryMode && retro ? (
-        <header className="chat-header chat-room-header xp-chat-header">
+        <header className={`chat-header chat-room-header xp-chat-header${dotBubbles ? " xp-chat-header-dots" : ""}`}>
           <div className="xp-chat-titlebar">
             <span className="xp-chat-title-icon" aria-hidden="true"><ChatGlyph /></span>
             <h1 className="xp-chat-title">{assistantName} - 对话</h1>
@@ -1176,7 +1182,7 @@ export function ChatView({
                   </span>
                 </div>
               )}
-              {showSays && (
+              {showSays && !dotBubbles && (
                 <div className={`xp-msg-says ${message.role === "user" ? "xp-msg-says-user" : "xp-msg-says-ai"}`}>
                   {saysAvatar(message.role === "user")}
                   {message.role === "user" ? retroUserName : assistantName} 说{message.time ? ` (${message.time})` : ""}:
@@ -1187,13 +1193,14 @@ export function ChatView({
                   <ThinkingBlock content={message.thinking} />
                 </div>
               )}
-              <div className={`msg-row ${message.role === "user" ? "msg-row-user" : "msg-row-ai"} ${isSummerUtility ? "msg-row-summer-utility" : ""} ${compactTop ? "msg-row-compact-top" : ""} ${compactBottom ? "msg-row-compact-bottom" : ""} ${animateMessage ? "" : "msg-row-static"}`} style={animateMessage ? { animationDelay: `${Math.min(index * 0.03, 0.3)}s` } : undefined}>
+              <div className={`msg-row ${message.role === "user" ? "msg-row-user" : "msg-row-ai"} ${isSummerUtility ? "msg-row-summer-utility" : ""} ${compactTop ? "msg-row-compact-top" : ""} ${compactBottom ? "msg-row-compact-bottom" : ""} ${animateMessage ? "" : "msg-row-static"}${dotBubbles && showSays ? " msg-row-says" : ""}`} style={animateMessage ? { animationDelay: `${Math.min(index * 0.03, 0.3)}s` } : undefined}>
                 {message.role === "assistant" && !isSummerUtility && (
                   assistantAvatar
                     ? <img src={assistantAvatar} className="avatar avatar-img" alt="" />
                     : <div className="avatar avatar-ai" />
                 )}
                 <div className={message.role === "user" ? "msg-content-user" : "msg-content-ai"}>
+                  {dotBubbles && showSays && dotsTag(message.role === "user", message.time)}
                   {!listEntryMode && <span className="msg-time">{message.source === "heartbeat" ? "💬 " : ""}{message.time}</span>}
                   {messageImages(message).length ? (
                     <div className={`msg-bubble msg-bubble-img ${message.source === "sticker" ? "msg-bubble-sticker" : message.source === "sticker_message" ? "msg-bubble-sticker-message" : ""} ${message.role === "user" ? "msg-bubble-user" : "msg-bubble-ai"}`}>
@@ -1296,14 +1303,15 @@ export function ChatView({
         {retro && nudgeNotes.map((note) => (
           <div key={note.id} className="xp-msg-nudge" role="status">{note.text}</div>
         ))}
-        {retro && streamingReply && <div className="xp-msg-says xp-msg-says-ai">{saysAvatar(false)}{assistantName} 说:</div>}
+        {retro && !dotBubbles && streamingReply && <div className="xp-msg-says xp-msg-says-ai">{saysAvatar(false)}{assistantName} 说:</div>}
         {streamingReply && (
-          <div className="msg-row msg-row-ai msg-row-streaming">
+          <div className={`msg-row msg-row-ai msg-row-streaming${dotBubbles ? " msg-row-says" : ""}`}>
             {assistantAvatar
               ? <img src={assistantAvatar} className="avatar avatar-img" alt="" />
               : <div className="avatar avatar-ai" />
             }
             <div className="msg-content-ai">
+              {dotBubbles && dotsTag(false)}
               <div className="msg-bubble msg-bubble-ai msg-bubble-streaming" aria-live="polite">
                 {renderContent(streamingReply)}
               </div>
@@ -1343,7 +1351,7 @@ export function ChatView({
 
       {showStickers && <StickerLibrary onClose={() => setShowStickers(false)} onSelect={chooseSticker} />}
       {showMoneyDialog && <ChatMoneyDialog key={session.id} book={ledgerBook} sessionId={session.id} onClose={() => setShowMoneyDialog(false)} onSent={(card) => { setShowMoneyDialog(false); void sendMessage(false, card); }} />}
-      <footer className={`chat-footer single-chat-footer${retro ? " xp-chat-footer" : ""}`}>
+      <footer className={`chat-footer single-chat-footer${retro ? " xp-chat-footer" : ""}${dotBubbles ? " xp-chat-footer-dots" : ""}`}>
         <ChatClawd />
 
         {uploadError && <p className="composer-upload-error" role="alert">{uploadError}</p>}
