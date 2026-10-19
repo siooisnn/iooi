@@ -1,8 +1,10 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
-import { categoryOf } from "./dayday-data";
+import { apiFetch } from "@/app/lib/client-api";
+import { categoryOf } from "@/app/lib/dayday-ledger";
+import { prepareImageForUpload } from "@/app/lib/image-compress";
 import { ShelfArt } from "./DaydayArt";
 
 /** A round category sticker with one character on it. */
@@ -15,7 +17,7 @@ export function CatSticker({ cat }: { cat: string }) {
 export function Art({ image, shelf, name, className = "" }: { image?: string; shelf: string; name: string; className?: string }) {
   return <span className={`dd-art ${className}`.trim()}>
     {image
-      // eslint-disable-next-line @next/next/no-img-element -- local blob previews before upload exists
+      // eslint-disable-next-line @next/next/no-img-element -- her own uploads, shown as they are
       ? <img src={image} alt={name} />
       : <ShelfArt shelf={shelf} />}
   </span>;
@@ -29,16 +31,24 @@ export function Group({ title, extra, children, className = "" }: { title: React
   </section>;
 }
 
-/** A local picture preview. Real uploads arrive with the server step. */
-export function useLocalImage() {
+/** A picked photo: previewed locally, uploaded (compressed) only when she saves. */
+export function usePhoto() {
+  const [file, setFile] = useState<File | undefined>();
   const [image, setImage] = useState<string | undefined>();
-  const kept = useRef<string | undefined>(undefined);
-  useEffect(() => () => { if (image && image !== kept.current) URL.revokeObjectURL(image); }, [image]);
+  useEffect(() => () => { if (image) URL.revokeObjectURL(image); }, [image]);
   return {
     image,
-    pick(file?: File | null) { setImage(file ? URL.createObjectURL(file) : undefined); },
-    // Ownership moves to the saved record, so the preview must not revoke it.
-    keep() { kept.current = image; return image; },
+    pick(next?: File | null) { setFile(next || undefined); setImage(next ? URL.createObjectURL(next) : undefined); },
+    /** The saved /uploads/... address, or undefined when no photo was picked. Throws when the upload fails. */
+    async upload() {
+      if (!file) return undefined;
+      const form = new FormData();
+      form.append("file", await prepareImageForUpload(file));
+      const response = await apiFetch("/api/upload", { method: "POST", body: form });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || typeof data.url !== "string") throw new Error(data.error || "图片没传上去，再试一次。");
+      return data.url as string;
+    },
   };
 }
 

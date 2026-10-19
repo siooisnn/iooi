@@ -34,8 +34,8 @@
 :root[data-theme] .dd-screen .dd-strip { display: flex; flex: none; align-items: baseline; gap: 8px; min-width: 0; padding: 5px 10px; border-bottom: 1px solid #e2bcd0; background: linear-gradient(180deg, #fff, #fde9f3); font-size: 11px; color: var(--dd-soft); }
 :root[data-theme] .dd-screen .dd-strip b { color: var(--dd-pink-deep); font: italic 700 16px/1 Georgia, "Times New Roman", serif; letter-spacing: -.5px; text-shadow: 1px 1px 0 #fff, 2px 2px 0 var(--dd-shadow); }
 :root[data-theme] .dd-screen .dd-strip span { min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
-:root[data-theme] .dd-screen .dd-strip em { flex: none; margin-left: auto; padding: 1px 6px; border: 1px solid #c9b45a; border-radius: 3px; background: #ffffe1; color: #7a6a1c; font-size: 10px; font-style: normal; }
 :root[data-theme] .dd-screen .dd-toast { display: flex; flex: none; align-items: center; gap: 8px; padding: 6px 10px; border-bottom: 1px solid #c9b45a; background: #ffffe1; color: #000; font-size: 12px; line-height: 1.5; animation: ddDrop .18s ease-out; }
+:root[data-theme] .dd-screen .dd-toast.is-error { border-bottom-color: #e39a9a; background: #fff0f0; color: #a3212a; }
 :root[data-theme] .dd-screen .dd-toast span { flex: 1; min-width: 0; }
 :root[data-theme] .dd-screen .dd-toast button { flex: none; padding: 0 4px; border: 0; background: transparent; color: #0046d5; text-decoration: underline; }
 :root[data-theme] .dd-screen .dd-toast button:last-child { color: #555; font-size: 15px; text-decoration: none; }
@@ -67,6 +67,7 @@
 :root[data-theme] .dd-screen .dd-chip.is-blue { border-color: var(--dd-sky-line); background: var(--dd-sky); color: #2a5d9c; }
 :root[data-theme] .dd-screen .dd-chip.is-yellow { border-color: #e2cf7a; background: #fff7c9; color: #7a6a1c; }
 :root[data-theme] .dd-screen .dd-chip.is-green { border-color: #a9d8b7; background: #e9f8ee; color: var(--dd-green); }
+:root[data-theme] .dd-screen .dd-loading { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 40px 12px; }
 :root[data-theme] .dd-screen .dd-empty { padding: 22px 8px; color: var(--dd-muted); font-size: 12px; text-align: center; line-height: 1.8; }
 :root[data-theme] .dd-screen .dd-hint { color: var(--dd-muted); font-size: 11.5px; line-height: 1.7; }
 :root[data-theme] .dd-screen .dd-group > .dd-hint { margin-top: 8px; }
@@ -280,7 +281,6 @@
 
 @media (max-width: 480px) {
   :root[data-theme] .dd-screen .dd-body { padding: 12px 10px 18px; }
-  :root[data-theme] .dd-screen .dd-strip em { display: none; }
   :root[data-theme] .dd-screen .dd-stats { gap: 6px; }
   :root[data-theme] .dd-screen .dd-stats > div { padding: 8px; }
   :root[data-theme] .dd-screen .dd-stats b { font-size: 14px; }

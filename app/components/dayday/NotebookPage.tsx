@@ -2,12 +2,10 @@
 
 import { useState } from "react";
 import { XpDialog } from "../XpDialog";
-import { categoryOf, fixedDueKey, parseYuan, yuan, type Refill } from "./dayday-data";
+import { categoryOf, fixedDueKey, parseYuan, shortDay, yuan, type Refill } from "@/app/lib/dayday-ledger";
 import { CatSticker, Group } from "./DaydayParts";
 import { Piggy } from "./DaydayArt";
 import type { Dayday } from "./use-dayday";
-
-const shortDay = (key: string) => `${Number(key.slice(5, 7))}.${Number(key.slice(8, 10))}`;
 
 export function NotebookPage({ dd }: { dd: Dayday }) {
   const { state, cycle, view, actions } = dd;
@@ -38,7 +36,7 @@ export function NotebookPage({ dd }: { dd: Dayday }) {
         : <ul className="dd-checklist">{state.refills.map((r) => <li key={r.id}>
           <button type="button" aria-label={`${r.name}买到了`} onClick={() => setRefill(r)}><span aria-hidden="true" /></button>{r.name}
         </li>)}</ul>}
-      <form className="dd-inline-form" onSubmit={(e) => { e.preventDefault(); if (refillName.trim()) { actions.addRefill(refillName.trim()); setRefillName(""); } }}>
+      <form className="dd-inline-form" onSubmit={(e) => { e.preventDefault(); const name = refillName.trim(); if (name) void actions.addRefill(name).then((ok) => { if (ok) setRefillName(""); }); }}>
         <input value={refillName} maxLength={20} placeholder="比如：洗衣液" onChange={(e) => setRefillName(e.target.value)} aria-label="待补的东西" />
         <button type="submit" className="dd-btn" disabled={!refillName.trim()}>加上</button>
       </form>
@@ -60,8 +58,7 @@ export function NotebookPage({ dd }: { dd: Dayday }) {
       <form className="dd-inline-form is-fixed" onSubmit={(e) => {
         e.preventDefault();
         if (!fixedForm.name.trim() || !fixedCents) return;
-        actions.addFixed(fixedForm.name.trim(), fixedCents, Number(fixedForm.day));
-        setFixedForm({ name: "", amount: "", day: "1" });
+        void actions.addFixed(fixedForm.name.trim(), fixedCents, Number(fixedForm.day)).then((ok) => { if (ok) setFixedForm({ name: "", amount: "", day: "1" }); });
       }}>
         <input value={fixedForm.name} maxLength={16} placeholder="名称" aria-label="名称" onChange={(e) => setFixedForm({ ...fixedForm, name: e.target.value })} />
         <input value={fixedForm.amount} inputMode="decimal" placeholder="¥" aria-label="金额" onChange={(e) => setFixedForm({ ...fixedForm, amount: e.target.value })} />
@@ -126,18 +123,18 @@ function RefillDialog({ dd, refill, onClose }: { dd: Dayday; refill: Refill; onC
   </XpDialog>;
 }
 
-function SettingsDialog({ dd, onClose }: { dd: Dayday; onClose: () => void }) {
+export function SettingsDialog({ dd, onClose }: { dd: Dayday; onClose: () => void }) {
   const [payday, setPayday] = useState(String(dd.state.payday));
-  const [start, setStart] = useState((dd.state.startAmount / 100).toString());
-  const cents = parseYuan(start);
+  const [start, setStart] = useState(dd.state.configured ? (dd.state.startAmount / 100).toString() : "");
+  const cents = /^0+(\.0{1,2})?$/.test(start.trim()) ? 0 : parseYuan(start);
   return <XpDialog title="dayday 设置" onClose={onClose} className="dd-dialog">
     <div className="dd-form">
       <label><span>发生活费</span><select value={payday} onChange={(e) => setPayday(e.target.value)}>
         {Array.from({ length: 28 }, (_, i) => <option key={i} value={i + 1}>每月 {i + 1} 号</option>)}</select></label>
-      <label><span>起始金额</span><input inputMode="decimal" value={start} onChange={(e) => setStart(e.target.value)} /></label>
+      <label><span>起始金额</span><input inputMode="decimal" value={start} autoFocus={!dd.state.configured} placeholder="现在手里有多少" onChange={(e) => setStart(e.target.value)} /></label>
     </div>
     <p className="dd-hint">一个周期从这天 0 点到下个月这天 0 点，按北京时间算。起始金额是开始用 dayday 那一刻手里的钱。</p>
     <div className="dd-dialog-buttons"><span /><button type="button" className="dd-btn" onClick={onClose}>取消</button>
-      <button type="button" className="dd-btn is-pink" disabled={!cents} onClick={() => { dd.actions.setSettings(Number(payday), cents as number); onClose(); }}>保存</button></div>
+      <button type="button" className="dd-btn is-pink" disabled={cents === null} onClick={() => { void dd.actions.setSettings(Number(payday), cents as number); onClose(); }}>保存</button></div>
   </XpDialog>;
 }

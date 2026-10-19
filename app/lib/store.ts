@@ -22,9 +22,9 @@ function createJsonStore(filename: string, privateFile = false) {
       if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) throw new Error("invalid store");
       return parsed;
     } catch {
-      // The main store holds every chat and log. An unreadable file must not
-      // be replaced with a fresh, empty store on the next write.
-      if (filename === "store.json") throw new Error("主数据文件无法读取，已停止写入以保护现有数据。");
+      // The main store holds every chat and log, dayday holds her money. An
+      // unreadable file must not be replaced with a fresh, empty one on the next write.
+      if (filename === "store.json" || filename === "dayday.json") throw new Error("主数据文件无法读取，已停止写入以保护现有数据。");
       return null;
     }
   }
@@ -63,6 +63,8 @@ const surfStore = createJsonStore("surf.json");
 // Susu's phone stores decoration only. Notes and albums are reserved for later;
 // no second bookshelf, forum, blog, signature or heartbeat log lives here.
 const phoneSettingsStore = createJsonStore("phone_settings.json");
+// dayday 记账: her real money, the shop she is eyeing, and what she owns.
+const daydayStore = createJsonStore("dayday.json");
 
 export const readStore = mainStore.read;
 export const withStore = mainStore.write;
@@ -80,4 +82,6 @@ export const readSurfStore = surfStore.read;
 export const withSurfStore = surfStore.write;
 export const readPhoneSettingsStore = phoneSettingsStore.read;
 export const withPhoneSettingsStore = phoneSettingsStore.write;
+export const readDaydayStore = daydayStore.read;
+export const withDaydayStore = daydayStore.write;
 export const DATA_DIR_PATH = DATA_DIR;

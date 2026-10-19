@@ -3,9 +3,9 @@
 import { useState } from "react";
 import { XpDialog } from "../XpDialog";
 import {
-  EXPENSE_CATS, INCOME_CATS, categoryOf, dayKey, dayLabel, parseYuan, timeOf, yuan,
+  EXPENSE_CATS, INCOME_CATS, categoryOf, dayKey, dayLabel, parseYuan, shortDay, timeOf, yuan,
   type Entry, type Kind,
-} from "./dayday-data";
+} from "@/app/lib/dayday-ledger";
 import { CatSticker, Group } from "./DaydayParts";
 import { PixelHeart } from "./DaydayArt";
 import type { Dayday } from "./use-dayday";
@@ -17,15 +17,9 @@ function CycleBar({ total, passed }: { total: number; passed: number }) {
   </span>;
 }
 
-export function LedgerPage({ dd, onWrite, onEdit }: { dd: Dayday; onWrite: () => void; onEdit: (entry: Entry) => void }) {
+export function LedgerPage({ dd, onWrite, onEdit, onSetup }: { dd: Dayday; onWrite: () => void; onEdit: (entry: Entry) => void; onSetup: () => void }) {
   const { view, cycle, actions } = dd;
-  const days = new Map<string, Entry[]>();
-  for (const entry of view.cycleEntries) {
-    const key = dayKey(entry.at);
-    days.set(key, [...(days.get(key) || []), entry]);
-  }
   const catTotal = view.cats.reduce((total, row) => total + row.amount, 0);
-
   return <>
     <section className="dd-hero">
       <div className="dd-hero-top">
@@ -54,6 +48,12 @@ export function LedgerPage({ dd, onWrite, onEdit }: { dd: Dayday; onWrite: () =>
       <button type="button" className="dd-btn is-pink" onClick={() => actions.confirmFixed(fixed.id)}>确认扣</button>
     </div>)}
 
+    {!dd.state.configured && <div className="dd-balloon" role="status">
+      <PixelHeart />
+      <p><b>先告诉我你现在手里有多少钱</b>，剩余从这个数开始算。</p>
+      <button type="button" className="dd-btn is-pink" onClick={onSetup}>去填</button>
+    </div>}
+
     <button type="button" className="dd-write" onClick={onWrite}><span>＋</span>记一笔</button>
 
     {view.cats.length > 0 && <Group title="这期钱去哪了" extra={<span className="dd-group-note">收入 {yuan(view.cycleIncome)}</span>}>
@@ -67,23 +67,40 @@ export function LedgerPage({ dd, onWrite, onEdit }: { dd: Dayday; onWrite: () =>
     </Group>}
 
     <Group title="本周期明细" extra={<span className="dd-group-note">点一笔可以改</span>}>
-      {days.size === 0 ? <p className="dd-empty">这个周期还没有记账。</p> : [...days].map(([key, list]) => {
-        const out = list.filter((e) => e.kind === "expense" && e.status === "done").reduce((total, e) => total + e.amount, 0);
-        return <div className="dd-day" key={key}>
-          <h4>{key === dd.today ? "今天" : dayLabel(key)}<span>支出 {yuan(out)}</span></h4>
-          {list.map((entry) => <button type="button" className="dd-entry" key={entry.id} onClick={() => onEdit(entry)}>
-            <CatSticker cat={entry.cat} />
-            <span className="dd-entry-text">
-              <b>{entry.note || categoryOf(entry.cat).label}</b>
-              <small>{categoryOf(entry.cat).label} · {timeOf(entry.at)}
-                {entry.bySusu && <em className="dd-chip is-blue">小砖记</em>}
-                {entry.status === "transit" && <em className="dd-chip is-yellow">运输中</em>}</small>
-            </span>
-            <span className={`dd-amount${entry.kind === "income" ? " is-in" : ""}`}>{entry.kind === "income" ? yuan(entry.amount, true) : `-${yuan(entry.amount)}`}</span>
-          </button>)}
-        </div>;
-      })}
+      <DayList dd={dd} entries={view.cycleEntries} empty="这个周期还没有记账。" onEdit={onEdit} />
     </Group>
+
+    {view.prev && <Group title={`上周期明细 ${view.prev.cycle.label}`} extra={<span className="dd-group-note">{shortDay(view.prev.foldsOn)} 收起成总结</span>}>
+      <DayList dd={dd} entries={view.prev.entries} empty="" onEdit={onEdit} />
+    </Group>}
+  </>;
+}
+
+/** Entries grouped by day, newest first, each day with its own spending. */
+function DayList({ dd, entries, empty, onEdit }: { dd: Dayday; entries: Entry[]; empty: string; onEdit: (entry: Entry) => void }) {
+  const days = new Map<string, Entry[]>();
+  for (const entry of entries) {
+    const key = dayKey(entry.at);
+    days.set(key, [...(days.get(key) || []), entry]);
+  }
+  if (days.size === 0) return empty ? <p className="dd-empty">{empty}</p> : null;
+  return <>
+    {[...days].map(([key, list]) => {
+      const out = list.filter((e) => e.kind === "expense" && e.status === "done").reduce((total, e) => total + e.amount, 0);
+      return <div className="dd-day" key={key}>
+        <h4>{key === dd.today ? "今天" : dayLabel(key)}<span>支出 {yuan(out)}</span></h4>
+        {list.map((entry) => <button type="button" className="dd-entry" key={entry.id} onClick={() => onEdit(entry)}>
+          <CatSticker cat={entry.cat} />
+          <span className="dd-entry-text">
+            <b>{entry.note || categoryOf(entry.cat).label}</b>
+            <small>{categoryOf(entry.cat).label} · {timeOf(entry.at)}
+              {entry.bySusu && <em className="dd-chip is-blue">小砖记</em>}
+              {entry.status === "transit" && <em className="dd-chip is-yellow">运输中</em>}</small>
+          </span>
+          <span className={`dd-amount${entry.kind === "income" ? " is-in" : ""}`}>{entry.kind === "income" ? yuan(entry.amount, true) : `-${yuan(entry.amount)}`}</span>
+        </button>)}
+      </div>;
+    })}
   </>;
 }
 
@@ -113,7 +130,7 @@ export function EntryDialog({ dd, entry, onClose }: { dd: Dayday; entry?: Entry;
     const at = new Date(`${when}:00+08:00`);
     if (Number.isNaN(at.getTime())) { setError("时间不太对。"); return; }
     const input = { kind, cat, amount: cents, note: note.trim(), at: at.toISOString() };
-    if (entry) dd.actions.updateEntry(entry.id, input); else dd.actions.addEntry(input);
+    if (entry) void dd.actions.updateEntry(entry.id, input); else void dd.actions.addEntry(input);
     onClose();
   }
 

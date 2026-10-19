@@ -2,8 +2,8 @@
 
 import { useState } from "react";
 import { XpDialog } from "../XpDialog";
-import { parseYuan, timeOf, dayLabel, dayKey, yuan, type Product, type Shelf } from "./dayday-data";
-import { Art, Group, PhotoPicker, useLocalImage } from "./DaydayParts";
+import { parseYuan, timeOf, dayLabel, dayKey, yuan, type Product, type Shelf } from "@/app/lib/dayday-ledger";
+import { Art, Group, PhotoPicker, usePhoto } from "./DaydayParts";
 import type { Dayday } from "./use-dayday";
 
 type Area = "browse" | "cart" | "transit";
@@ -90,6 +90,13 @@ function CartPanel({ dd, products, onDone }: { dd: Dayday; products: Product[]; 
   const valid = cents.every((c) => c !== null);
   const total = cents.reduce<number>((sum, c) => sum + (c || 0), 0);
   const listed = products.reduce((sum, p) => sum + p.price, 0);
+  const [busy, setBusy] = useState(false);
+  async function order() {
+    setBusy(true);
+    const ok = await dd.actions.placeOrder(products.map((p, i) => ({ id: p.id, paid: cents[i] as number })));
+    setBusy(false);
+    if (ok) onDone();
+  }
 
   if (products.length === 0) return <p className="dd-empty">购物车空空的。有计划了再把它加进来。</p>;
   return <>
@@ -105,8 +112,7 @@ function CartPanel({ dd, products, onDone }: { dd: Dayday; products: Product[]; 
       <p><span>标价合计</span><span>{yuan(listed)}</span></p>
       {valid && total !== listed && <p><span>{total < listed ? "省下" : "多付"}</span><span>{yuan(Math.abs(listed - total))}</span></p>}
       <p className="is-total"><span>实付</span><b>{valid ? yuan(total) : "—"}</b></p>
-      <button type="button" className="dd-btn is-pink is-wide" disabled={!valid}
-        onClick={() => { dd.actions.placeOrder(products.map((p, i) => ({ id: p.id, paid: cents[i] as number }))); onDone(); }}>下单 · 先扣钱等收货</button>
+      <button type="button" className="dd-btn is-pink is-wide" disabled={!valid || busy} onClick={() => void order()}>{busy ? "下单中…" : "下单 · 先扣钱等收货"}</button>
     </Group>
   </>;
 }
@@ -129,20 +135,25 @@ function ProductDialog({ dd, product, shelfLabel, onClose }: { dd: Dayday; produ
 }
 
 function UploadDialog({ dd, onAddShelf, onClose }: { dd: Dayday; onAddShelf: () => void; onClose: () => void }) {
-  const photo = useLocalImage();
+  const photo = usePhoto();
   const [name, setName] = useState("");
   const [price, setPrice] = useState("");
+  const [busy, setBusy] = useState(false);
   const [shelf, setShelf] = useState(dd.state.shelves[0].id);
   const [reason, setReason] = useState("");
   const [link, setLink] = useState("");
   const [error, setError] = useState("");
-  function save() {
+  async function save() {
     const cents = parseYuan(price);
     if (!name.trim()) { setError("给它起个名字。"); return; }
     if (!cents) { setError("价格写一个大于 0 的数。"); return; }
     if (link.trim() && !/^https?:\/\//.test(link.trim())) { setError("链接要以 http 或 https 开头。"); return; }
-    dd.actions.addProduct({ name: name.trim(), price: cents, shelf, reason: reason.trim(), link: link.trim() || undefined, image: photo.keep() });
-    onClose();
+    setBusy(true);
+    try {
+      const image = await photo.upload();
+      if (await dd.actions.addProduct({ name: name.trim(), price: cents, shelf, reason: reason.trim(), link: link.trim() || undefined, image })) onClose();
+    } catch (err) { setError(err instanceof Error ? err.message : "图片没传上去，再试一次。"); }
+    setBusy(false);
   }
   return <XpDialog title="上传一件" onClose={onClose} className="dd-dialog">
     <PhotoPicker image={photo.image} onPick={photo.pick} />
@@ -157,6 +168,6 @@ function UploadDialog({ dd, onAddShelf, onClose }: { dd: Dayday; onAddShelf: () 
     </div>
     {error && <p className="dd-error" role="alert">{error}</p>}
     <div className="dd-dialog-buttons"><span /><button type="button" className="dd-btn" onClick={onClose}>取消</button>
-      <button type="button" className="dd-btn is-pink" onClick={save}>放进商城</button></div>
+      <button type="button" className="dd-btn is-pink" disabled={busy} onClick={() => void save()}>{busy ? "正在放…" : "放进商城"}</button></div>
   </XpDialog>;
 }

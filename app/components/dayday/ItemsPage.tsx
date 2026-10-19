@@ -2,8 +2,8 @@
 
 import { useState } from "react";
 import { XpDialog } from "../XpDialog";
-import { dayKey, parseYuan, yuan, type Item } from "./dayday-data";
-import { Art, PhotoPicker, useLocalImage } from "./DaydayParts";
+import { dayKey, parseYuan, yuan, type Item } from "@/app/lib/dayday-ledger";
+import { Art, PhotoPicker, usePhoto } from "./DaydayParts";
 import { ShelfChips } from "./ShopPage";
 import type { Dayday } from "./use-dayday";
 
@@ -45,19 +45,24 @@ export function ItemsPage({ dd, onAddShelf }: { dd: Dayday; onAddShelf: () => vo
 }
 
 function ItemDialog({ dd, onAddShelf, onClose }: { dd: Dayday; onAddShelf: () => void; onClose: () => void }) {
-  const photo = useLocalImage();
+  const photo = usePhoto();
+  const [busy, setBusy] = useState(false);
   const [name, setName] = useState("");
   const [shelf, setShelf] = useState(dd.state.shelves[1]?.id || dd.state.shelves[0].id);
   const [paid, setPaid] = useState("");
   const [gotAt, setGotAt] = useState(dayKey());
   const [note, setNote] = useState("");
   const [error, setError] = useState("");
-  function save() {
+  async function save() {
     const cents = paid.trim() ? parseYuan(paid) : undefined;
     if (!name.trim()) { setError("给它起个名字。"); return; }
     if (cents === null) { setError("价格不对，不记的话就空着。"); return; }
-    dd.actions.addItem({ name: name.trim(), shelf, paid: cents, gotAt, note: note.trim() || undefined, image: photo.keep() });
-    onClose();
+    setBusy(true);
+    try {
+      const image = await photo.upload();
+      if (await dd.actions.addItem({ name: name.trim(), shelf, paid: cents, gotAt, note: note.trim() || undefined, image })) onClose();
+    } catch (err) { setError(err instanceof Error ? err.message : "图片没传上去，再试一次。"); }
+    setBusy(false);
   }
   return <XpDialog title="添加物品" onClose={onClose} className="dd-dialog">
     <PhotoPicker image={photo.image} onPick={photo.pick} />
@@ -73,6 +78,6 @@ function ItemDialog({ dd, onAddShelf, onClose }: { dd: Dayday; onAddShelf: () =>
     <p className="dd-hint">原来就有的东西加在这里不会记账。</p>
     {error && <p className="dd-error" role="alert">{error}</p>}
     <div className="dd-dialog-buttons"><span /><button type="button" className="dd-btn" onClick={onClose}>取消</button>
-      <button type="button" className="dd-btn is-pink" onClick={save}>放进来</button></div>
+      <button type="button" className="dd-btn is-pink" disabled={busy} onClick={() => void save()}>{busy ? "正在放…" : "放进来"}</button></div>
   </XpDialog>;
 }
