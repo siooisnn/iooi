@@ -47,6 +47,7 @@ export type Settings = {
   // turns it on; with only one on, that's the only thing he can do.
   lifeRead?: boolean;
   lifeSurf?: boolean;
+  lifeDayday?: boolean;
   // Push when he has read / surfed. On unless turned off (only matters with lifeRead / lifeSurf).
   lifePushRead?: boolean;
   lifePushSurf?: boolean;

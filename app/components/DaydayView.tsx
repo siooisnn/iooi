@@ -22,7 +22,7 @@ type Page = typeof PAGES[number]["id"];
 export function DaydayView({ onBack, initialPage = "ledger" }: { onBack: () => void; initialPage?: Page }) {
   const { dd, loadError, reload, notice, dismiss } = useDayday();
   const [page, setPage] = useState<Page>(initialPage);
-  const [writing, setWriting] = useState<Entry | "new" | null>(null);
+  const [writing, setWriting] = useState<Entry | "new" | "income" | null>(null);
   const [addingShelf, setAddingShelf] = useState(false);
   const [setup, setSetup] = useState(false);
   const bodyRef = useRef<HTMLDivElement>(null);
@@ -46,7 +46,7 @@ export function DaydayView({ onBack, initialPage = "ledger" }: { onBack: () => v
         {!dd ? <div className="dd-loading">{loadError
           ? <><p className="dd-error" role="alert">{loadError}</p><button type="button" className="dd-btn" onClick={() => void reload()}>再试一次</button></>
           : <p className="dd-empty">正在翻开账本…</p>}</div> : <>
-          {page === "ledger" && <LedgerPage dd={dd} onWrite={() => setWriting("new")} onEdit={setWriting} onSetup={() => setSetup(true)} />}
+          {page === "ledger" && <LedgerPage dd={dd} onWrite={() => setWriting("new")} onIncome={() => setWriting("income")} onEdit={setWriting} onSetup={() => setSetup(true)} />}
           {page === "shop" && <ShopPage dd={dd} onAddShelf={() => setAddingShelf(true)} />}
           {page === "items" && <ItemsPage dd={dd} onAddShelf={() => setAddingShelf(true)} />}
           {page === "notes" && <NotebookPage dd={dd} />}
@@ -60,7 +60,7 @@ export function DaydayView({ onBack, initialPage = "ledger" }: { onBack: () => v
         </button>)}
       </nav>
     </section>
-    {dd && writing && <EntryDialog dd={dd} entry={writing === "new" ? undefined : writing} onClose={() => setWriting(null)} />}
+    {dd && writing && <EntryDialog dd={dd} entry={typeof writing === "string" ? undefined : writing} initialKind={writing === "income" ? "income" : "expense"} onClose={() => setWriting(null)} />}
     {dd && addingShelf && <ShelfDialog onSave={(label) => void dd.actions.addShelf(label)} onClose={() => setAddingShelf(false)} />}
     {dd && setup && <SettingsDialog dd={dd} onClose={() => setSetup(false)} />}
   </div>;

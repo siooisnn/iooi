@@ -1,3 +1,4 @@
+import type { Sticker } from "./stickers";
 import type { LedgerCard } from "./dayday-markers";
 
 // ━━━━━━━━━━━━━━━ Types ━━━━━━━━━━━━━━━
@@ -29,7 +30,7 @@ export type BlogCard = {
 };
 
 // Picked but not yet sent; lives only in the composer until she presses send.
-export type PendingAttachment = { id: string; kind: "image" | "file"; url: string; name: string };
+export type PendingAttachment = { id: string; kind: "image" | "file"; url: string; name: string; sticker?: boolean };
 
 export type ChatSession = {
   id: string;
@@ -95,6 +96,7 @@ export type CacheStats = {
   summer_write_proposals?: SummerWriteProposal[];
   blog_cards?: BlogCard[];
   ledger_cards?: LedgerCard[];
+  stickers?: Sticker[];
   time?: string;
 };
 

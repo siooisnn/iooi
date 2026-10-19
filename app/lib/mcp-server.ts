@@ -1,3 +1,5 @@
+import { readStickers } from "./sticker-store";
+import { loadUploadImages } from "./upload-images";
 import { DAYDAY_TOOLS, callDaydayTool } from "./dayday-mcp";
 // The iooi MCP: JSON-RPC over Streamable HTTP, answered as one SSE message
 // per request like summer does. One server for everything in iooi he can
@@ -53,6 +55,7 @@ function text(value: unknown) {
 
 const TOOLS = [
   ...DAYDAY_TOOLS,
+  { name: "sticker_read", description: "看共用表情库。省略id看名字清单；填真实id看原图，方便选合适表情。聊天发送用回复末尾[sticker]id[/sticker]。", inputSchema: { type: "object", properties: { id: { type: "string" } } } },
   {
     name: "phone_read",
     description: "看自己的 susu’s phone：装饰布局、酥酥今天的时间线、在读进度、最近的论坛帖子和博客日志，以及与博客共享的签名。不返回正文、不修改数据。",
@@ -248,7 +251,7 @@ export const READONLY_TOOL_NAMES = new Set([
 // tool call. No deleting here either.
 export const CHAT_TOOL_NAMES = new Set([
   ...READONLY_TOOL_NAMES,
-  "surf_reply", "surf_post", "reading_mark", "reading_note", "phone_decorate",
+  "sticker_read", "surf_reply", "surf_post", "reading_mark", "reading_note", "phone_decorate",
 ]);
 // His own time: read everything, move his bookmark, write notes, answer her
 // on the forum. No blog posts, no deleting. (His own time's thread comes
@@ -380,6 +383,16 @@ export async function callTool(name: string, args: Record<string, unknown>, acce
   console.info(`[mcp] tool call: ${name}`);
   if (name.startsWith("dayday_")) {
     try { return await callDaydayTool(name, args, access); } catch (error) { return failure(error); }
+  }
+  if (name === "sticker_read") {
+    if (access === "life") return reply("自主活动不读取聊天表情库。", true);
+    try {
+      const library = readStickers();
+      const sticker = library.find((s) => s.id === args.id);
+      if (args.id && !sticker) return reply("这张表情已不在库里，请重新看清单。", true);
+      const images = sticker ? loadUploadImages([sticker.url]).map((b) => ({ type: "image" as const, data: b.source.data, mimeType: b.source.media_type })) : [];
+      return { content: [{ type: "text" as const, text: JSON.stringify(sticker ? { sticker, imageAvailable: images.length > 0 } : library) }, ...images], isError: false };
+    } catch { return reply("表情库暂时打不开。", true); }
   }
   switch (name) {
     case "phone_read":

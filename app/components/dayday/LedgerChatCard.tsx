@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { XpDialog } from "../XpDialog";
 import { apiFetch } from "@/app/lib/client-api";
-import { categoryOf, dayKey, dayLabel, timeOf, parseYuan, yuan, type DaydayBook, type Entry } from "@/app/lib/dayday-ledger";
+import { categoryOf, ledgerView, dayKey, dayLabel, timeOf, parseYuan, yuan, type DaydayBook, type Entry } from "@/app/lib/dayday-ledger";
 import type { LedgerCard } from "@/app/lib/dayday-markers";
 
 // One shared book per chat, rather than one request per historical card.
@@ -97,37 +98,41 @@ export function LedgerChatCard({ card, book }: { card: LedgerCard; book: DaydayB
   </article></div>;
 }
 
-export function ChatMoneyComposer({ disabled, onSent, sessionId }: { disabled: boolean; onSent: (card: LedgerCard) => void; sessionId: string }) {
-  const [kind, setKind] = useState<"redpacket" | "transfer" | null>(null);
+export function ChatMoneyDialog({ book, sessionId, onClose, onSent }: { book: DaydayBook | null; sessionId: string; onClose: () => void; onSent: (card: LedgerCard) => void }) {
+  const [kind, setKind] = useState<"redpacket" | "transfer">("redpacket");
   const [amount, setAmount] = useState("");
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const [requestId, setRequestId] = useState("");
+  const [requestId] = useState(() => crypto.randomUUID());
+  const lock = useRef(false);
   async function send() {
+    if (lock.current || !book?.configured) return;
     const cents = parseYuan(amount);
-    if (!cents || !kind) { setError("金额要大于0，最多两位小数。"); return; }
-    setBusy(true); setError("");
+    if (!cents) { setError("金额要大于0，最多两位小数。"); return; }
+    lock.current = true; setBusy(true); setError("");
     try {
       const d = await sendChatLedger("money.send", { kind, amount: cents, note, sessionId }, requestId);
       const gift = d.result;
       if (!gift?.id) throw new Error("请查看账本确认发送结果。");
       onSent({ id: `gift_${gift.id}`, kind: "money", ok: true, targetId: gift.id, text: `你发给酥酥的${gift.kind === "redpacket" ? "红包" : "转账"} · ${yuan(gift.amount)}${gift.note ? ` · ${gift.note}` : ""}` });
-      setKind(null); setAmount(""); setNote("");
     } catch (e) { setError(e instanceof Error ? e.message : "没发出去。"); }
-    finally { setBusy(false); }
+    finally { lock.current = false; setBusy(false); }
   }
-  return <div className="ledger-money-composer">
-    <button type="button" disabled={disabled || busy} onClick={() => { setKind("redpacket"); setError(""); setRequestId(crypto.randomUUID()); }}><DaydayMoneyIcon kind="redpacket" />红包</button>
-    <button type="button" disabled={disabled || busy} onClick={() => { setKind("transfer"); setError(""); setRequestId(crypto.randomUUID()); }}><DaydayMoneyIcon kind="transfer" />转账</button>
-    {kind && <form onSubmit={(e) => { e.preventDefault(); void send(); }}>
-      <b>{kind === "redpacket" ? "发红包" : "转账"}给酥酥</b><small>共同余额暂扣，领取或退回后回到余额</small>
-      <label>金额<input inputMode="decimal" autoFocus value={amount} onChange={(e) => setAmount(e.target.value)} /></label>
-      <label>留言<input maxLength={40} value={note} onChange={(e) => setNote(e.target.value)} /></label>
-      {error && <p role="alert">{error}</p>}
-      <button disabled={busy || disabled}>发送</button><button type="button" disabled={busy} onClick={() => setKind(null)}>取消</button>
-    </form>}
-  </div>;
+  const red = kind === "redpacket";
+  return <div className="rd-screen dd-screen"><XpDialog title="给酥酥发一份心意" onClose={() => { if (!busy) onClose(); }} className="dd-dialog dd-send-dialog">
+    <form className={`dd-form dd-send ${red ? "is-redpacket" : "is-transfer"}`} onSubmit={(e) => { e.preventDefault(); void send(); }}><fieldset disabled={busy}>
+      <div className="dd-send-kinds" role="radiogroup" aria-label="方式">
+        {(["redpacket", "transfer"] as const).map((value) => <button key={value} type="button" role="radio" aria-checked={kind === value} className={kind === value ? "is-on" : ""} onClick={() => setKind(value)}><DaydayMoneyIcon kind={value} /><span>{value === "redpacket" ? "红包" : "转账"}</span></button>)}
+      </div>
+      <label>金额<span className="dd-send-amount"><i aria-hidden="true">¥</i><input inputMode="decimal" required value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0.00" /></span></label>
+      <p className="dd-send-balance">dayday 可用余额 <b>{book ? yuan(ledgerView(book).remaining) : "读取中…"}</b></p>
+      <label>{red ? "祝福" : "转账备注"}<input maxLength={40} value={note} onChange={(e) => setNote(e.target.value)} placeholder={red ? "恭喜发财，大吉大利" : "想和酥酥说什么"} /></label>
+      <button type="submit" className="dd-send-submit" disabled={!book?.configured || busy}>{busy ? "发送中…" : !book?.configured ? "请先设置 dayday 余额" : red ? "塞进红包" : "转给酥酥"}</button>
+      <p className="dd-send-hint">从共同余额暂扣，领取或退回后释放回同一余额，不计收入支出。</p>
+      {error && <p className="dd-send-error" role="alert">{error}</p>}
+    </fieldset></form>
+  </XpDialog></div>;
 }
 
 /** Small XP-style coloured glyphs shared by the card header and the chat toolbar. */

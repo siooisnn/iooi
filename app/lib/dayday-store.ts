@@ -25,11 +25,12 @@ export async function readBook(now = new Date()): Promise<DaydayBook> {
  * One action, saved in the same atomic write. A failing action changes nothing.
  * A repeated requestId returns the current book without applying it twice.
  */
-export async function runDayday(action: string, input: Record<string, unknown>, options: { requestId?: unknown; bySusu?: boolean; now?: Date } = {}) {
+export async function runDayday(action: string, input: Record<string, unknown>, options: { requestId?: unknown; bySusu?: boolean; now?: Date; guard?: (book: DaydayBook) => void } = {}) {
   const now = options.now || new Date();
   const requestId = typeof options.requestId === "string" && /^[A-Za-z0-9_-]{8,100}$/.test(options.requestId) ? options.requestId : "";
   return withDaydayStore((store) => {
     const book = parseBook(store);
+    options.guard?.(book);
     settleBook(book, dayKey(now));
     if (requestId && book.receipts.includes(requestId)) {
       save(store, book);

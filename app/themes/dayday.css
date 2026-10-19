@@ -295,3 +295,6 @@
   :root[data-theme] .dd-screen :is(.dd-piggy, .dd-cycle-bar i, .dd-toast) { animation: none; }
   :root[data-theme] .dd-screen :is(.dd-card, .dd-write) { transition: none; }
 }
+
+:root[data-theme] .dd-screen .dd-ledger-write-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+:root[data-theme] .dd-screen .dd-write.is-income { border-color: #8dbca0; background: #eef9ef; color: #417452; }

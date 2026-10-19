@@ -1,8 +1,11 @@
 "use client";
 
-import { ChatMoneyComposer, LedgerChatCard, useChatLedger } from "./dayday/LedgerChatCard";
+import { ChatMoneyDialog, DaydayMoneyIcon, LedgerChatCard, useChatLedger } from "./dayday/LedgerChatCard";
 import type { LedgerCard } from "../lib/dayday-markers";
 
+import { addStickerToDraft, stickerDraftMessage } from "../lib/sticker-draft";
+import { StickerLibrary } from "./StickerLibrary";
+import type { Sticker } from "../lib/stickers";
 import { useState, useRef, useEffect, useMemo } from "react";
 import { TypingKitty } from "./TypingKitty";
 import { ChatClawd } from "./TaskbarClawd";
@@ -114,6 +117,8 @@ export function ChatView({
 }) {
   const isGpt = assistantMode === "gpt";
   const ledgerBook = useChatLedger(!isGpt);
+  const [showMoneyDialog, setShowMoneyDialog] = useState(false);
+  const [showStickers, setShowStickers] = useState(false);
   const claudeUsage = useClaudeUsage(!isGpt);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -182,7 +187,7 @@ export function ChatView({
     for (const { message, index } of displayMessages) {
       if (message.source === "summer_write_ignored") continue;
       const speakable = message.role === "assistant" && !isSummerUtilityMessage(message)
-        && message.source !== "chat_nudge" && message.source !== "blog_card" && message.source !== "dayday_card" && message.source !== "ledger_card" && hasSpeakableText(message.content);
+        && message.source !== "chat_nudge" && message.source !== "blog_card" && message.source !== "dayday_card" && message.source !== "ledger_card" && message.source !== "sticker" && hasSpeakableText(message.content);
       if (!speakable) { close(); continue; }
       if (run && run.date !== message.date) close();
       run ??= { key: `${session.id}:${index}`, texts: [], last: index, date: message.date };
@@ -523,6 +528,17 @@ export function ChatView({
     }));
   }
 
+  function chooseSticker(sticker: Sticker) {
+    if (attachments.filter((item) => item.kind === "image").length >= MAX_IMAGES_PER_MESSAGE) {
+      setUploadError(`一条消息最多 ${MAX_IMAGES_PER_MESSAGE} 张图片或表情包，请先移除一些。`);
+      setShowStickers(false); return;
+    }
+    const draftId = genId();
+    setAttachments((current) => addStickerToDraft(current, sticker, draftId) || current);
+    setUploadError(""); setShowStickers(false);
+    requestAnimationFrame(() => inputRef.current?.focus());
+  }
+
   async function sendMessage(nudge = false, moneyCard?: LedgerCard) {
     if ((!moneyCard && !nudge && !input.trim() && !attachments.length) || loading || uploading || sendingRef.current) return;
     if (nudge && (isGpt || developmentMode || !retro)) return;
@@ -534,13 +550,15 @@ export function ChatView({
     sendingRef.current = true;
     if (!nudge) sendHearts();
     const pendingFile = sendable.find((item) => item.kind === "file");
-    const userText = typed.trim() || !pendingFile ? typed : `📄 ${pendingFile.name}`;
+    const draft = stickerDraftMessage(typed, sendable);
+    const userText = draft.content.trim() || !pendingFile ? draft.content : `📄 ${pendingFile.name}`;
     const userMsg: Message = { role: "user", content: userText, time: getTime(), date: getTodayStr(),
       ...imageFields(sendable.filter((item) => item.kind === "image").map((item) => item.url)),
       ...(pendingFile ? { file: pendingFile.url } : {}),
       ...(!isGpt ? { roundId: genId() } : {}),
       ...(codeRequest ? { source: `code_task_${developmentProject}` } : {}),
       ...(nudge ? { source: "chat_nudge" } : {}),
+      ...(draft.source ? { source: draft.source } : {}),
       ...(moneyCard ? { source: "ledger_card", ledger: moneyCard } : {}),
     };
     if (!nudge && !moneyCard) {
@@ -740,7 +758,8 @@ export function ChatView({
       }));
       const ledgerCardMsgs: Message[] = (data.cache?.ledger_cards || []).map((card: LedgerCard) => ({ role: "assistant", source: "ledger_card", content: card.text, ledger: card, roundId: userMsg.roundId, time: now, date: today }));
       if (ledgerCardMsgs.length) window.dispatchEvent(new Event("dayday-change"));
-      const finalMessages = [...messagesWithUser, ...summerCallMsgs, ...newMsgs, ...ledgerCardMsgs, ...blogCardMsgs, ...nudgeMsgs, ...summerWriteMsgs];
+      const stickerMsgs: Message[] = (data.cache?.stickers || []).map((s: Sticker) => ({ role: "assistant", source: "sticker", image: s.url, content: `[表情包：${s.name}]`, roundId: userMsg.roundId, time: now, date: today }));
+      const finalMessages = [...messagesWithUser, ...summerCallMsgs, ...newMsgs, ...stickerMsgs, ...ledgerCardMsgs, ...blogCardMsgs, ...nudgeMsgs, ...summerWriteMsgs];
       sessionMessagesRef.current = mergeChatMessages(sessionMessagesRef.current, finalMessages);
       updateMessages((msgs) => mergeChatMessages(msgs, finalMessages));
       if (nudgeMsgs.length) playNudge();
@@ -1158,9 +1177,9 @@ export function ChatView({
                 <div className={message.role === "user" ? "msg-content-user" : "msg-content-ai"}>
                   {!listEntryMode && <span className="msg-time">{message.source === "heartbeat" ? "💬 " : ""}{message.time}</span>}
                   {messageImages(message).length ? (
-                    <div className={`msg-bubble msg-bubble-img ${message.role === "user" ? "msg-bubble-user" : "msg-bubble-ai"}`}>
+                    <div className={`msg-bubble msg-bubble-img ${message.source === "sticker" ? "msg-bubble-sticker" : message.source === "sticker_message" ? "msg-bubble-sticker-message" : ""} ${message.role === "user" ? "msg-bubble-user" : "msg-bubble-ai"}`}>
                       {messageImages(message).length === 1 ? (
-                        <img src={messageImages(message)[0]} className="msg-image" alt="" onClick={() => window.open(messageImages(message)[0], "_blank")} />
+                        <img src={messageImages(message)[0]} className="msg-image" alt={message.source === "sticker" ? message.content : ""} onClick={() => window.open(messageImages(message)[0], "_blank")} />
                       ) : (
                         <div className={`msg-image-grid${messageImages(message).length === 2 || messageImages(message).length === 4 ? " msg-image-grid-2" : ""}`}>
                           {messageImages(message).map((url) => (
@@ -1168,7 +1187,7 @@ export function ChatView({
                           ))}
                         </div>
                       )}
-                      {message.content && <p className="msg-image-caption">{renderContent(message.content)}</p>}
+                      {message.content && message.source !== "sticker" && <p className="msg-image-caption">{renderContent(message.content)}</p>}
                     </div>
                   ) : (
                     <div
@@ -1302,22 +1321,24 @@ export function ChatView({
         </div>
       )}
 
+      {showStickers && <StickerLibrary onClose={() => setShowStickers(false)} onSelect={chooseSticker} />}
+      {showMoneyDialog && <ChatMoneyDialog key={session.id} book={ledgerBook} sessionId={session.id} onClose={() => setShowMoneyDialog(false)} onSent={(card) => { setShowMoneyDialog(false); void sendMessage(false, card); }} />}
       <footer className={`chat-footer single-chat-footer${retro ? " xp-chat-footer" : ""}`}>
         <ChatClawd />
-        {!isGpt && !developmentMode && <ChatMoneyComposer sessionId={session.id} disabled={loading || uploading} onSent={(card) => void sendMessage(false, card)} />}
+
         {uploadError && <p className="composer-upload-error" role="alert">{uploadError}</p>}
         {attachments.length > 0 && (
           <div className="composer-attachments" aria-label="待发送的附件">
             {attachments.map((item) => (
-              <div key={item.id} className={`composer-attachment${item.kind === "file" ? " composer-attachment-file" : ""}`}>
+              <div key={item.id} className={`composer-attachment${item.sticker ? " composer-attachment-sticker" : ""}${item.kind === "file" ? " composer-attachment-file" : ""}`}>
                 {item.kind === "image"
-                  ? <img src={item.url} alt="" />
+                  ? <img src={item.url} alt={item.sticker ? item.name : ""} title={item.sticker ? `表情包：${item.name}` : undefined} />
                   : <span className="composer-attachment-name">📄 {item.name}</span>}
                 <button
                   type="button"
                   className="composer-attachment-remove"
                   onClick={() => removeAttachment(item.id)}
-                  aria-label={item.kind === "image" ? "移除这张图片" : "移除这个文件"}
+                  aria-label={item.sticker ? `移除表情包：${item.name}` : item.kind === "image" ? "移除这张图片" : "移除这个文件"}
                   title="移除"
                 >
                   ×
@@ -1353,6 +1374,8 @@ export function ChatView({
                 </svg>
                 <span>抖一抖</span>
               </button>
+              {!isGpt && !developmentMode && <button type="button" className="xp-chat-tool" disabled={loading || uploading} onClick={() => setShowMoneyDialog(true)}><DaydayMoneyIcon kind="redpacket" /><span>红包/转账</span></button>}
+              {!isGpt && !developmentMode && <button type="button" className="xp-chat-tool" disabled={loading || uploading} onClick={() => setShowStickers(true)}><span aria-hidden="true">☺</span><span>表情包</span></button>}
               <span className="xp-chat-toolbar-gap" />
               {developmentMode && (
                 <ContextUsageBadge kind="work" sessionId={session.id} project={developmentProject} messages={workUsageMessages} />
@@ -1384,6 +1407,8 @@ export function ChatView({
           </>
         ) : (
           <div className="composer-row">
+            {!isGpt && !developmentMode && <button type="button" className="attach-btn" aria-label="红包/转账" disabled={loading || uploading} onClick={() => setShowMoneyDialog(true)}><DaydayMoneyIcon kind="redpacket" /></button>}
+            {!isGpt && !developmentMode && <button type="button" className="attach-btn" aria-label="表情包" disabled={loading || uploading} onClick={() => setShowStickers(true)}>☺</button>}
             <input
               ref={fileInputRef}
               type="file"

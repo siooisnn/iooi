@@ -1,6 +1,7 @@
-type HiddenSection = "dayday" | "summer" | "mood" | "nudge" | "blog_post" | "blog_comment" | "blog_motto" | null;
+type HiddenSection = "sticker" | "dayday" | "summer" | "mood" | "nudge" | "blog_post" | "blog_comment" | "blog_motto" | null;
 
 const OPENERS = [
+  { text: "[sticker", section: "sticker" as const },
   { text: "[dayday", section: "dayday" as const },
   { text: "[iooi_nudge", section: "nudge" as const },
   { text: "[summer_remember", section: "summer" as const },
@@ -36,7 +37,7 @@ export function createVisibleReplyStream() {
     while (buffer) {
       if (hidden) {
         const closer = hidden === "summer" ? "[/summer_remember]"
-          : (hidden === "dayday" || hidden.startsWith("blog_")) ? `[/${hidden}]` : "]";
+          : (hidden === "sticker" || hidden === "dayday" || hidden.startsWith("blog_")) ? `[/${hidden}]` : "]";
         const closerIndex = buffer.toLowerCase().indexOf(closer.toLowerCase());
         if (closerIndex < 0) {
           // Hidden proposal content can be long. Only its possible closing

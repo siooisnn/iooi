@@ -1,3 +1,5 @@
+import { readStickers } from "@/app/lib/sticker-store";
+import { selectReplyStickers, stripStickerMarkers, stickerPrompt, type Sticker } from "@/app/lib/stickers";
 import { DAYDAY_CHAT_BRIDGE, parseDaydayMarkers, stripDaydayMarkers, type LedgerCard } from "@/app/lib/dayday-markers";
 import { daydayOverview, runDaydayMarkers } from "@/app/lib/dayday-tools";
 import { readStore, withGroupStore, withStore } from "@/app/lib/store";
@@ -723,9 +725,10 @@ async function persistRound(
   nudge = false,
   blogCards: BlogCard[] = [],
   ledgerCards: LedgerCard[] = [],
+  stickers: Sticker[] = [],
 ) {
   const stamp = { time: cstTime(), date: cstToday() };
-  if (!sessionId || (!reply && !nudge && !blogCards.length && !ledgerCards.length)) return stamp;
+  if (!sessionId || (!reply && !nudge && !blogCards.length && !ledgerCards.length && !stickers.length)) return stamp;
   try {
     const diaryRegex = /\[日记\]([\s\S]*?)\[\/日记\]/g;
     const cleanReply = reply.replace(diaryRegex, "").replace(/\[心情[:：].+?\]/g, "").trim();
@@ -778,6 +781,9 @@ async function persistRound(
           ...(i === 0 && thinkingContent ? { thinking: thinkingContent } : {}),
         });
       });
+      for (const sticker of stickers) {
+        pushAssistant({ role: "assistant", source: "sticker", image: sticker.url, content: `[表情包：${sticker.name}]`, time: now, date: today, roundId: userMsg?.roundId });
+      }
       for (const card of ledgerCards) {
         if (card.kind === "fixed" && msgs.some((m) => m.ledger?.id === card.id)) continue;
         pushAssistant({ role: "assistant", source: "ledger_card", content: card.text, ledger: card, time: now, date: today, roundId: userMsg?.roundId });
@@ -1103,6 +1109,9 @@ export async function POST(request: Request) {
   if (!skipPersist) system.push({ type: "text", text: BLOG_CHAT_BRIDGE, cache_control: cacheControl() });
   if (!skipPersist && !groupSessionId) system.push({ type: "text", text: DAYDAY_CHAT_BRIDGE, cache_control: cacheControl() });
 
+  if (!skipPersist && !groupSessionId) {
+    try { const prompt = stickerPrompt(readStickers()); if (prompt) system.push({ type: "text", text: prompt, cache_control: cacheControl() }); } catch {}
+  }
   let summerUsed = false;
   let summerNotice = "";
   let summerSearch = "";
@@ -1419,6 +1428,9 @@ ${combinedDynamicPrompt}
           });
         }
       }
+      let replyStickers: Sticker[] = [];
+      if (!skipPersist && !groupSessionId) { try { replyStickers = selectReplyStickers(reply, readStickers()); } catch {} }
+      reply = stripStickerMarkers(reply);
       const ledgerCards = !skipPersist && !groupSessionId
         ? await runDaydayMarkers(parseDaydayMarkers(reply), `${sessionId}:${userMsg?.roundId || `${userMsg?.date}:${userMsg?.time}:${userMsg?.content}`}`) : [];
       const blogMarkers = skipPersist ? [] : parseBlogMarkers(reply);
@@ -1432,7 +1444,7 @@ ${combinedDynamicPrompt}
       const groupPersistedDate = skipPersist && groupSessionId ? cstToday() : "";
       let replyStamp: { time: string; date: string } | undefined;
       if (!skipPersist) {
-        replyStamp = await persistRound(sessionId, userMsg, reply, thinkingContent, summerCalls, summerWriteProposals, undefined, false, nudgeResult.nudge, blogCards, ledgerCards);
+        replyStamp = await persistRound(sessionId, userMsg, reply, thinkingContent, summerCalls, summerWriteProposals, undefined, false, nudgeResult.nudge, blogCards, ledgerCards, replyStickers);
       } else if (groupSessionId) {
         await persistGroupRound(
           String(groupSessionId),
@@ -1502,6 +1514,7 @@ ${combinedDynamicPrompt}
             summer_calls: summerCalls,
             blog_cards: blogCards,
             ledger_cards: ledgerCards,
+            stickers: replyStickers,
             reply_persisted_time: replyStamp?.time,
             reply_persisted_date: replyStamp?.date,
             web_search_used: data.webSearchUsed,

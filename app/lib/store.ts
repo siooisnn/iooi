@@ -24,7 +24,7 @@ function createJsonStore(filename: string, privateFile = false) {
     } catch {
       // The main store holds every chat and log, dayday holds her money. An
       // unreadable file must not be replaced with a fresh, empty one on the next write.
-      if (filename === "store.json" || filename === "dayday.json") throw new Error("主数据文件无法读取，已停止写入以保护现有数据。");
+      if (filename === "store.json" || filename === "dayday.json" || filename === "stickers.json") throw new Error("主数据文件无法读取，已停止写入以保护现有数据。");
       return null;
     }
   }
@@ -65,6 +65,7 @@ const surfStore = createJsonStore("surf.json");
 const phoneSettingsStore = createJsonStore("phone_settings.json");
 // dayday 记账: her real money, the shop she is eyeing, and what she owns.
 const daydayStore = createJsonStore("dayday.json");
+const stickerStore = createJsonStore("stickers.json");
 
 export const readStore = mainStore.read;
 export const withStore = mainStore.write;
@@ -85,3 +86,6 @@ export const withPhoneSettingsStore = phoneSettingsStore.write;
 export const readDaydayStore = daydayStore.read;
 export const withDaydayStore = daydayStore.write;
 export const DATA_DIR_PATH = DATA_DIR;
+
+export const readStickerStore = stickerStore.read;
+export const withStickerStore = stickerStore.write;

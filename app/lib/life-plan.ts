@@ -91,7 +91,8 @@ export function planLife(previous: LifeBeatState, now: number, roll: number, las
 
 export type LifeLinkOut = { title: string; url: string; why?: string };
 export type LifeOutcome = {
-  did: "read" | "surf" | "none";
+  did: "read" | "surf" | "dayday" | "none";
+  reviews?: { id: string; text: string }[];
   line: string;
   links: LifeLinkOut[];
   /** surf: the forum thread his find becomes. Empty title falls back to the first link. */
@@ -117,7 +118,7 @@ export function parseLifeOutcome(raw: string): LifeOutcome | null {
   } catch {
     return null;
   }
-  const did = value.did === "read" || value.did === "surf" ? value.did : "none";
+  const did = value.did === "read" || value.did === "surf" || value.did === "dayday" ? value.did : "none";
   const links = (Array.isArray(value.links) ? value.links : []).flatMap((item): LifeLinkOut[] => {
     if (!item || typeof item !== "object") return [];
     const link = item as Record<string, unknown>;
@@ -128,6 +129,7 @@ export function parseLifeOutcome(raw: string): LifeOutcome | null {
   }).slice(0, 5);
   return {
     did,
+    ...(did === "dayday" ? { reviews: (Array.isArray(value.reviews) ? value.reviews : []).flatMap((r) => r && typeof r === "object" && typeof r.id === "string" && typeof r.text === "string" && r.text.trim() ? [{ id: r.id.slice(0, 100), text: r.text.trim().slice(0, 300) }] : []).slice(0, 2) } : {}),
     line: str(value.line, 200),
     links: did === "surf" ? links : [],
     title: did === "surf" ? str(value.title, 80) : "",
@@ -138,14 +140,14 @@ export function parseLifeOutcome(raw: string): LifeOutcome | null {
 }
 
 /** Which of his own-time things she has switched on. Both off unless turned on. */
-export type LifeKinds = { read: boolean; surf: boolean };
+export type LifeKinds = { read: boolean; surf: boolean; dayday?: boolean };
 
 export function lifeKinds(settings: Record<string, unknown>): LifeKinds {
-  return { read: settings.lifeRead === true, surf: settings.lifeSurf === true };
+  return { read: settings.lifeRead === true, surf: settings.lifeSurf === true, dayday: settings.lifeDayday === true };
 }
 
-const LIFE_BASE_TOOLS = ["mcp__iooi__blog_read", "mcp__iooi__blog_read_post", "mcp__summer__search", "mcp__summer__read",
-  "mcp__iooi__dayday_book", "mcp__iooi__dayday_shop", "mcp__iooi__dayday_items"];
+const LIFE_BASE_TOOLS = ["mcp__iooi__blog_read", "mcp__iooi__blog_read_post", "mcp__summer__search", "mcp__summer__read"];
+const LIFE_DAYDAY_TOOLS = ["mcp__iooi__dayday_book", "mcp__iooi__dayday_shop", "mcp__iooi__dayday_items"];
 const LIFE_READ_TOOLS = [
   "mcp__iooi__reading_shelf",
   "mcp__iooi__reading_book",
@@ -162,13 +164,13 @@ const LIFE_SURF_TOOLS = ["WebSearch", "WebFetch", "mcp__iooi__surf_board", "mcp_
  * the one thread a go may post comes from his outcome, not a tool.
  */
 export function lifeToolNames(kinds: LifeKinds) {
-  return [...LIFE_BASE_TOOLS, ...(kinds.read ? LIFE_READ_TOOLS : []), ...(kinds.surf ? LIFE_SURF_TOOLS : [])];
+  return [...LIFE_BASE_TOOLS, ...(kinds.read ? LIFE_READ_TOOLS : []), ...(kinds.surf ? LIFE_SURF_TOOLS : []), ...(kinds.dayday ? LIFE_DAYDAY_TOOLS : [])];
 }
 
 /** Drop whatever he reports doing that she has switched off. */
 export function allowedOutcome(outcome: LifeOutcome | null, kinds: LifeKinds): LifeOutcome | null {
   if (!outcome) return null;
-  if ((outcome.did === "read" && !kinds.read) || (outcome.did === "surf" && !kinds.surf)) {
+  if ((outcome.did === "read" && !kinds.read) || (outcome.did === "surf" && !kinds.surf) || (outcome.did === "dayday" && !kinds.dayday)) {
     return { did: "none", line: "", links: [], title: "", post: "", share: "", reason: "做了没打开的事" };
   }
   return outcome;

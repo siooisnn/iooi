@@ -288,6 +288,7 @@ function runQueued<T>(
 // the reply markers, which show her a card and, for Summer, wait for her
 // confirmation.
 export const CHAT_TOOLS = [
+  "mcp__iooi__sticker_read",
   "mcp__iooi__dayday_book",
   "mcp__iooi__dayday_shop",
   "mcp__iooi__dayday_items",

@@ -17,7 +17,7 @@ function CycleBar({ total, passed }: { total: number; passed: number }) {
   </span>;
 }
 
-export function LedgerPage({ dd, onWrite, onEdit, onSetup }: { dd: Dayday; onWrite: () => void; onEdit: (entry: Entry) => void; onSetup: () => void }) {
+export function LedgerPage({ dd, onWrite, onIncome, onEdit, onSetup }: { dd: Dayday; onWrite: () => void; onIncome: () => void; onEdit: (entry: Entry) => void; onSetup: () => void }) {
   const { view, cycle, actions } = dd;
   const catTotal = view.cats.reduce((total, row) => total + row.amount, 0);
   return <>
@@ -61,7 +61,7 @@ export function LedgerPage({ dd, onWrite, onEdit, onSetup }: { dd: Dayday; onWri
         {g.from === "susu" ? <><button type="button" className="dd-btn" onClick={() => void actions.returnMoney(g.id)}>退回</button><button type="button" className="dd-btn is-pink" onClick={() => void actions.receiveMoney(g.id)}>领取</button></> : <small>等酥酥领取</small>}
       </div>)}
     </Group>}
-    <button type="button" className="dd-write" onClick={onWrite}><span>＋</span>记一笔</button>
+    <div className="dd-ledger-write-actions"><button type="button" className="dd-write" onClick={onWrite}><span>−</span>记支出</button><button type="button" className="dd-write is-income" onClick={onIncome}><span>＋</span>入账</button></div>
 
     {view.cats.length > 0 && <Group title="这期钱去哪了" extra={<span className="dd-group-note">收入 {yuan(view.cycleIncome)}</span>}>
       <span className="dd-catbar" aria-hidden="true">
@@ -117,10 +117,10 @@ function localInput(iso: string) {
 }
 
 /** 记一笔 / 改一笔. */
-export function EntryDialog({ dd, entry, onClose }: { dd: Dayday; entry?: Entry; onClose: () => void }) {
-  const [kind, setKind] = useState<Kind>(entry?.kind || "expense");
+export function EntryDialog({ dd, entry, initialKind = "expense", onClose }: { dd: Dayday; entry?: Entry; initialKind?: Kind; onClose: () => void }) {
+  const [kind, setKind] = useState<Kind>(entry?.kind || initialKind);
   const [amount, setAmount] = useState(entry ? (entry.amount / 100).toString() : "");
-  const [cat, setCat] = useState(entry?.cat || "food");
+  const [cat, setCat] = useState(entry?.cat || (initialKind === "income" ? "allowance" : "food"));
   const [note, setNote] = useState(entry?.note || "");
   const [when, setWhen] = useState(localInput(entry?.at || new Date().toISOString()));
   const [error, setError] = useState("");
@@ -141,7 +141,7 @@ export function EntryDialog({ dd, entry, onClose }: { dd: Dayday; entry?: Entry;
     onClose();
   }
 
-  return <XpDialog title={entry ? "改一笔" : "记一笔"} onClose={onClose} className="dd-dialog">
+  return <XpDialog title={entry ? "改一笔" : kind === "income" ? "入账" : "记支出"} onClose={onClose} className="dd-dialog">
     {locked && <p className="dd-hint">这一笔是还在路上的订单，去商城「运输中」确认收货或退货。</p>}
     <div className="dd-seg" role="group" aria-label="收支">
       <button type="button" aria-pressed={kind === "expense"} disabled={locked} onClick={() => switchKind("expense")}>支出</button>

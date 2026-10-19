@@ -250,6 +250,14 @@ export function SettingsView({
           sessionUserTurns={gptSession?.messages.filter((m) => m.role === "user").length ?? 0}
         />
         <BlogConnection />
+        <div className="settings-group">
+          <h2 className="settings-group-title">day day</h2>
+          <p className="settings-hint">开启后，酥酥会在自己的时间偶尔逛商城，对照你已有的物品留下评价。只在新增评价时通知，过程记在心跳的 dayday 日志里；关闭就不再自主逛。</p>
+          <button type="button" className={`model-option ${settings.lifeDayday ? "model-option-active" : ""}`} aria-pressed={!!settings.lifeDayday} onClick={() => updateSettings({ lifeDayday: !settings.lifeDayday })}>
+            <span className="model-option-dot" />{settings.lifeDayday ? "On" : "Off"}
+          </button>
+          <p className="settings-hint">与读书、冲浪共用原有时段，不会自动买东西、动余额或扣必支出。关闭后仍可在聊天里请他看商品。</p>
+        </div>
       </section>
   );
 
@@ -286,7 +294,7 @@ export function SettingsView({
           </nav>
           {content}
         </div>
-        <footer className="xp-summer-statusbar"><span>11 个设置项目</span><span>更改后自动保存</span></footer>
+        <footer className="xp-summer-statusbar"><span>13 个设置项目</span><span>更改后自动保存</span></footer>
       </section>
     </div>
   );

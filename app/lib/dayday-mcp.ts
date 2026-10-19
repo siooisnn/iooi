@@ -1,3 +1,4 @@
+import { daydayAutonomyOn, logDaydayVisit } from "./dayday-life";
 import { DAYDAY_AI_ACTIONS, runDaydayAI } from "./dayday-tools";
 import { readBook } from "./dayday-store";
 import { EXPENSE_CATS, INCOME_CATS, ledgerView } from "./dayday-ledger";
@@ -21,6 +22,7 @@ export async function callDaydayTool(name: string, args: Record<string, unknown>
     const result = await runDaydayAI(args.action, args.input as Record<string, unknown>, args.requestId);
     return { content: [{ type: "text" as const, text: JSON.stringify({ result: result.result, repeated: result.repeated, view: ledgerView(result.book) }) }], isError: false };
   }
+  if (access === "life" && !daydayAutonomyOn()) throw new Error("dayday 自主逛商城已关闭。");
   const book = await readBook();
   let value: unknown;
   let urls: string[] = [];
@@ -30,5 +32,6 @@ export async function callDaydayTool(name: string, args: Record<string, unknown>
     value = { shelves: book.shelves, rows, images: "图片按rows顺序附上，每次最多3张；需要看其他原图请用商品或物品id单独读取。" };
     urls = rows.flatMap((p) => p.image ? [p.image] : []).slice(0, 3);
   } else throw new Error("不认识这个dayday工具。");
+  if (access === "life" && name === "dayday_shop") await logDaydayVisit();
   return { content: [{ type: "text" as const, text: JSON.stringify(value) }, ...loadUploadImages(urls).map((block) => ({ type: "image" as const, data: block.source.data, mimeType: block.source.media_type }))], isError: false };
 }

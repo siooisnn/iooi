@@ -4,15 +4,16 @@ import { useState } from "react";
 import { HeartGlyph } from "./RetroDesktop";
 import { lifeDay, type LifeEntry, type LifeKind } from "@/app/lib/life-log";
 
-const KIND_LABEL: Record<LifeKind, string> = { care: "找你", comment: "留言", post: "写日志", read: "读书", surf: "冲浪" };
+const KIND_LABEL: Record<LifeKind, string> = { care: "找你", comment: "留言", post: "写日志", read: "读书", surf: "冲浪", dayday: "dayday" };
 
-type Filter = "all" | "care" | "blog" | "read" | "surf";
+type Filter = "all" | "care" | "blog" | "read" | "surf" | "dayday";
 const FILTERS: ReadonlyArray<{ id: Filter; label: string; kinds: readonly LifeKind[] }> = [
-  { id: "all", label: "全部", kinds: ["care", "comment", "post", "read", "surf"] },
+  { id: "all", label: "全部", kinds: ["care", "comment", "post", "read", "surf", "dayday"] },
   { id: "care", label: "找你", kinds: ["care"] },
   { id: "blog", label: "博客", kinds: ["comment", "post"] },
   { id: "read", label: "读书", kinds: ["read"] },
   { id: "surf", label: "冲浪", kinds: ["surf"] },
+  { id: "dayday", label: "dayday", kinds: ["dayday"] },
 ];
 
 // Only plain web links are clickable; anything else stays text.

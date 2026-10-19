@@ -99,3 +99,27 @@
 :root[data-theme] .ledger-money-composer small { font-size: 10px; color: #6b6b6b; }
 :root[data-theme] .ledger-money-composer button:disabled, :root[data-theme] .msg-dayday-edit button:disabled { opacity: .5; cursor: default; }
 :root[data-theme] .ledger-money-composer [role="alert"] { color: #9c1f16; }
+
+/* Send dialog opened from the chat toolbar: same icons and red/blue as the cards. */
+:root[data-theme] .dd-screen .dd-send-dialog { width: min(340px, calc(100% - 24px)); }
+:root[data-theme] .dd-screen .dd-send { --dd-send-accent: #c22f22; --dd-send-deep: #9c1f16; }
+:root[data-theme] .dd-screen .dd-send.is-transfer { --dd-send-accent: #2f5fae; --dd-send-deep: #1f4687; }
+:root[data-theme] .dd-screen .dd-send fieldset { gap: 11px; }
+:root[data-theme] .dd-screen .dd-send-kinds { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+:root[data-theme] .dd-screen .dd-send-kinds button { display: flex; align-items: center; justify-content: center; gap: 6px; height: 34px; border: 1px solid #c5d2e2; border-radius: 3px; background: #fff; color: var(--dd-soft); font-size: 12px; }
+:root[data-theme] .dd-screen .dd-send-kinds button.is-on { border-color: var(--dd-send-accent); background: #fff; color: var(--dd-send-accent); font-weight: 700; box-shadow: inset 0 0 0 1px var(--dd-send-accent); }
+:root[data-theme] .dd-screen .dd-send-kinds .msg-dayday-icon { width: 16px; height: 16px; }
+:root[data-theme] .dd-screen .dd-send-amount { display: flex; align-items: center; border: 1px solid #d3deea; border-radius: 7px; background: #fff; }
+:root[data-theme] .dd-screen .dd-send-amount:focus-within { border-color: var(--dd-send-accent); }
+:root[data-theme] .dd-screen .dd-send-amount i { padding-left: 10px; color: var(--dd-send-accent); font: 700 18px/1 Tahoma, sans-serif; font-style: normal; }
+:root[data-theme] .dd-screen .dd-form .dd-send-amount input { border: 0; padding: 8px 10px 8px 6px; background: transparent; color: var(--dd-send-accent); font: 700 20px/1.3 Tahoma, sans-serif; font-variant-numeric: tabular-nums; }
+:root[data-theme] .dd-screen .dd-form .dd-send-amount input:focus-visible { outline: 0; }
+:root[data-theme] .dd-screen .dd-send-balance { margin: -4px 0 0; color: var(--dd-muted); font-size: 11px; }
+:root[data-theme] .dd-screen .dd-send-balance b { color: var(--dd-ink); font-weight: 600; font-variant-numeric: tabular-nums; }
+:root[data-theme] .dd-screen .dd-send-submit { margin-top: 2px; padding: 10px; border: 1px solid var(--dd-send-deep); border-radius: 999px; background: var(--dd-send-accent); color: #fff; font-size: 13px; font-weight: 600; letter-spacing: 1px; }
+:root[data-theme] .dd-screen .dd-send-submit:not(:disabled):hover { background: var(--dd-send-deep); }
+:root[data-theme] .dd-screen .dd-send-hint { margin: -2px 0 0; color: var(--dd-muted); font-size: 10px; line-height: 1.7; text-align: center; }
+:root[data-theme] .dd-screen .dd-send-error { margin: 0; padding: 6px 8px; border: 1px solid #e6c9a8; border-radius: 6px; background: #fff8ec; color: #8c5a2b; font-size: 11px; }
+
+:root[data-theme] .dd-screen .dd-send fieldset { display: flex; flex-direction: column; border: 0; padding: 0; min-width: 0; }
+:root[data-theme] .dd-screen .dd-send fieldset > label { display: grid; grid-template-columns: 5.2em minmax(0,1fr); align-items: center; gap: 6px; font-size: 12.5px; }
