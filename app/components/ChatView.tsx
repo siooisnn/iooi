@@ -181,9 +181,13 @@ export function ChatView({
       message.content.includes("已读取 Summer 唤醒内容与记忆状态")));
   // Speaker: each run of Claude's plain-text bubbles is read out as one reply;
   // the button sits under the run's last bubble.
+  // She can hide the button in room settings; hiding it also stops any playback.
+  const speakerShown = settings.chatSpeaker !== false;
   const speaker = useSpeaker(!isGpt);
+  const stopSpeaker = speaker.stop;
+  useEffect(() => { if (!speakerShown) stopSpeaker(); }, [speakerShown, stopSpeaker]);
   const speakRuns = new Map<number, { key: string; texts: string[] }>();
-  if (speaker.enabled) {
+  if (speaker.enabled && speakerShown) {
     let run: { key: string; texts: string[]; last: number; date?: string } | null = null;
     const close = () => { if (run) speakRuns.set(run.last, { key: run.key, texts: run.texts }); run = null; };
     for (const { message, index } of displayMessages) {
@@ -1074,6 +1078,21 @@ export function ChatView({
                 onClick={() => updateSettings({ chatAvatars: !settings.chatAvatars })}
               >
                 <span>{settings.chatAvatars ? "On" : "Off"}</span><i />
+              </button>
+            </section>
+          )}
+          {!isGpt && (
+            <section className="chat-config-section chat-config-toggle-section">
+              <p>朗读按钮</p>
+              <button
+                type="button"
+                className={`chat-config-switch${settings.chatSpeaker !== false ? " chat-config-switch-on" : ""}`}
+                role="switch"
+                aria-checked={settings.chatSpeaker !== false}
+                aria-label="回复下面显示朗读小喇叭"
+                onClick={() => updateSettings({ chatSpeaker: settings.chatSpeaker === false })}
+              >
+                <span>{settings.chatSpeaker !== false ? "On" : "Off"}</span><i />
               </button>
             </section>
           )}

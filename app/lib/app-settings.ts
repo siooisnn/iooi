@@ -35,6 +35,8 @@ export type Settings = {
   chatAvatars?: boolean;
   // XP private rooms: dayday's pink dotted paper with speech bubbles. Off keeps the white log.
   chatDots?: boolean;
+  // The little speaker under his replies. Off hides it; missing means shown.
+  chatSpeaker?: boolean;
   gptReasoningEffort: GptReasoningEffort;
   claudeReasoningEffort: ClaudeReasoningEffort;
   gptWebSearch: boolean;

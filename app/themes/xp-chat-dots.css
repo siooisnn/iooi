@@ -62,7 +62,8 @@
 
 :root[data-theme] .app-bg .chat-container[data-chat-ui="xp"][data-chat-view="room"] > .chat-messages.xp-log-dots.xp-log-avatars {
   --dots-av: 32px;
-  --dots-gap: 8px;
+  /* The tail pokes ~8px past the bubble; leave a clear gap before the picture. */
+  --dots-gap: 16px;
 }
 
 :root[data-theme] .app-bg .chat-container[data-chat-ui="xp"][data-chat-view="room"] > .chat-messages.xp-log-dots::-webkit-scrollbar-thumb {
