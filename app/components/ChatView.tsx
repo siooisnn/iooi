@@ -31,6 +31,8 @@ import { APP_TIME_ZONE, formatChatRoomTime, getDateLabel, getNowContext, getTime
 import { genId, getChatStatusLabel, hasLaterUserMessage, isSummerUtilityMessage, mergeChatMessages, shouldShowChatRoomTime } from "../lib/chat-sessions";
 import { apiFetch, saveLocal, syncGptToServer, syncToServer } from "../lib/client-api";
 import { CollapsibleSummerCard, ThinkingBlock, renderContent } from "./ChatContent";
+import { ChatArtwork } from "./ChatArtwork";
+import { splitChatReply } from "../lib/artworks";
 import { ChatGlyph } from "./RetroDesktop";
 import { NUDGE_USER_TEXT, NUDGE_REPLY_TEXT } from "../lib/chat-nudge";
 import { hasSpeakableText } from "../lib/tts-text";
@@ -707,7 +709,7 @@ export function ChatView({
       }
       reply = reply.replace(/\[心情[:：].+?\]/g, "").trim();
 
-      const parts = reply.split(/\n{2,}/).filter((p: string) => p.trim());
+      const parts = codeRequest ? reply.split(/\n{2,}/).filter((p: string) => p.trim()) : splitChatReply(reply);
       const now = data.cache?.reply_persisted_time || getTime();
       const today = data.cache?.reply_persisted_date || getTodayStr();
       const summerCallMsgs: Message[] = (data.cache?.summer_calls || []).map((call: SummerCall) => {
@@ -1240,7 +1242,8 @@ export function ChatView({
                               )}
                             </CollapsibleSummerCard>
                           ) : (
-                            renderContent(message.content)
+                            message.role === "assistant" && !message.source && !developmentMode
+                              ? <ChatArtwork content={message.content} /> : renderContent(message.content)
                           )}
                         </>
                       )}

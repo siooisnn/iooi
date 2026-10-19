@@ -1,4 +1,5 @@
 import { existsSync, readFileSync } from "fs";
+import { ARTWORK_CHAT_PROMPT, splitChatReply } from "@/app/lib/artworks";
 import { join } from "path";
 import * as iconv from "iconv-lite";
 import { withGptStore } from "@/app/lib/store";
@@ -280,7 +281,7 @@ async function persistRound(
     const tailKeys = new Set(messages.slice(-16).filter((message) => message.role === "assistant").map(storeMessageKey));
     const now = cstTime();
     const today = cstToday();
-    for (const content of reply.split(/\n{2,}/).map((part) => part.trim()).filter(Boolean)) {
+    for (const content of splitChatReply(reply)) {
       const message = { role: "assistant", content, time: now, date: today };
       const key = storeMessageKey(message);
       if (!tailKeys.has(key)) {
@@ -337,6 +338,7 @@ export async function POST(request: Request) {
     const summerConfigured = Boolean(gptSummerBaseUrl());
     const systemParts = [
       String(body.systemPrompt || "").trim(),
+      !body.skipPersist ? ARTWORK_CHAT_PROMPT : "",
       summerState ? renderSummerState(summerState) : "",
       summerConfigured
         ? "如果确实值得写入长期记忆，在正常回复末尾附加隐藏标签：[summer_remember layer=xiaoshu title=\"简短标题\" weight=5 tags=\"可选\"]内容[/summer_remember]。这只是待用户确认的提议，不会自动写入。"

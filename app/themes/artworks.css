@@ -1,0 +1,41 @@
+/* Chat attachments and the same blue/pink XP window used by dayday. */
+:root[data-theme] .aw-chat-code { display: block; min-width: 0; margin: 9px 0; border: 1px solid #b6cce2; border-radius: 4px; background: #f8fbff; color: #364b6a; overflow: hidden; font: 12px/1.6 Tahoma, "Microsoft YaHei", sans-serif; }
+:root[data-theme] .aw-code-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 7px 9px; background: linear-gradient(#fff, #eaf3ff); }
+:root[data-theme] .aw-code-head span { min-width: 0; overflow-wrap: anywhere; font-weight: 700; }
+:root[data-theme] .aw-code-head button { flex: none; padding: 3px 7px; border: 1px solid #ba7396; border-radius: 3px; background: linear-gradient(#fff, #ffe0ef); color: #93486b; font: inherit; cursor: pointer; }
+:root[data-theme] .aw-chat-code summary { padding: 5px 9px; cursor: pointer; color: #6c7e98; }
+:root[data-theme] .aw-chat-code pre { max-height: 260px; margin: 0; padding: 9px; overflow: auto; white-space: pre; background: #fff; font: 11px/1.6 Consolas, monospace; }
+:root[data-theme] .aw-dialog-host.rd-screen { position: fixed; width: 0; height: 0; padding: 0; }
+:root[data-theme] .aw-dialog-host .rd-dialog.aw-preview { display: flex; flex-direction: column; width: min(1040px, calc(100vw - 16px)); height: min(780px, calc(100dvh - 16px)); max-width: none; max-height: calc(100dvh - 16px); padding: 0; border: 3px solid #0756ce; border-radius: 7px 7px 2px 2px; background: #f7f5ed; color: #3b3650; box-shadow: 4px 6px 24px #17234155; pointer-events: auto; }
+:root[data-theme] .aw-preview .rd-dialog-title { flex: none; margin: 0; padding: 5px 8px; background: linear-gradient(#3e97f5, #0761d5 45%, #0054cc); color: white; }
+:root[data-theme] .aw-preview .rd-dialog-title h2 { color: white; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; }
+:root[data-theme] .aw-preview .rd-dialog-body { display: flex; flex: 1; min-height: 0; flex-direction: column; gap: 0; padding: 0; overflow: hidden; }
+:root[data-theme] .aw-toolbar { display: flex; flex: none; flex-wrap: wrap; align-items: center; gap: 6px; padding: 7px; border-bottom: 1px solid #c9b7c5; background: linear-gradient(#fff, #fceaf4); font-size: 11px; }
+:root[data-theme] .aw-screen button { font: inherit; cursor: pointer; }
+:root[data-theme] .aw-screen :is(button, input):focus-visible { outline: 2px dotted #b5447f; outline-offset: 2px; }
+:root[data-theme] .aw-screen button:disabled { opacity: .55; cursor: default; }
+:root[data-theme] .aw-screen .aw-toolbar button, :root[data-theme] .aw-tabs button, :root[data-theme] .aw-screen .aw-item-actions button, :root[data-theme] .aw-screen .aw-save button, :root[data-theme] .aw-screen .aw-rename button { padding: 4px 8px; border: 1px solid #a7bbd3; border-radius: 3px; background: linear-gradient(#fff, #eaf1fb); color: #385575; font: inherit; }
+:root[data-theme] .aw-tabs, :root[data-theme] .aw-size { display: flex; flex-wrap: wrap; gap: 3px; }
+:root[data-theme] .aw-screen .aw-tabs button[aria-selected="true"], :root[data-theme] .aw-screen .aw-size button[aria-pressed="true"] { border-color: #cd86a7; background: #ffe7f2; color: #9c3e6d; }
+:root[data-theme] .aw-canvas { display: flex; flex: 1; min-height: 0; justify-content: safe center; padding: 8px; overflow: auto; background: #e6eaf0; }
+:root[data-theme] .aw-frame { display: block; flex: none; height: 100%; min-height: 200px; border: 1px solid #b3bfd1; background: #fff; }
+:root[data-theme] .aw-frame.is-phone { width: 375px; max-width: 100%; }
+:root[data-theme] .aw-frame.is-desktop { width: 960px; }
+:root[data-theme] .aw-source { flex: 1; min-width: 0; margin: 0; padding: 12px; overflow: auto; background: #fff; color: #233650; white-space: pre; font: 12px/1.7 Consolas, monospace; }
+:root[data-theme] .aw-save { display: flex; flex: none; flex-wrap: wrap; gap: 6px; align-items: center; padding: 8px; border-top: 1px solid #cfbbc7; background: #fff2f8; font-size: 12px; }
+:root[data-theme] .aw-preview-note { flex: none; margin: 0; padding: 0 8px 6px; background: #fff2f8; color: #9e8498; font: 10px/1.6 Tahoma, sans-serif; }
+:root[data-theme] .aw-save label { display: flex; flex: 1; min-width: 160px; align-items: center; gap: 7px; }
+:root[data-theme] .aw-save input, :root[data-theme] .aw-rename input { min-width: 0; flex: 1; padding: 5px 6px; border: 1px solid #a6bbd4; background: #fff; color: #364359; font: inherit; }
+:root[data-theme] .aw-error { margin: 0; padding: 7px 9px; border: 1px solid #e4b5b5; background: #fff0ee; color: #a3443f; font: 12px/1.6 Tahoma, sans-serif; }
+:root[data-theme] .aw-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px; }
+:root[data-theme] .aw-item { display: flex; min-width: 0; flex-direction: column; gap: 8px; padding: 9px; border: 1px solid #e5bcd2; border-radius: 5px; background: #fff; box-shadow: 3px 3px 0 #ffd6e8; }
+:root[data-theme] .aw-screen .aw-cover { display: grid; place-items: center; gap: 6px; width: 100%; min-height: 105px; padding: 12px; border: 1px solid #b8d3ed; border-radius: 3px; background: linear-gradient(#eaf5ff, #fff7ec); color: #6b85a0; font-size: 10px; }
+:root[data-theme] .aw-cover svg { width: 44px; height: 44px; }
+:root[data-theme] .aw-screen .aw-item h2 { overflow-wrap: anywhere; color: #9b4971; font-size: 13px; line-height: 1.5; }
+:root[data-theme] .aw-item time { color: #9a8c9d; font-size: 10px; }
+:root[data-theme] .aw-item-actions { display: flex; flex-wrap: wrap; gap: 4px; }
+:root[data-theme] .aw-screen .aw-item-actions button { padding: 3px 6px; font-size: 10.5px; }
+:root[data-theme] .aw-rename { display: flex; flex-wrap: wrap; gap: 4px; font-size: 11px; }
+:root[data-theme] .aw-empty { display: grid; justify-items: center; gap: 12px; padding: 50px 12px; color: #a08b9d; text-align: center; line-height: 1.7; }
+:root[data-theme] .aw-empty svg { width: 54px; height: 54px; }
+@media (max-width: 420px) { :root[data-theme] .aw-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; } }

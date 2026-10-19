@@ -66,6 +66,21 @@ Wallpapers: `night-blue`, `moon-mist`, `deep-sea`. Icon order must contain all f
 
 dayday is being rebuilt as her real-money ledger with a small shop inside. Susu's old virtual wallet, heartbeat shopping, MCP tools, chat red packets and the old wardrobe backend were removed. The window is a placeholder for now. Old `store.dayday` data and old `dayday_card` chat messages are left untouched; old cards show as plain lines in the chat.
 
+# 普通聊天小作品与作品盒
+
+普通私聊（Claude/GPT）中完整的 `html` 围栏代码块会出现“预览小作品”，工作模式和群聊不接入。
+单个 HTML 块也可搭配同一回复内的 CSS/JavaScript 围栏，推荐生成一个含内联样式和脚本的完整 HTML。
+普通聊天有代码围栏时整条回复保存在同一气泡，保留代码中的空行；流式输出期间不会自动运行。
+
+点开后在 XP 对话框预览，可切源码、手机/电脑尺寸、重新运行和下载 HTML；“存进作品盒”才会保存。
+桌面和开始菜单的“作品盒”读取服务器 `data/artworks.json`，支持打开、改名、下载、收起和恢复。
+相同源码重复保存会复用原作品；最多100件，每件20万字符，备份随现有 data 目录一起进行。
+保存的是源文件，不保存运行中的游戏进度。列表不自动运行代码，打开的 iframe 在关闭窗口后销毁。
+
+预览使用仅允许脚本的 sandbox iframe，不授予 same-origin、表单提交、弹窗、顶层导航或下载权限。
+CSP在作品代码前插入，限制资源加载、网络请求和子框架；不支持依赖CDN、外部API或远程图片的作品。
+模型只收到生成格式说明，不获得作品盒写工具，保存由她自己点按钮。
+
 # 小砖共享存档与 DeepSeek
 
 服务器私密环境文件中配置下列变量（不提交到 Git）：

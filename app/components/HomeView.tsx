@@ -9,7 +9,7 @@ import type { Settings } from "../lib/app-settings";
    full moon letter. */
 
 /** Every page the desktop can open. */
-export type HomeApp = "moon" | "chat" | "heartbeat" | "blog" | "reading" | "surf" | "dayday" | "clawd" | "mood" | "settings" | "summer-claude" | "summer-gpt" | "susu-phone";
+export type HomeApp = "moon" | "chat" | "heartbeat" | "blog" | "reading" | "surf" | "dayday" | "clawd" | "mood" | "settings" | "summer-claude" | "summer-gpt" | "susu-phone" | "artworks";
 
 /** Time together since settings.startDate, ticking every second once mounted. */
 export function useTogether(startDate: string) {

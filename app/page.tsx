@@ -23,6 +23,7 @@ import { DaydayView } from "./components/DaydayView";
 import { SusuPhoneView } from "./components/SusuPhoneView";
 import type { PhoneTarget } from "./lib/susu-phone";
 import { ClawdView } from "./components/ClawdView";
+import { ArtworksView } from "./components/ArtworksView";
 import { BlogView } from "./components/BlogView";
 import { PageBack } from "./components/PageBack";
 import { ChatView, type BlogTarget } from "./components/ChatView";
@@ -762,6 +763,7 @@ export default function Home() {
           onBack={surfTarget && !phoneReturn ? () => { setSurfTarget(null); setTab("heartbeat"); } : goHome} />}
         {tab === "dayday" && <DaydayView onBack={goHome} />}
         {tab === "clawd" && <ClawdView onBack={goHome} />}
+        {tab === "artworks" && <ArtworksView onBack={goHome} />}
         {tab === "mood" && <MoodPage mood={dailyMood} retro={settings.retroDesktop} onBack={goHome} />}
         {(tab === "summer-claude" || tab === "summer-gpt") && (
           <SummerPageView

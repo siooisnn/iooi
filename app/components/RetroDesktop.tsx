@@ -4,6 +4,7 @@ import { useEffect, useId, useState } from "react";
 import type { ReactNode } from "react";
 import { MoonEarthPixel } from "./MoonEarthPixel";
 import { TaskbarClawd } from "./TaskbarClawd";
+import { ArtworkGlyph } from "./ArtworksView";
 import { SkyClouds } from "./SkyClouds";
 import { SkyChrome } from "./ThemeProvider";
 import { HEARTBEAT_LINE, Petals, useTogether } from "./HomeView";
@@ -338,6 +339,7 @@ export function RetroDesktop({ settings, onOpen }: {
             <DeskIcon label="clawd" onClick={() => open("clawd")}><ClawdGlyph /></DeskIcon>
             <DeskIcon label="mood" onClick={() => open("mood")}><MoodGlyph /></DeskIcon>
             <DeskIcon label="dayday" onClick={() => open("dayday")}><DaydayGlyph /></DeskIcon>
+            <DeskIcon label="作品盒" onClick={() => open("artworks")}><ArtworkGlyph /></DeskIcon>
             <DeskIcon label="susu’s phone" onClick={() => open("susu-phone")}><PhoneGlyph /></DeskIcon>
           </div>
 
@@ -364,6 +366,7 @@ export function RetroDesktop({ settings, onOpen }: {
                 <MenuItem icon={<IeGlyph />} label="internet" note="我们俩的小论坛" onClick={() => open("surf")} />
                 <MenuItem icon={<MoodGlyph />} label="mood" note="今天是什么心情" onClick={() => open("mood")} />
                 <MenuItem icon={<DaydayGlyph />} label="dayday" note="记账和小商城" onClick={() => open("dayday")} />
+                <MenuItem icon={<ArtworkGlyph />} label="作品盒" note="聊天里的小作品" onClick={() => open("artworks")} />
                 <MenuItem icon={<HeartGlyph />} label="heartbeat" onClick={() => open("heartbeat")} />
                 <MenuItem icon={<PhoneGlyph />} label="susu’s phone" onClick={() => open("susu-phone")} />
               </div>

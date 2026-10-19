@@ -1,6 +1,7 @@
 import { readStickers } from "@/app/lib/sticker-store";
 import { selectReplyStickers, stripStickerMarkers, stickerPrompt, type Sticker } from "@/app/lib/stickers";
 import { DAYDAY_CHAT_BRIDGE, parseDaydayMarkers, stripDaydayMarkers, type LedgerCard } from "@/app/lib/dayday-markers";
+import { ARTWORK_CHAT_PROMPT, splitChatReply } from "@/app/lib/artworks";
 import { daydayOverview, runDaydayMarkers } from "@/app/lib/dayday-tools";
 import { readStore, withGroupStore, withStore } from "@/app/lib/store";
 import { isClaudeCodeEnabled, normalizeClaudeCodeModel, runClaudeCodeChat } from "@/app/lib/claude-code";
@@ -732,7 +733,7 @@ async function persistRound(
   try {
     const diaryRegex = /\[日记\]([\s\S]*?)\[\/日记\]/g;
     const cleanReply = reply.replace(diaryRegex, "").replace(/\[心情[:：].+?\]/g, "").trim();
-    const parts = cleanReply.split(/\n{2,}/).filter((p) => p.trim());
+    const parts = replySource?.startsWith("code_task_") ? cleanReply.split(/\n{2,}/).filter((p) => p.trim()) : splitChatReply(cleanReply);
     const now = stamp.time;
     const today = stamp.date;
 
@@ -1108,6 +1109,7 @@ export async function POST(request: Request) {
   // The blog is only his in the private chat; in a group he just talks.
   if (!skipPersist) system.push({ type: "text", text: BLOG_CHAT_BRIDGE, cache_control: cacheControl() });
   if (!skipPersist && !groupSessionId) system.push({ type: "text", text: DAYDAY_CHAT_BRIDGE, cache_control: cacheControl() });
+  if (!skipPersist && !groupSessionId) system.push({ type: "text", text: ARTWORK_CHAT_PROMPT, cache_control: cacheControl() });
 
   if (!skipPersist && !groupSessionId) {
     try { const prompt = stickerPrompt(readStickers()); if (prompt) system.push({ type: "text", text: prompt, cache_control: cacheControl() }); } catch {}
