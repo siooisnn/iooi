@@ -397,6 +397,7 @@ export async function runClaudeCodeChat({
   modelId,
   reasoningEffort,
   webSearch = false,
+  xiaohongshu = false,
   chatTools = false,
   currentUserText = "",
   lifeTools = false,
@@ -411,6 +412,7 @@ export async function runClaudeCodeChat({
   modelId: string;
   reasoningEffort?: string;
   webSearch?: boolean;
+  xiaohongshu?: boolean;
   /** Let the private chat read the blog and Summer itself (read-only MCP). */
   chatTools?: boolean;
   currentUserText?: string;
@@ -444,7 +446,7 @@ export async function runClaudeCodeChat({
     const usesChatTools = chatTools && !usesLifeTools && Boolean(readonlyToken);
     const externalBlog = chatTools && !usesLifeTools ? await blogMcpConnection() : null;
     const usesBlogTools = Boolean(externalBlog);
-    const xhsTools = xiaohongshuTools({ chat: usesChatTools, life: usesLifeTools, surf: lifeKinds.surf });
+    const xhsTools = xiaohongshuTools({ chat: usesChatTools && webSearch, life: usesLifeTools, surf: lifeKinds.surf, selected: xiaohongshu });
     const usesXhsTools = xhsTools.length > 0;
     const usesMcp = usesChatTools || usesLifeTools || usesBlogTools;
     const mcpKey = usesLifeTools ? lifeToken : readonlyToken;

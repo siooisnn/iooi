@@ -12,8 +12,8 @@ export function xiaohongshuEnabled() {
   return process.env.IOOI_XHS_ENABLED === "true";
 }
 
-export function xiaohongshuTools({ chat, life, surf }: { chat: boolean; life: boolean; surf: boolean }, enabled = xiaohongshuEnabled()) {
-  return enabled && (life ? surf : chat) ? [...XIAOHONGSHU_READ_TOOLS] : [];
+export function xiaohongshuTools({ chat, life, surf, selected = false }: { chat: boolean; life: boolean; surf: boolean; selected?: boolean }, enabled = xiaohongshuEnabled()) {
+  return enabled && selected && (life ? surf : chat) ? [...XIAOHONGSHU_READ_TOOLS] : [];
 }
 
 export const XIAOHONGSHU_RULES = [

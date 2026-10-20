@@ -64,6 +64,7 @@ export default function Home() {
     blogAutonomy: false,
     lifeRead: false,
     lifeSurf: false,
+    xiaohongshu: false,
     city: "",
   };
 

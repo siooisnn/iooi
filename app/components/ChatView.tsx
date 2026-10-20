@@ -666,6 +666,7 @@ export function ChatView({
           ...(codeRequest ? { codeMode: { project: developmentProject } } : {}),
           thinking: !isGpt && settings.thinking,
           webSearch: isGpt ? settings.gptWebSearch : settings.webSearch,
+          xiaohongshu: !isGpt && settings.xiaohongshu === true,
           reasoningEffort: isGpt ? settings.gptReasoningEffort : settings.claudeReasoningEffort,
           sessionId: session.id,
           userMsg,

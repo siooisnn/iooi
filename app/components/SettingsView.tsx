@@ -188,6 +188,19 @@ export function SettingsView({
         </div>
 
         <div className="settings-group">
+          <h2 className="settings-group-title">小红书</h2>
+          <p className="settings-hint">开启后，上网时可以选择看小红书，也可以照常搜索网页。关闭后只保留原来的上网方式，聊天和心跳都不连接小红书。</p>
+          <button type="button"
+            className={`model-option ${settings.xiaohongshu === true ? "model-option-active" : ""}`}
+            role="switch" aria-checked={settings.xiaohongshu === true}
+            aria-label="允许上网时浏览小红书"
+            onClick={() => updateSettings({ xiaohongshu: settings.xiaohongshu !== true })}>
+            <span className="model-option-dot" />
+            {settings.xiaohongshu === true ? "On" : "Off"}
+          </button>
+        </div>
+
+        <div className="settings-group">
           <h2 className="settings-group-title">Weather</h2>
           <p className="settings-hint">{aiName} knows the current weather and can bring it up naturally.</p>
           <input

@@ -942,6 +942,7 @@ export async function POST(request: Request) {
     dynamicPrompt,
     thinking,
     webSearch,
+    xiaohongshu,
     reasoningEffort,
     sessionId,
     userMsg: rawUserMsg,
@@ -1387,6 +1388,7 @@ ${combinedDynamicPrompt}
         modelId: requestedModel,
         reasoningEffort: thinking ? reasoningEffort : "low",
         webSearch: Boolean(webSearch),
+        xiaohongshu: xiaohongshu === true,
         // Private chat can go and read the blog / Summer itself (read-only).
         chatTools: !skipPersist && !groupSessionId,
         currentUserText: String(groupUserText || latestUserText(requestMessages)),
