@@ -118,6 +118,7 @@ export function ChatView({
   onOpenBlogPost?: (target: BlogTarget) => void;
 }) {
   const isGpt = assistantMode === "gpt";
+  const compactComposer = retro && settings.chatCompactComposer === true;
   const ledgerBook = useChatLedger(!isGpt);
   const [showMoneyDialog, setShowMoneyDialog] = useState(false);
   const [showStickers, setShowStickers] = useState(false);
@@ -161,6 +162,12 @@ export function ChatView({
   const [editingName, setEditingName] = useState<string | null>(null);
   const [editNameValue, setEditNameValue] = useState("");
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  useEffect(() => {
+    const el = inputRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    if (el.value) el.style.height = Math.min(el.scrollHeight, 120) + "px";
+  }, [compactComposer]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const sessionMessagesRef = useRef<Message[]>(session.messages);
   const sendingRef = useRef(false);
@@ -1102,7 +1109,7 @@ export function ChatView({
             <section className="chat-config-section">
               <p>聊天主题</p>
               <div className="chat-config-options" role="group" aria-label="聊天主题">
-                {([ ["classic", "经典"], ["dots", "粉波点"], ["brick", "小砖"] ] as const).map(([value, label]) => (
+                {([ ["classic", "经典"], ["dots", "粉波点"], ["brick", "粉蓝"] ] as const).map(([value, label]) => (
                   <button type="button" key={value} className={`chat-config-option${roomTheme === value ? " chat-config-option-active" : ""}`}
                     aria-pressed={roomTheme === value}
                     onClick={() => updateSettings({ chatRoomTheme: value, chatDots: value === "dots" })}>
@@ -1110,6 +1117,18 @@ export function ChatView({
                   </button>
                 ))}
               </div>
+            </section>
+          )}
+          {retro && (
+            <section className="chat-config-section chat-config-toggle-section">
+              <p>紧凑输入栏</p>
+              <button type="button"
+                className={`chat-config-switch${compactComposer ? " chat-config-switch-on" : ""}`}
+                role="switch" aria-checked={compactComposer}
+                aria-label="三个聊天主题共用紧凑输入栏"
+                onClick={() => updateSettings({ chatCompactComposer: !compactComposer })}>
+                <span>{compactComposer ? "On" : "Off"}</span><i />
+              </button>
             </section>
           )}
           {!isGpt && (
@@ -1383,7 +1402,7 @@ export function ChatView({
 
       {showStickers && <StickerLibrary onClose={() => setShowStickers(false)} onSelect={chooseSticker} />}
       {showMoneyDialog && <ChatMoneyDialog key={session.id} book={ledgerBook} sessionId={session.id} onClose={() => setShowMoneyDialog(false)} onSent={(card) => { setShowMoneyDialog(false); void sendMessage(false, card); }} />}
-      <footer className={`chat-footer single-chat-footer${retro ? " xp-chat-footer" : ""}${dotBubbles ? " xp-chat-footer-dots" : ""}`}>
+      <footer className={`chat-footer single-chat-footer${retro ? " xp-chat-footer" : ""}${dotBubbles ? " xp-chat-footer-dots" : ""}${compactComposer ? " xp-chat-footer-compact" : ""}`}>
         <ChatClawd />
 
         {uploadError && <p className="composer-upload-error" role="alert">{uploadError}</p>}
@@ -1451,7 +1470,7 @@ export function ChatView({
             <div className="xp-chat-compose">
               <textarea
                 ref={inputRef} value={input} onChange={handleInputChange}
-                placeholder={inputHint} rows={2} className="xp-chat-input"
+                placeholder={inputHint} rows={compactComposer ? 1 : 2} className="xp-chat-input"
                 aria-label="输入消息"
               />
               <button
@@ -1461,7 +1480,7 @@ export function ChatView({
                 className="xp-chat-send"
                 aria-label={loading ? "暂停等待回复" : "发送消息"}
               >
-                {loading ? <>停止(<u>T</u>)</> : <>发送(<u>S</u>)</>}
+                {compactComposer ? (loading ? "Ⅱ" : "S") : loading ? <>停止(<u>T</u>)</> : <>发送(<u>S</u>)</>}
               </button>
             </div>
           </>

@@ -929,3 +929,35 @@
   color: #0645ad;
   text-decoration: underline;
 }
+
+/* Optional compact composer, shared by classic, dotted and pink-blue rooms.
+   The footer itself shrinks too; growing drafts keep a square send button. */
+:root[data-theme] .app-bg .chat-container[data-chat-ui="xp"][data-chat-view="room"] > .chat-footer.single-chat-footer.xp-chat-footer-compact {
+  min-height: 0;
+  padding: 0 8px calc(4px + max(4px, calc(env(safe-area-inset-bottom) - 14px)));
+}
+
+:root[data-theme] .app-bg .chat-container[data-chat-ui="xp"][data-chat-view="room"] > .chat-footer.single-chat-footer.xp-chat-footer-compact .xp-chat-toolbar {
+  padding: 2px 0;
+}
+
+:root[data-theme] .app-bg .chat-container[data-chat-ui="xp"][data-chat-view="room"] > .chat-footer.single-chat-footer.xp-chat-footer-compact .xp-chat-compose {
+  align-items: flex-end;
+}
+
+:root[data-theme] .app-bg .chat-container[data-chat-ui="xp"][data-chat-view="room"] > .chat-footer.single-chat-footer.xp-chat-footer-compact .xp-chat-input {
+  box-sizing: border-box;
+  height: 36px;
+  min-height: 36px;
+  padding: 5px 7px;
+}
+
+:root[data-theme] .app-bg .chat-container[data-chat-ui="xp"][data-chat-view="room"] > .chat-footer.single-chat-footer.xp-chat-footer-compact .xp-chat-send {
+  box-sizing: border-box;
+  width: 36px;
+  height: 36px;
+  min-height: 0;
+  margin: 0;
+  font-size: 14px;
+  line-height: 1;
+}

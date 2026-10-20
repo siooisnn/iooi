@@ -37,6 +37,8 @@ export type Settings = {
   chatDots?: boolean;
   // Missing keeps compatibility with the earlier chatDots switch.
   chatRoomTheme?: "classic" | "dots" | "brick";
+  // Shared by all three XP private-chat themes; missing keeps the roomy composer.
+  chatCompactComposer?: boolean;
   // The little speaker under his replies. Off hides it; missing means shown.
   chatSpeaker?: boolean;
   gptReasoningEffort: GptReasoningEffort;
