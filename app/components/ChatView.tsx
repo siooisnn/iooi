@@ -32,7 +32,7 @@ import { genId, getChatStatusLabel, hasLaterUserMessage, isSummerUtilityMessage,
 import { apiFetch, saveLocal, syncGptToServer, syncToServer } from "../lib/client-api";
 import { CollapsibleSummerCard, ThinkingBlock, renderContent } from "./ChatContent";
 import { ChatArtwork } from "./ChatArtwork";
-import { splitChatReply } from "../lib/artworks";
+import { artworkChunks, splitChatReply } from "../lib/artworks";
 import { ChatGlyph } from "./RetroDesktop";
 import { NUDGE_USER_TEXT, NUDGE_REPLY_TEXT } from "../lib/chat-nudge";
 import { hasSpeakableText } from "../lib/tts-text";
@@ -899,8 +899,10 @@ export function ChatView({
   const retroUserName = settings.userName || "我";
   // XP rooms only: the avatar sits on each run's "说" line; off keeps the plain log.
   const saysAvatars = retro && settings.chatAvatars === true;
-  // XP rooms only: dayday's pink dots behind the log, each line in a speech bubble.
-  const dotBubbles = retro && settings.chatDots === true;
+  // Both optional card themes share the XP room's bubble layout.
+  const roomTheme = settings.chatRoomTheme || (settings.chatDots ? "dots" : "classic");
+  const brickBubbles = retro && roomTheme === "brick";
+  const dotBubbles = retro && roomTheme !== "classic";
   const saysAvatar = (user: boolean) => {
     if (!saysAvatars) return null;
     const src = user ? settings.userAvatar : assistantAvatar;
@@ -1097,18 +1099,17 @@ export function ChatView({
             </section>
           )}
           {retro && (
-            <section className="chat-config-section chat-config-toggle-section">
-              <p>粉波点对话框</p>
-              <button
-                type="button"
-                className={`chat-config-switch${settings.chatDots ? " chat-config-switch-on" : ""}`}
-                role="switch"
-                aria-checked={settings.chatDots === true}
-                aria-label="粉波点背景和对话框"
-                onClick={() => updateSettings({ chatDots: !settings.chatDots })}
-              >
-                <span>{settings.chatDots ? "On" : "Off"}</span><i />
-              </button>
+            <section className="chat-config-section">
+              <p>聊天主题</p>
+              <div className="chat-config-options" role="group" aria-label="聊天主题">
+                {([ ["classic", "经典"], ["dots", "粉波点"], ["brick", "小砖"] ] as const).map(([value, label]) => (
+                  <button type="button" key={value} className={`chat-config-option${roomTheme === value ? " chat-config-option-active" : ""}`}
+                    aria-pressed={roomTheme === value}
+                    onClick={() => updateSettings({ chatRoomTheme: value, chatDots: value === "dots" })}>
+                    {label}
+                  </button>
+                ))}
+              </div>
             </section>
           )}
           {!isGpt && (
@@ -1142,7 +1143,7 @@ export function ChatView({
         </div>
       )}
 
-      <section className={`chat-messages${saysAvatars ? " xp-log-avatars" : ""}${dotBubbles ? " xp-log-dots" : ""}`} ref={scrollRef} onScroll={handleScroll}>
+      <section className={`chat-messages${saysAvatars ? " xp-log-avatars" : ""}${dotBubbles ? " xp-log-dots" : ""}${brickBubbles ? " xp-log-brick" : ""}`} ref={scrollRef} onScroll={handleScroll}>
         {session.messages.length === 0 && (
           <div className="empty-chat"><p>说点什么开始聊天吧</p></div>
         )}
@@ -1189,6 +1190,10 @@ export function ChatView({
           // MSN log: "名字 说 (时间):" heads each run of lines from one person.
           const showSays = retro && !isSummerUtility && (showDateSep || !prevMsg
             || prevMsg.role !== message.role || isSummerUtilityMessage(prevMsg));
+          const artworkParts = dotBubbles && message.role === "assistant" && !message.source && !developmentMode
+            ? artworkChunks(message.content) : [];
+          const detachedArtwork = artworkParts.some((chunk) => chunk.kind === "code" && chunk.artwork);
+          const hasArtworkText = !detachedArtwork || artworkParts.some((chunk) => chunk.kind === "text" && chunk.text.trim());
 
           return (
             <div key={index}>
@@ -1222,6 +1227,10 @@ export function ChatView({
                   {dotBubbles && showSays && dotsTag(message.role === "user", message.time)}
                   {!listEntryMode && <span className="msg-time">{message.source === "heartbeat" ? "💬 " : ""}{message.time}</span>}
                   {messageImages(message).length ? (
+                    <>
+                    {dotBubbles && message.content && message.source !== "sticker" && (
+                      <div className={`msg-bubble ${message.role === "user" ? "msg-bubble-user" : "msg-bubble-ai"}`}>{renderContent(message.content)}</div>
+                    )}
                     <div className={`msg-bubble msg-bubble-img ${message.source === "sticker" ? "msg-bubble-sticker" : message.source === "sticker_message" ? "msg-bubble-sticker-message" : ""} ${message.role === "user" ? "msg-bubble-user" : "msg-bubble-ai"}`}>
                       {messageImages(message).length === 1 ? (
                         <img src={messageImages(message)[0]} className="msg-image" alt={message.source === "sticker" ? message.content : ""} onClick={() => window.open(messageImages(message)[0], "_blank")} />
@@ -1232,10 +1241,12 @@ export function ChatView({
                           ))}
                         </div>
                       )}
-                      {message.content && message.source !== "sticker" && <p className="msg-image-caption">{renderContent(message.content)}</p>}
+                      {!dotBubbles && message.content && message.source !== "sticker" && <p className="msg-image-caption">{renderContent(message.content)}</p>}
                     </div>
+                    </>
                   ) : (
-                    <div
+                    <>
+                    {hasArtworkText && <div
                       className={`msg-bubble ${message.role === "user" ? "msg-bubble-user" : "msg-bubble-ai"} ${isSummerUtility ? "msg-bubble-summer-utility" : ""} ${message.source === "summer_call" ? "msg-bubble-summer-call" : ""} ${message.source === "summer_write_proposal" || message.source === "summer_write_committed" ? "msg-bubble-summer-write" : ""}`}
                     >
                       {message.source === "summer_write_proposal" && editingProposalIndex === index && proposalDraft ? (
@@ -1286,11 +1297,13 @@ export function ChatView({
                             </CollapsibleSummerCard>
                           ) : (
                             message.role === "assistant" && !message.source && !developmentMode
-                              ? <ChatArtwork content={message.content} /> : renderContent(message.content)
+                              ? <ChatArtwork content={message.content} part={detachedArtwork ? "text" : "all"} /> : renderContent(message.content)
                           )}
                         </>
                       )}
-                    </div>
+                    </div>}
+                    {detachedArtwork && <div className="msg-detached-artwork"><ChatArtwork content={message.content} part="cards" /></div>}
+                    </>
                   )}
                 </div>
                 {speakRuns.has(index) && (() => {

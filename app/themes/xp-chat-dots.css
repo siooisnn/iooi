@@ -324,6 +324,53 @@
   color: #6b5d80;
 }
 
+/* Completed works sit below the whole text bubble, inside the same speaker column. */
+:root[data-theme] .app-bg .chat-container[data-chat-ui="xp"][data-chat-view="room"] > .chat-messages.xp-log-dots .msg-detached-artwork {
+  width: 100%;
+  min-width: 0;
+  margin-top: 8px;
+}
+
+:root[data-theme] .app-bg .chat-container[data-chat-ui="xp"][data-chat-view="room"] > .chat-messages.xp-log-dots .msg-detached-artwork .aw-chat-code {
+  margin: 0 0 8px;
+}
+
+/* Small Brick's actual talk palette: pale blue paper and flat 4px pink/blue cards. */
+:root[data-theme] .app-bg .chat-container[data-chat-ui="xp"][data-chat-view="room"] > .chat-messages.xp-log-brick {
+  --dots-his-bg: #eaf5ff;
+  --dots-his-line: #b9d4ee;
+  --dots-his-ink: #45658c;
+  --dots-her-bg: #fff0f7;
+  --dots-her-line: #e5c5d6;
+  --dots-her-ink: #905274;
+  background: #f8fcff;
+}
+
+:root[data-theme] .app-bg .chat-container[data-chat-ui="xp"][data-chat-view="room"] > .chat-messages.xp-log-brick .msg-bubble:not(.msg-bubble-img, .msg-bubble-summer-utility, .reply-status-bubble) {
+  border-radius: 4px;
+  box-shadow: none;
+  padding: 7px 9px;
+}
+
+:root[data-theme] .app-bg .chat-container[data-chat-ui="xp"][data-chat-view="room"] > .chat-messages.xp-log-brick .xp-dots-tag {
+  max-width: 100%;
+  margin: 0 0 4px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+:root[data-theme] .app-bg .chat-container[data-chat-ui="xp"][data-chat-view="room"] > .chat-messages.xp-log-brick .msg-row-says .xp-dots-tag + .msg-bubble:not(.msg-bubble-img, .msg-bubble-summer-utility, .reply-status-bubble) {
+  align-self: auto;
+  padding-top: 7px;
+}
+
+:root[data-theme] .app-bg .chat-container[data-chat-ui="xp"][data-chat-view="room"] > .chat-messages.xp-log-brick .msg-bubble.msg-bubble-img:not(.msg-bubble-sticker, .msg-bubble-sticker-message) {
+  border-radius: 4px;
+  box-shadow: none;
+}
+
 /* ━━ Composer: dayday's bottom strip ━━ */
 :root[data-theme] .app-bg .chat-container[data-chat-ui="xp"][data-chat-view="room"] > .chat-footer.xp-chat-footer-dots {
   border-top-color: #e2bcd0;
