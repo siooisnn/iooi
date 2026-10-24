@@ -19,6 +19,8 @@ import { asksForBlogPost, BLOG_CHAT_BRIDGE, mentionsBlog, parseBlogMarkers, stri
 import { readBlogDigest, readBlogPostsAskedFor, runBlogMarkers } from "@/app/lib/blog-tools";
 import type { BlogCard } from "@/app/lib/app-types";
 import { todayLifeLines } from "@/app/lib/life-log";
+import { capsuleReminder } from "@/app/lib/capsules";
+import { listCapsules } from "@/app/lib/capsule-store";
 import {
   findDuplicateSummerWrite,
   filterDuplicateSummerWrites,
@@ -1263,6 +1265,12 @@ export async function POST(request: Request) {
     } catch {}
   }
 
+  // A letter from her whose day has come: he hears about it here, envelopes only.
+  let capsuleNote = "";
+  if (!skipPersist && !groupSessionId) {
+    try { capsuleNote = capsuleReminder(listCapsules()); } catch {}
+  }
+
   let ledgerNote = "";
   if (!skipPersist && !groupSessionId) {
     try { ledgerNote = await daydayOverview(); } catch { ledgerNote = "【dayday概况】账本暂时不可读，请不要声称已查询或已记账。"; }
@@ -1271,6 +1279,7 @@ export async function POST(request: Request) {
     ledgerNote,
     dynamicPrompt,
     lifeNote,
+    capsuleNote,
     summerNotice,
     directSummerWriteRequested
       ? summerState

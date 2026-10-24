@@ -16,11 +16,13 @@ import { describePushResult, sendPushToAll } from "@/app/lib/push";
 import { CLAUDE_DEFAULT_NAME, normalizeSystemPrompt } from "@/app/lib/app-settings";
 import { addLifeEntry, ensureLifeLog, noteLifeEntry, readLifeLog, todayLifeLines } from "@/app/lib/life-log";
 import type { LifeEntry } from "@/app/lib/life-log";
-import { deliverCare, lastUserMessageAt } from "@/app/lib/care-limits";
+import { cstHour, deliverCare, deliverLetterReply, lastUserMessageAt } from "@/app/lib/care-limits";
+import { envelopeName, letterForReading, parseLetterReaction, readyForHim, type CapsuleLetter } from "@/app/lib/capsules";
+import { listCapsules, openCapsule } from "@/app/lib/capsule-store";
 import { readSummerLight } from "@/app/lib/summer-light";
 import { shelfDigest } from "@/app/lib/reading-digest";
 import { listShelf } from "@/app/lib/reading-shelf";
-import { allowedOutcome, lifeKinds, parseLifeBeat, parseLifeOutcome, planLife } from "@/app/lib/life-plan";
+import { LIFE_CHATTING_MS, allowedOutcome, lifeKinds, parseLifeBeat, parseLifeOutcome, planLife } from "@/app/lib/life-plan";
 import type { LifeBeatState, LifeKinds, LifeOutcome } from "@/app/lib/life-plan";
 import { addThread } from "@/app/lib/surf-board";
 import { xiaohongshuEnabled } from "./xiaohongshu";
@@ -187,6 +189,97 @@ async function settle(outcome: LifeOutcome | null, since: number): Promise<Done>
   });
 }
 
+// ── 时光胶囊 ──
+// A letter from her whose day has come cuts in line: that beat is spent
+// opening it, whatever the other switches say. Code opens the letter; he
+// reads it and says what he wants to say. The heartbeat log gets the
+// envelope and his line (never the body), her chat gets his message, and
+// she gets a push. While she is chatting it waits, so he can open it in
+// front of her (the chat is told the letter is ready). Not at night.
+
+function letterPrompt(letter: CapsuleLetter) {
+  return `现在是 ${cstNow()}。她之前封进时光胶囊寄给你的一封信，今天到日子了，你刚拆开：
+
+${letterForReading(letter)}
+
+好好读完。读完以后最后只输出一个 JSON 对象，不要代码块，不要别的话：
+{"line":"一行记进心跳日志给她看的话，第一人称，说你拆信时的心情，不要引用信里的原话","message":"拆完想对她说的话，会直接发进你们的聊天窗口。像你平时跟她说话那样，可以长一点，接住她信里写的东西"}`;
+}
+
+type LetterBeat = { action: string; reason: string; ran: boolean };
+
+/** Null when no letter is waiting. `ran`: this beat went to the letter, so nothing else happens in it. */
+async function capsuleBeat(settings: Record<string, unknown>, sessions: Session[]): Promise<LetterBeat | null> {
+  let letter: CapsuleLetter | undefined;
+  try {
+    letter = readyForHim(listCapsules())[0];
+  } catch (error) {
+    console.warn(`[life] capsule unreadable: ${error instanceof Error ? error.message : error}`);
+    return null;
+  }
+  if (!letter) return null;
+  if (cstHour() < 7) return { action: "silent", reason: "有信到日子了，天亮再拆", ran: false };
+  const lastUserAt = lastUserMessageAt(sessions);
+  if (lastUserAt && Date.now() - lastUserAt < LIFE_CHATTING_MS) return { action: "silent", reason: "有信到日子了，她在聊天，等她在的时候拆", ran: false };
+
+  const name = envelopeName(letter);
+  await saveBeat(null, { action: "start", reason: `拆信：${name}` });
+  let parsed: { line: string; message: string } | null = null;
+  try {
+    const memory = await readSummerLight();
+    const result = await runClaudeCodeChat({
+      systemPrompt: [
+        normalizeSystemPrompt(typeof settings.prompt === "string" ? settings.prompt : ""),
+        memory,
+        "这是你自己的一段时间，不是在和她聊天。不要使用工具，严格按要求只输出 JSON。信是她写给你一个人的，心跳日志那一行不要贴信的原文。",
+      ].filter(Boolean).join("\n\n"),
+      messages: [{ role: "user", content: letterPrompt(letter) }],
+      modelId: LIFE_MODEL,
+      reasoningEffort: "medium",
+      priority: "background",
+    });
+    parsed = parseLetterReaction(result.reply);
+  } catch (error) {
+    const reason = `拆信没做完：${error instanceof Error ? error.message.slice(0, 80) : "出错了"}，下次心跳再拆`;
+    await saveBeat(null, { action: "silent", reason });
+    return { action: "silent", reason, ran: true };
+  }
+  if (!parsed) {
+    await saveBeat(null, { action: "silent", reason: "拆信没交回结果，下次心跳再拆" });
+    return { action: "silent", reason: "拆信没交回结果", ran: true };
+  }
+  const reaction = parsed;
+
+  const at = new Date();
+  const opened = await openCapsule("him", letter.id, at);
+  if (opened.openedAt !== at.getTime()) {
+    // Opened in the chat while he was reading: that one already counts.
+    await saveBeat(null, { action: "silent", reason: `${name} 在聊天里已经拆了` });
+    return { action: "silent", reason: "这封在聊天里已经拆了", ran: true };
+  }
+
+  const { entryAt, sent } = await withStore((store) => {
+    ensureLifeLog(store);
+    const sent = reaction.message ? deliverLetterReply(store, reaction.message) : false;
+    const entryAt = addLifeEntry(store, {
+      kind: "capsule", text: `拆开了时光胶囊里的信${letter.title ? `《${letter.title}》` : "（信封上没写字）"}`,
+      note: [reaction.line, sent ? "聊天里也说了" : ""].filter(Boolean).join(" · "), ref: letter.id, source: "life",
+    }, at).at;
+    return { entryAt, sent };
+  });
+  const reason = `拆了${name}${reaction.line ? `：${reaction.line}` : ""}`;
+  await saveBeat(null, { action: "capsule", reason: sent ? `${reason} · 发给她：${reaction.message}` : reason });
+
+  const me = hisName(settings);
+  try {
+    const result = await sendPushToAll({ title: `${me}拆了你的信`, body: (reaction.message || reaction.line || `拆开了${name}`).slice(0, 100) });
+    const summary = describePushResult(result);
+    console.info(`[life] capsule · ${summary}`);
+    await withStore((store) => noteLifeEntry(store, entryAt, "capsule", summary)).catch(() => {});
+  } catch {}
+  return { action: "capsule", reason, ran: true };
+}
+
 /**
  * One heartbeat's look at his own time. Returns what happened, for logs and
  * tests; the heartbeat doesn't wait for it.
@@ -194,11 +287,22 @@ async function settle(outcome: LifeOutcome | null, since: number): Promise<Done>
 export async function lifeHeartbeat(): Promise<{ action: string; reason: string }> {
   const store = readStore() || {};
   const settings = (store.settings || {}) as Record<string, unknown>;
-  const kinds = lifeKinds(settings);
-  if (kinds.clawd && !readClawd().pet) kinds.clawd = false;
-  if (!kinds.read && !kinds.surf && !kinds.dayday && !kinds.clawd) return { action: "silent", reason: "自己的时间都关着，或小砖还未迁入" };
   if (!isClaudeCodeEnabled()) return { action: "silent", reason: "Claude 订阅通道未启用" };
   if (lane.busy) return { action: "silent", reason: "上一段还没做完" };
+
+  // A letter that has come due goes first, whatever the switches below say.
+  lane.busy = true;
+  let letterBeat: LetterBeat | null = null;
+  try {
+    letterBeat = await capsuleBeat(settings, (store.sessions || []) as Session[]);
+  } finally {
+    lane.busy = false;
+  }
+  if (letterBeat?.ran) return { action: letterBeat.action, reason: letterBeat.reason };
+
+  const kinds = lifeKinds(settings);
+  if (kinds.clawd && !readClawd().pet) kinds.clawd = false;
+  if (!kinds.read && !kinds.surf && !kinds.dayday && !kinds.clawd) return { action: "silent", reason: letterBeat?.reason || "自己的时间都关着，或小砖还未迁入" };
 
   const plan = planLife(parseLifeBeat(store.lifeBeat), Date.now(), Math.random(),
     lastUserMessageAt((store.sessions || []) as Session[]));

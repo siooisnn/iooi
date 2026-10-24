@@ -4,17 +4,18 @@ import { useState } from "react";
 import { HeartGlyph } from "./RetroDesktop";
 import { lifeDay, type LifeEntry, type LifeKind } from "@/app/lib/life-log";
 
-const KIND_LABEL: Record<LifeKind, string> = { care: "找你", comment: "留言", post: "写日志", read: "读书", surf: "冲浪", dayday: "dayday", clawd: "小砖" };
+const KIND_LABEL: Record<LifeKind, string> = { care: "找你", comment: "留言", post: "写日志", read: "读书", surf: "冲浪", dayday: "dayday", clawd: "小砖", capsule: "拆信" };
 
-type Filter = "all" | "care" | "blog" | "read" | "surf" | "dayday" | "clawd";
+type Filter = "all" | "care" | "blog" | "read" | "surf" | "dayday" | "clawd" | "capsule";
 const FILTERS: ReadonlyArray<{ id: Filter; label: string; kinds: readonly LifeKind[] }> = [
-  { id: "all", label: "全部", kinds: ["care", "comment", "post", "read", "surf", "dayday", "clawd"] },
+  { id: "all", label: "全部", kinds: ["care", "comment", "post", "read", "surf", "dayday", "clawd", "capsule"] },
   { id: "care", label: "找你", kinds: ["care"] },
   { id: "blog", label: "博客", kinds: ["comment", "post"] },
   { id: "read", label: "读书", kinds: ["read"] },
   { id: "surf", label: "冲浪", kinds: ["surf"] },
   { id: "dayday", label: "dayday", kinds: ["dayday"] },
   { id: "clawd", label: "小砖", kinds: ["clawd"] },
+  { id: "capsule", label: "胶囊", kinds: ["capsule"] },
 ];
 
 // Only plain web links are clickable; anything else stays text.
@@ -38,9 +39,12 @@ function dayLabel(day: string, now: number) {
 
 /**
  * heartbeat: what he did on his own, newest first, as an XP window. Quiet
- * beats are not shown. A find online links to its thread on the forum.
+ * beats are not shown. A find online links to its thread on the forum, an
+ * opened letter to the capsule (the body itself never shows here).
  */
-export function HeartbeatView({ log, onBack, onOpenThread }: { log: LifeEntry[]; onBack: () => void; onOpenThread: (id: string) => void }) {
+export function HeartbeatView({ log, onBack, onOpenThread, onOpenCapsule }: {
+  log: LifeEntry[]; onBack: () => void; onOpenThread: (id: string) => void; onOpenCapsule: () => void;
+}) {
   const [filter, setFilter] = useState<Filter>("all");
   const [now] = useState(() => Date.now());
   const kinds = FILTERS.find((item) => item.id === filter)?.kinds || FILTERS[0].kinds;
@@ -95,6 +99,8 @@ export function HeartbeatView({ log, onBack, onOpenThread }: { log: LifeEntry[];
                   {entry.note && <p className="hb-note">{entry.note}</p>}
                   {entry.kind === "surf" && entry.ref && <button type="button" className="hb-open" onClick={() => onOpenThread(entry.ref!)}>
                     去论坛看这帖 ›</button>}
+                  {entry.kind === "capsule" && <button type="button" className="hb-open" onClick={onOpenCapsule}>
+                    去胶囊看这封 ›</button>}
                 </div>
               </li>)}
             </ol>

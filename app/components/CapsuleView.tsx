@@ -33,13 +33,13 @@ function shiftYear(day: string) {
 const stamp = (time: number) => new Date(time).toLocaleString("zh-CN", { timeZone: "Asia/Shanghai", month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit", hour12: false });
 const prettyDay = (day: string) => { const [y, m, d] = day.split("-"); return `${y}年${Number(m)}月${Number(d)}日`; };
 
-export function CapsuleView({ herName, hisName, onBack }: { herName: string; hisName: string; onBack: () => void }) {
+export function CapsuleView({ herName, hisName, onBack, initialTab = "inbox" }: { herName: string; hisName: string; onBack: () => void; initialTab?: "inbox" | "sent" }) {
   const [letters, setLetters] = useState<Letter[]>([]);
   const [today, setToday] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [toast, setToast] = useState("");
-  const [tab, setTab] = useState<Tab>("inbox");
+  const [tab, setTab] = useState<Tab>(initialTab);
   const [busy, setBusy] = useState(false);
   const [reading, setReading] = useState<{ letter: Letter; fresh: boolean } | null>(null);
   const [confirming, setConfirming] = useState(false);

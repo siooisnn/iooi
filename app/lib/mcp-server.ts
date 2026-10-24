@@ -17,7 +17,7 @@ import { PASSAGE_CHARS, bookDigest, passageText, shelfDigest } from "@/app/lib/r
 import { getShelfBook, listShelf, loadBookText, markBook, noteBook, unnoteBook } from "@/app/lib/reading-shelf";
 import type { McpAccess } from "@/app/lib/mcp-oauth";
 import { withStore } from "@/app/lib/store";
-import { recordReading } from "@/app/lib/life-log";
+import { addLifeEntry, ensureLifeLog, recordReading } from "@/app/lib/life-log";
 import { SURF_LIMITS, isSurfId } from "@/app/lib/surf-board";
 import { boardDigest, getThread, listBoard, postFromHim, replyFromHim, threadText } from "@/app/lib/surf-store";
 import { readPhone, changePhoneDecoration } from "@/app/lib/phone-store";
@@ -445,7 +445,18 @@ export async function callTool(name: string, args: Record<string, unknown>, acce
       if (name === "capsule_open") {
         const id = text(args.letter_id);
         const letter = listCapsules().find((l) => l.id === id);
-        if (letter && letter.to === "him" && !letter.openedAt) await openCapsule("him", id);
+        if (letter && letter.to === "him" && !letter.openedAt) {
+          const at = new Date();
+          const opened = await openCapsule("him", id, at);
+          // Same 胶囊 tab in the heartbeat log as the letters his heartbeat opens.
+          if (opened.openedAt === at.getTime()) await withStore((store) => {
+            ensureLifeLog(store);
+            addLifeEntry(store, {
+              kind: "capsule", text: `拆开了时光胶囊里的信${letter.title ? `《${letter.title}》` : "（信封上没写字）"}`,
+              note: access === "read" ? "在聊天里拆的" : "在别的窗口里拆的", ref: id, source: "elsewhere",
+            }, at);
+          }).catch(() => {});
+        }
         return reply(rereadCapsule(id));
       }
       return reply(`不认识的工具：${name}`, true);

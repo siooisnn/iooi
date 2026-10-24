@@ -84,3 +84,19 @@ export function deliverCare(
   const lifeAt = addLifeEntry(store, { kind: "care", text: message, note: note ? `${note} · ${reason}` : reason }).at;
   return { ok: true, lifeAt };
 }
+
+/**
+ * Call inside withStore. His reply to a letter he just opened goes into her
+ * latest chat. She asked for it, so the care switch, quiet hours and the
+ * daily count don't apply; it does push back the next care message.
+ */
+export function deliverLetterReply(store: Record<string, unknown>, message: string): boolean {
+  const target = latestUserSession((store.sessions || []) as CareSession[]);
+  if (!target || !message.trim()) return false;
+  const cs: Record<string, unknown> = (store.careState as Record<string, unknown>) || {};
+  store.careState = cs;
+  target.messages.push({ role: "assistant", content: message.trim(), time: cstTime(), date: cstToday(), source: "heartbeat" });
+  cs.lastCareAt = Date.now();
+  cs.lastCareContent = message.trim();
+  return true;
+}

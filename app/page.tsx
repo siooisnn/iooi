@@ -75,6 +75,7 @@ export default function Home() {
   const [blogTarget, setBlogTarget] = useState<BlogTarget | null>(null);
   // A forum thread opened from the heartbeat log: back goes to the log.
   const [surfTarget, setSurfTarget] = useState<string | null>(null);
+  const [capsuleTab, setCapsuleTab] = useState<"inbox" | "sent">("inbox");
   const [readingTarget, setReadingTarget] = useState<string | undefined>(undefined);
   const [phoneReturn, setPhoneReturn] = useState(false);
   const [blogOrigin, setBlogOrigin] = useState<"chat" | "phone" | null>(null);
@@ -552,6 +553,7 @@ export default function Home() {
   function goHome() {
     setBlogTarget(null);
     setSurfTarget(null);
+    setCapsuleTab("inbox");
     setReadingTarget(undefined);
     setBlogOrigin(null);
     setTab(phoneReturn ? "susu-phone" : "home");
@@ -751,7 +753,7 @@ export default function Home() {
           />
         )}
         {tab === "heartbeat" && <HeartbeatView log={heartbeatLog} onBack={goHome}
-          onOpenThread={(id) => { setSurfTarget(id); setTab("surf"); }} />}
+          onOpenThread={(id) => { setSurfTarget(id); setTab("surf"); }} onOpenCapsule={() => { setCapsuleTab("sent"); setTab("capsule"); }} />}
         {tab === "susu-phone" && <SusuPhoneView settings={settings} sessions={sessions} updateSettings={updateSettings} onBack={goHome} onOpen={openPhoneTarget} />}
         {tab === "blog" && <BlogView
           key={blogTarget ? `${blogTarget.kind}-${blogTarget.id}` : "blog"}
@@ -768,7 +770,7 @@ export default function Home() {
         {tab === "dayday" && <DaydayView onBack={goHome} />}
         {tab === "clawd" && <ClawdView onBack={goHome} />}
         {tab === "artworks" && <ArtworksView onBack={goHome} />}
-        {tab === "capsule" && <CapsuleView herName={settings.userName || "宝宝"} hisName={settings.aiName || CLAUDE_DEFAULT_NAME} onBack={goHome} />}
+        {tab === "capsule" && <CapsuleView key={capsuleTab} initialTab={capsuleTab} herName={settings.userName || "宝宝"} hisName={settings.aiName || CLAUDE_DEFAULT_NAME} onBack={goHome} />}
         {tab === "mood" && <MoodPage mood={dailyMood} retro={settings.retroDesktop} onBack={goHome} />}
         {(tab === "summer-claude" || tab === "summer-gpt") && (
           <SummerPageView

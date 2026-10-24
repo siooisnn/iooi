@@ -103,6 +103,15 @@ test('his tools: read without bodies, seal secretly, open hers on the day, see w
   assert.equal(opened.isError, false);
   assert.match(opened.content[0].text, /她的秘密/);
   assert.match(opened.content[0].text, /你 .* 拆开/);
+  // The heartbeat log's 胶囊 tab gets the envelope, never the body.
+  const { readStore } = await import('../app/lib/store.ts');
+  const logged = readStore().lifeLog.filter((e) => e.kind === 'capsule');
+  assert.equal(logged.length, 1);
+  assert.match(logged[0].text, /拆开了时光胶囊里的信《一年后的我们》/);
+  assert.equal(logged[0].ref, hers.id);
+  assert.ok(!JSON.stringify(logged).includes('她的秘密'));
+  await call('capsule_open', { letter_id: hers.id });
+  assert.equal(readStore().lifeLog.filter((e) => e.kind === 'capsule').length, 1, 'rereading does not log again');
   assert.match((await call('capsule_open', { letter_id: his.id })).content[0].text, /她还没拆/);
   await store.openCapsule('her', his.id);
   assert.match((await call('capsule_read')).content[0].text, /\[她拆了\] 《第一封》/);
@@ -123,4 +132,45 @@ test('he can seal at most seven a day', async () => {
   for (let i = 0; i < CAPSULE_LIMITS.hisPerDay - 1; i += 1) await store.sealCapsule('him', { body: `第${i + 2}封`, openOn: ahead(30) });
   await assert.rejects(store.sealCapsule('him', { body: '第八封', openOn: ahead(30) }), /明天再封/);
   await store.sealCapsule('her', { body: '她不限', openOn: ahead(30) });
+});
+
+test('ready letters for him and the chat reminder carry envelopes only', () => {
+  const now = new Date('2026-10-24T04:00:00Z');
+  const letters = [
+    { id: 'a', from: 'her', to: 'him', title: '生日', body: '不能看的正文', openOn: '2026-10-24', sealedAt: 2 },
+    { id: 'b', from: 'her', to: 'him', title: '', body: '另一封正文', openOn: '2026-10-20', sealedAt: 3 },
+    { id: 'c', from: 'her', to: 'him', title: '以后', body: '还封着', openOn: '2026-11-01', sealedAt: 1 },
+    { id: 'd', from: 'her', to: 'him', title: '拆过', body: '拆过了', openOn: '2026-10-01', sealedAt: 1, openedAt: 5 },
+    { id: 'e', from: 'him', to: 'her', title: '他的', body: '他的正文', openOn: '2026-10-01', sealedAt: 1 },
+  ];
+  assert.deepEqual(capsules.readyForHim(letters, now).map((l) => l.id), ['b', 'a']);
+  const note = capsules.capsuleReminder(letters, now);
+  assert.match(note, /《生日》/);
+  assert.match(note, /信封上没写字/);
+  assert.match(note, /letter_id=a/);
+  for (const hidden of ['不能看的正文', '另一封正文', '还封着', '以后', '拆过', '他的']) assert.ok(!note.includes(hidden), hidden);
+  assert.equal(capsules.capsuleReminder(letters.slice(2), now), '');
+});
+
+test('his reaction to a letter parses loosely and refuses junk', () => {
+  assert.deepEqual(capsules.parseLetterReaction('```json\n{"line":"手在抖","message":"我读完了"}\n```'), { line: '手在抖', message: '我读完了' });
+  assert.deepEqual(capsules.parseLetterReaction('好的 {"message":"嗯"} '), { line: '', message: '嗯' });
+  assert.equal(capsules.parseLetterReaction('{"line":"","message":""}'), null);
+  assert.equal(capsules.parseLetterReaction('不是 JSON'), null);
+});
+
+test('his reply to a letter lands in her latest chat regardless of the care switch', async () => {
+  const { deliverLetterReply } = await import('../app/lib/care-limits.ts');
+  const store = { settings: { proactiveCare: false }, sessions: [
+    { id: 'old', messages: [{ role: 'user', content: '早', date: '2026/10/20', time: '08:00' }] },
+    { id: 'new', messages: [{ role: 'user', content: '晚', date: '2026/10/23', time: '22:00' }] },
+    { id: 'memo', kind: 'memo', messages: [{ role: 'user', content: '备忘', date: '2026/10/24', time: '09:00' }] },
+  ] };
+  assert.equal(deliverLetterReply(store, '  读完了，想你  '), true);
+  const last = store.sessions[1].messages.at(-1);
+  assert.equal(last.content, '读完了，想你');
+  assert.equal(last.source, 'heartbeat');
+  assert.equal(store.careState.lastCareContent, '读完了，想你');
+  assert.equal(store.sessions[2].messages.length, 1);
+  assert.equal(deliverLetterReply({ sessions: [] }, '嗨'), false);
 });

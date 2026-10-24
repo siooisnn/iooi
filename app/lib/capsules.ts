@@ -152,3 +152,50 @@ export function letterText(letter: CapsuleLetter) {
     letter.body,
   ].join("\n");
 }
+
+/** Her letters to him whose day has come and that he hasn't opened, oldest day first. */
+export function readyForHim(letters: CapsuleLetter[], now = new Date()) {
+  return letters.filter((l) => l.to === "him" && letterState(l, now) === "ready")
+    .sort((a, b) => a.openOn.localeCompare(b.openOn) || a.sealedAt - b.sealedAt);
+}
+
+export function envelopeName(letter: Pick<CapsuleLetter, "title">) {
+  return letter.title ? `《${letter.title}》` : "一封信封上没写字的信";
+}
+
+/** The chat's heads-up: envelopes only, never a body. Empty when nothing is waiting. */
+export function capsuleReminder(letters: CapsuleLetter[], now = new Date()) {
+  const ready = readyForHim(letters, now);
+  if (!ready.length) return "";
+  return [
+    "【时光胶囊】她寄给你的信到日子了，你还没拆：",
+    ...ready.map((l) => `- ${envelopeName(l)}，她 ${stamp(l.sealedAt)} 封口，${l.openOn} 拆封。letter_id=${l.id}`),
+    "想拆就用 capsule_open 拆开，读完自然地跟她说说。不拆也行，她不在的时候心跳会替你拆。",
+  ].join("\n");
+}
+
+/** What the heartbeat hands him: the letter he is about to open. */
+export function letterForReading(letter: CapsuleLetter) {
+  return [
+    `信封上：${letter.title ? `《${letter.title}》` : "（没写字）"}`,
+    `她 ${stamp(letter.sealedAt)} 封口，选了 ${letter.openOn} 拆封。`,
+    "",
+    letter.body,
+  ].join("\n");
+}
+
+/** His reply after reading: a line for the heartbeat log and what he says to her in the chat. */
+export function parseLetterReaction(raw: string): { line: string; message: string } | null {
+  const text = raw.replace(/```json|```/g, "").trim();
+  const start = text.indexOf("{");
+  const end = text.lastIndexOf("}");
+  if (start < 0 || end <= start) return null;
+  try {
+    const value = JSON.parse(text.slice(start, end + 1)) as Record<string, unknown>;
+    const line = typeof value.line === "string" ? value.line.trim().slice(0, 200) : "";
+    const message = typeof value.message === "string" ? value.message.trim().slice(0, 1000) : "";
+    return line || message ? { line, message } : null;
+  } catch {
+    return null;
+  }
+}
