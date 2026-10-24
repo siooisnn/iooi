@@ -24,7 +24,7 @@ function createJsonStore(filename: string, privateFile = false) {
     } catch {
       // The main store holds every chat and log, dayday holds her money. An
       // unreadable file must not be replaced with a fresh, empty one on the next write.
-      if (filename === "store.json" || filename === "dayday.json" || filename === "stickers.json" || filename === "clawd.json" || filename === "artworks.json") throw new Error("主数据文件无法读取，已停止写入以保护现有数据。");
+      if (filename === "store.json" || filename === "dayday.json" || filename === "stickers.json" || filename === "clawd.json" || filename === "artworks.json" || filename === "capsules.json") throw new Error("主数据文件无法读取，已停止写入以保护现有数据。");
       return null;
     }
   }
@@ -68,6 +68,10 @@ const daydayStore = createJsonStore("dayday.json");
 const stickerStore = createJsonStore("stickers.json");
 const clawdStore = createJsonStore("clawd.json", true);
 const artworkStore = createJsonStore("artworks.json", true);
+// 时光胶囊: sealed letters between the two of them.
+const capsuleStore = createJsonStore("capsules.json", true);
+export const readCapsuleStore = capsuleStore.read;
+export const withCapsuleStore = capsuleStore.write;
 export const readArtworkStore = artworkStore.read;
 export const withArtworkStore = artworkStore.write;
 export const readClawdStore = clawdStore.read;

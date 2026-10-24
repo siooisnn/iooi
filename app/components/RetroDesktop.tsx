@@ -5,6 +5,8 @@ import type { ReactNode } from "react";
 import { MoonEarthPixel } from "./MoonEarthPixel";
 import { TaskbarClawd } from "./TaskbarClawd";
 import { ArtworkGlyph } from "./ArtworksView";
+import { CapsuleGlyph } from "./CapsuleView";
+import { apiFetch } from "../lib/client-api";
 import { SkyClouds } from "./SkyClouds";
 import { SkyChrome } from "./ThemeProvider";
 import { HEARTBEAT_LINE, Petals, useTogether } from "./HomeView";
@@ -231,6 +233,40 @@ function MenuItem({ icon, label, note, onClick }: { icon: ReactNode; label: stri
   );
 }
 
+const LETTER_SEEN_KEY = "iooi-capsule-balloon-seen";
+
+/**
+ * Letters to her whose day has come. The tray envelope stays while any wait;
+ * the balloon pops once per set of letters in this browser session.
+ */
+function useReadyLetters() {
+  const [ready, setReady] = useState<string[]>([]);
+  const [balloon, setBalloon] = useState(false);
+  useEffect(() => {
+    let alive = true;
+    async function check() {
+      try {
+        const response = await apiFetch("/api/capsule", { cache: "no-store" });
+        const data = await response.json();
+        if (!alive || !response.ok || !data.ok) return;
+        const ids = (data.letters as Array<{ id: string; to: string; state: string }>)
+          .filter((l) => l.to === "her" && l.state === "ready").map((l) => l.id).sort();
+        setReady(ids);
+        if (ids.length && sessionStorage.getItem(LETTER_SEEN_KEY) !== ids.join(",")) setBalloon(true);
+      } catch { /* The desktop stays quiet when the capsule can't be reached. */ }
+    }
+    const visible = () => { if (document.visibilityState === "visible") void check(); };
+    void check();
+    document.addEventListener("visibilitychange", visible);
+    return () => { alive = false; document.removeEventListener("visibilitychange", visible); };
+  }, []);
+  function dismiss() {
+    setBalloon(false);
+    try { sessionStorage.setItem(LETTER_SEEN_KEY, ready.join(",")); } catch { /* private mode */ }
+  }
+  return { count: ready.length, balloon, show: () => setBalloon(true), dismiss };
+}
+
 function Portrait({ src }: { src: string }) {
   return <span className="xp-desk-portrait">{src ? <img src={src} alt="" /> : <span />}</span>;
 }
@@ -245,6 +281,7 @@ export function RetroDesktop({ settings, onOpen }: {
   const [leaving, setLeaving] = useState(false);
   const [off, setOff] = useState(false);
   const [booting, setBooting] = useState(false);
+  const letters = useReadyLetters();
   const claudeName = settings.aiName || CLAUDE_DEFAULT_NAME;
   const gptName = settings.gptName || "GPT";
   const herName = settings.userName || "宝宝";
@@ -341,6 +378,7 @@ export function RetroDesktop({ settings, onOpen }: {
             <DeskIcon label="dayday" onClick={() => open("dayday")}><DaydayGlyph /></DeskIcon>
             <DeskIcon label="作品盒" onClick={() => open("artworks")}><ArtworkGlyph /></DeskIcon>
             <DeskIcon label="susu’s phone" onClick={() => open("susu-phone")}><PhoneGlyph /></DeskIcon>
+            <DeskIcon label="时光胶囊" onClick={() => open("capsule")}><CapsuleGlyph /></DeskIcon>
           </div>
 
           <button type="button" className="xp-desk-gadget" onClick={() => open("moon")} aria-label="Moonbound love">
@@ -367,6 +405,7 @@ export function RetroDesktop({ settings, onOpen }: {
                 <MenuItem icon={<MoodGlyph />} label="mood" note="今天是什么心情" onClick={() => open("mood")} />
                 <MenuItem icon={<DaydayGlyph />} label="dayday" note="记账和小商城" onClick={() => open("dayday")} />
                 <MenuItem icon={<ArtworkGlyph />} label="作品盒" note="聊天里的小作品" onClick={() => open("artworks")} />
+                <MenuItem icon={<CapsuleGlyph />} label="时光胶囊" note="封好的信，到日子再拆" onClick={() => open("capsule")} />
                 <MenuItem icon={<HeartGlyph />} label="heartbeat" onClick={() => open("heartbeat")} />
                 <MenuItem icon={<PhoneGlyph />} label="susu’s phone" onClick={() => open("susu-phone")} />
               </div>
@@ -391,6 +430,13 @@ export function RetroDesktop({ settings, onOpen }: {
         </button>
       )}
 
+      {letters.balloon && !balloon && !startOpen && (
+        <button type="button" className="xp-desk-balloon" onClick={() => { letters.dismiss(); open("capsule"); }}>
+          <b><span aria-hidden="true">✉</span> 时光胶囊</b>
+          <span>{letters.count > 1 ? `你有 ${letters.count} 封信可以拆了` : "你有一封信可以拆了"}</span>
+        </button>
+      )}
+
       <footer className="xp-desk-taskbar">
         {!startOpen && !booting && !leaving && !off && <TaskbarClawd />}
         <button type="button" className={`xp-desk-start${startOpen ? " is-open" : ""}`} onClick={() => setStartOpen((value) => !value)}>
@@ -398,6 +444,8 @@ export function RetroDesktop({ settings, onOpen }: {
         </button>
         <span className="xp-desk-task"><span aria-hidden="true">♥</span>As time goes by</span>
         <span className="xp-desk-tray">
+          {letters.count > 0 && <button type="button" className="xp-desk-tray-letter" aria-label={`${letters.count} 封信可以拆了`}
+            onClick={() => { setBalloon(false); if (letters.balloon) letters.dismiss(); else letters.show(); }}><CapsuleGlyph /></button>}
           <button type="button" className="xp-desk-tray-heart" onClick={() => setBalloon((value) => !value)} aria-label="在一起多久">♥</button>
           <span>{clockTime}</span>
         </span>

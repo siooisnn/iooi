@@ -1,0 +1,73 @@
+/* 时光胶囊: the dayday blue/pink XP window with paper envelopes inside. */
+:root[data-theme] .cap-screen .cap-tabs button { position: relative; }
+:root[data-theme] .cap-screen .cap-tabs em { display: inline-grid; place-items: center; min-width: 15px; height: 15px; margin-left: 4px; padding: 0 3px; border-radius: 8px; background: #e2416f; color: #fff; font: 700 9.5px/1 Tahoma, sans-serif; font-style: normal; }
+:root[data-theme] .cap-screen .is-primary { padding: 5px 12px; border: 1px solid #b14f7d; border-radius: 3px; background: var(--dd-gloss); color: #fff; font-weight: 700; text-shadow: 0 1px 0 #b23b74; }
+
+/* Envelopes */
+:root[data-theme] .cap-screen .cap-list { display: flex; flex-direction: column; gap: 10px; }
+:root[data-theme] .cap-letter { display: grid; grid-template-columns: 62px minmax(0, 1fr) auto; grid-template-areas: "env meta status" "env meta action"; align-items: center; gap: 4px 12px; padding: 10px 12px; border: 1px solid #e5bcd2; border-radius: 5px; background: #fff; box-shadow: 3px 3px 0 #ffd6e8; }
+:root[data-theme] .cap-letter.is-ready { border-color: #e2416f; background: #fff8e8; animation: capGlow 2.2s ease-in-out infinite; }
+:root[data-theme] .cap-letter.is-opened { background: #fbfaf6; box-shadow: 3px 3px 0 #ece4d6; }
+@keyframes capGlow { 50% { box-shadow: 3px 3px 0 #ffd6e8, 0 0 0 4px #ffe1ec; } }
+:root[data-theme] .cap-envelope { position: relative; grid-area: env; width: 62px; height: 42px; overflow: hidden; border: 1px solid #a98aa0; border-radius: 2px; background: linear-gradient(160deg, #fffaf0, #f6ead6); }
+:root[data-theme] .cap-envelope::before { content: ""; position: absolute; inset: auto 0 0; height: 60%; background: linear-gradient(20deg, transparent 49%, #e8d6c0 50%, transparent 52%), linear-gradient(-20deg, transparent 49%, #e8d6c0 50%, transparent 52%); }
+:root[data-theme] .cap-flap { position: absolute; inset: -1px -1px auto; height: 28px; background: #ffe6f1; clip-path: polygon(0 0, 100% 0, 50% 100%); transform-origin: top; transition: transform .4s; }
+:root[data-theme] .cap-seal { position: absolute; top: 16px; left: 50%; display: grid; place-items: center; width: 18px; height: 18px; margin-left: -9px; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #ff7a9c, #c8244f 70%); box-shadow: 0 1px 0 #7a1631; color: #ffd2df; font: 10px/1 sans-serif; font-style: normal; }
+:root[data-theme] .cap-letter.is-opened .cap-flap { transform: scaleY(-1); background: #f3dbe6; }
+:root[data-theme] .cap-letter.is-opened .cap-seal { opacity: .25; }
+:root[data-theme] .cap-meta { grid-area: meta; min-width: 0; }
+:root[data-theme] .cap-screen .cap-meta h3 { overflow-wrap: anywhere; color: #9b4971; font-size: 13px; line-height: 1.5; }
+:root[data-theme] .cap-untitled { color: #b4a3b0; font-weight: 400; }
+:root[data-theme] .cap-screen .cap-meta p { margin-top: 2px; color: var(--dd-muted); font-size: 10.5px; }
+:root[data-theme] .cap-status { grid-area: status; display: flex; flex-direction: column; align-items: flex-end; text-align: right; }
+:root[data-theme] .cap-status b { color: #3a5f95; font: 700 13px/1.4 Tahoma, sans-serif; }
+:root[data-theme] .cap-letter.is-ready .cap-status b { color: #d63d84; }
+:root[data-theme] .cap-letter.is-opened .cap-status b { color: #8a7c6c; font-size: 11.5px; }
+:root[data-theme] .cap-status small { color: var(--dd-muted); font-size: 10px; }
+:root[data-theme] .cap-letter > button, :root[data-theme] .cap-locked { grid-area: action; justify-self: end; }
+:root[data-theme] .cap-letter > button:not(.is-primary), :root[data-theme] .cap-screen .aw-empty button, :root[data-theme] .cap-quick button { padding: 3px 8px; border: 1px solid #a7bbd3; border-radius: 3px; background: linear-gradient(#fff, #eaf1fb); color: #385575; font-size: 11px; }
+:root[data-theme] .cap-locked { display: grid; place-items: center; width: 22px; height: 22px; color: #a98aa0; }
+:root[data-theme] .cap-locked svg { width: 12px; height: 14px; }
+
+/* Writing */
+:root[data-theme] .cap-write { display: flex; flex-direction: column; gap: 10px; padding: 12px; border: 1px solid #e5bcd2; border-radius: 5px; background: #fff; box-shadow: 3px 3px 0 #ffd6e8; }
+:root[data-theme] .cap-write label, :root[data-theme] .cap-when { display: flex; flex-direction: column; gap: 4px; min-width: 0; margin: 0; padding: 0; border: 0; color: var(--dd-soft); font-size: 11.5px; font-weight: 700; }
+:root[data-theme] .cap-when legend { margin-bottom: 4px; padding: 0; }
+:root[data-theme] .cap-to { color: var(--dd-soft); font-size: 11.5px; }
+:root[data-theme] .cap-to b { color: #d63d84; }
+:root[data-theme] .cap-write input { min-width: 0; padding: 5px 6px; border: 1px solid #a6bbd4; background: #fff; color: #364359; font: 12.5px Tahoma, "PingFang SC", "Microsoft YaHei", sans-serif; }
+:root[data-theme] .cap-when input { align-self: flex-start; }
+:root[data-theme] .cap-screen .cap-write textarea.cap-paper { min-height: 220px; padding: 0 10px; resize: vertical; border: 1px solid #d8c2a8; background: repeating-linear-gradient(#fffdf6 0 27px, #f1d9c3 27px 28px); color: #4b3a2e; font: 14px/28px "Kaiti SC", STKaiti, KaiTi, "PingFang SC", serif; }
+:root[data-theme] .cap-count { align-self: flex-end; margin-top: -6px; color: var(--dd-muted); font-size: 10px; }
+:root[data-theme] .cap-quick { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; font-weight: 400; }
+:root[data-theme] .cap-quick button[aria-pressed="true"] { border-color: #cd86a7; background: #ffe7f2; color: #9c3e6d; }
+:root[data-theme] .cap-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; padding-top: 6px; border-top: 1px dashed #ecc9dc; }
+:root[data-theme] .cap-actions small { flex: 1; min-width: 160px; color: var(--dd-muted); font-size: 10.5px; line-height: 1.6; }
+
+/* Reading */
+:root[data-theme] .rd-screen .rd-dialog.cap-read { width: min(520px, calc(100% - 20px)); max-height: min(86dvh, 760px); }
+:root[data-theme] .cap-dialog p b { color: #c42f6f; }
+:root[data-theme] .cap-sheet { padding: 16px 18px 14px; border: 1px solid #dcc6ad; background: repeating-linear-gradient(#fffdf6 0 29px, #f1dcc8 29px 30px); box-shadow: 2px 3px 0 #d9cdb6; color: #43342a; font: 15px/30px "Kaiti SC", STKaiti, KaiTi, "PingFang SC", serif; }
+:root[data-theme] .cap-sheet.is-fresh { animation: capUnfold .7s cubic-bezier(.2, .8, .3, 1.1) both; transform-origin: top; }
+@keyframes capUnfold { from { opacity: 0; transform: perspective(600px) rotateX(-70deg) translateY(-8px); } }
+:root[data-theme] .cap-screen .cap-sheet h3 { margin: 0 0 4px; color: #b23d6d; font-size: 16px; line-height: 30px; text-align: center; }
+:root[data-theme] .cap-sheet-body { white-space: pre-wrap; overflow-wrap: anywhere; }
+:root[data-theme] .cap-sheet footer { margin-top: 8px; color: #9b8a7a; font: 11px/30px Tahoma, sans-serif; text-align: right; }
+
+/* The desktop tray envelope that pops the "letter is ready" balloon. */
+:root[data-theme] .xp-desktop .xp-desk-tray-letter { display: grid; place-items: center; width: 18px; height: 16px; padding: 0; border: 0; background: transparent; cursor: pointer; animation: capTray 1.6s ease-in-out infinite; }
+:root[data-theme] .xp-desktop .xp-desk-tray-letter svg { width: 18px; height: 18px; }
+@keyframes capTray { 50% { transform: translateY(-2px); } }
+
+@media (prefers-reduced-motion: reduce) {
+  :root[data-theme] .cap-letter.is-ready, :root[data-theme] .cap-sheet.is-fresh, :root[data-theme] .xp-desktop .xp-desk-tray-letter { animation: none; }
+}
+/* Phones zoom into fields under 16px. */
+@media (max-width: 480px) {
+  :root[data-theme] .cap-screen .cap-write input, :root[data-theme] .cap-screen .cap-write textarea.cap-paper { font-size: 16px; }
+}
+@media (max-width: 420px) {
+  :root[data-theme] .cap-letter { grid-template-columns: 52px minmax(0, 1fr) auto; grid-template-areas: "env meta meta" "status status action"; }
+  :root[data-theme] .cap-envelope { width: 52px; height: 36px; }
+  :root[data-theme] .cap-status { flex-direction: row; flex-wrap: wrap; align-items: baseline; gap: 0 8px; text-align: left; }
+}

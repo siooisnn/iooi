@@ -24,6 +24,7 @@ import { SusuPhoneView } from "./components/SusuPhoneView";
 import type { PhoneTarget } from "./lib/susu-phone";
 import { ClawdView } from "./components/ClawdView";
 import { ArtworksView } from "./components/ArtworksView";
+import { CapsuleView } from "./components/CapsuleView";
 import { BlogView } from "./components/BlogView";
 import { PageBack } from "./components/PageBack";
 import { ChatView, type BlogTarget } from "./components/ChatView";
@@ -767,6 +768,7 @@ export default function Home() {
         {tab === "dayday" && <DaydayView onBack={goHome} />}
         {tab === "clawd" && <ClawdView onBack={goHome} />}
         {tab === "artworks" && <ArtworksView onBack={goHome} />}
+        {tab === "capsule" && <CapsuleView herName={settings.userName || "宝宝"} hisName={settings.aiName || CLAUDE_DEFAULT_NAME} onBack={goHome} />}
         {tab === "mood" && <MoodPage mood={dailyMood} retro={settings.retroDesktop} onBack={goHome} />}
         {(tab === "summer-claude" || tab === "summer-gpt") && (
           <SummerPageView
