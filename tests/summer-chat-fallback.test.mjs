@@ -168,13 +168,21 @@ test("Summer failures do not block Claude replies or lose the round", async (t) 
       assert.match(fixture.inputs[0].systemPrompt, /已读取的长期记忆/);
       assert.ok(!data.cache.summer_calls.some((call) => /暂时/.test(call.label)));
     });
-    await t.test("failed search preserves successful wake and distinguishes unavailable from no results", async () => {
-      reset(); failSearch = true;
-      const data = await chat({ content: "搜一下以前说过的事情" });
-      assert.equal(data.cache.summer_used, true);
-      assert.match(fixture.inputs[0].systemPrompt, /已读取的长期记忆/);
-      assert.match(fixture.inputs[0].messages.at(-1).content, /不要把检索失败说成没有相关记录/);
-      assert.match(data.cache.summer_calls.at(-1).label, /已保留本轮读取的记忆/);
+    await t.test("search wording never triggers a backend Summer search", async () => {
+      for (const content of [
+        "搜一下以前说过的事情",
+        "你网上搜一下我之前说的那家店",
+        "帮我搜搜 train ticket",
+        "搜一下 summer 里 10月3日 的小暑",
+      ]) {
+        reset(); failSearch = true;
+        const data = await chat({ content });
+        assert.equal(data.cache.summer_used, true);
+        assert.match(fixture.inputs[0].systemPrompt, /已读取的长期记忆/);
+        assert.ok(!requests.some((req) => req.path === "/mcp"), `no Summer MCP call for: ${content}`);
+        assert.ok(!data.cache.summer_calls.some((call) => /检索 summer|查小暑/.test(call.label)));
+        assert.ok(!data.cache.summer_calls.some((call) => /暂时/.test(call.label)));
+      }
     });
     await t.test("offline explicit write stays pending without attempted edits", async () => {
       reset(); failure = new TypeError("fetch failed");
