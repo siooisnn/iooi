@@ -7,6 +7,7 @@ import { readStore, withGroupStore, withStore } from "@/app/lib/store";
 import { isClaudeCodeEnabled, normalizeClaudeCodeModel, runClaudeCodeChat } from "@/app/lib/claude-code";
 import { isCodeProject, isCodeTaskRunning, runClaudeCodeTask } from "@/app/lib/claude-code-task";
 import { startCodeTask, updateCodeTask } from "@/app/lib/code-task-state";
+import type { ReplyStep } from "@/app/lib/reply-steps";
 import { workContextHistory } from "@/app/lib/work-context";
 import { currentRoundStart, imageKey, messageImages, MAX_IMAGES_PER_MESSAGE, sanitizeIncomingMessage } from "@/app/lib/message-images";
 import { startCodeRelease } from "@/app/lib/code-release";
@@ -40,7 +41,7 @@ function cstTime() {
 function cstToday() {
   return new Date().toLocaleDateString("zh-CN", { timeZone: "Asia/Shanghai" });
 }
-type StoreMsg = { role: string; content: string; time?: string; date?: string; thinking?: string; image?: string; images?: string[]; file?: string; source?: string; roundId?: string; speaker?: "claude" | "gpt"; proposal?: SummerWrite; blog?: BlogCard; ledger?: LedgerCard };
+type StoreMsg = { role: string; content: string; time?: string; date?: string; thinking?: string; image?: string; images?: string[]; file?: string; source?: string; roundId?: string; speaker?: "claude" | "gpt"; proposal?: SummerWrite; blog?: BlogCard; ledger?: LedgerCard; steps?: ReplyStep[] };
 type TextBlock = {
   type: "text";
   text: string;
@@ -540,6 +541,7 @@ async function persistRound(
   blogCards: BlogCard[] = [],
   ledgerCards: LedgerCard[] = [],
   stickers: Sticker[] = [],
+  steps: ReplyStep[] = [],
 ) {
   const stamp = { time: cstTime(), date: cstToday() };
   if (!sessionId || (!reply && !nudge && !blogCards.length && !ledgerCards.length && !stickers.length)) return stamp;
@@ -593,6 +595,7 @@ async function persistRound(
           role: "assistant", content: c, time: now, date: today, roundId: userMsg?.roundId,
           ...(replySource ? { source: replySource } : {}),
           ...(i === 0 && thinkingContent ? { thinking: thinkingContent } : {}),
+          ...(i === 0 && steps.length ? { steps } : {}),
         });
       });
       for (const sticker of stickers) {
@@ -849,6 +852,20 @@ export async function POST(request: Request) {
     const heartbeat = setInterval(() => emit({ type: "heartbeat" }), 15_000);
     const job = (async () => {
       let progressWrites = Promise.resolve();
+      let taskSteps: ReplyStep[] = [];
+      let lastProgress = "正在查看项目并处理当前指令…";
+      let stepsWrittenAt = 0;
+      let stepsWriteTimer: ReturnType<typeof setTimeout> | null = null;
+      // The step list also goes to the task state so a reopened page sees it,
+      // at most every few seconds to keep store writes down.
+      const writeTaskState = () => {
+        if (stepsWriteTimer) clearTimeout(stepsWriteTimer);
+        stepsWriteTimer = null;
+        stepsWrittenAt = Date.now();
+        const steps = taskSteps;
+        const progress = lastProgress;
+        progressWrites = progressWrites.then(() => updateCodeTask(sessionId, taskId, "running", progress, steps));
+      };
       try {
         const reply = await runClaudeCodeTask({
           project: codeMode.project,
@@ -859,20 +876,30 @@ export async function POST(request: Request) {
           modelId: String(modelId || "claude-sonnet-5"),
           onProgress: (progress) => {
             emit({ type: "progress", text: progress });
-            progressWrites = progressWrites.then(() => updateCodeTask(sessionId, taskId, "running", progress));
+            lastProgress = progress;
+            writeTaskState();
+          },
+          onSteps: (steps) => {
+            taskSteps = steps;
+            emit({ type: "steps", steps });
+            if (stepsWriteTimer) return;
+            const wait = Math.max(0, 3_000 - (Date.now() - stepsWrittenAt));
+            stepsWriteTimer = setTimeout(writeTaskState, wait);
           },
         });
+        if (stepsWriteTimer) clearTimeout(stepsWriteTimer);
         await progressWrites;
-        const stamp = await persistRound(sessionId, userMsg, reply, "", [], [], taskSource, true);
-        await updateCodeTask(sessionId, taskId, "done", "任务已完成");
-        emit({ type: "done", status: 200, reply, cache: {
+        const stamp = await persistRound(sessionId, userMsg, reply, "", [], [], taskSource, true, false, [], [], [], taskSteps);
+        await updateCodeTask(sessionId, taskId, "done", "任务已完成", taskSteps);
+        emit({ type: "done", status: 200, reply, steps: taskSteps, cache: {
           backend: "claude-code", reply_persisted_time: stamp.time, reply_persisted_date: stamp.date,
         } });
       } catch (error) {
         const reply = error instanceof Error ? error.message : "开发任务失败";
+        if (stepsWriteTimer) clearTimeout(stepsWriteTimer);
         await progressWrites.catch(() => {});
-        await persistRound(sessionId, userMsg, `开发任务未完成：${reply}`, "", [], [], taskSource, true);
-        await updateCodeTask(sessionId, taskId, "error", `任务未完成：${reply}`);
+        await persistRound(sessionId, userMsg, `开发任务未完成：${reply}`, "", [], [], taskSource, true, false, [], [], [], taskSteps);
+        await updateCodeTask(sessionId, taskId, "error", `任务未完成：${reply}`, taskSteps);
         emit({ type: "error", status: 502, reply });
       } finally {
         clearInterval(heartbeat);
@@ -1123,7 +1150,11 @@ ${combinedDynamicPrompt}
     }
   }
 
-  const executeChat = async (onTextDelta?: (text: string) => void, onTextReset?: () => void) => {
+  const executeChat = async (
+    onTextDelta?: (text: string) => void,
+    onTextReset?: () => void,
+    onSteps?: (steps: ReplyStep[]) => void,
+  ) => {
     let timingModel = String(modelId || "claude-sonnet-5");
     let queueWaitMs = 0;
     let claudeDurationMs = 0;
@@ -1148,6 +1179,7 @@ ${combinedDynamicPrompt}
         signal: onTextDelta ? undefined : request.signal,
         onTextDelta,
         onTextReset,
+        onSteps,
       });
       claudeRoundTripMs = Date.now() - claudeStartedAt;
       queueWaitMs = data.queueWaitMs;
@@ -1198,7 +1230,7 @@ ${combinedDynamicPrompt}
       const groupPersistedDate = skipPersist && groupSessionId ? cstToday() : "";
       let replyStamp: { time: string; date: string } | undefined;
       if (!skipPersist) {
-        replyStamp = await persistRound(sessionId, userMsg, reply, thinkingContent, summerCalls, summerWriteProposals, undefined, false, nudgeResult.nudge, blogCards, ledgerCards, replyStickers);
+        replyStamp = await persistRound(sessionId, userMsg, reply, thinkingContent, summerCalls, summerWriteProposals, undefined, false, nudgeResult.nudge, blogCards, ledgerCards, replyStickers, data.steps);
       } else if (groupSessionId) {
         await persistGroupRound(
           String(groupSessionId),
@@ -1253,6 +1285,7 @@ ${combinedDynamicPrompt}
           reply,
           nudge: nudgeResult.nudge,
           thinking: thinkingContent,
+          steps: !skipPersist && !groupSessionId ? data.steps : [],
           cache: {
             model: data.model,
             backend: "claude-code",
@@ -1355,6 +1388,9 @@ ${combinedDynamicPrompt}
     // What streamed so far led into a tool call; the answer starts over.
     visibleReply = createVisibleReplyStream();
     emit({ type: "reset" });
+  }, (steps) => {
+    // Only the private chat shows the step line.
+    if (!skipPersist && !groupSessionId) emit({ type: "steps", steps });
   }).then((result) => {
     stopHeartbeat();
     visibleReply.finish();

@@ -5,6 +5,7 @@ import { normalizeClaudeCodeModel, type ClaudeImageBlock } from "./claude-code";
 import { compactContext } from "./compact-context";
 import { contextText, estimateTokens, WORK_CONTEXT_BUDGET, type ContextMessage } from "./context-budget";
 import { codeTaskProgress } from "./code-task-progress";
+import { createReplySteps, type ReplyStep } from "./reply-steps";
 import { stripSpeakerPrefix } from "./reply-prefix";
 
 import type { CodeProject } from "./code-projects";
@@ -55,7 +56,7 @@ function describeFailure(result: ResultEvent | undefined, code: number | null, s
   return `Claude Code 退出码 ${code}`;
 }
 
-export async function runClaudeCodeTask({ project, instruction, images = [], history = [], sessionId, modelId, onProgress }: {
+export async function runClaudeCodeTask({ project, instruction, images = [], history = [], sessionId, modelId, onProgress, onSteps }: {
   project: CodeProject;
   instruction: string;
   images?: ClaudeImageBlock[];
@@ -63,6 +64,8 @@ export async function runClaudeCodeTask({ project, instruction, images = [], his
   sessionId: string;
   modelId: string;
   onProgress?: (progress: string) => void;
+  /** Step list for the work view: each file read, edit, command, search. */
+  onSteps?: (steps: ReplyStep[]) => void;
 }): Promise<string> {
   if (taskRunning) throw new Error("已有一个开发任务正在执行，请等它完成后再发下一条。");
   taskRunning = true;
@@ -130,6 +133,8 @@ export async function runClaudeCodeTask({ project, instruction, images = [], his
       let lineBuffer = "";
       let stderr = "";
       let latestProgress = "";
+      const tracker = createReplySteps({ mode: "work", onChange: onSteps });
+      tracker.start();
       const report = (progress: string) => {
         if (progress === latestProgress) return;
         latestProgress = progress;
@@ -144,12 +149,14 @@ export async function runClaudeCodeTask({ project, instruction, images = [], his
             message?: { content?: Array<{ type?: string; name?: string }> };
           };
           for (const progress of codeTaskProgress(event)) report(progress);
+          tracker.event(event);
         } catch { /* Partial or non-JSON output is handled when the process exits. */ }
       };
       let settled = false;
       const finish = (error?: Error, result?: string) => {
         if (settled) return;
         settled = true;
+        tracker.finish();
         clearTimeout(timeout);
         if (error) reject(error);
         else resolve(result || "");

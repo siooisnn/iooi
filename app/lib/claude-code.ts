@@ -7,6 +7,7 @@ import type { LifeKinds } from "./life-plan";
 import { stripSpeakerPrefix } from "./reply-prefix";
 import { BLOG_MCP_URL, blogConnectionHint, blogMcpConnection, blogToolsForScope } from "./blog-connection";
 import { XIAOHONGSHU_MCP_URL, XIAOHONGSHU_RULES, xiaohongshuTools } from "./xiaohongshu";
+import { createReplySteps, type ReplyStep } from "./reply-steps";
 
 type ClaudeCodeMessage = {
   role: string;
@@ -42,6 +43,8 @@ export type ClaudeCodeChatResult = {
   queueWaitMs: number;
   model: string;
   webSearchUsed: boolean;
+  /** What he did while she waited (thinking, tools), for the step line. */
+  steps: ReplyStep[];
   usage: {
     input_tokens: number;
     cache_creation_input_tokens: number;
@@ -410,6 +413,7 @@ export async function runClaudeCodeChat({
   signal,
   onTextDelta,
   onTextReset,
+  onSteps,
 }: {
   systemPrompt: string;
   messages: ClaudeCodeMessage[];
@@ -433,6 +437,8 @@ export async function runClaudeCodeChat({
   onTextDelta?: (text: string) => void;
   /** Tools on: text already shown was a lead-in to a tool call; clear it. */
   onTextReset?: () => void;
+  /** The step list changed (thinking, a tool started or finished). */
+  onSteps?: (steps: ReplyStep[]) => void;
 }): Promise<ClaudeCodeChatResult> {
   const task = async (queueWaitMs: number): Promise<ClaudeCodeChatResult> => {
     if (signal?.aborted) throw new DOMException("Request aborted", "AbortError");
@@ -577,7 +583,9 @@ export async function runClaudeCodeChat({
         let stderr = "";
         let stdoutLineBuffer = "";
         let settled = false;
+        const tracker = createReplySteps({ mode: "chat", onChange: onSteps });
         const safeDelta = (text: string) => {
+          tracker.writing();
           try {
             effectiveOnTextDelta?.(text);
           } catch {
@@ -597,8 +605,10 @@ export async function runClaudeCodeChat({
             })
           : null;
 
+        // Lines are read for the text stream and for the step list.
+        const readsLines = usesStreamingOutput && Boolean(effectiveOnTextDelta || onSteps);
         const emitPartialLines = (chunk: string, flush = false) => {
-          if (!effectiveOnTextDelta) return;
+          if (!readsLines) return;
           stdoutLineBuffer += chunk;
           const lines = stdoutLineBuffer.split(/\r?\n/);
           stdoutLineBuffer = flush ? "" : (lines.pop() || "");
@@ -613,6 +623,8 @@ export async function runClaudeCodeChat({
                   content_block?: { type?: unknown };
                 };
               };
+              tracker.event(value);
+              if (!effectiveOnTextDelta) continue;
               if (gate && value.type === "stream_event") {
                 const block = value.event?.content_block?.type;
                 if (value.event?.type === "content_block_start" && (block === "tool_use" || block === "server_tool_use")) {
@@ -658,6 +670,7 @@ export async function runClaudeCodeChat({
         const timeout = setTimeout(() => terminate(new Error("Claude Code 回复超时")), timeoutMs);
 
         signal?.addEventListener("abort", abort, { once: true });
+        tracker.start();
         child.on("error", (error) => finish(error));
         child.stdout.setEncoding("utf8");
         child.stderr.setEncoding("utf8");
@@ -673,6 +686,7 @@ export async function runClaudeCodeChat({
         child.on("close", (code) => {
           if (settled) return;
           emitPartialLines("", true);
+          const steps = tracker.finish();
           if (code !== 0) {
             finish(new Error(stderr.trim() || `Claude Code 退出码 ${code}`));
             return;
@@ -696,6 +710,7 @@ export async function runClaudeCodeChat({
               model,
               webSearchUsed: (usage.server_tool_use?.web_search_requests || 0) > 0
                 || ((webSearch || usesLifeTools) && streamUsedWebSearch(stdout)),
+              steps,
               usage: {
                 input_tokens: usage.input_tokens || 0,
                 cache_creation_input_tokens: usage.cache_creation_input_tokens || 0,

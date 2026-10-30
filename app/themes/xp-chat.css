@@ -501,6 +501,19 @@
   line-height: 18px;
 }
 
+/* Step lines: gray log text like the status line, the running one in MSN blue. */
+:root[data-theme] .app-bg .chat-container[data-chat-ui="xp"]:is([data-chat-view="room"], [data-chat-view="group"]) :is(.reply-steps, .reply-steps-live) {
+  color: #6d6d6d;
+}
+
+:root[data-theme] .app-bg .chat-container[data-chat-ui="xp"]:is([data-chat-view="room"], [data-chat-view="group"]) .reply-step-active .reply-step-dot {
+  background: #3a6ea5;
+}
+
+:root[data-theme] .app-bg .chat-container[data-chat-ui="xp"][data-chat-view="room"] > .chat-messages.xp-log-dots :is(.reply-steps, .reply-steps-live) {
+  color: var(--dots-muted);
+}
+
 /* "你发送了一个闪屏振动。" */
 :root[data-theme] .app-bg .chat-container[data-chat-ui="xp"]:is([data-chat-view="room"], [data-chat-view="group"]) .xp-msg-nudge {
   margin: 10px 0 2px;

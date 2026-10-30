@@ -1,5 +1,6 @@
 import type { Sticker } from "./stickers";
 import type { LedgerCard } from "./dayday-markers";
+import type { ReplyStep } from "./reply-steps";
 
 // ━━━━━━━━━━━━━━━ Types ━━━━━━━━━━━━━━━
 export type Message = {
@@ -11,6 +12,8 @@ export type Message = {
   images?: string[];
   file?: string;
   thinking?: string;
+  /** What he did while she waited: thought, read Summer, searched, edited a file. */
+  steps?: ReplyStep[];
   source?: string;
   roundId?: string;
   speaker?: "claude" | "gpt";
