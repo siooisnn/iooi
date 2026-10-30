@@ -134,7 +134,7 @@ function workToolLabel(name: string, input: ToolInput): ToolLabel {
   if (name === "Read") return fileLabel("看", "文件", input.file_path, "read");
   if (name === "Edit" || name === "MultiEdit") return fileLabel("改", "代码", input.file_path, "edit");
   if (name === "Write") return fileLabel("写", "文件", input.file_path, "edit");
-  if (name === "Grep") return label("搜", "代码", "search");
+  if (name === "Grep") return label("翻", "代码", "search");
   if (name === "Glob") return label("找", "文件", "search");
   if (name === "Bash") return commandLabel(input);
   if (name === "WebSearch") return withTarget({ active: "在上网查资料", done: "上网查了资料", group: "web" }, text(input.query));
@@ -181,7 +181,7 @@ const CHAT_GROUPS: Record<string, (count: number) => string> = {
 const WORK_GROUPS: Record<string, (count: number, unique: number) => string> = {
   read: (_count, unique) => `看了 ${unique} 个文件`,
   edit: (_count, unique) => `改了 ${unique} 个文件`,
-  search: (count) => `搜了 ${count} 次代码`,
+  search: (count) => `翻了 ${count} 次代码`,
   bash: (count) => `跑了 ${count} 次命令`,
   web: (count) => `查了 ${count} 次资料`,
   fetch: (count) => `看了 ${count} 个网页`,

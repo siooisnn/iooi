@@ -371,6 +371,28 @@
   box-shadow: none;
 }
 
+:root[data-theme] .app-bg .chat-container[data-chat-ui="xp"][data-chat-view="room"] > .chat-messages.xp-log-dots .msg-content-ai > .reply-steps {
+  max-width: 100%;
+  padding: 0 4px;
+}
+
+/* Steps between the name and the reply: the pill tab stops overlapping and sits just above, like over a photo. */
+:root[data-theme] .app-bg .chat-container[data-chat-ui="xp"][data-chat-view="room"] > .chat-messages.xp-log-dots .xp-dots-tag:has(+ .reply-steps) {
+  margin-bottom: 2px;
+}
+
+:root[data-theme] .app-bg .chat-container[data-chat-ui="xp"][data-chat-view="room"] > .chat-messages.xp-log-dots .msg-content-ai > .reply-steps + :is(.msg-bubble, .msg-bubble-img) {
+  margin-top: 3px;
+}
+
+:root[data-theme] .app-bg .chat-container[data-chat-ui="xp"][data-chat-view="room"] > .chat-messages.xp-log-brick .xp-dots-tag:has(+ .reply-steps) {
+  margin-bottom: 0;
+}
+
+:root[data-theme] .app-bg .chat-container[data-chat-ui="xp"][data-chat-view="room"] > .chat-messages.xp-log-brick .msg-content-ai > .reply-steps {
+  padding: 0;
+}
+
 /* ━━ Composer: dayday's bottom strip ━━ */
 :root[data-theme] .app-bg .chat-container[data-chat-ui="xp"][data-chat-view="room"] > .chat-footer.xp-chat-footer-dots {
   border-top-color: #e2bcd0;

@@ -27,7 +27,8 @@ function StepTime({ step, now }: { step: ReplyStep; now: number }) {
   // A thinking step already says how long in its own label.
   if (step.kind === "think" && step.ms !== undefined) return null;
   const ms = step.ms ?? Math.max(0, now - step.t);
-  return <span className="reply-step-time">{formatStepMs(ms)}</span>;
+  // Right after the label, the way "想了 5 秒" reads, not pushed to the far edge.
+  return <span className="reply-step-time">· {formatStepMs(ms)}</span>;
 }
 
 function StepList({ steps, now }: { steps: ReplyStep[]; now: number }) {

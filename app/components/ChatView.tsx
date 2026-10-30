@@ -1231,6 +1231,13 @@ export function ChatView({
             ? artworkChunks(message.content) : [];
           const detachedArtwork = artworkParts.some((chunk) => chunk.kind === "code" && chunk.artwork);
           const hasArtworkText = !detachedArtwork || artworkParts.some((chunk) => chunk.kind === "text" && chunk.text.trim());
+          const stepsBlock = message.role === "assistant" && message.steps?.length ? (
+            dotBubbles
+              ? <ReplyStepsBlock steps={message.steps} mode={message.source?.startsWith("code_task_") ? "work" : "chat"} />
+              : <div className="thinking-row">
+                  <ReplyStepsBlock steps={message.steps} mode={message.source?.startsWith("code_task_") ? "work" : "chat"} />
+                </div>
+          ) : null;
 
           return (
             <div key={index}>
@@ -1254,11 +1261,7 @@ export function ChatView({
                   <ThinkingBlock content={message.thinking} />
                 </div>
               )}
-              {message.role === "assistant" && message.steps?.length ? (
-                <div className="thinking-row">
-                  <ReplyStepsBlock steps={message.steps} mode={message.source?.startsWith("code_task_") ? "work" : "chat"} />
-                </div>
-              ) : null}
+              {!dotBubbles && stepsBlock}
               <div className={`msg-row ${message.role === "user" ? "msg-row-user" : "msg-row-ai"} ${isSummerUtility ? "msg-row-summer-utility" : ""} ${compactTop ? "msg-row-compact-top" : ""} ${compactBottom ? "msg-row-compact-bottom" : ""} ${animateMessage ? "" : "msg-row-static"}${dotBubbles && showSays ? " msg-row-says" : ""}`} style={animateMessage ? { animationDelay: `${Math.min(index * 0.03, 0.3)}s` } : undefined}>
                 {message.role === "assistant" && !isSummerUtility && (
                   assistantAvatar
@@ -1267,6 +1270,8 @@ export function ChatView({
                 )}
                 <div className={message.role === "user" ? "msg-content-user" : "msg-content-ai"}>
                   {dotBubbles && showSays && dotsTag(message.role === "user", message.time)}
+                  {/* Card themes: the steps sit under the name, inside the reply's own column. */}
+                  {dotBubbles && stepsBlock}
                   {!listEntryMode && <span className="msg-time">{message.source === "heartbeat" ? "💬 " : ""}{message.time}</span>}
                   {messageImages(message).length ? (
                     <>
@@ -1378,7 +1383,7 @@ export function ChatView({
           <div key={note.id} className="xp-msg-nudge" role="status">{note.text}</div>
         ))}
         {retro && !dotBubbles && streamingReply && <div className="xp-msg-says xp-msg-says-ai">{saysAvatar(false)}{assistantName} 说:</div>}
-        {loading && !developmentMode && liveSteps.length > 0 && (
+        {!dotBubbles && loading && !developmentMode && liveSteps.length > 0 && (
           <div className="thinking-row"><ReplyStepsSoFar steps={liveSteps} /></div>
         )}
         {streamingReply && (
@@ -1389,6 +1394,7 @@ export function ChatView({
             }
             <div className="msg-content-ai">
               {dotBubbles && dotsTag(false)}
+              {dotBubbles && loading && !developmentMode && <ReplyStepsSoFar steps={liveSteps} />}
               <div className="msg-bubble msg-bubble-ai msg-bubble-streaming" aria-live="polite">
                 {renderContent(streamingReply)}
               </div>
@@ -1403,6 +1409,7 @@ export function ChatView({
               : <div className="avatar avatar-ai" />
             }
             <div className="msg-content-ai">
+              {dotBubbles && loading && !streamingReply && !developmentMode && <ReplyStepsSoFar steps={liveSteps} />}
               <div className={`msg-bubble msg-bubble-ai reply-status-bubble reply-status-${replyRequestState}${workSteps.length ? " reply-status-steps" : ""}`} aria-live="polite">
                 {loading && <TypingKitty />}
                 {workSteps.length ? <ReplyStepsLive steps={workSteps} /> : (

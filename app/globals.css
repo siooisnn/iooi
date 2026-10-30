@@ -2969,8 +2969,6 @@ body {
 
 .reply-step-time {
   flex: none;
-  margin-left: auto;
-  padding-left: 8px;
   font-variant-numeric: tabular-nums;
   opacity: 0.7;
 }

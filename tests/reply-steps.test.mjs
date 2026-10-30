@@ -104,7 +104,7 @@ test("work steps name files and commands, never code, and merge repeats", () => 
     "想了 5 秒",
     "看了 route.ts ×2",
     "改了 claude-code.ts",
-    "搜了代码",
+    "翻了代码",
     "跑了测试",
     "跑了命令：List app folder",
     "压缩了上下文",
@@ -113,7 +113,7 @@ test("work steps name files and commands, never code, and merge repeats", () => 
   assert.ok(!text.includes("const a"));
   assert.ok(!text.includes("PRIVATE_TOKEN"));
   assert.ok(!text.includes("/home/x"));
-  assert.equal(summarizeSteps(done, "work"), "忙了 39 秒 · 看了 1 个文件 · 改了 1 个文件 · 搜了 1 次代码 · 跑了 2 次命令 · 压缩了上下文");
+  assert.equal(summarizeSteps(done, "work"), "忙了 39 秒 · 看了 1 个文件 · 改了 1 个文件 · 翻了 1 次代码 · 跑了 2 次命令 · 压缩了上下文");
 });
 
 test("parallel tools stay running until each one returns", () => {
