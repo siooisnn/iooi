@@ -26,6 +26,9 @@ import {
   summerWritesFromSnapshot,
 } from "@/app/lib/summer-write-dedupe";
 import { existsSync, readFileSync } from "fs";
+import { chatFileNotes } from "@/app/lib/chat-files";
+import { exportWritingFiles, snapshotWritingFiles, type WritingSnapshot } from "@/app/lib/writing-files";
+import type { WritingFile } from "@/app/lib/writing-file-types";
 import { basename, extname, resolve, sep } from "path";
 import { after } from "next/server";
 
@@ -39,7 +42,7 @@ function cstTime() {
 function cstToday() {
   return new Date().toLocaleDateString("zh-CN", { timeZone: "Asia/Shanghai" });
 }
-type StoreMsg = { role: string; content: string; time?: string; date?: string; thinking?: string; image?: string; images?: string[]; file?: string; source?: string; roundId?: string; speaker?: "claude" | "gpt"; proposal?: SummerWrite; blog?: BlogCard; ledger?: LedgerCard };
+type StoreMsg = { role: string; content: string; time?: string; date?: string; thinking?: string; image?: string; images?: string[]; file?: string; fileName?: string; writingFiles?: WritingFile[]; source?: string; roundId?: string; speaker?: "claude" | "gpt"; proposal?: SummerWrite; blog?: BlogCard; ledger?: LedgerCard };
 type TextBlock = {
   type: "text";
   text: string;
@@ -59,6 +62,7 @@ type ChatRequestMessage = {
   image?: string;
   images?: string[];
   file?: string;
+  fileName?: string;
 };
 
 const CLAUDE_IMAGE_TYPES: Record<string, ImageBlock["source"]["media_type"]> = {
@@ -727,6 +731,7 @@ async function persistRound(
   blogCards: BlogCard[] = [],
   ledgerCards: LedgerCard[] = [],
   stickers: Sticker[] = [],
+  writingFiles: WritingFile[] = [],
 ) {
   const stamp = { time: cstTime(), date: cstToday() };
   if (!sessionId || (!reply && !nudge && !blogCards.length && !ledgerCards.length && !stickers.length)) return stamp;
@@ -780,6 +785,7 @@ async function persistRound(
           role: "assistant", content: c, time: now, date: today, roundId: userMsg?.roundId,
           ...(replySource ? { source: replySource } : {}),
           ...(i === 0 && thinkingContent ? { thinking: thinkingContent } : {}),
+          ...(i === 0 && writingFiles.length ? { writingFiles } : {}),
         });
       });
       for (const sticker of stickers) {
@@ -978,7 +984,7 @@ export async function POST(request: Request) {
       || !userMsg || typeof userMsg.content !== "string" || (!userMsg.content.trim() && !taskImageUrls.length)
       || userMsg.content.length > 12_000 || userMsg.file
       || requestMessages.some((message) => message.file || messageImages(message).length)) {
-      return Response.json({ reply: "开发任务内容无效；请选择 iooi 或 Summer，发送文字或图片（不支持文件）。" }, { status: 400 });
+      return Response.json({ reply: "工作任务内容无效；请选择工作项目，发送文字或图片。写写的模板请预先放入工作文件夹。" }, { status: 400 });
     }
     let taskImages: ImageBlock[] = [];
     let taskImageBytes = 0;
@@ -1036,31 +1042,54 @@ export async function POST(request: Request) {
     const heartbeat = setInterval(() => emit({ type: "heartbeat" }), 15_000);
     const job = (async () => {
       let progressWrites = Promise.resolve();
+      let writingBefore: WritingSnapshot | null = null;
+      let writingFiles: WritingFile[] = [];
+      let exportNote = "";
+      const attachWritingOutputs = async () => {
+        if (!writingBefore) return "";
+        try {
+          const exported = await exportWritingFiles(writingBefore);
+          writingFiles = exported.files;
+          return exported.warnings.join("\n");
+        } catch {
+          return "本轮文档的下载附件暂未生成；工作文件仍保留在写写文件夹，可以稍后重试导出。";
+        }
+      };
       try {
-        const reply = await runClaudeCodeTask({
+        const taskReply = await runClaudeCodeTask({
           project: codeMode.project,
           instruction: userMsg.content.trim(),
           images: taskImages,
           history: taskHistory,
           sessionId,
           modelId: String(modelId || "claude-sonnet-5"),
+          onBeforeTask: async () => {
+            if (codeMode.project === "writing") writingBefore = await snapshotWritingFiles();
+          },
+          onAfterTask: async () => {
+            exportNote = await attachWritingOutputs();
+          },
           onProgress: (progress) => {
             emit({ type: "progress", text: progress });
             progressWrites = progressWrites.then(() => updateCodeTask(sessionId, taskId, "running", progress));
           },
         });
         await progressWrites;
-        const stamp = await persistRound(sessionId, userMsg, reply, "", [], [], taskSource, true);
+        const reply = [taskReply, exportNote].filter(Boolean).join("\n\n");
+        const stamp = await persistRound(sessionId, userMsg, reply, "", [], [], taskSource, true, false, [], [], [], writingFiles);
         await updateCodeTask(sessionId, taskId, "done", "任务已完成");
-        emit({ type: "done", status: 200, reply, cache: {
+        emit({ type: "done", status: 200, reply, writingFiles, cache: {
           backend: "claude-code", reply_persisted_time: stamp.time, reply_persisted_date: stamp.date,
         } });
       } catch (error) {
-        const reply = error instanceof Error ? error.message : "开发任务失败";
+        const failure = error instanceof Error ? error.message : "开发任务失败";
         await progressWrites.catch(() => {});
-        await persistRound(sessionId, userMsg, `开发任务未完成：${reply}`, "", [], [], taskSource, true);
+        const reply = [failure, exportNote].filter(Boolean).join("\n\n");
+        const stamp = await persistRound(sessionId, userMsg, `开发任务未完成：${reply}`, "", [], [], taskSource, true, false, [], [], [], writingFiles);
         await updateCodeTask(sessionId, taskId, "error", `任务未完成：${reply}`);
-        emit({ type: "error", status: 502, reply });
+        emit({ type: "error", status: 502, reply, writingFiles, cache: {
+          reply_persisted_time: stamp.time, reply_persisted_date: stamp.date,
+        } });
       } finally {
         clearInterval(heartbeat);
         const activeController = controller as ReadableStreamDefaultController<Uint8Array> | null;
@@ -1087,10 +1116,6 @@ export async function POST(request: Request) {
     userPersistMs = Date.now() - persistStartedAt;
   }
 
-  if (requestMessages.some((message) => message.file)) {
-    logChatTiming({ status: "rejected_file", total_ms: Date.now() - requestStartedAt, user_persist_ms: userPersistMs });
-    return Response.json({ reply: "酥酥的订阅文件还在接入中；这条消息没有转用 API。" }, { status: 422 });
-  }
   if (!isClaudeCodeEnabled()) {
     logChatTiming({ status: "disabled", total_ms: Date.now() - requestStartedAt, user_persist_ms: userPersistMs });
     return Response.json({ reply: "Claude 订阅通道暂时不可用；这条消息没有转用 API。" }, { status: 503 });
@@ -1282,14 +1307,16 @@ export async function POST(request: Request) {
     blogNote,
   ].filter(Boolean).join("\n\n");
 
-  // 图片只从 iooi 自己的 uploads 目录读取并交给 Claude 订阅；文件仍明确拒绝，不会切换到 API。
+  const fileNotes = await chatFileNotes(requestMessages);
+  // Extract attachments into the model-bound copy, never into saved chat text.
   const anthropicMessages: Array<{ role: string; content: string | Array<TextBlock | ImageBlock> }> = requestMessages.map((msg, index) => {
     const urls = messageImages(msg);
+    const messageText = [String(msg.content || ""), msg.file ? fileNotes.get(msg.file) : ""].filter(Boolean).join("\n\n");
     if (index < roundStart) {
       const note = urls.length
         ? `【系统提示：这条较早消息当时附了${urls.length > 1 ? ` ${urls.length} 张` : "一张"}图片，之前那一轮已经看过，本轮不再重复附带；她这次没有新发图片。】`
         : "";
-      return { role: msg.role, content: [String(msg.content || ""), note].filter(Boolean).join("\n") };
+      return { role: msg.role, content: [messageText, note].filter(Boolean).join("\n") };
     }
     const attached = urls.flatMap((url) => {
       const image = imageBlocks.get(url);
@@ -1301,7 +1328,7 @@ export async function POST(request: Request) {
       const which = urls.length > 1 ? `第 ${index + 1} 张图片` : "这张图片";
       return [`【系统提示：${which}没有随本轮请求发送（${reason}）。请不要声称已经看到它。】`];
     });
-    const text = [String(msg.content || ""), ...unavailableNotes].filter(Boolean).join("\n");
+    const text = [messageText, ...unavailableNotes].filter(Boolean).join("\n");
     if (!attached.length) {
       return { role: msg.role, content: text };
     }

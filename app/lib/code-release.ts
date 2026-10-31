@@ -36,8 +36,8 @@ export function readCodeReleaseState(sessionId: string): CodeReleaseState | null
 }
 
 export async function startCodeRelease(action: CodeReleaseAction, project: CodeProject, sessionId: string, taskId: string) {
-  if (action === "deploy" && !canDeployCodeProject(project)) {
-    throw new Error("未知项目无法部署");
+  if (!canDeployCodeProject(project)) {
+    throw new Error(project === "writing" ? "写写保存的是论文文档，无需部署，也不会推送到 GitHub。" : "未知项目无法部署或推送");
   }
   if (!/^[a-zA-Z0-9_-]{1,100}$/.test(sessionId) || !/^[a-zA-Z0-9_-]{1,100}$/.test(taskId)) {
     throw new Error("发布任务标识无效");

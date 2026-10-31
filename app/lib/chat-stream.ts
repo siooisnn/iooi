@@ -1,8 +1,11 @@
+import type { WritingFile } from "./writing-file-types";
+
 export type StreamReply = {
   nudge?: boolean;
   reply?: string;
   thinking?: string;
   status?: number;
+  writingFiles?: WritingFile[];
   cache?: Record<string, unknown>;
 };
 

@@ -1,5 +1,6 @@
 import type { Sticker } from "./stickers";
 import type { LedgerCard } from "./dayday-markers";
+import type { WritingFile } from "./writing-file-types";
 
 // ━━━━━━━━━━━━━━━ Types ━━━━━━━━━━━━━━━
 export type Message = {
@@ -10,6 +11,8 @@ export type Message = {
   image?: string;
   images?: string[];
   file?: string;
+  fileName?: string;
+  writingFiles?: WritingFile[];
   thinking?: string;
   source?: string;
   roundId?: string;

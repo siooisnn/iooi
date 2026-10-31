@@ -1,6 +1,7 @@
 import { writeFileSync, existsSync, mkdirSync } from "fs";
 import { join } from "path";
 import { inspectAudioUpload } from "@/app/lib/audio-upload";
+import { extractChatFile, isChatFileExtension } from "@/app/lib/chat-files";
 
 const UPLOAD_DIR = join(process.cwd(), "uploads");
 const MAX_SIZE = 10 * 1024 * 1024;
@@ -11,6 +12,7 @@ const ALLOWED_TYPES: Record<string, string> = {
   "image/gif": "gif",
   "image/webp": "webp",
   "application/pdf": "pdf",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document": "docx",
   "text/plain": "txt",
   "text/markdown": "md",
   "text/csv": "csv",
@@ -33,7 +35,7 @@ function fileExtension(file: File) {
   if (byType) return byType;
   const byName = file.name.split(".").pop()?.toLowerCase() || "";
   return !file.type || file.type === "application/octet-stream"
-    ? AUDIO_EXTENSIONS.has(byName) ? byName : undefined
+    ? AUDIO_EXTENSIONS.has(byName) || ["pdf", "docx", "txt", "md", "csv"].includes(byName) ? byName : undefined
     : undefined;
 }
 
@@ -55,13 +57,25 @@ export async function POST(request: Request) {
     let ext = fileExtension(file);
     if (!ext) {
       return Response.json(
-        { error: "不支持的文件类型，支持：图片、PDF、TXT、MD、CSV、MP3、M4A、AAC、WAV" },
+        { error: "不支持的文件类型，支持：图片、PDF、DOCX、TXT、MD、CSV、MP3、M4A、AAC、WAV；旧版 DOC 请另存为 DOCX" },
         { status: 415 }
       );
     }
 
     const buffer = Buffer.from(await file.arrayBuffer());
-    let type = file.type;
+    let warning: string | undefined;
+    if (isChatFileExtension(ext)) {
+      try {
+        const text = await extractChatFile(buffer, ext);
+        if (text.includes("【文件过长")) warning = "文件较长，聊天时最多读取前 10 万字。";
+      } catch (error) {
+        const reason = error instanceof Error ? error.message : "";
+        return Response.json({ error: /^(文件|PDF|这份 PDF)/.test(reason) ? reason : "文件无法读取，请检查是否损坏、加密，或另存为 PDF / DOCX 后重试" }, { status: 422 });
+      }
+    }
+    let type = Object.entries(ALLOWED_TYPES).find(([mime, extension]) => mime === file.type && extension === ext)?.[0]
+      || Object.entries(ALLOWED_TYPES).find(([, extension]) => extension === ext)?.[0]
+      || "application/octet-stream";
     if (AUDIO_EXTENSIONS.has(ext)) {
       const audio = inspectAudioUpload(buffer);
       if ("error" in audio) return Response.json(audio, { status: 415 });
@@ -79,6 +93,7 @@ export async function POST(request: Request) {
       name: file.name,
       size: file.size,
       type,
+      ...(warning ? { warning } : {}),
     });
   } catch {
     return Response.json({ error: "上传失败" }, { status: 500 });

@@ -47,8 +47,16 @@ export function stripObjectPlaceholders(text: string) {
 
 // Server-side cleanup for every incoming chat message, including history
 // saved before placeholders were stripped in the browser.
-export function sanitizeIncomingMessage<T extends { content?: unknown; image?: unknown; images?: unknown }>(message: T): T {
+export function sanitizeIncomingMessage<T extends { content?: unknown; image?: unknown; images?: unknown; file?: unknown; fileName?: unknown }>(message: T): T {
   const next = sanitizeMessageImages(message);
+  if (next.file !== undefined) {
+    if (!isUploadUrl(next.file)) {
+      delete next.file;
+      delete next.fileName;
+    } else if (typeof next.fileName === "string") {
+      next.fileName = next.fileName.replace(/\p{Cc}/gu, "").slice(0, 240);
+    } else delete next.fileName;
+  }
   return typeof next.content === "string"
     ? { ...next, content: stripObjectPlaceholders(next.content) }
     : next;

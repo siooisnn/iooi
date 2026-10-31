@@ -32,6 +32,7 @@ import { genId, getChatStatusLabel, hasLaterUserMessage, isSummerUtilityMessage,
 import { apiFetch, saveLocal, syncGptToServer, syncToServer } from "../lib/client-api";
 import { CollapsibleSummerCard, ThinkingBlock, renderContent } from "./ChatContent";
 import { ChatArtwork } from "./ChatArtwork";
+import { WritingDownloads } from "./WritingDownloads";
 import { artworkChunks, splitChatReply } from "../lib/artworks";
 import { ChatGlyph } from "./RetroDesktop";
 import { NUDGE_USER_TEXT, NUDGE_REPLY_TEXT } from "../lib/chat-nudge";
@@ -567,7 +568,7 @@ export function ChatView({
     const userText = draft.content.trim() || !pendingFile ? draft.content : `📄 ${pendingFile.name}`;
     const userMsg: Message = { role: "user", content: userText, time: getTime(), date: getTodayStr(),
       ...imageFields(sendable.filter((item) => item.kind === "image").map((item) => item.url)),
-      ...(pendingFile ? { file: pendingFile.url } : {}),
+      ...(pendingFile ? { file: pendingFile.url, fileName: pendingFile.name } : {}),
       ...(!isGpt ? { roundId: genId() } : {}),
       ...(codeRequest ? { source: `code_task_${developmentProject}` } : {}),
       ...(nudge ? { source: "chat_nudge" } : {}),
@@ -616,7 +617,7 @@ export function ChatView({
             role: m.role,
             // He sees what the blog did, marked so he does not mistake it for something he said.
             content: m.source === "ledger_card" ? `【系统记录：dayday，以当前账本为准，id=${m.ledger?.targetId || ""}】${m.content}` : m.source === "dayday_card" ? `【系统记录：旧 dayday】${m.content}` : m.source === "blog_card" ? `【系统记录：博客】${m.content}` : m.content,
-            ...imageFields(messageImages(m)), ...(m.file ? { file: m.file } : {}),
+            ...imageFields(messageImages(m)), ...(m.file ? { file: m.file, fileName: m.fileName } : {}),
           };
         }),
       ];
@@ -695,6 +696,16 @@ export function ChatView({
       setStreamingReply("");
       const responseStatus = typeof data.status === "number" ? data.status : res.status;
       if (!res.ok || responseStatus >= 400) {
+        if (codeRequest && developmentProject === "writing" && data.writingFiles?.length) {
+          const savedParts = `开发任务未完成：${data.reply || "任务没有完成"}`.split(/\n{2,}/).filter((part: string) => part.trim());
+          const partialMessages: Message[] = savedParts.map((part: string, index: number) => ({
+            role: "assistant", source: "code_task_writing", content: part.trim(), roundId: userMsg.roundId,
+            time: data.cache?.reply_persisted_time || getTime(), date: data.cache?.reply_persisted_date || getTodayStr(),
+            ...(index === 0 ? { writingFiles: data.writingFiles } : {}),
+          }));
+          sessionMessagesRef.current = mergeChatMessages(sessionMessagesRef.current, partialMessages);
+          updateMessages((current) => mergeChatMessages(current, partialMessages));
+        }
         throw new Error(data.reply || "模型请求没有完成");
       }
       if (data.cache) {
@@ -760,6 +771,7 @@ export function ChatView({
         time: now,
         date: today,
         ...(i === 0 && thinkingContent ? { thinking: thinkingContent } : {}),
+        ...(i === 0 && data.writingFiles?.length ? { writingFiles: data.writingFiles } : {}),
       }));
       if (controller.signal.aborted || activeReplyRequestRef.current?.id !== requestId || hasLaterUserMessage(sessionMessagesRef.current, userMsg)) {
         return;
@@ -821,7 +833,7 @@ export function ChatView({
     picker.value = "";
     if (!picked.length || uploadingRef.current || loading) return;
 
-    const allowFiles = isGpt && !developmentMode;
+    const allowFiles = !developmentMode;
     const notes: string[] = [];
     let imageSlots = MAX_IMAGES_PER_MESSAGE - attachments.filter((item) => item.kind === "image").length;
     let fileSlot = allowFiles && !attachments.some((item) => item.kind === "file");
@@ -858,6 +870,7 @@ export function ChatView({
           const res = await apiFetch("/api/upload", { method: "POST", body: formData });
           const data = await res.json();
           if (!res.ok || !data.url) throw new Error(data.error || "上传失败");
+          if (data.warning) messages.push(`${original.name}：${data.warning}`);
           setAttachments((current) => [...current, {
             id: genId(),
             kind: isImage ? "image" : "file",
@@ -1143,7 +1156,7 @@ export function ChatView({
                 </button>
               </div>
               {developmentMode && <>
-                <div className="chat-config-options" role="group" aria-label="开发项目">
+                <div className="chat-config-options" role="group" aria-label="工作项目">
                   {CODE_PROJECTS.map((project) => (
                     <button type="button" key={project} disabled={loading}
                       className={`chat-config-option${developmentProject === project ? " chat-config-option-active" : ""}`}
@@ -1153,13 +1166,15 @@ export function ChatView({
                     </button>
                   ))}
                 </div>
-                <p className="settings-hint">{developmentProject === "iooiblog"
+                <p className="settings-hint">{developmentProject === "writing"
+                  ? "在写写文件夹里读取模板、新建和修改论文文档。原始模板保留，草稿另存；文件保存在服务器，不会自动同步桌面文件夹。"
+                  : developmentProject === "iooiblog"
                   ? "iooiblog 在独立服务器发布。改完后单独发送“部署”或“推送到 GitHub”；两项操作分别执行。"
                   : "开发对话与普通聊天各用自己的上下文。改完后单独发送“部署”或“推送到 GitHub”；只有收到明确指令才执行。"}</p>
               </>}
             </section>
           )}
-          {!isGpt && <p className="settings-hint room-settings-capability-hint">订阅图片和搜索已接入；文件稍后开放。</p>}
+          {!isGpt && <p className="settings-hint room-settings-capability-hint">支持图片、PDF、Word（DOCX）、TXT、MD 和 CSV；文件最多 10MB，读取其中的文字。</p>}
         </div>
       )}
 
@@ -1246,6 +1261,9 @@ export function ChatView({
                 <div className={message.role === "user" ? "msg-content-user" : "msg-content-ai"}>
                   {dotBubbles && showSays && dotsTag(message.role === "user", message.time)}
                   {!listEntryMode && <span className="msg-time">{message.source === "heartbeat" ? "💬 " : ""}{message.time}</span>}
+                  {message.file && <a className={`msg-bubble chat-file-card ${message.role === "user" ? "msg-bubble-user" : "msg-bubble-ai"}`} href={message.file} target="_blank" rel="noreferrer" download={message.fileName || true}>
+                    📄 {message.fileName || "文件附件"} <span aria-hidden>↓</span>
+                  </a>}
                   {messageImages(message).length ? (
                     <>
                     {dotBubbles && message.content && message.source !== "sticker" && (
@@ -1266,7 +1284,7 @@ export function ChatView({
                     </>
                   ) : (
                     <>
-                    {hasArtworkText && <div
+                    {hasArtworkText && (!message.file || message.content !== `📄 ${message.fileName}`) && <div
                       className={`msg-bubble ${message.role === "user" ? "msg-bubble-user" : "msg-bubble-ai"} ${isSummerUtility ? "msg-bubble-summer-utility" : ""} ${message.source === "summer_call" ? "msg-bubble-summer-call" : ""} ${message.source === "summer_write_proposal" || message.source === "summer_write_committed" ? "msg-bubble-summer-write" : ""}`}
                     >
                       {message.source === "summer_write_proposal" && editingProposalIndex === index && proposalDraft ? (
@@ -1325,6 +1343,7 @@ export function ChatView({
                     {detachedArtwork && <div className="msg-detached-artwork"><ChatArtwork content={message.content} part="cards" /></div>}
                     </>
                   )}
+                  {message.source === "code_task_writing" && Boolean(message.writingFiles?.length) && <WritingDownloads files={message.writingFiles!} />}
                 </div>
                 {speakRuns.has(index) && (() => {
                   const run = speakRuns.get(index)!;
@@ -1435,10 +1454,10 @@ export function ChatView({
                 type="file"
                 multiple
                 className="attach-file-input"
-                accept={isGpt ? "image/*,application/pdf,.txt,.md,.csv" : "image/*"}
+                accept={developmentMode ? "image/*" : "image/*,application/pdf,.pdf,.docx,.txt,.md,.csv"}
                 disabled={uploading || loading}
                 onChange={(event) => void uploadFile(event)}
-                aria-label={isGpt ? "上传图片或文件" : "上传图片"}
+                aria-label={developmentMode ? "上传图片" : "上传图片或文件"}
               />
               <button type="button" className="xp-chat-tool" onClick={() => fileInputRef.current?.click()} disabled={uploading || loading}>
                 <svg viewBox="0 0 16 16" aria-hidden="true">
@@ -1446,7 +1465,7 @@ export function ChatView({
                   <path d="M2.5 12l3.6-4 2.6 2.7 1.8-1.8 3 3.1z" fill="#4caf3a" />
                   <circle cx="11" cy="6" r="1.4" fill="#f5b800" />
                 </svg>
-                <span>{uploading ? "上传中…" : isGpt ? "文件" : "图片"}</span>
+                <span>{uploading ? "上传中…" : developmentMode ? "图片" : "文件"}</span>
               </button>
               <button type="button" className="xp-chat-tool" onClick={() => sendNudge(Date.now())} disabled={loading || uploading || (!isGpt && developmentMode)} title="发送闪屏振动">
                 <svg viewBox="0 0 16 16" aria-hidden="true">
@@ -1494,20 +1513,18 @@ export function ChatView({
               type="file"
               multiple
               className="attach-file-input"
-              accept={isGpt
-                ? "image/*,application/pdf,.txt,.md,.csv"
-                : "image/*"}
+              accept={developmentMode ? "image/*" : "image/*,application/pdf,.pdf,.docx,.txt,.md,.csv"}
               disabled={uploading || loading}
               onChange={(event) => void uploadFile(event)}
-              aria-label={isGpt ? "上传图片或文件" : "上传图片"}
+              aria-label={developmentMode ? "上传图片" : "上传图片或文件"}
             />
             <button
               type="button"
               className={`attach-btn attach-btn-separate${uploading ? " attach-btn-uploading" : ""}`}
               onClick={() => fileInputRef.current?.click()}
               disabled={uploading || loading}
-              aria-label={uploading ? "正在上传" : (isGpt ? "上传图片或文件" : "上传图片")}
-              title={uploading ? "正在上传" : (isGpt ? "上传图片或文件" : "上传图片")}
+              aria-label={uploading ? "正在上传" : (developmentMode ? "上传图片" : "上传图片或文件")}
+              title={uploading ? "正在上传" : (developmentMode ? "上传图片" : "上传图片或文件")}
             >
               {uploading ? (
                 <span className="attach-upload-spinner" />

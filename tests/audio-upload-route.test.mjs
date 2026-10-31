@@ -1,18 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { registerHooks } from "node:module";
+import "./helpers/resolve-typescript.mjs";
 import { mkdtempSync, readdirSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 const root = mkdtempSync(join(tmpdir(), "iooi-audio-upload-test-"));
 const originalDirectory = process.cwd();
-registerHooks({ resolve(specifier, context, nextResolve) {
-  if (specifier === "@/app/lib/audio-upload") {
-    return { url: new URL("../app/lib/audio-upload.ts", import.meta.url).href, shortCircuit: true };
-  }
-  return nextResolve(specifier, context);
-} });
 process.chdir(root);
 const { POST } = await import("../app/api/upload/route.ts");
 process.chdir(originalDirectory);

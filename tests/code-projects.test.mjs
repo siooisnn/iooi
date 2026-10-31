@@ -28,22 +28,31 @@ test("saved blog project survives reload and another device can recover it from 
     { role: "user" }]), undefined);
 });
 
-test("three project histories stay isolated from each other, normal chat and the current round", () => {
+test("source and writing project histories stay isolated from each other, normal chat and the current round", () => {
   const records = [
     { role: "user", content: "private chat" },
-    ...["iooi", "summer", "iooiblog"].map((project) => ({ role: "assistant", content: project, source: `code_task_${project}` })),
+    ...["iooi", "summer", "iooiblog", "writing"].map((project) => ({ role: "assistant", content: project, source: `code_task_${project}` })),
     { role: "user", content: "current", source: "code_task_iooiblog", roundId: "current" },
   ];
-  for (const project of ["iooi", "summer", "iooiblog"]) {
+  for (const project of ["iooi", "summer", "iooiblog", "writing"]) {
     assert.equal(isCodeProject(project), true);
     assert.deepEqual(workContextHistory(records, project, "current").map((message) => message.content), [project]);
   }
   for (const value of [null, "../iooi", "constructor", "IOOIBLOG"]) assert.equal(isCodeProject(value), false);
 });
 
-test("all registered projects can deploy, while unknown projects are rejected before spawning a worker", async () => {
+test("source projects can deploy, while writing and unknown projects never spawn a release worker", async () => {
   assert.equal(canDeployCodeProject("iooi"), true);
   assert.equal(canDeployCodeProject("summer"), true);
   assert.equal(canDeployCodeProject("iooiblog"), true);
+  assert.equal(canDeployCodeProject("writing"), false);
+  await assert.rejects(startCodeRelease("deploy", "writing", "writing-test", "writing-test"), /论文文档/);
+  await assert.rejects(startCodeRelease("push", "writing", "writing-test", "writing-test"), /不会推送/);
   await assert.rejects(startCodeRelease("deploy", "../../iooi", "blog-unsupported-test", "blog-unsupported-test"), /未知项目/);
+  await assert.rejects(startCodeRelease("push", "../../iooi", "blog-unsupported-test", "blog-unsupported-test"), /未知项目/);
+});
+
+test("writing mode is recovered from its own last work turn", () => {
+  assert.deepEqual(inferDevelopmentModePref([{ role: "assistant", source: "code_task_writing" }]),
+    { enabled: true, project: "writing" });
 });

@@ -4,6 +4,7 @@ export type ChatContextMessage = {
   image?: string;
   images?: string[];
   file?: string;
+  fileName?: string;
 };
 
 export type ChatContextMode = "full-window" | "rolling-summary";
@@ -66,7 +67,7 @@ export function buildChatContext(
   contextMessages = contextMessages.map((message, index) => (
     index >= keepMediaFrom
       ? message
-      : { role: message.role, content: message.content }
+      : { role: message.role, content: message.content, ...(message.file ? { file: message.file, fileName: message.fileName } : {}) }
   ));
 
   const contextUserTurns = contextMessages.filter((message) => message.role === "user").length;

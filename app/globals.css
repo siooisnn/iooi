@@ -3344,3 +3344,13 @@ body {
 .msg-blog-card-icon { flex: none; }
 .msg-blog-card-text { min-width: 0; overflow-wrap: anywhere; }
 .msg-blog-card-go { flex: none; color: var(--text-secondary); font-size: 12px; white-space: nowrap; }
+
+/* Downloadable chat attachments follow the current bubble theme. */
+.chat-file-card { display: block; max-width: 100%; overflow-wrap: anywhere; text-decoration: none; margin-bottom: 4px; }
+
+.writing-downloads { display: grid; gap: 6px; margin-top: 6px; max-width: 100%; }
+.writing-download-card { display: flex; align-items: center; gap: 10px; width: 100%; min-width: 0; text-align: left; cursor: pointer; font: inherit; }
+.writing-download-card:disabled { opacity: .65; cursor: wait; }
+.writing-download-info { display: grid; gap: 3px; min-width: 0; flex: 1; overflow-wrap: anywhere; white-space: normal; }
+.writing-download-info small { font-size: 11px; opacity: .7; }
+.writing-download-action { flex-shrink: 0; font-size: 12px; text-decoration: underline; }

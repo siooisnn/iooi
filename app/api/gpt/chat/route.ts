@@ -1,7 +1,7 @@
 import { existsSync, readFileSync } from "fs";
 import { ARTWORK_CHAT_PROMPT, splitChatReply } from "@/app/lib/artworks";
 import { join } from "path";
-import * as iconv from "iconv-lite";
+import { chatFileNotes } from "@/app/lib/chat-files";
 import { withGptStore } from "@/app/lib/store";
 import { allowedGptApiId, DEFAULT_GPT_MODEL } from "@/app/lib/gpt-models";
 import { imageKey, messageImages, sanitizeIncomingMessage } from "@/app/lib/message-images";
@@ -14,6 +14,7 @@ type StoreMessage = {
   image?: string;
   images?: string[];
   file?: string;
+  fileName?: string;
   source?: string;
   proposal?: SummerWrite;
 };
@@ -59,7 +60,6 @@ type SummerWrite = {
 
 const SUMMER_WRITE_RE = /\[summer_remember([^\]]*)\]([\s\S]*?)\[\/summer_remember\]/gi;
 const REASONING_EFFORTS = new Set(["none", "low", "medium", "high", "xhigh", "max"]);
-const TEXT_EXTS = new Set(["txt", "md", "csv", "json", "js", "ts", "html", "css", "py", "java", "xml", "yml", "yaml", "log"]);
 const IMAGE_MIME_TYPES: Record<string, string> = {
   jpg: "image/jpeg",
   jpeg: "image/jpeg",
@@ -77,15 +77,6 @@ function cstToday() {
   return new Date().toLocaleDateString("zh-CN", { timeZone: "Asia/Shanghai" });
 }
 
-function readTextFile(filepath: string): string {
-  const buffer = readFileSync(filepath);
-  if (buffer[0] === 0xFF && buffer[1] === 0xFE) return iconv.decode(buffer, "utf-16le");
-  if (buffer[0] === 0xFE && buffer[1] === 0xFF) return iconv.decode(buffer, "utf-16be");
-  const utf8 = buffer.toString("utf-8");
-  if (utf8.includes("\ufffd")) return iconv.decode(buffer, "gbk");
-  return utf8;
-}
-
 function loadImageBlock(url: string): OpenRouterContentBlock | null {
   const filename = url.split("/").pop() || "";
   const filepath = join(process.cwd(), "uploads", filename);
@@ -96,28 +87,15 @@ function loadImageBlock(url: string): OpenRouterContentBlock | null {
   return { type: "image_url", image_url: { url: `data:${mediaType};base64,${data}` } };
 }
 
-function fileNote(message: StoreMessage): string {
-  if (!message.file) return "";
-  const filename = message.file.split("/").pop() || "";
-  const filepath = join(process.cwd(), "uploads", filename);
-  const ext = filename.split(".").pop()?.toLowerCase() || "";
-  if (!existsSync(filepath)) return "";
-  if (TEXT_EXTS.has(ext)) return `\n\n【文件内容】\n${readTextFile(filepath).slice(0, 10_000)}`;
-  return `（这是一个 ${ext || "未知格式"} 文件，暂时无法直接读取内容）`;
-}
-
-function prepareOpenRouterMessage(message: StoreMessage): OpenRouterMessage {
-  const text = `${message.content}${fileNote(message)}`;
+function prepareOpenRouterMessage(message: StoreMessage, fileNotes: Map<string, string>): OpenRouterMessage {
+  const text = [message.content, message.file ? fileNotes.get(message.file) : ""].filter(Boolean).join("\n\n");
   const imageBlocks = messageImages(message).flatMap((url) => {
     const block = loadImageBlock(url);
     return block ? [block] : [];
   });
   if (imageBlocks.length) {
     const fallback = imageBlocks.length > 1 ? `请查看这 ${imageBlocks.length} 张图片。` : "请查看这张图片。";
-    return {
-      role: message.role,
-      content: [{ type: "text", text: text || fallback }, ...imageBlocks],
-    };
+    return { role: message.role, content: [{ type: "text", text: text || fallback }, ...imageBlocks] };
   }
   return { role: message.role, content: text };
 }
@@ -306,6 +284,7 @@ export async function POST(request: Request) {
   try {
     const body = await request.json();
     const rawMessages = (Array.isArray(body.messages) ? body.messages : []) as StoreMessage[];
+    const fileNotes = await chatFileNotes(rawMessages);
     const messages: OpenRouterMessage[] = rawMessages
       .filter((message: StoreMessage) => message?.role === "user" || message?.role === "assistant")
       .map((message: StoreMessage) => prepareOpenRouterMessage(sanitizeIncomingMessage({
@@ -313,8 +292,9 @@ export async function POST(request: Request) {
         content: String(message.content || ""),
         ...(typeof message.image === "string" ? { image: message.image } : {}),
         ...(Array.isArray(message.images) ? { images: message.images } : {}),
+        ...(typeof message.fileName === "string" ? { fileName: message.fileName } : {}),
         ...(typeof message.file === "string" && /^\/uploads\/[A-Za-z0-9._-]{1,120}$/.test(message.file) ? { file: message.file } : {}),
-      })));
+      }), fileNotes));
     const dynamicPrompt = String(body.dynamicPrompt || "").trim();
     if (dynamicPrompt) {
       for (let i = messages.length - 1; i >= 0; i--) {
