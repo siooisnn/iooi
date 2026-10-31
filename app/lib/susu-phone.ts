@@ -99,7 +99,7 @@ export function buildPhoneSnapshot(
   const threads = readBoard(surf);
   const today = day(now.getTime());
   const activity = readLifeLog(main)
-    .filter((entry) => entry.kind !== "care" && Number.isFinite(entry.lastAt ?? entry.at) && day(entry.lastAt ?? entry.at) === today)
+    .filter((entry) => entry.kind !== "care" && entry.kind !== "capsule" && Number.isFinite(entry.lastAt ?? entry.at) && day(entry.lastAt ?? entry.at) === today)
     .sort((a, b) => (a.lastAt ?? a.at) - (b.lastAt ?? b.at)).slice(-30)
     .map((entry): PhoneActivity => {
       const at = entry.lastAt ?? entry.at;

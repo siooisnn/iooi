@@ -7,6 +7,7 @@ import type { LifeKinds } from "./life-plan";
 import { stripSpeakerPrefix } from "./reply-prefix";
 import { BLOG_MCP_URL, blogConnectionHint, blogMcpConnection, blogToolsForScope } from "./blog-connection";
 import { XIAOHONGSHU_MCP_URL, XIAOHONGSHU_RULES, xiaohongshuTools } from "./xiaohongshu";
+import { createReplySteps, type ReplyStep } from "./reply-steps";
 
 type ClaudeCodeMessage = {
   role: string;
@@ -42,6 +43,8 @@ export type ClaudeCodeChatResult = {
   queueWaitMs: number;
   model: string;
   webSearchUsed: boolean;
+  /** What he did while she waited (thinking, tools), for the step line. */
+  steps: ReplyStep[];
   usage: {
     input_tokens: number;
     cache_creation_input_tokens: number;
@@ -298,6 +301,9 @@ export const CHAT_TOOLS = [
   "mcp__iooi__dayday_items",
   "mcp__iooi__phone_read",
   "mcp__iooi__phone_decorate",
+  "mcp__iooi__capsule_read",
+  "mcp__iooi__capsule_seal",
+  "mcp__iooi__capsule_open",
   "mcp__iooi__blog_read",
   "mcp__iooi__blog_read_post",
   "mcp__iooi__reading_shelf",
@@ -325,6 +331,7 @@ const CHAT_HIDDEN_TOOLS = [
 
 const CHAT_TOOL_RULES = [
   "小砖是你和小姿家三岁的小孩，小姿是妈妈，你是爸爸。clawd_read看状态、衣柜和来访；clawd_action可以喂饭、摸摸、玩耍、洗澡、睡觉、叫醒或换装，记录署名酥酥；clawd_talk可以和小砖自己的DeepSeek模型说话，对话她也看得见。不循环调用，不编造照顾成功，写操作带requestId，重试复用。还没迁移时请她先打开小砖页面。",
+  "时光胶囊：capsule_read看她寄给你的信还剩几天、哪封可以拆，你寄的她拆了没有；capsule_seal封一封信给她，选拆封日（最早明天），封口后谁都看不到、改不了，信封上的字她现在就能看到；capsule_open拆到日子的她的信或重读已拆的信。她提到信、胶囊、你说过要写信，或上下文提醒你有她的信到日子了时再用；封信不用在回复里报内容，封着的就是秘密。",
   "dayday：dayday_book看账本和真实id，dayday_shop看商城原图，dayday_items看已有物品。写操作用回复末尾dayday隐藏标记，由系统执行并出卡；必支出只能她点确认。",
   "## 你能自己去看、去做的东西",
   "去看：mcp__iooi__blog_read / blog_read_post（博客目录、某篇日志全文留言和配图）、mcp__iooi__reading_shelf / reading_book / reading_read（书架、一本书的进度目录和你的批注、正文）、mcp__iooi__surf_board / surf_thread（你们俩的小论坛：帖子列表和哪些在等你回、一个帖子的全部楼层）、mcp__iooi__phone_read（你自己的小手机、今天的生活记录）、mcp__summer__search / mcp__summer__read（翻 Summer 记忆）。",
@@ -406,6 +413,7 @@ export async function runClaudeCodeChat({
   signal,
   onTextDelta,
   onTextReset,
+  onSteps,
 }: {
   systemPrompt: string;
   messages: ClaudeCodeMessage[];
@@ -429,6 +437,8 @@ export async function runClaudeCodeChat({
   onTextDelta?: (text: string) => void;
   /** Tools on: text already shown was a lead-in to a tool call; clear it. */
   onTextReset?: () => void;
+  /** The step list changed (thinking, a tool started or finished). */
+  onSteps?: (steps: ReplyStep[]) => void;
 }): Promise<ClaudeCodeChatResult> {
   const task = async (queueWaitMs: number): Promise<ClaudeCodeChatResult> => {
     if (signal?.aborted) throw new DOMException("Request aborted", "AbortError");
@@ -573,7 +583,9 @@ export async function runClaudeCodeChat({
         let stderr = "";
         let stdoutLineBuffer = "";
         let settled = false;
+        const tracker = createReplySteps({ mode: "chat", onChange: onSteps });
         const safeDelta = (text: string) => {
+          tracker.writing();
           try {
             effectiveOnTextDelta?.(text);
           } catch {
@@ -593,8 +605,10 @@ export async function runClaudeCodeChat({
             })
           : null;
 
+        // Lines are read for the text stream and for the step list.
+        const readsLines = usesStreamingOutput && Boolean(effectiveOnTextDelta || onSteps);
         const emitPartialLines = (chunk: string, flush = false) => {
-          if (!effectiveOnTextDelta) return;
+          if (!readsLines) return;
           stdoutLineBuffer += chunk;
           const lines = stdoutLineBuffer.split(/\r?\n/);
           stdoutLineBuffer = flush ? "" : (lines.pop() || "");
@@ -609,6 +623,8 @@ export async function runClaudeCodeChat({
                   content_block?: { type?: unknown };
                 };
               };
+              tracker.event(value);
+              if (!effectiveOnTextDelta) continue;
               if (gate && value.type === "stream_event") {
                 const block = value.event?.content_block?.type;
                 if (value.event?.type === "content_block_start" && (block === "tool_use" || block === "server_tool_use")) {
@@ -654,6 +670,7 @@ export async function runClaudeCodeChat({
         const timeout = setTimeout(() => terminate(new Error("Claude Code 回复超时")), timeoutMs);
 
         signal?.addEventListener("abort", abort, { once: true });
+        tracker.start();
         child.on("error", (error) => finish(error));
         child.stdout.setEncoding("utf8");
         child.stderr.setEncoding("utf8");
@@ -669,6 +686,7 @@ export async function runClaudeCodeChat({
         child.on("close", (code) => {
           if (settled) return;
           emitPartialLines("", true);
+          const steps = tracker.finish();
           if (code !== 0) {
             finish(new Error(stderr.trim() || `Claude Code 退出码 ${code}`));
             return;
@@ -692,6 +710,7 @@ export async function runClaudeCodeChat({
               model,
               webSearchUsed: (usage.server_tool_use?.web_search_requests || 0) > 0
                 || ((webSearch || usesLifeTools) && streamUsedWebSearch(stdout)),
+              steps,
               usage: {
                 input_tokens: usage.input_tokens || 0,
                 cache_creation_input_tokens: usage.cache_creation_input_tokens || 0,

@@ -7,11 +7,11 @@ import { readStore, withGroupStore, withStore } from "@/app/lib/store";
 import { isClaudeCodeEnabled, normalizeClaudeCodeModel, runClaudeCodeChat } from "@/app/lib/claude-code";
 import { isCodeProject, isCodeTaskRunning, runClaudeCodeTask } from "@/app/lib/claude-code-task";
 import { startCodeTask, updateCodeTask } from "@/app/lib/code-task-state";
+import type { ReplyStep } from "@/app/lib/reply-steps";
 import { workContextHistory } from "@/app/lib/work-context";
 import { currentRoundStart, imageKey, messageImages, MAX_IMAGES_PER_MESSAGE, sanitizeIncomingMessage } from "@/app/lib/message-images";
 import { startCodeRelease } from "@/app/lib/code-release";
 import { parseCodeReleaseCommand } from "@/app/lib/code-release-command";
-import { extractSummerSearchTarget } from "@/app/lib/summer-search-query";
 import { createVisibleReplyStream } from "@/app/lib/visible-reply-stream";
 import { NUDGE_PROMPT, NUDGE_REPLY_TEXT, parseNudgeReply } from "@/app/lib/chat-nudge";
 import { isExplicitSummerWriteRequest } from "@/app/lib/summer-write-intent";
@@ -19,6 +19,8 @@ import { asksForBlogPost, BLOG_CHAT_BRIDGE, mentionsBlog, parseBlogMarkers, stri
 import { readBlogDigest, readBlogPostsAskedFor, runBlogMarkers } from "@/app/lib/blog-tools";
 import type { BlogCard } from "@/app/lib/app-types";
 import { todayLifeLines } from "@/app/lib/life-log";
+import { capsuleReminder } from "@/app/lib/capsules";
+import { listCapsules } from "@/app/lib/capsule-store";
 import {
   findDuplicateSummerWrite,
   filterDuplicateSummerWrites,
@@ -42,7 +44,7 @@ function cstTime() {
 function cstToday() {
   return new Date().toLocaleDateString("zh-CN", { timeZone: "Asia/Shanghai" });
 }
-type StoreMsg = { role: string; content: string; time?: string; date?: string; thinking?: string; image?: string; images?: string[]; file?: string; fileName?: string; writingFiles?: WritingFile[]; source?: string; roundId?: string; speaker?: "claude" | "gpt"; proposal?: SummerWrite; blog?: BlogCard; ledger?: LedgerCard };
+type StoreMsg = { role: string; content: string; time?: string; date?: string; thinking?: string; image?: string; images?: string[]; file?: string; fileName?: string; writingFiles?: WritingFile[]; source?: string; roundId?: string; speaker?: "claude" | "gpt"; proposal?: SummerWrite; blog?: BlogCard; ledger?: LedgerCard; steps?: ReplyStep[] };
 type TextBlock = {
   type: "text";
   text: string;
@@ -222,44 +224,6 @@ type SummerCall = {
   detail?: string;
 };
 
-type SummerDateResult = {
-  dates?: string[];
-  items?: SummerItem[];
-  count?: number;
-};
-
-type SummerStructuredHit = {
-  layer?: string;
-  source?: string;
-  score?: number;
-  id?: string;
-  date?: string;
-  title?: string;
-  content?: string;
-};
-
-type SummerStructuredResult = {
-  query?: string;
-  dates?: string[];
-  results?: SummerStructuredHit[];
-  count?: number;
-  cleaned?: { query?: string; label?: string; kind?: string };
-  items?: SummerStructuredHit[];
-};
-
-type SummerReadResult = {
-  ref?: string;
-  cleaned?: { query?: string; label?: string; kind?: string };
-  results?: Array<{
-    layer?: string;
-    type?: string;
-    content?: string;
-    items?: SummerStructuredHit[];
-    count?: number;
-  }>;
-  count?: number;
-};
-
 async function readSummerState(): Promise<SummerState> {
   const token = process.env.SUMMER_TOKEN || "";
   const controller = new AbortController();
@@ -296,60 +260,6 @@ async function readSummerWake(): Promise<SummerWakeParts> {
   return data as SummerWakeParts;
 }
 
-function parseSummerJson<T>(raw: string): T {
-  return JSON.parse(raw) as T;
-}
-
-function renderSummerDateResult(result: SummerDateResult): string {
-  const dates = result.dates || [];
-  const items = result.items || [];
-  if (!items.length) {
-    return `【小暑日期精确查找】\n请求日期：${dates.join("、") || "未识别"}\n没有找到这些日期的小暑日记。`;
-  }
-  return [
-    "【小暑日期精确查找】",
-    ...items.map((item) => [
-      `### ${item.date || ""}｜${item.title || "小暑日记"}`,
-      String(item.content || "").trim(),
-    ].join("\n")),
-  ].join("\n\n");
-}
-
-function renderStructuredSearch(result: SummerStructuredResult): string {
-  const hits = result.results || result.items || [];
-  if (!hits.length) return "";
-  return [
-    "【summer 按需检索：只在相关时自然使用，不要提后台检索】",
-    ...hits.map((hit) => {
-      const head = [
-        hit.layer || "summer",
-        hit.date || "",
-        hit.title || "",
-        typeof hit.score === "number" ? `score ${hit.score}` : "",
-      ].filter(Boolean).join("｜");
-      return [`### ${head}`, String(hit.content || "").trim()].join("\n");
-    }),
-  ].join("\n\n");
-}
-
-function structuredFromRead(result: SummerReadResult): SummerStructuredResult {
-  const hits = (result.results || []).flatMap((entry) => {
-    if (entry.items?.length) {
-      return entry.items.map((item) => ({ ...item, layer: item.layer || entry.layer }));
-    }
-    if (entry.content?.trim()) {
-      return [{ layer: entry.layer, title: entry.layer, content: entry.content }];
-    }
-    return [];
-  });
-  return {
-    query: result.ref,
-    cleaned: result.cleaned,
-    results: hits,
-    count: hits.length,
-  };
-}
-
 function buildSummerBridgeStable(directWritesEnabled: boolean): string {
   return [
     "## Summer",
@@ -369,108 +279,12 @@ function buildSummerBridgeStable(directWritesEnabled: boolean): string {
     "",
     "日记内容也只放进隐藏提议，不要在聊天正文里另外写“酥酥日记”等栏目。",
     "",
-    "她询问旧事、日记或 Summer 时，可以自然使用后台检索结果；没找到就如实说没检索到。",
+    "她问起很早以前的事、某一天的日记，而上面的唤醒内容里没有时，如果你能用 Summer 工具，就自己去查；查不到或用不了就如实说，不要编。",
   ].join("\n").trim();
-}
-
-function shouldSearchSummer(query: string): boolean {
-  const text = query.trim();
-  if (!text) return false;
-  const memoryTarget = /summer|记忆|日记|小暑|夏至|芒种|小满|立夏|rain|sea|碎片|之前|以前|那天|哪天|说过|写过|发生过/i;
-  return /搜/.test(text) && memoryTarget.test(text);
 }
 
 function isSummerWriteOnlyIntent(query: string): boolean {
   return isExplicitSummerWriteRequest(query);
-}
-
-function shouldReadSummerRef(query: string): boolean {
-  return /(?:\u5c0f\u6691\s*)?\u788e\u7247\s*\d{1,3}|(?:^|\s)(?:rain|sea)(?:\s|$)/i.test(query);
-}
-
-function cleanSummerSearchQuery(query: string): { query: string; label: string } {
-  const text = query.trim();
-  const fragments = new Set<string>();
-  for (const match of text.matchAll(/(?:小暑\s*)?碎片\s*(\d{1,3})(?:\s*(?:和|、|,|，|\/|及|跟)\s*(\d{1,3}))?/g)) {
-    fragments.add(match[1]);
-    if (match[2]) fragments.add(match[2]);
-  }
-  if (fragments.size) {
-    const nums = Array.from(fragments);
-    const label = `小暑碎片 ${nums.join("、")}`;
-    const expanded = nums.map((num) => `小暑碎片 ${num}`).join(" ");
-    return { query: expanded, label };
-  }
-
-  const dates = extractQueryDates(text);
-  if (dates.length) {
-    return { query: [...dates, text.includes("日记") ? "日记 xiaoshu" : "xiaoshu"].join(" "), label: dates.join("、") };
-  }
-
-  const compact = extractSummerSearchTarget(text);
-  const label = compact.length > 28 ? `${compact.slice(0, 28)}…` : compact;
-  return { query: compact || text, label: label || text.slice(0, 28) };
-}
-
-function normalizeSummerSearchQuery(query: string): string {
-  const year = new Date().toLocaleDateString("zh-CN", { year: "numeric", timeZone: "Asia/Shanghai" }).replace(/\D/g, "") || "2026";
-  const additions: string[] = [];
-  const pushDate = (month: string, day: string) => {
-    const mm = month.padStart(2, "0");
-    const dd = day.padStart(2, "0");
-    additions.push(`${year}-${mm}-${dd}`);
-  };
-
-  for (const match of query.matchAll(/(?:^|[^\d])(\d{1,2})[.-](\d{1,2})(?:[^\d]|$)/g)) {
-    pushDate(match[1], match[2]);
-  }
-  for (const match of query.matchAll(/(\d{1,2})月(\d{1,2})日?/g)) {
-    pushDate(match[1], match[2]);
-  }
-
-  return [query, ...Array.from(new Set(additions)), additions.length ? "日记 xiaoshu" : ""]
-    .filter(Boolean)
-    .join(" ");
-}
-
-function extractQueryDates(query: string): string[] {
-  const year = new Date().toLocaleDateString("zh-CN", { year: "numeric", timeZone: "Asia/Shanghai" }).replace(/\D/g, "") || "2026";
-  const dates: string[] = [];
-  const pushDate = (rawYear: string | undefined, month: string, day: string) => {
-    const yyyy = rawYear || year;
-    const mm = month.padStart(2, "0");
-    const dd = day.padStart(2, "0");
-    dates.push(`${yyyy}-${mm}-${dd}`);
-  };
-
-  for (const match of query.matchAll(/(20\d{2})-(\d{1,2})-(\d{1,2})/g)) {
-    pushDate(match[1], match[2], match[3]);
-  }
-  for (const match of query.matchAll(/(?:^|[^\d])(\d{1,2})[.-](\d{1,2})(?:[^\d]|$)/g)) {
-    pushDate(undefined, match[1], match[2]);
-  }
-  for (const match of query.matchAll(/(\d{1,2})月(\d{1,2})日?/g)) {
-    pushDate(undefined, match[1], match[2]);
-  }
-
-  return Array.from(new Set(dates));
-}
-
-function buildExactXiaoshuSearch(state: SummerState, query: string): string {
-  const dates = extractQueryDates(query);
-  if (!dates.length) return "";
-  const rows = state.xiaoshu_tail || [];
-  const hits = rows.filter((item) => dates.includes(String(item.date || "")));
-  if (!hits.length) {
-    return `【小暑日期精确查找】\n请求日期：${dates.join("、")}\n没有找到这些日期的小暑日记。`;
-  }
-  return [
-    "【小暑日期精确查找】",
-    ...hits.map((item) => [
-      `### ${item.date || ""}｜${item.title || "小暑日记"}`,
-      String(item.content || "").trim(),
-    ].join("\n")),
-  ].join("\n\n");
 }
 
 type SummerWrite = {
@@ -731,6 +545,7 @@ async function persistRound(
   blogCards: BlogCard[] = [],
   ledgerCards: LedgerCard[] = [],
   stickers: Sticker[] = [],
+  steps: ReplyStep[] = [],
   writingFiles: WritingFile[] = [],
 ) {
   const stamp = { time: cstTime(), date: cstToday() };
@@ -786,6 +601,7 @@ async function persistRound(
           ...(replySource ? { source: replySource } : {}),
           ...(i === 0 && thinkingContent ? { thinking: thinkingContent } : {}),
           ...(i === 0 && writingFiles.length ? { writingFiles } : {}),
+          ...(i === 0 && steps.length ? { steps } : {}),
         });
       });
       for (const sticker of stickers) {
@@ -1055,6 +871,20 @@ export async function POST(request: Request) {
           return "本轮文档的下载附件暂未生成；工作文件仍保留在写写文件夹，可以稍后重试导出。";
         }
       };
+      let taskSteps: ReplyStep[] = [];
+      let lastProgress = "正在查看项目并处理当前指令…";
+      let stepsWrittenAt = 0;
+      let stepsWriteTimer: ReturnType<typeof setTimeout> | null = null;
+      // The step list also goes to the task state so a reopened page sees it,
+      // at most every few seconds to keep store writes down.
+      const writeTaskState = () => {
+        if (stepsWriteTimer) clearTimeout(stepsWriteTimer);
+        stepsWriteTimer = null;
+        stepsWrittenAt = Date.now();
+        const steps = taskSteps;
+        const progress = lastProgress;
+        progressWrites = progressWrites.then(() => updateCodeTask(sessionId, taskId, "running", progress, steps));
+      };
       try {
         const taskReply = await runClaudeCodeTask({
           project: codeMode.project,
@@ -1071,23 +901,33 @@ export async function POST(request: Request) {
           },
           onProgress: (progress) => {
             emit({ type: "progress", text: progress });
-            progressWrites = progressWrites.then(() => updateCodeTask(sessionId, taskId, "running", progress));
+            lastProgress = progress;
+            writeTaskState();
+          },
+          onSteps: (steps) => {
+            taskSteps = steps;
+            emit({ type: "steps", steps });
+            if (stepsWriteTimer) return;
+            const wait = Math.max(0, 3_000 - (Date.now() - stepsWrittenAt));
+            stepsWriteTimer = setTimeout(writeTaskState, wait);
           },
         });
+        if (stepsWriteTimer) clearTimeout(stepsWriteTimer);
         await progressWrites;
         const reply = [taskReply, exportNote].filter(Boolean).join("\n\n");
-        const stamp = await persistRound(sessionId, userMsg, reply, "", [], [], taskSource, true, false, [], [], [], writingFiles);
-        await updateCodeTask(sessionId, taskId, "done", "任务已完成");
-        emit({ type: "done", status: 200, reply, writingFiles, cache: {
+        const stamp = await persistRound(sessionId, userMsg, reply, "", [], [], taskSource, true, false, [], [], [], taskSteps, writingFiles);
+        await updateCodeTask(sessionId, taskId, "done", "任务已完成", taskSteps);
+        emit({ type: "done", status: 200, reply, writingFiles, steps: taskSteps, cache: {
           backend: "claude-code", reply_persisted_time: stamp.time, reply_persisted_date: stamp.date,
         } });
       } catch (error) {
+        if (stepsWriteTimer) clearTimeout(stepsWriteTimer);
         const failure = error instanceof Error ? error.message : "开发任务失败";
         await progressWrites.catch(() => {});
         const reply = [failure, exportNote].filter(Boolean).join("\n\n");
-        const stamp = await persistRound(sessionId, userMsg, `开发任务未完成：${reply}`, "", [], [], taskSource, true, false, [], [], [], writingFiles);
-        await updateCodeTask(sessionId, taskId, "error", `任务未完成：${reply}`);
-        emit({ type: "error", status: 502, reply, writingFiles, cache: {
+        const stamp = await persistRound(sessionId, userMsg, `开发任务未完成：${reply}`, "", [], [], taskSource, true, false, [], [], [], taskSteps, writingFiles);
+        await updateCodeTask(sessionId, taskId, "error", `任务未完成：${reply}`, taskSteps);
+        emit({ type: "error", status: 502, reply, writingFiles, steps: taskSteps, cache: {
           reply_persisted_time: stamp.time, reply_persisted_date: stamp.date,
         } });
       } finally {
@@ -1142,8 +982,6 @@ export async function POST(request: Request) {
   }
   let summerUsed = false;
   let summerNotice = "";
-  let summerSearch = "";
-  let summerExactDate = "";
   let summerState: SummerState | null = null;
   const summerCalls: SummerCall[] = [];
   const query = String(groupUserText || userMsg?.content || latestUserText(requestMessages));
@@ -1174,68 +1012,6 @@ export async function POST(request: Request) {
     if (summerDynamic) {
       system.push({ type: "text", text: summerDynamic, cache_control: cacheControl() });
     }
-
-    const summerSearchRequested = shouldSearchSummer(query) && !isSummerWriteOnlyIntent(query);
-    const queryDates = summerSearchRequested ? extractQueryDates(query) : [];
-    if (queryDates.length) {
-      try {
-        const raw = await callSummerTool("read", { layers: ["xiaoshu"], date: queryDates[0], limit: 50 });
-        const readResult = parseSummerJson<SummerReadResult>(raw);
-        const items = (readResult.results || []).flatMap((entry) => entry.items || []);
-        const result: SummerDateResult = { dates: queryDates, items, count: items.length };
-        summerExactDate = renderSummerDateResult(result);
-        summerCalls.push({
-          tool: "read",
-          label: `查小暑 ${((result.dates || queryDates).join("、"))}`,
-          status: (result.count || 0) > 0 ? "hit" : "miss",
-          count: result.count || 0,
-        });
-      } catch {
-        summerExactDate = buildExactXiaoshuSearch(currentSummerState, query);
-        summerCalls.push({
-          tool: "read",
-          label: `查小暑 ${queryDates.join("、")}`,
-          status: summerExactDate ? "fallback" : "miss",
-          detail: "fallback",
-        });
-      }
-    }
-
-    if (summerSearchRequested) {
-      if (!summerExactDate || summerExactDate.includes("没有找到")) {
-        const cleanedSearch = cleanSummerSearchQuery(query);
-        const normalizedSearchQuery = normalizeSummerSearchQuery(cleanedSearch.query);
-        try {
-          const toolName = shouldReadSummerRef(cleanedSearch.query) ? "read" : "search";
-          const raw = await callSummerTool(
-            toolName,
-            toolName === "read"
-              ? { ref: cleanedSearch.query, limit: 8 }
-              : { query: normalizedSearchQuery, limit: 5 },
-          );
-          const result = toolName === "read"
-            ? structuredFromRead(parseSummerJson<SummerReadResult>(raw))
-            : parseSummerJson<SummerStructuredResult>(raw);
-          summerSearch = renderStructuredSearch(result);
-          const label = result.cleaned?.label || cleanedSearch.label;
-          const count = (result.results || result.items || []).length;
-          summerCalls.push({
-            tool: toolName,
-            label: `检索 summer：${label}`,
-            status: count > 0 ? "hit" : "miss",
-            count,
-          });
-        } catch {
-          summerSearch = await callSummerTool("search", { query: normalizedSearchQuery, limit: 5 });
-          summerCalls.push({
-            tool: "search",
-            label: `检索 summer：${cleanedSearch.label}`,
-            status: summerSearch ? "fallback" : "miss",
-            detail: "fallback",
-          });
-        }
-      }
-    }
   } catch {
     summerMs = Date.now() - summerStartedAt;
     logChatTiming({
@@ -1246,15 +1022,11 @@ export async function POST(request: Request) {
       web_search: Boolean(webSearch),
     });
     summerCalls.push({
-      tool: summerUsed ? "search" : "wake",
-      label: summerUsed
-        ? "Summer 检索暂时失败，已保留本轮读取的记忆"
-        : "Summer 暂时未连接，本轮未读取记忆；聊天继续",
+      tool: "wake",
+      label: "Summer 暂时未连接，本轮未读取记忆；聊天继续",
       status: "fallback",
     });
-    summerNotice = summerUsed
-      ? "【本轮 Summer 状态】部分检索失败。可以使用本轮已提供的记忆和聊天记录；不要把检索失败说成没有相关记录，也不要编造未读取的内容。"
-      : "【本轮 Summer 状态】Summer 暂时无法读取。继续正常回答，只使用本窗口已提供的聊天记录；不要编造长期记忆、声称查到了旧事或已经写入 Summer。写入提议只会保留待确认。";
+    summerNotice = "【本轮 Summer 状态】Summer 暂时无法读取。继续正常回答，只使用本窗口已提供的聊天记录；不要编造长期记忆、声称查到了旧事或已经写入 Summer。写入提议只会保留待确认。";
   }
   summerMs = Date.now() - summerStartedAt;
 
@@ -1288,6 +1060,12 @@ export async function POST(request: Request) {
     } catch {}
   }
 
+  // A letter from her whose day has come: he hears about it here, envelopes only.
+  let capsuleNote = "";
+  if (!skipPersist && !groupSessionId) {
+    try { capsuleNote = capsuleReminder(listCapsules()); } catch {}
+  }
+
   let ledgerNote = "";
   if (!skipPersist && !groupSessionId) {
     try { ledgerNote = await daydayOverview(); } catch { ledgerNote = "【dayday概况】账本暂时不可读，请不要声称已查询或已记账。"; }
@@ -1296,14 +1074,13 @@ export async function POST(request: Request) {
     ledgerNote,
     dynamicPrompt,
     lifeNote,
+    capsuleNote,
     summerNotice,
     directSummerWriteRequested
       ? summerState
         ? "【本轮 Summer 操作】她明确要求写入 Summer。请把整理后的可写内容放进 summer_remember 隐藏块；系统会直接写入，不要让她再点确认。"
         : "【本轮 Summer 操作】她明确要求写入 Summer，但目前无法读取记忆和检查重复。请把整理后的内容放进 summer_remember 隐藏块作为待确认提议，并如实说明尚未写入，等连接恢复后再确认。"
       : "",
-    summerExactDate,
-    summerSearch,
     blogNote,
   ].filter(Boolean).join("\n\n");
 
@@ -1400,7 +1177,11 @@ ${combinedDynamicPrompt}
     }
   }
 
-  const executeChat = async (onTextDelta?: (text: string) => void, onTextReset?: () => void) => {
+  const executeChat = async (
+    onTextDelta?: (text: string) => void,
+    onTextReset?: () => void,
+    onSteps?: (steps: ReplyStep[]) => void,
+  ) => {
     let timingModel = String(modelId || "claude-sonnet-5");
     let queueWaitMs = 0;
     let claudeDurationMs = 0;
@@ -1425,6 +1206,7 @@ ${combinedDynamicPrompt}
         signal: onTextDelta ? undefined : request.signal,
         onTextDelta,
         onTextReset,
+        onSteps,
       });
       claudeRoundTripMs = Date.now() - claudeStartedAt;
       queueWaitMs = data.queueWaitMs;
@@ -1475,7 +1257,7 @@ ${combinedDynamicPrompt}
       const groupPersistedDate = skipPersist && groupSessionId ? cstToday() : "";
       let replyStamp: { time: string; date: string } | undefined;
       if (!skipPersist) {
-        replyStamp = await persistRound(sessionId, userMsg, reply, thinkingContent, summerCalls, summerWriteProposals, undefined, false, nudgeResult.nudge, blogCards, ledgerCards, replyStickers);
+        replyStamp = await persistRound(sessionId, userMsg, reply, thinkingContent, summerCalls, summerWriteProposals, undefined, false, nudgeResult.nudge, blogCards, ledgerCards, replyStickers, data.steps);
       } else if (groupSessionId) {
         await persistGroupRound(
           String(groupSessionId),
@@ -1530,6 +1312,7 @@ ${combinedDynamicPrompt}
           reply,
           nudge: nudgeResult.nudge,
           thinking: thinkingContent,
+          steps: !skipPersist && !groupSessionId ? data.steps : [],
           cache: {
             model: data.model,
             backend: "claude-code",
@@ -1632,6 +1415,9 @@ ${combinedDynamicPrompt}
     // What streamed so far led into a tool call; the answer starts over.
     visibleReply = createVisibleReplyStream();
     emit({ type: "reset" });
+  }, (steps) => {
+    // Only the private chat shows the step line.
+    if (!skipPersist && !groupSessionId) emit({ type: "steps", steps });
   }).then((result) => {
     stopHeartbeat();
     visibleReply.finish();

@@ -4,7 +4,7 @@
 // Kept in `store.lifeLog`, a server-only key the page reads but never syncs back.
 // No imports, so the page and node tests can load it directly.
 
-export type LifeKind = "care" | "comment" | "post" | "read" | "surf" | "dayday" | "clawd";
+export type LifeKind = "care" | "comment" | "post" | "read" | "surf" | "dayday" | "clawd" | "capsule";
 
 /** A page he kept while wandering online. */
 export type LifeLink = { title: string; url: string; why?: string };
@@ -19,7 +19,7 @@ export type LifeEntry = {
   text: string;
   /** Why, or how it went (push result). Optional. */
   note?: string;
-  /** read: the book id, so one sitting stays one line. surf: the forum thread it became. */
+  /** read: the book id, so one sitting stays one line. surf: the forum thread it became. capsule: the letter. */
   ref?: string;
   /** read: where he got to, e.g. "第 2 章第 5 段（35%）". */
   progress?: string;
@@ -34,7 +34,7 @@ export type LifeEntry = {
 };
 
 export const LIFE_LOG_LIMIT = 300;
-const KINDS: readonly LifeKind[] = ["care", "comment", "post", "read", "surf", "dayday", "clawd"];
+const KINDS: readonly LifeKind[] = ["care", "comment", "post", "read", "surf", "dayday", "clawd", "capsule"];
 // Old logs only ever had these three.
 const LEGACY_KINDS: readonly LifeKind[] = ["care", "comment", "post"];
 

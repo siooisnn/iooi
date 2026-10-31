@@ -14,6 +14,7 @@ import "./themes/xp-small-apps.css";
 import "./themes/dayday.css";
 import "./themes/dayday-chat.css";
 import "./themes/artworks.css";
+import "./themes/capsule.css";
 import "./themes/stickers.css";
 import "./themes/xp-chat-dots.css";
 import "./themes/susu-phone.css";

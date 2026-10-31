@@ -1,9 +1,11 @@
 import type { WritingFile } from "./writing-file-types";
+import { cleanReplySteps, type ReplyStep } from "./reply-steps";
 
 export type StreamReply = {
   nudge?: boolean;
   reply?: string;
   thinking?: string;
+  steps?: ReplyStep[];
   status?: number;
   writingFiles?: WritingFile[];
   cache?: Record<string, unknown>;
@@ -15,6 +17,7 @@ export async function readChatResponse<T extends StreamReply>(
   onDelta: (text: string) => void,
   onProgress?: (text: string) => void,
   onReset?: () => void,
+  onSteps?: (steps: ReplyStep[]) => void,
 ): Promise<T> {
   const contentType = response.headers.get("content-type") || "";
   if (!contentType.includes("application/x-ndjson")) return response.json() as Promise<T>;
@@ -28,13 +31,15 @@ export async function readChatResponse<T extends StreamReply>(
 
   const consumeLine = (line: string) => {
     if (!line.trim()) return;
-    const event = JSON.parse(line) as T & { type?: string; text?: string };
+    const event = JSON.parse(line) as T & { type?: string; text?: string; steps?: unknown };
     if (event.type === "delta" && typeof event.text === "string") {
       pendingDelta += event.text;
     } else if (event.type === "reset") {
       // Text shown so far was a lead-in to a tool call; start the bubble over.
       pendingDelta = "";
       onReset?.();
+    } else if (event.type === "steps") {
+      onSteps?.(cleanReplySteps(event.steps));
     } else if (event.type === "progress" && typeof event.text === "string") {
       onProgress?.(event.text);
     } else if (event.type === "done" || event.type === "error") {

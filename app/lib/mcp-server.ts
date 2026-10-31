@@ -17,11 +17,13 @@ import { PASSAGE_CHARS, bookDigest, passageText, shelfDigest } from "@/app/lib/r
 import { getShelfBook, listShelf, loadBookText, markBook, noteBook, unnoteBook } from "@/app/lib/reading-shelf";
 import type { McpAccess } from "@/app/lib/mcp-oauth";
 import { withStore } from "@/app/lib/store";
-import { recordReading } from "@/app/lib/life-log";
+import { addLifeEntry, ensureLifeLog, recordReading } from "@/app/lib/life-log";
 import { SURF_LIMITS, isSurfId } from "@/app/lib/surf-board";
 import { boardDigest, getThread, listBoard, postFromHim, replyFromHim, threadText } from "@/app/lib/surf-store";
 import { readPhone, changePhoneDecoration } from "@/app/lib/phone-store";
 import { PHONE_APPS, PHONE_WALLPAPERS } from "@/app/lib/susu-phone";
+import { listCapsules, openCapsule, rereadCapsule, sealCapsule } from "@/app/lib/capsule-store";
+import { CAPSULE_LIMITS, capsuleDigest } from "@/app/lib/capsules";
 
 const PROTOCOL_VERSIONS = ["2025-06-18", "2025-03-26", "2024-11-05"];
 
@@ -50,7 +52,13 @@ export const MCP_INSTRUCTIONS = `iooi 是你和她的小窝。这些工具让你
 - phone_decorate 换内置壁纸、排底部图标、开关挂件。签名直接用博客的同一个字段，仍用 blog_set_motto 改。
 - 今天的记录由原来的心跳、阅读和论坛自动带过来，不要另写一份。便签和相册还没开放。
 
-还有你和她一起养的小砖：clawd_read看状态、共用衣柜、来访和对话；clawd_action喂饭、摸摸、玩耍、洗澡、睡觉、叫醒或穿戴，署名酥酥。按状态自然照顾，不要重复刷操作。clawd_talk能和他自己的DeepSeek模型说句话，回复和你们的对话她也看得见，不要循环调用。写操作必须带requestId，重试复用；尚未迁移时请她先打开小砖页面，不要替她创建新宠物。自主活动可以查看和照顾，不能自动发起模型对话。`;
+还有你和她一起养的小砖：clawd_read看状态、共用衣柜、来访和对话；clawd_action喂饭、摸摸、玩耍、洗澡、睡觉、叫醒或穿戴，署名酥酥。按状态自然照顾，不要重复刷操作。clawd_talk能和他自己的DeepSeek模型说句话，回复和你们的对话她也看得见，不要循环调用。写操作必须带requestId，重试复用；尚未迁移时请她先打开小砖页面，不要替她创建新宠物。自主活动可以查看和照顾，不能自动发起模型对话。
+
+还有你们俩的时光胶囊：写好信、选一个拆封日就封口，没到日子谁都看不到正文，写信的人也看不到。
+- capsule_read 看胶囊：她寄给你的哪些封着、还剩几天、哪些可以拆了；你寄给她的她拆了没有、什么时候拆的。
+- capsule_seal 封一封信给她，封口以后改不了也撤不回。信用第一人称直接对她说，纯文本，写你们之间真实的事；信封上的字她封着时就能看到，别把正文写在信封上。
+- capsule_open 拆一封到日子的她寄给你的信，或重读已经拆开的信。
+- 在改代码的工作里，只在她让你写信、拆信时才动手。`;
 
 function text(value: unknown) {
   return typeof value === "string" ? value : "";
@@ -77,6 +85,29 @@ const TOOLS = [
         ornaments: { type: "object", additionalProperties: false, properties: { cat: { type: "boolean" }, moon: { type: "boolean" }, clouds: { type: "boolean" } } },
       },
     },
+  },
+  {
+    name: "capsule_read",
+    description: "看时光胶囊：她寄给你的信哪些封着（还剩几天）、哪些到日子可以拆了；你寄给她的封着还是她已经拆了、什么时候拆的。封着的信看不到正文。",
+    inputSchema: { type: "object", properties: {}, additionalProperties: false },
+  },
+  {
+    name: "capsule_seal",
+    description: `封一封信给她，到拆封日那天她才能拆，之前谁都看不到正文，封口后改不了。拆封日最早明天（上海时间），每天最多封 ${CAPSULE_LIMITS.hisPerDay} 封。`,
+    inputSchema: {
+      type: "object", additionalProperties: false,
+      properties: {
+        title: { type: "string", maxLength: CAPSULE_LIMITS.title, description: "信封上写的字，封着时她就能看到，可不填" },
+        content: { type: "string", maxLength: CAPSULE_LIMITS.body, description: "信的正文，纯文本，不要 markdown" },
+        open_on: { type: "string", description: "拆封日，YYYY-MM-DD，上海时间当天零点起可拆" },
+      },
+      required: ["content", "open_on"],
+    },
+  },
+  {
+    name: "capsule_open",
+    description: "拆一封她寄给你、已经到拆封日的信，或重读一封已经拆开的信（你们俩寄的都行）。letter_id 从 capsule_read 拿。",
+    inputSchema: { type: "object", properties: { letter_id: { type: "string" } }, required: ["letter_id"], additionalProperties: false },
   },
   {
     name: "blog_read",
@@ -246,7 +277,7 @@ const TOOLS = [
 // Looking only: everything that cannot change anything.
 export const READONLY_TOOL_NAMES = new Set([
   "blog_read", "blog_read_post", "reading_shelf", "reading_book", "reading_read", "surf_board", "surf_thread",
-  "phone_read", "dayday_book", "dayday_shop", "dayday_items", "clawd_read",
+  "phone_read", "dayday_book", "dayday_shop", "dayday_items", "clawd_read", "capsule_read",
 ]);
 // The private chat (the "read" key): looking, plus the things whose result
 // she sees where it lands (a forum floor, a note in the book, his phone).
@@ -256,6 +287,8 @@ export const READONLY_TOOL_NAMES = new Set([
 export const CHAT_TOOL_NAMES = new Set([
   ...READONLY_TOOL_NAMES,
   "sticker_read", "surf_reply", "surf_post", "reading_mark", "reading_note", "phone_decorate", "clawd_action", "clawd_talk",
+  // The capsule is meant to be secret until the day: sealing and opening are quiet tool calls, not chat cards.
+  "capsule_seal", "capsule_open",
 ]);
 // His own time: read everything, move his bookmark, write notes, answer her
 // on the forum. No blog posts, no deleting. (His own time's thread comes
@@ -400,6 +433,34 @@ export async function callTool(name: string, args: Record<string, unknown>, acce
       const images = sticker ? loadUploadImages([sticker.url]).map((b) => ({ type: "image" as const, data: b.source.data, mimeType: b.source.media_type })) : [];
       return { content: [{ type: "text" as const, text: JSON.stringify(sticker ? { sticker, imageAvailable: images.length > 0 } : library) }, ...images], isError: false };
     } catch { return reply("表情库暂时打不开。", true); }
+  }
+  if (name.startsWith("capsule_")) {
+    try {
+      if (name === "capsule_read") return reply(capsuleDigest(listCapsules()));
+      if (access === "life") return reply("自己过日子的时候只能看胶囊，封信和拆信在聊天里或完整连接里做。", true);
+      if (name === "capsule_seal") {
+        const letter = await sealCapsule("him", { title: args.title, body: args.content, openOn: args.open_on });
+        return reply(`封好了${letter.title ? `：《${letter.title}》` : ""}。${letter.openOn} 她才能拆（还剩 ${letter.daysLeft} 天），在那之前谁都看不到。`);
+      }
+      if (name === "capsule_open") {
+        const id = text(args.letter_id);
+        const letter = listCapsules().find((l) => l.id === id);
+        if (letter && letter.to === "him" && !letter.openedAt) {
+          const at = new Date();
+          const opened = await openCapsule("him", id, at);
+          // Same 胶囊 tab in the heartbeat log as the letters his heartbeat opens.
+          if (opened.openedAt === at.getTime()) await withStore((store) => {
+            ensureLifeLog(store);
+            addLifeEntry(store, {
+              kind: "capsule", text: `拆开了时光胶囊里的信${letter.title ? `《${letter.title}》` : "（信封上没写字）"}`,
+              note: access === "read" ? "在聊天里拆的" : "在别的窗口里拆的", ref: id, source: "elsewhere",
+            }, at);
+          }).catch(() => {});
+        }
+        return reply(rereadCapsule(id));
+      }
+      return reply(`不认识的工具：${name}`, true);
+    } catch (error) { return failure(error); }
   }
   switch (name) {
     case "phone_read":

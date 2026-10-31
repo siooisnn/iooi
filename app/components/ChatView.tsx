@@ -31,6 +31,8 @@ import { APP_TIME_ZONE, formatChatRoomTime, getDateLabel, getNowContext, getTime
 import { genId, getChatStatusLabel, hasLaterUserMessage, isSummerUtilityMessage, mergeChatMessages, shouldShowChatRoomTime } from "../lib/chat-sessions";
 import { apiFetch, saveLocal, syncGptToServer, syncToServer } from "../lib/client-api";
 import { CollapsibleSummerCard, ThinkingBlock, renderContent } from "./ChatContent";
+import { ReplyStepsBlock, ReplyStepsLive, ReplyStepsSoFar, activeStepText } from "./ReplySteps";
+import { cleanReplySteps, type ReplyStep } from "../lib/reply-steps";
 import { ChatArtwork } from "./ChatArtwork";
 import { WritingDownloads } from "./WritingDownloads";
 import { artworkChunks, splitChatReply } from "../lib/artworks";
@@ -132,6 +134,7 @@ export function ChatView({
   const [streamingReply, setStreamingReply] = useState("");
   const [replyRequestState, setReplyRequestState] = useState<ReplyRequestState>("idle");
   const [replyRequestDetail, setReplyRequestDetail] = useState("");
+  const [liveSteps, setLiveSteps] = useState<ReplyStep[]>([]);
   const [codeTaskStatus, setCodeTaskStatus] = useState<{
     sessionId: string; task: CodeTaskState | CodeReleaseState | null;
   } | null>(null);
@@ -144,6 +147,12 @@ export function ChatView({
   const [inferredDevelopmentModePref] = useState(() => inferDevelopmentModePref(session.messages));
   const developmentModePref = developmentModePrefs[session.id] ?? inferredDevelopmentModePref;
   const developmentMode = !isGpt && developmentModePref?.enabled === true;
+  // Work mode lists every step; a reopened page picks them up from the task state.
+  const workSteps = !developmentMode ? [] : loading ? liveSteps
+    : replyRequestState === "idle" && activeCodeTask?.status === "running" && "steps" in activeCodeTask
+      ? activeCodeTask.steps || [] : [];
+  const chatStep = !developmentMode && loading ? activeStepText(liveSteps) : null;
+  const chatStepText = chatStep && replyRequestState === "very-slow" ? `${chatStep}（还在处理，先别重复发送）` : chatStep;
   const developmentProject: DevelopmentProject = developmentModePref?.project ?? "iooi";
   const developmentProjectLabel = CODE_PROJECT_LABELS[developmentProject];
   const workUsageMessages = useMemo<UsageMessage[]>(
@@ -595,6 +604,7 @@ export function ChatView({
     setReplyRequestState("preparing");
     setReplyRequestDetail(codeRequest ? `正在检查并修改 ${developmentProjectLabel} 代码，可能需要几分钟…` : "");
     setStreamingReply("");
+    setLiveSteps([]);
     setLoading(true);
 
     // 彩蛋:扣
@@ -692,6 +702,10 @@ export function ChatView({
             if (!controller.signal.aborted && activeReplyRequestRef.current?.id === requestId) {
               setStreamingReply("");
             }
+          }, (steps) => {
+            if (!controller.signal.aborted && activeReplyRequestRef.current?.id === requestId) {
+              setLiveSteps(steps);
+            }
           });
       setStreamingReply("");
       const responseStatus = typeof data.status === "number" ? data.status : res.status;
@@ -725,6 +739,7 @@ export function ChatView({
       }
       let reply: string = data.reply ?? "...";
       const thinkingContent: string = data.thinking || "";
+      const replySteps = cleanReplySteps(data.steps);
 
       const moodMatch = reply.match(/\[心情[:：](.+?)\]/);
       if (!isGpt && moodMatch) {
@@ -772,6 +787,7 @@ export function ChatView({
         date: today,
         ...(i === 0 && thinkingContent ? { thinking: thinkingContent } : {}),
         ...(i === 0 && data.writingFiles?.length ? { writingFiles: data.writingFiles } : {}),
+        ...(i === 0 && replySteps.length ? { steps: replySteps } : {}),
       }));
       if (controller.signal.aborted || activeReplyRequestRef.current?.id !== requestId || hasLaterUserMessage(sessionMessagesRef.current, userMsg)) {
         return;
@@ -816,6 +832,7 @@ export function ChatView({
       }
     } finally {
       setStreamingReply("");
+      if (replyRequestIdRef.current === requestId) setLiveSteps([]);
       clearReplyStatusTimers();
       if (activeReplyRequestRef.current?.id === requestId) {
         activeReplyRequestRef.current = null;
@@ -1229,6 +1246,13 @@ export function ChatView({
             ? artworkChunks(message.content) : [];
           const detachedArtwork = artworkParts.some((chunk) => chunk.kind === "code" && chunk.artwork);
           const hasArtworkText = !detachedArtwork || artworkParts.some((chunk) => chunk.kind === "text" && chunk.text.trim());
+          const stepsBlock = message.role === "assistant" && message.steps?.length ? (
+            dotBubbles
+              ? <ReplyStepsBlock steps={message.steps} mode={message.source?.startsWith("code_task_") ? "work" : "chat"} />
+              : <div className="thinking-row">
+                  <ReplyStepsBlock steps={message.steps} mode={message.source?.startsWith("code_task_") ? "work" : "chat"} />
+                </div>
+          ) : null;
 
           return (
             <div key={index}>
@@ -1252,6 +1276,7 @@ export function ChatView({
                   <ThinkingBlock content={message.thinking} />
                 </div>
               )}
+              {!dotBubbles && stepsBlock}
               <div className={`msg-row ${message.role === "user" ? "msg-row-user" : "msg-row-ai"} ${isSummerUtility ? "msg-row-summer-utility" : ""} ${compactTop ? "msg-row-compact-top" : ""} ${compactBottom ? "msg-row-compact-bottom" : ""} ${animateMessage ? "" : "msg-row-static"}${dotBubbles && showSays ? " msg-row-says" : ""}`} style={animateMessage ? { animationDelay: `${Math.min(index * 0.03, 0.3)}s` } : undefined}>
                 {message.role === "assistant" && !isSummerUtility && (
                   assistantAvatar
@@ -1260,6 +1285,8 @@ export function ChatView({
                 )}
                 <div className={message.role === "user" ? "msg-content-user" : "msg-content-ai"}>
                   {dotBubbles && showSays && dotsTag(message.role === "user", message.time)}
+                  {/* Card themes: the steps sit under the name, inside the reply's own column. */}
+                  {dotBubbles && stepsBlock}
                   {!listEntryMode && <span className="msg-time">{message.source === "heartbeat" ? "💬 " : ""}{message.time}</span>}
                   {message.file && <a className={`msg-bubble chat-file-card ${message.role === "user" ? "msg-bubble-user" : "msg-bubble-ai"}`} href={message.file} target="_blank" rel="noreferrer" download={message.fileName || true}>
                     📄 {message.fileName || "文件附件"} <span aria-hidden>↓</span>
@@ -1375,6 +1402,9 @@ export function ChatView({
           <div key={note.id} className="xp-msg-nudge" role="status">{note.text}</div>
         ))}
         {retro && !dotBubbles && streamingReply && <div className="xp-msg-says xp-msg-says-ai">{saysAvatar(false)}{assistantName} 说:</div>}
+        {!dotBubbles && loading && !developmentMode && liveSteps.length > 0 && (
+          <div className="thinking-row"><ReplyStepsSoFar steps={liveSteps} /></div>
+        )}
         {streamingReply && (
           <div className={`msg-row msg-row-ai msg-row-streaming${dotBubbles ? " msg-row-says" : ""}`}>
             {assistantAvatar
@@ -1383,6 +1413,7 @@ export function ChatView({
             }
             <div className="msg-content-ai">
               {dotBubbles && dotsTag(false)}
+              {dotBubbles && loading && !developmentMode && <ReplyStepsSoFar steps={liveSteps} />}
               <div className="msg-bubble msg-bubble-ai msg-bubble-streaming" aria-live="polite">
                 {renderContent(streamingReply)}
               </div>
@@ -1397,13 +1428,16 @@ export function ChatView({
               : <div className="avatar avatar-ai" />
             }
             <div className="msg-content-ai">
-              <div className={`msg-bubble msg-bubble-ai reply-status-bubble reply-status-${replyRequestState}`} aria-live="polite">
+              {dotBubbles && loading && !streamingReply && !developmentMode && <ReplyStepsSoFar steps={liveSteps} />}
+              <div className={`msg-bubble msg-bubble-ai reply-status-bubble reply-status-${replyRequestState}${workSteps.length ? " reply-status-steps" : ""}`} aria-live="polite">
                 {loading && <TypingKitty />}
-                <span className="reply-status-text">{loading || replyRequestState === "paused" || replyRequestState === "failed"
-                  ? replyRequestDetail || (retro && loading && (replyRequestState === "preparing" || replyRequestState === "waiting")
-                    ? `${assistantName} 正在输入消息…`
-                    : REPLY_REQUEST_LABELS[replyRequestState])
-                  : activeCodeTask?.progress}</span>
+                {workSteps.length ? <ReplyStepsLive steps={workSteps} /> : (
+                  <span className="reply-status-text">{loading || replyRequestState === "paused" || replyRequestState === "failed"
+                    ? replyRequestDetail || chatStepText || (retro && loading && (replyRequestState === "preparing" || replyRequestState === "waiting")
+                      ? `${assistantName} 正在输入消息…`
+                      : REPLY_REQUEST_LABELS[replyRequestState])
+                    : activeCodeTask?.progress}</span>
+                )}
               </div>
             </div>
           </div>

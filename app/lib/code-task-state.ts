@@ -1,11 +1,14 @@
 import { readStore, withStore } from "./store";
 import type { CodeProject } from "./claude-code-task";
+import type { ReplyStep } from "./reply-steps";
 
 export type CodeTaskState = {
   taskId: string;
   project: CodeProject;
   status: "running" | "done" | "error" | "interrupted";
   progress: string;
+  /** What he is doing, step by step (see reply-steps.ts). */
+  steps?: ReplyStep[];
   startedAt: number;
   updatedAt: number;
   pid: number;
@@ -40,12 +43,13 @@ export async function updateCodeTask(
   taskId: string,
   status: CodeTaskState["status"],
   progress: string,
+  steps?: ReplyStep[],
 ) {
   await withStore((store) => {
     const states = (store.codeTaskStates || {}) as CodeTaskStates;
     const current = states[sessionId];
     if (!current || current.taskId !== taskId) return;
-    states[sessionId] = { ...current, status, progress, updatedAt: Date.now() };
+    states[sessionId] = { ...current, status, progress, ...(steps ? { steps } : {}), updatedAt: Date.now() };
     store.codeTaskStates = states;
   });
 }
