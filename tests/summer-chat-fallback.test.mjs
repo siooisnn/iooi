@@ -163,11 +163,13 @@ test("Summer failures do not block Claude replies or lose the round", async (t) 
       assert.equal(data.cache.summer_used, false);
       assert.match(data.cache.summer_calls[0].label, /本轮未读取记忆/);
     });
-    await t.test("group reply and notice are persisted", async () => {
+    await t.test("group chat never reads Summer, even during a Summer outage", async () => {
       reset(); failure = new TypeError("fetch failed");
       const data = await chat({ skipPersist: true, groupSessionId: "group-test", groupSpeakerName: "酥酥" });
       const messages = fixture.groupStore.sessions[0].messages;
-      assert.ok(messages.some((msg) => msg.source === "summer_call" && /本轮未读取记忆/.test(msg.content)));
+      assert.ok(!messages.some((msg) => msg.source === "summer_call"));
+      assert.deepEqual(requests, []);
+      assert.deepEqual(fixture.inputs[0].isolatedMcp, { servers: {}, tools: [] });
       assert.ok(messages.some((msg) => msg.role === "assistant" && msg.content === data.reply));
     });
     await t.test("healthy Summer still injects memory", async () => {

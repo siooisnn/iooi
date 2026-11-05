@@ -1010,10 +1010,10 @@ export async function POST(request: Request) {
   let summerToolsReady = false;
   const summerCalls: SummerCall[] = [];
   const query = String(groupUserText || userMsg?.content || latestUserText(requestMessages));
-  const directSummerWriteRequested = !nativeSummerChat && !skipPersist && isSummerWriteOnlyIntent(query);
+  const directSummerWriteRequested = !groupSessionId && !nativeSummerChat && !skipPersist && isSummerWriteOnlyIntent(query);
   const summerStartedAt = Date.now();
   let summerMs = 0;
-  try {
+  if (!groupSessionId) { try {
     const [summerWake, currentSummerState, safeTools] = await Promise.all([
       readSummerWake(),
       readSummerState(),
@@ -1055,6 +1055,7 @@ export async function POST(request: Request) {
     });
     summerNotice = "【本轮 Summer 状态】Summer 暂时无法读取。继续正常回答，只使用本窗口已提供的聊天记录；不要编造长期记忆、声称查到了旧事或已经写入 Summer。"
       + (nativeSummerChat ? "本轮不写入记忆，不生成待确认提议。" : "写入提议只会保留待确认。");
+  }
   }
   if (nativeSummerChat && !summerToolsReady) {
     system.push({ type: "text", text: `${SUMMER_CHAT_RULES}\n本轮 Summer 安全写入工具尚未就绪，只能查询，不要声称已经写入或生成待确认提议。` });
@@ -1232,6 +1233,7 @@ ${combinedDynamicPrompt}
         // Private chat uses native Summer tools once fragment-safe edits exist.
         chatTools: !skipPersist && !groupSessionId,
         summerTools: nativeSummerChat && summerToolsReady,
+        ...(groupSessionId ? { isolatedMcp: { servers: {}, tools: [] } } : {}),
         currentUserText: String(groupUserText || latestUserText(requestMessages)),
         priority: "interactive",
         // In stream mode, closing the browser only stops viewing. The server
@@ -1255,7 +1257,7 @@ ${combinedDynamicPrompt}
           })
         : [];
       // Native chat writes exactly once via MCP. Ignore legacy reply markers.
-      const collectedProposals = nativeSummerChat ? [] : collectSummerWriteProposals(reply);
+      const collectedProposals = nativeSummerChat || groupSessionId ? [] : collectSummerWriteProposals(reply);
       let summerWriteProposals: SummerWrite[];
       if (directSummerWriteRequested && summerState && collectedProposals.length) {
         const directResult = await commitDirectSummerWrites(collectedProposals);

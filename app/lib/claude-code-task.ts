@@ -8,6 +8,7 @@ import { codeTaskProgress } from "./code-task-progress";
 import { createReplySteps, type ReplyStep } from "./reply-steps";
 import { stripSpeakerPrefix } from "./reply-prefix";
 import { WRITING_WORKSPACE } from "./writing-files";
+import { withWritingLock } from "./writing-lock";
 
 import type { CodeProject } from "./code-projects";
 export { isCodeProject, type CodeProject } from "./code-projects";
@@ -72,7 +73,7 @@ function describeFailure(result: ResultEvent | undefined, code: number | null, s
   return `Claude Code 退出码 ${code}`;
 }
 
-export async function runClaudeCodeTask({ project, instruction, images = [], history = [], sessionId, modelId, onProgress, onSteps, onBeforeTask, onAfterTask }: {
+type CodeTaskInput = {
   project: CodeProject;
   instruction: string;
   images?: ClaudeImageBlock[];
@@ -84,7 +85,11 @@ export async function runClaudeCodeTask({ project, instruction, images = [], his
   onAfterTask?: () => Promise<void>;
   /** Step list for the work view: each file read, edit, command, search. */
   onSteps?: (steps: ReplyStep[]) => void;
-}): Promise<string> {
+};
+export async function runClaudeCodeTask(input: CodeTaskInput): Promise<string> {
+  return input.project === "writing" ? withWritingLock(() => runTask(input)) : runTask(input);
+}
+async function runTask({ project, instruction, images = [], history = [], sessionId, modelId, onProgress, onSteps, onBeforeTask, onAfterTask }: CodeTaskInput): Promise<string> {
   if (taskRunning) throw new Error("已有一个开发任务正在执行，请等它完成后再发下一条。");
   taskRunning = true;
   const cwd = WORKSPACES[project];

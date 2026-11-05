@@ -411,6 +411,7 @@ export async function runClaudeCodeChat({
   xiaohongshu = false,
   chatTools = false,
   summerTools = false,
+  isolatedMcp,
   currentUserText = "",
   lifeTools = false,
   lifeKinds = { read: true, surf: true },
@@ -431,6 +432,8 @@ export async function runClaudeCodeChat({
   currentUserText?: string;
   /** Enabled only after the server advertises fragment-safe Summer edits. */
   summerTools?: boolean;
+  /** A group loads only these servers, excluding all user-scoped MCP memory. */
+  isolatedMcp?: { servers: Record<string, unknown>; tools: string[] };
   /**
    * His own time: lifeToolNames(lifeKinds) with the life key, several turns, a long timeout.
    * Runs beside the shared queue (one at a time, see life-beat.ts) so a long
@@ -465,10 +468,10 @@ export async function runClaudeCodeChat({
     const usesBlogTools = Boolean(externalBlog);
     const xhsTools = xiaohongshuTools({ chat: usesChatTools && webSearch, life: usesLifeTools, surf: lifeKinds.surf, selected: xiaohongshu });
     const usesXhsTools = xhsTools.length > 0;
-    const usesMcp = usesChatTools || usesLifeTools || usesBlogTools;
+    const usesMcp = Boolean(isolatedMcp) || usesChatTools || usesLifeTools || usesBlogTools;
     const mcpKey = usesLifeTools ? lifeToken : readonlyToken;
     const usesTools = webSearch || usesMcp;
-    const timeoutMs = usesLifeTools
+    const timeoutMs = isolatedMcp?.tools.length ? positiveInt(process.env.CLAUDE_CODE_GROUP_WRITING_TIMEOUT_MS, 540_000) : usesLifeTools
       ? positiveInt(process.env.CLAUDE_CODE_LIFE_TIMEOUT_MS, 600_000)
       : Math.max(usesXhsTools ? 300_000 : 0, positiveInt(
         usesTools ? process.env.CLAUDE_CODE_SEARCH_TIMEOUT_MS : process.env.CLAUDE_CODE_TIMEOUT_MS,
@@ -487,7 +490,7 @@ export async function runClaudeCodeChat({
     const effectiveOnTextDelta = webSearch || usesLifeTools ? undefined : onTextDelta;
     const usesStreamingOutput = usesImages || usesTools || Boolean(effectiveOnTextDelta);
     const availableTools = webSearch || (usesLifeTools && lifeKinds.surf) ? "WebSearch,WebFetch" : "";
-    const allowedTools = usesLifeTools
+    const allowedTools = isolatedMcp ? [...(webSearch ? ["WebSearch", "WebFetch"] : []), ...isolatedMcp.tools].join(",") : usesLifeTools
       ? [...lifeToolNames(lifeKinds), ...xhsTools].join(",")
       : [
         ...(webSearch ? ["WebSearch", "WebFetch"] : []),
@@ -495,7 +498,7 @@ export async function runClaudeCodeChat({
         ...(externalBlog ? blogToolsForScope(externalBlog.scope) : []),
         ...xhsTools,
       ].join(",");
-    const maxTurns = usesLifeTools ? positiveInt(process.env.CLAUDE_CODE_LIFE_MAX_TURNS, 30)
+    const maxTurns = isolatedMcp?.tools.length ? 20 : usesLifeTools ? positiveInt(process.env.CLAUDE_CODE_LIFE_MAX_TURNS, 30)
       : usesBlogTools ? 10 : webSearch && usesChatTools ? 10 : usesChatTools ? 8 : webSearch ? 4 : 1;
     const args = [
       "-p",
@@ -513,6 +516,12 @@ export async function runClaudeCodeChat({
     }
     if (usesMcp) {
       args.push("--disallowedTools", [...CHAT_HIDDEN_TOOLS, ...(usesChatTools && summerTools ? [] : SUMMER_SIDE_TOOLS)].join(","));
+    }
+    if (isolatedMcp) {
+      // Keep OAuth login while excluding private instructions, auto-memory,
+      // hooks and skills. --bare would disable this account's OAuth login.
+      args.push("--strict-mcp-config", "--setting-sources", "", "--disable-slash-commands", "--settings",
+        JSON.stringify({ claudeMdExcludes: ["**"], autoMemoryEnabled: false, disableAllHooks: true }));
     }
     if (usesImages) {
       args.push("--input-format", "stream-json");
@@ -557,6 +566,7 @@ export async function runClaudeCodeChat({
       LOGNAME: user,
       LANG: "C.UTF-8",
       NO_COLOR: "1",
+      ...(isolatedMcp ? { CLAUDE_CODE_DISABLE_AUTO_MEMORY: "1" } : {}),
     };
 
     try {
@@ -567,7 +577,7 @@ export async function runClaudeCodeChat({
         // The key goes through a private file, never the command line.
         // Summer comes from his user-scoped MCP config as usual.
         const mcpConfig = {
-          mcpServers: {
+          mcpServers: isolatedMcp ? isolatedMcp.servers : {
             ...((usesChatTools || usesLifeTools) ? { iooi: { type: "http", url: chatMcpUrl(), headers: { Authorization: `Bearer ${mcpKey}` } } } : {}),
             ...(externalBlog ? { iooiblog: { type: "http", url: BLOG_MCP_URL, headers: { Authorization: `Bearer ${externalBlog.access}` } } } : {}),
             ...(usesXhsTools ? { xiaohongshu: { type: "http", url: XIAOHONGSHU_MCP_URL } } : {}),
@@ -599,7 +609,7 @@ export async function runClaudeCodeChat({
             // A closed browser stream must never terminate the Claude job.
           }
         };
-        const gate = usesChatTools
+        const gate = usesChatTools || Boolean(isolatedMcp?.tools.length)
           ? createToolTurnTextGate({
               onText: safeDelta,
               onReset: () => {

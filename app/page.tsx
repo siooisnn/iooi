@@ -3,9 +3,10 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import NextImage from "next/image";
 import { GroupChatView } from "./components/GroupChatView";
+import type { GroupOptions } from "./lib/group-options";
 import { useThemePage } from "./components/ThemeProvider";
 import { useFullscreenShell } from "./lib/use-fullscreen-shell";
-import { DEFAULT_GPT_MODEL, resolveGptModel } from "./lib/gpt-models";
+import { DEFAULT_GPT_MODEL } from "./lib/gpt-models";
 import type { AssistantMode, CacheStats, ChatListTab, ChatSession, FragmentEntry, Message, Mood } from "./lib/app-types";
 import { CLAUDE_DEFAULT_NAME, DEFAULT_PROMPT, MODELS, normalizeClaudeSettings } from "./lib/app-settings";
 import type { Settings } from "./lib/app-settings";
@@ -487,6 +488,10 @@ export default function Home() {
       : group));
   }, [groupActiveSessionId]);
 
+  const updateGroupOptions = useCallback((options: GroupOptions) => {
+    setGroupSessions((current) => current.map((group) => group.id === groupActiveSessionId ? { ...group, groupOptions: options } : group));
+  }, [groupActiveSessionId]);
+
   const createGroupSessionWindow = useCallback(() => {
     const nextId = `group-${genId()}`;
     setGroupSessions((current) => [createGroupSession(current.length + 1, nextId), ...current]);
@@ -745,7 +750,7 @@ export default function Home() {
             settings={settings}
             retro={settings.retroDesktop}
             claudeModelId={(MODELS.find((model) => model.id === settings.model) || MODELS[0]).apiId}
-            gptModelId={resolveGptModel(settings.gptModel).apiId}
+            updateOptions={updateGroupOptions}
             updateSettings={updateSettings}
             updateMessages={updateGroupMessages}
             updateSummary={updateGroupSummary}

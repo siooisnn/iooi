@@ -3464,3 +3464,11 @@ body {
 .writing-download-info { display: grid; gap: 3px; min-width: 0; flex: 1; overflow-wrap: anywhere; white-space: normal; }
 .writing-download-info small { font-size: 11px; opacity: .7; }
 .writing-download-action { flex-shrink: 0; font-size: 12px; text-decoration: underline; }
+/* Per-window group controls reuse the composer menu in all themes. */
+.group-window-settings { position: absolute; z-index: 66; left: 14px; right: 14px; bottom: calc(100% + 100px); max-height: 55dvh; overflow: auto; padding: 12px; margin: 0; border: 1px solid var(--border-soft, #c9ceda); border-radius: 10px; background: var(--bg-chat, #fff); color: var(--text-primary, #334155); display: grid; gap: 10px; font-size: 13px; }
+.group-window-settings > label { display: flex; align-items: center; gap: 10px; justify-content: space-between; }
+.group-window-settings select { max-width: 65%; padding: 4px 6px; color: inherit; background: inherit; border: 1px solid #aebbd0; border-radius: 5px; }
+.group-window-settings fieldset { border: 0; padding: 0; margin: 0; display: flex; flex-wrap: wrap; gap: 12px; }
+.group-window-settings fieldset label { display: flex; align-items: center; gap: 4px; }
+.group-window-settings small { opacity: .75; }
+.chat-container[data-chat-ui="xp"] .group-window-settings { position: relative; inset: auto; max-height: 40dvh; margin-bottom: 6px; border-radius: 0; border-color: var(--xp-line, #7f9db9); background: var(--xp-face, #ece9d8); color: #000; }

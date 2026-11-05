@@ -9,7 +9,7 @@ type StoredMessage = {
   thinking?: string;
   source?: string;
   roundId?: string;
-  speaker?: "claude" | "gpt";
+  speaker?: "claude" | "gpt" | "deepseek";
   proposal?: { id?: string; status?: string };
 };
 
@@ -21,6 +21,7 @@ type StoredSession = {
   kind?: string;
   summary?: string;
   summarizedUntil?: number;
+  groupOptions?: unknown;
 };
 
 type StoreAccess = {
@@ -110,6 +111,7 @@ function mergeMessages(local: StoredMessage[] = [], incoming: StoredMessage[] = 
 }
 
 function isEmptyNormalSession(session: StoredSession) {
+  if (session.kind === "group" && session.groupOptions) return false;
   return !Array.isArray(session.messages) || session.messages.length === 0;
 }
 

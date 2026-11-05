@@ -21,6 +21,7 @@ export async function compactContext({ scope, messages, budget, kind, overhead, 
         `待并入摘要的较早对话：\n${chunk}`,
       ].filter(Boolean).join("\n\n") }],
       modelId: "claude-sonnet-5", reasoningEffort: "low", priority: "interactive", signal,
+      isolatedMcp: { servers: {}, tools: [] },
     }).catch((error: unknown) => {
       const reason = error instanceof Error ? error.message : "摘要服务没有完成";
       throw new Error(`上下文压缩失败，原记录已保留：${reason}`);

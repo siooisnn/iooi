@@ -2,6 +2,7 @@ import type { Sticker } from "./stickers";
 import type { LedgerCard } from "./dayday-markers";
 import type { WritingFile } from "./writing-file-types";
 import type { ReplyStep } from "./reply-steps";
+import type { GroupOptions, GroupSpeaker } from "./group-options";
 
 // ━━━━━━━━━━━━━━━ Types ━━━━━━━━━━━━━━━
 export type Message = {
@@ -19,7 +20,7 @@ export type Message = {
   steps?: ReplyStep[];
   source?: string;
   roundId?: string;
-  speaker?: "claude" | "gpt";
+  speaker?: GroupSpeaker;
   proposal?: SummerWriteProposal;
   blog?: BlogCard;
   ledger?: LedgerCard;
@@ -44,6 +45,7 @@ export type ChatSession = {
   messages: Message[];
   createdAt: string;
   kind?: "group";   // group 是独立群聊
+  groupOptions?: GroupOptions;
   summary?: string;          // 滚动摘要:窗口外旧对话的前情提要(王酥酥第一人称)
   summarizedUntil?: number;  // 已摘要到的原始气泡索引
 };

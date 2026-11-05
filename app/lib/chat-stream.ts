@@ -1,7 +1,9 @@
 import type { WritingFile } from "./writing-file-types";
 import { cleanReplySteps, type ReplyStep } from "./reply-steps";
+import type { Message } from "./app-types";
 
 export type StreamReply = {
+  messages?: Message[];
   nudge?: boolean;
   reply?: string;
   thinking?: string;

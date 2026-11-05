@@ -4,6 +4,7 @@ export const GPT_MODELS = [
   { id: "gpt56sol", label: "GPT-5.6 Sol", apiId: "openai/gpt-5.6-sol" },
   { id: "gpt6sol", label: "GPT-6 Sol", apiId: "openai/gpt-6-sol" },
   { id: "gpt6astra", label: "GPT-6 Astra", apiId: "openai/gpt-6-astra" },
+  { id: "gpt61sol", label: "GPT-6.1 Sol", apiId: "openai/gpt-6.1-sol" },
 ] as const;
 
 export type GptModel = (typeof GPT_MODELS)[number];

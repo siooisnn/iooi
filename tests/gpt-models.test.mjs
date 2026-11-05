@@ -6,7 +6,7 @@ import { allowedGptApiId, DEFAULT_GPT_MODEL, GPT_MODELS, resolveGptModel } from 
 test("GPT picker offers GPT-5.6 Sol, GPT-6 Sol and GPT-6 Astra", () => {
   assert.deepEqual(
     GPT_MODELS.map((model) => model.apiId),
-    ["openai/gpt-5.6-sol", "openai/gpt-6-sol", "openai/gpt-6-astra"],
+    ["openai/gpt-5.6-sol", "openai/gpt-6-sol", "openai/gpt-6-astra", "openai/gpt-6.1-sol"],
   );
 });
 

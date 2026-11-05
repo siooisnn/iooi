@@ -314,8 +314,8 @@ export async function POST(request: Request) {
     const userMessage = body.userMsg && typeof body.userMsg === "object"
       ? sanitizeIncomingMessage(body.userMsg as StoreMessage)
       : undefined;
-    const summerState = await readGptSummerState().catch(() => null);
-    const summerConfigured = Boolean(gptSummerBaseUrl());
+    const summerState = body.groupSessionId ? null : await readGptSummerState().catch(() => null);
+    const summerConfigured = !body.groupSessionId && Boolean(gptSummerBaseUrl());
     const systemParts = [
       String(body.systemPrompt || "").trim(),
       !body.skipPersist ? ARTWORK_CHAT_PROMPT : "",
