@@ -41,8 +41,15 @@ test("group endpoint excludes memory, isolates Claude MCP and saves writing resu
   const run = async (input) => {
     f.jobs = [];
     const response = await request(input);
+    // Real Next runs after() only after the response ends. The stream must
+    // therefore finish without invoking those callbacks to start its job.
+    let timer;
+    let text;
+    try {
+      text = await Promise.race([response.text(), new Promise((_, reject) => { timer = setTimeout(() => reject(new Error("stream waited for after()")), 1500); })]);
+    } finally { clearTimeout(timer); }
     await Promise.all(f.jobs.map((fn) => fn()));
-    const events = (await response.text()).trim().split("\n").map(JSON.parse);
+    const events = text.trim().split("\n").map(JSON.parse);
     return events.at(-1);
   };
   try {

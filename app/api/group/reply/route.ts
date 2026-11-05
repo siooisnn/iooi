@@ -101,6 +101,9 @@ export async function POST(request: Request) {
     });
   }
   const run = async () => { try { if (writing) await withWritingLock(task); else await task(); } finally { clearInterval(heartbeat); if (connected) { try { output.close(); } catch {} } } };
-  after(run);
+  // Begin before returning the open stream; after() only keeps it alive if
+  // the viewer disconnects. Deferring the start to after() would deadlock.
+  const job = run();
+  after(() => job);
   return new Response(stream, { headers: { "Content-Type": "application/x-ndjson; charset=utf-8", "Cache-Control": "no-cache, no-transform", "X-Accel-Buffering": "no" } });
 }
