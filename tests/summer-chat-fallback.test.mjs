@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 
 // Exercise the actual POST handler, with no disk writes, model calls or network access.
 const fixtureKey = Symbol.for("iooi.summer-chat-test");
-const fixture = { store: {}, groupStore: {}, inputs: [], jobs: [], reply: "我在，继续聊。" };
+const fixture = { store: {}, groupStore: {}, inputs: [], jobs: [], steps: [], reply: "我在，继续聊。" };
 globalThis[fixtureKey] = fixture;
 const fixtureCode = 'const f = globalThis[Symbol.for("iooi.summer-chat-test")];';
 const mocks = new Map([
@@ -20,7 +20,9 @@ const mocks = new Map([
     export const runClaudeCodeChat = async (input) => {
       f.inputs.push(input);
       for (const character of f.reply) input.onTextDelta?.(character);
-      return { reply: f.reply, model: input.modelId, durationMs: 1, queueWaitMs: 0,
+      input.onSteps?.(f.steps);
+      if (f.failAfterSteps) throw new Error("generation interrupted after a tool call");
+      return { reply: f.reply, steps: f.steps, model: input.modelId, durationMs: 1, queueWaitMs: 0,
         webSearchUsed: false, usage: { input_tokens: 10, output_tokens: 5,
           cache_creation_input_tokens: 0, cache_read_input_tokens: 0 } };
     };`],
@@ -53,6 +55,7 @@ test("Summer failures do not block Claude replies or lose the round", async (t) 
   const requests = [];
   let failure;
   let failSearch = false;
+  let safeTools = true;
   globalThis.fetch = async (url, init) => {
     const path = new URL(url).pathname;
     requests.push({ path, body: init?.body });
@@ -62,6 +65,9 @@ test("Summer failures do not block Claude replies or lose the round", async (t) 
     if (path === "/api/wake") return Response.json({ stable: "已读取的长期记忆", dynamic: "最近的记忆" });
     if (path === "/api/state") return Response.json({ layers: {}, xiazhi: [], xiaoshu_tail: [] });
     if (path === "/mcp") {
+      if (JSON.parse(init.body).method === "tools/list") return Response.json({ result: { tools: safeTools ? [
+        { name: "edit", inputSchema: { properties: { old_content: { type: "string" } } } },
+      ] : [] } });
       if (failSearch) throw new TypeError("fetch failed");
       return Response.json({ result: { content: [{ type: "text", text: '{"ok":true}' }] } });
     }
@@ -72,10 +78,13 @@ test("Summer failures do not block Claude replies or lose the round", async (t) 
     fixture.groupStore = { sessions: [] };
     fixture.inputs = [];
     fixture.jobs = [];
+    fixture.steps = [];
+    fixture.failAfterSteps = false;
     fixture.reply = "我在，继续聊。";
     requests.length = 0;
     failure = undefined;
     failSearch = false;
+    safeTools = true;
   }
   async function chat(extra = {}, expectedReply = "我在，继续聊。") {
     const content = extra.content || "今天有点累";
@@ -179,27 +188,67 @@ test("Summer failures do not block Claude replies or lose the round", async (t) 
         const data = await chat({ content });
         assert.equal(data.cache.summer_used, true);
         assert.match(fixture.inputs[0].systemPrompt, /已读取的长期记忆/);
-        assert.ok(!requests.some((req) => req.path === "/mcp"), `no Summer MCP call for: ${content}`);
+        assert.ok(!requests.some((req) => req.path === "/mcp" && JSON.parse(req.body).method === "tools/call"), `no backend Summer tool call for: ${content}`);
         assert.ok(!data.cache.summer_calls.some((call) => /检索 summer|查小暑/.test(call.label)));
         assert.ok(!data.cache.summer_calls.some((call) => /暂时/.test(call.label)));
       }
     });
-    await t.test("offline explicit write stays pending without attempted edits", async () => {
+    await t.test("offline private write makes no pending proposal or edit", async () => {
       reset(); failure = new TypeError("fetch failed");
       fixture.reply += '\n[summer_remember layer=xiazhi title="今天" weight=5]今天有点累[/summer_remember]';
       const data = await chat({ content: "把今天有点累写进 Summer" });
       assert.equal(data.cache.summer_writes, 0);
-      assert.equal(data.cache.summer_write_proposals[0].status, "pending");
-      assert.ok(!requests.some((req) => req.path === "/mcp"));
-      assert.match(fixture.inputs[0].messages.at(-1).content, /尚未写入/);
+      assert.deepEqual(data.cache.summer_write_proposals, []);
+      assert.equal(fixture.inputs[0].summerTools, false);
+      assert.ok(!requests.some((req) => req.path === "/mcp" && JSON.parse(req.body).method === "tools/call"));
     });
-    await t.test("healthy explicit write continues to commit", async () => {
+    await t.test("healthy private chat uses native tools and ignores legacy write markers", async () => {
       reset();
       fixture.reply += '\n[summer_remember layer=xiazhi title="今天" weight=5]今天有点累[/summer_remember]';
       const data = await chat({ content: "把今天有点累写进 Summer" });
-      assert.equal(data.cache.summer_writes, 1);
-      assert.equal(data.cache.summer_write_proposals[0].status, "committed");
-      assert.ok(requests.some((req) => req.path === "/mcp" && JSON.parse(req.body).params.name === "edit"));
+      assert.equal(fixture.inputs[0].summerTools, true);
+      assert.match(fixture.inputs[0].systemPrompt, /不需要她逐条确认/);
+      assert.equal(data.cache.summer_writes, 0);
+      assert.deepEqual(data.cache.summer_write_proposals, []);
+      assert.ok(!requests.some((req) => req.path === "/mcp" && JSON.parse(req.body).method === "tools/call"));
+    });
+    await t.test("old Summer server keeps writes closed without a confirmation flow", async () => {
+      reset(); safeTools = false;
+      const data = await chat();
+      assert.equal(fixture.inputs[0].summerTools, false);
+      assert.match(fixture.inputs[0].systemPrompt, /只能查询/);
+      assert.deepEqual(data.cache.summer_write_proposals, []);
+    });
+    await t.test("native mutation results survive streaming and history persistence", async () => {
+      reset();
+      fixture.steps = [{ kind: "tool", active: "在写入 Summer 小暑", done: "已写入 Summer 小暑", group: "summer_write", t: 10, ms: 5, status: "success" }];
+      const data = await chat({ stream: true });
+      assert.deepEqual(data.steps, fixture.steps);
+      assert.deepEqual(fixture.store.sessions[0].messages.find((msg) => msg.role === "assistant" && msg.content === data.reply).steps, fixture.steps);
+    });
+    await t.test("group chat does not gain native write tools", async () => {
+      reset();
+      await chat({ skipPersist: true, groupSessionId: "group-test" });
+      assert.equal(fixture.inputs[0].summerTools, false);
+      assert.equal(fixture.inputs[0].chatTools, false);
+      assert.ok(!requests.some((req) => req.path === "/mcp"));
+    });
+    await t.test("a later generation failure preserves successful and uncertain memory operations", async () => {
+      reset(); fixture.failAfterSteps = true;
+      fixture.steps = [
+        { kind: "tool", active: "在写入 Summer 小暑", done: "已写入 Summer 小暑", group: "summer_write", t: 10, ms: 5, status: "success" },
+        { kind: "tool", active: "在修改 Summer 立夏", done: "已修改 Summer 立夏", group: "summer_write", t: 20 },
+      ];
+      const response = await POST(new Request("http://iooi.test/api/chat", {
+        method: "POST", headers: { "content-type": "application/json" },
+        body: JSON.stringify({ modelId: "claude-sonnet-5", sessionId: "private-test", messages: [{ role: "user", content: "记下今天" }], userMsg: { role: "user", content: "记下今天", roundId: "partial-write" } }),
+      }));
+      const data = await response.json();
+      assert.equal(response.status, 502);
+      assert.deepEqual(data.steps.map((step) => step.status), ["success", "unknown"]);
+      assert.match(data.reply, /不要重复写入/);
+      const saved = fixture.store.sessions[0].messages.find((msg) => msg.content === data.reply);
+      assert.deepEqual(saved.steps, data.steps);
     });
   } finally {
     globalThis.fetch = originalFetch;

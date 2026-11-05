@@ -19,6 +19,8 @@ export type ReplyStep = {
   ms?: number;
   /** Merged repeats of the same finished step. */
   n?: number;
+  /** Summer mutations are successful only after a successful tool_result. */
+  status?: "success" | "failed" | "unknown";
 };
 
 type ToolInput = Record<string, unknown>;
@@ -102,6 +104,14 @@ function chatToolLabel(name: string, input: ToolInput): ToolLabel {
     const date = text(input.date || input.ref, 12);
     return label("翻", ` Summer${[...layers.slice(0, 2), date].filter(Boolean).map((part) => ` ${part}`).join("")}`, "summer");
   }
+  if (name === "mcp__summer__wake") return label("读取", " Summer 唤醒", "summer");
+  if (name === "mcp__summer__daily_review") return withTarget(label("写入", " Summer 小暑回顾", "summer_write", "已写入"), text(input.date, 12));
+  if (name === "mcp__summer__edit") {
+    const layer = SUMMER_LAYERS[String(input.layer)] || "记忆";
+    const verbs: Record<string, [string, string]> = { add: ["写入", "已写入"], update: ["修改", "已修改"], delete: ["删除", "已删除"] };
+    const [active, done] = verbs[String(input.action)] || ["操作", "已操作"];
+    return withTarget(label(active, ` Summer ${layer}`, "summer_write", done), text(input.title, 24));
+  }
   if (name.startsWith("mcp__iooi__")) {
     const tool = name.slice("mcp__iooi__".length);
     if (tool === "clawd_action") return CLAWD_ACTIONS[String(input.action)] || label("照顾", "小砖", "clawd");
@@ -159,11 +169,14 @@ export function formatStepMs(ms: number) {
 export function stepLabel(step: ReplyStep) {
   if (step.ms === undefined) return step.kind === "think" ? "在想…" : `${step.active}…`;
   if (step.kind === "think") return `想了 ${formatStepMs(step.ms)}`;
+  if (step.status === "failed") return `${step.active.replace(/^在/, "")} · 失败`;
+  if (step.status === "unknown") return `${step.active.replace(/^在/, "")} · 结果未确认`;
   return step.n && step.n > 1 ? `${step.done} ×${step.n}` : step.done;
 }
 
 const CHAT_GROUPS: Record<string, (count: number) => string> = {
   summer: () => "翻了 Summer",
+  summer_write: () => "更新了 Summer",
   web: (count) => `搜了 ${count} 次`,
   fetch: (count) => `看了 ${count} 个网页`,
   blog: () => "看了博客",
@@ -203,6 +216,10 @@ export function summarizeSteps(steps: ReplyStep[], mode: ReplyStepMode) {
   const groups = new Map<string, { count: number; labels: Set<string> }>();
   for (const step of steps) {
     if (step.kind !== "tool") continue;
+    if (step.group === "summer_write" && step.status !== "success") {
+      parts.push(stepLabel(step));
+      continue;
+    }
     const key = step.group || step.done;
     const group = groups.get(key) || { count: 0, labels: new Set<string>() };
     group.count += step.n || 1;
@@ -230,7 +247,20 @@ export function cleanReplySteps(value: unknown): ReplyStep[] {
   return Array.isArray(value) ? value.filter(isReplyStep).slice(-MAX_STEPS) : [];
 }
 
-type StreamBlock = { type?: string; id?: string; name?: string; input?: unknown; tool_use_id?: string };
+type StreamBlock = { type?: string; id?: string; name?: string; input?: unknown; tool_use_id?: string; is_error?: boolean; content?: unknown };
+
+function summerResultFailed(block: StreamBlock): boolean {
+  if (block.is_error) return true;
+  const value = Array.isArray(block.content)
+    ? block.content.filter((part) => part?.type === "text").map((part) => part.text).join("\n")
+    : block.content;
+  try {
+    const parsed = typeof value === "string" ? JSON.parse(value) : value;
+    return Boolean(parsed && typeof parsed === "object" && (parsed.isError || parsed.error || parsed.ok === false));
+  } catch {
+    return false;
+  }
+}
 type StreamEvent = {
   type?: string;
   subtype?: string;
@@ -290,15 +320,16 @@ export function createReplySteps({ mode, onChange, now = Date.now }: {
     running.set(id, step);
     return true;
   };
-  const endTool = (id: string) => {
+  const endTool = (id: string, result?: StreamBlock) => {
     const step = running.get(id);
     if (!step) return false;
     running.delete(id);
+    if (step.group === "summer_write") step.status = !result ? "unknown" : summerResultFailed(result) ? "failed" : "success";
     step.ms = Math.max(0, now() - step.t);
     const index = steps.indexOf(step);
     const previous = index > 0 ? steps[index - 1] : null;
     if (index === steps.length - 1 && previous && previous.kind === "tool" && previous.ms !== undefined
-      && previous.done === step.done) {
+      && previous.done === step.done && previous.status === step.status) {
       previous.n = (previous.n || 1) + 1;
       previous.ms += step.ms;
       steps.pop();
@@ -331,7 +362,7 @@ export function createReplySteps({ mode, onChange, now = Date.now }: {
           if (event.type === "assistant" && block.type === "tool_use" && typeof block.name === "string") {
             touched = startTool(block.id || `tool-${anonymous += 1}`, describeTool(block.name, block.input, mode)) || touched;
           } else if (event.type === "user" && block.type === "tool_result" && typeof block.tool_use_id === "string") {
-            touched = endTool(block.tool_use_id) || touched;
+            touched = endTool(block.tool_use_id, block) || touched;
           }
         }
       }
@@ -347,6 +378,7 @@ export function createReplySteps({ mode, onChange, now = Date.now }: {
       closeThink();
       for (const id of [...running.keys()]) {
         const step = running.get(id)!;
+        if (step.group === "summer_write") step.status = "unknown";
         step.ms = Math.max(0, now() - step.t);
         running.delete(id);
       }

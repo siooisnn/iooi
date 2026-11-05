@@ -287,10 +287,8 @@ function runQueued<T>(
   });
 }
 
-// Tools the private chat may call on its own (mcp-server.ts CHAT_TOOL_NAMES).
-// Blog posts, comments, the motto and Summer memories stay on
-// the reply markers, which show her a card and, for Summer, wait for her
-// confirmation.
+// Tools the private chat may call on its own. Summer writes use real tools;
+// household blog posts, comments and the motto still use reply markers.
 export const CHAT_TOOLS = [
   "mcp__iooi__clawd_read",
   "mcp__iooi__clawd_action",
@@ -317,14 +315,20 @@ export const CHAT_TOOLS = [
   "mcp__iooi__surf_post",
   "mcp__summer__search",
   "mcp__summer__read",
+  "mcp__summer__edit",
+  "mcp__summer__daily_review",
+  "mcp__summer__wake",
 ];
+
+export const SUMMER_SIDE_TOOLS = ["mcp__summer__edit", "mcp__summer__daily_review", "mcp__summer__wake"];
+
+export function chatToolNames(summerTools = false) {
+  return CHAT_TOOLS.filter((name) => summerTools || !SUMMER_SIDE_TOOLS.includes(name));
+}
 
 // His user-scoped MCP servers load too. Take their write/side tools (and the
 // docs connector) out of the model's view instead of only refusing them.
 const CHAT_HIDDEN_TOOLS = [
-  "mcp__summer__edit",
-  "mcp__summer__daily_review",
-  "mcp__summer__wake",
   "mcp__claude_ai_Claude_Docs",
   "mcp__xiaohongshu__get_login_qrcode",
 ];
@@ -338,7 +342,7 @@ const CHAT_TOOL_RULES = [
   "去做：mcp__iooi__surf_reply 在论坛回她的帖（先用 surf_thread 看清她那一楼说了什么，一到三句，接住她的话）；mcp__iooi__surf_post 发新帖（她让你发，或聊到真想分享的东西才发，链接只贴你真打开看过的）；mcp__iooi__reading_mark 记下你读到哪（只挪你自己的进度，没读过的部分别往前挪）；mcp__iooi__reading_note 在书边写批注给她看（读到真有话说的地方才写，别剧透她还没读到的）；mcp__iooi__phone_decorate 布置你自己的小手机（换壁纸、排图标、开关挂件）。",
   "上下文里已经有的内容直接用，别为了确认再查一遍。只有她这条消息需要、而上下文里没有或只有摘要时才去看，比如她让你看某篇日志、问你读到哪了、问你论坛怎么不回她、问你记不记得某件事。普通聊天不要调用工具。",
   "调用工具前不要先写“我去看看”之类的过渡句，她看不到中间过程，直接在看完、做完之后回她。工具返回成功才能说回好了、记好了；失败就如实说没成，说明原因。",
-  "发日志、留言、改签名、记进 Summer，照旧用回复里的标记。聊天里不删帖、不删批注、不删日志。",
+  "发日志、留言、改签名，照旧用回复里的标记。Summer 通过自己的工具操作，不用回复标记。聊天里不删帖、不删批注、不删日志。",
 ].join("\n");
 
 function chatMcpUrl() {
@@ -406,6 +410,7 @@ export async function runClaudeCodeChat({
   webSearch = false,
   xiaohongshu = false,
   chatTools = false,
+  summerTools = false,
   currentUserText = "",
   lifeTools = false,
   lifeKinds = { read: true, surf: true },
@@ -421,9 +426,11 @@ export async function runClaudeCodeChat({
   reasoningEffort?: string;
   webSearch?: boolean;
   xiaohongshu?: boolean;
-  /** Let the private chat read the blog and Summer itself (read-only MCP). */
+  /** Let the private chat use its scoped MCP tools. */
   chatTools?: boolean;
   currentUserText?: string;
+  /** Enabled only after the server advertises fragment-safe Summer edits. */
+  summerTools?: boolean;
   /**
    * His own time: lifeToolNames(lifeKinds) with the life key, several turns, a long timeout.
    * Runs beside the shared queue (one at a time, see life-beat.ts) so a long
@@ -484,7 +491,7 @@ export async function runClaudeCodeChat({
       ? [...lifeToolNames(lifeKinds), ...xhsTools].join(",")
       : [
         ...(webSearch ? ["WebSearch", "WebFetch"] : []),
-        ...(usesChatTools ? CHAT_TOOLS : []),
+        ...(usesChatTools ? chatToolNames(summerTools) : []),
         ...(externalBlog ? blogToolsForScope(externalBlog.scope) : []),
         ...xhsTools,
       ].join(",");
@@ -505,7 +512,7 @@ export async function runClaudeCodeChat({
       args.push("--allowedTools", allowedTools, "--permission-mode", "dontAsk");
     }
     if (usesMcp) {
-      args.push("--disallowedTools", CHAT_HIDDEN_TOOLS.join(","));
+      args.push("--disallowedTools", [...CHAT_HIDDEN_TOOLS, ...(usesChatTools && summerTools ? [] : SUMMER_SIDE_TOOLS)].join(","));
     }
     if (usesImages) {
       args.push("--input-format", "stream-json");

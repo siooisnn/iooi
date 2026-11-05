@@ -710,6 +710,15 @@ export function ChatView({
       setStreamingReply("");
       const responseStatus = typeof data.status === "number" ? data.status : res.status;
       if (!res.ok || responseStatus >= 400) {
+        const operationSteps = cleanReplySteps(data.steps);
+        if (!codeRequest && !isGpt && operationSteps.some((step) => step.group === "summer_write")) {
+          const notice: Message = {
+            role: "assistant", content: data.reply, roundId: userMsg.roundId, steps: operationSteps,
+            time: data.cache?.reply_persisted_time || getTime(), date: data.cache?.reply_persisted_date || getTodayStr(),
+          };
+          sessionMessagesRef.current = mergeChatMessages(sessionMessagesRef.current, [notice]);
+          updateMessages((current) => mergeChatMessages(current, [notice]));
+        }
         if (codeRequest && developmentProject === "writing" && data.writingFiles?.length) {
           const savedParts = `开发任务未完成：${data.reply || "任务没有完成"}`.split(/\n{2,}/).filter((part: string) => part.trim());
           const partialMessages: Message[] = savedParts.map((part: string, index: number) => ({

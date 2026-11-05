@@ -15,6 +15,7 @@ import { parseCodeReleaseCommand } from "@/app/lib/code-release-command";
 import { createVisibleReplyStream } from "@/app/lib/visible-reply-stream";
 import { NUDGE_PROMPT, NUDGE_REPLY_TEXT, parseNudgeReply } from "@/app/lib/chat-nudge";
 import { isExplicitSummerWriteRequest } from "@/app/lib/summer-write-intent";
+import { hasSafeSummerEdit, SUMMER_CHAT_RULES } from "@/app/lib/summer-tools";
 import { asksForBlogPost, BLOG_CHAT_BRIDGE, mentionsBlog, parseBlogMarkers, stripBlogMarkers } from "@/app/lib/blog-markers";
 import { readBlogDigest, readBlogPostsAskedFor, runBlogMarkers } from "@/app/lib/blog-tools";
 import type { BlogCard } from "@/app/lib/app-types";
@@ -192,6 +193,27 @@ async function callSummerTool(name: string, args: Record<string, unknown>): Prom
   return extractToolText(data);
 }
 
+async function readSummerToolSupport(): Promise<boolean> {
+  try {
+    const token = process.env.SUMMER_TOKEN || "";
+    const res = await fetch(`${summerBaseUrl()}/mcp`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json, text/event-stream",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify({ jsonrpc: "2.0", id: `tools-${Date.now()}`, method: "tools/list" }),
+      signal: AbortSignal.timeout(3_000),
+      cache: "no-store",
+    });
+    const data = parseMcpPayload(await res.text()) as { result?: { tools?: unknown }; error?: unknown };
+    return res.ok && !data.error && hasSafeSummerEdit(data.result?.tools);
+  } catch {
+    return false;
+  }
+}
+
 type SummerItem = {
   id?: string;
   date?: string;
@@ -260,7 +282,8 @@ async function readSummerWake(): Promise<SummerWakeParts> {
   return data as SummerWakeParts;
 }
 
-function buildSummerBridgeStable(directWritesEnabled: boolean): string {
+function buildSummerBridgeStable(directWritesEnabled: boolean, nativeTools: boolean): string {
+  if (nativeTools) return SUMMER_CHAT_RULES;
   return [
     "## Summer",
     "",
@@ -983,16 +1006,20 @@ export async function POST(request: Request) {
   let summerUsed = false;
   let summerNotice = "";
   let summerState: SummerState | null = null;
+  const nativeSummerChat = !skipPersist && !groupSessionId;
+  let summerToolsReady = false;
   const summerCalls: SummerCall[] = [];
   const query = String(groupUserText || userMsg?.content || latestUserText(requestMessages));
-  const directSummerWriteRequested = !skipPersist && isSummerWriteOnlyIntent(query);
+  const directSummerWriteRequested = !nativeSummerChat && !skipPersist && isSummerWriteOnlyIntent(query);
   const summerStartedAt = Date.now();
   let summerMs = 0;
   try {
-    const [summerWake, currentSummerState] = await Promise.all([
+    const [summerWake, currentSummerState, safeTools] = await Promise.all([
       readSummerWake(),
       readSummerState(),
+      nativeSummerChat ? readSummerToolSupport() : Promise.resolve(false),
     ]);
+    summerToolsReady = safeTools;
     summerState = currentSummerState;
     if (!skipPersist && !quietSummerWake) {
       summerCalls.push({
@@ -1001,7 +1028,7 @@ export async function POST(request: Request) {
         status: "used",
       });
     }
-    const summerStable = [buildSummerBridgeStable(!skipPersist), String(summerWake.stable || "").trim()]
+    const summerStable = [buildSummerBridgeStable(!skipPersist, nativeSummerChat), String(summerWake.stable || "").trim()]
       .filter(Boolean)
       .join("\n\n");
     const summerDynamic = String(summerWake.dynamic || "").trim();
@@ -1026,7 +1053,11 @@ export async function POST(request: Request) {
       label: "Summer 暂时未连接，本轮未读取记忆；聊天继续",
       status: "fallback",
     });
-    summerNotice = "【本轮 Summer 状态】Summer 暂时无法读取。继续正常回答，只使用本窗口已提供的聊天记录；不要编造长期记忆、声称查到了旧事或已经写入 Summer。写入提议只会保留待确认。";
+    summerNotice = "【本轮 Summer 状态】Summer 暂时无法读取。继续正常回答，只使用本窗口已提供的聊天记录；不要编造长期记忆、声称查到了旧事或已经写入 Summer。"
+      + (nativeSummerChat ? "本轮不写入记忆，不生成待确认提议。" : "写入提议只会保留待确认。");
+  }
+  if (nativeSummerChat && !summerToolsReady) {
+    system.push({ type: "text", text: `${SUMMER_CHAT_RULES}\n本轮 Summer 安全写入工具尚未就绪，只能查询，不要声称已经写入或生成待确认提议。` });
   }
   summerMs = Date.now() - summerStartedAt;
 
@@ -1185,6 +1216,7 @@ ${combinedDynamicPrompt}
     let timingModel = String(modelId || "claude-sonnet-5");
     let queueWaitMs = 0;
     let claudeDurationMs = 0;
+    let observedSteps: ReplyStep[] = [];
     let claudeRoundTripMs = 0;
     try {
       const requestedModel = normalizeClaudeCodeModel(timingModel);
@@ -1197,8 +1229,9 @@ ${combinedDynamicPrompt}
         reasoningEffort: thinking ? reasoningEffort : "low",
         webSearch: Boolean(webSearch),
         xiaohongshu: xiaohongshu === true,
-        // Private chat can go and read the blog / Summer itself (read-only).
+        // Private chat uses native Summer tools once fragment-safe edits exist.
         chatTools: !skipPersist && !groupSessionId,
+        summerTools: nativeSummerChat && summerToolsReady,
         currentUserText: String(groupUserText || latestUserText(requestMessages)),
         priority: "interactive",
         // In stream mode, closing the browser only stops viewing. The server
@@ -1206,7 +1239,7 @@ ${combinedDynamicPrompt}
         signal: onTextDelta ? undefined : request.signal,
         onTextDelta,
         onTextReset,
-        onSteps,
+        onSteps: (steps) => { observedSteps = steps; onSteps?.(steps); },
       });
       claudeRoundTripMs = Date.now() - claudeStartedAt;
       queueWaitMs = data.queueWaitMs;
@@ -1221,7 +1254,8 @@ ${combinedDynamicPrompt}
             return parsed ? [parsed] : [];
           })
         : [];
-      const collectedProposals = collectSummerWriteProposals(reply);
+      // Native chat writes exactly once via MCP. Ignore legacy reply markers.
+      const collectedProposals = nativeSummerChat ? [] : collectSummerWriteProposals(reply);
       let summerWriteProposals: SummerWrite[];
       if (directSummerWriteRequested && summerState && collectedProposals.length) {
         const directResult = await commitDirectSummerWrites(collectedProposals);
@@ -1346,6 +1380,17 @@ ${combinedDynamicPrompt}
         },
       };
     } catch (error) {
+      // A completed memory write survives a later generation error. Keep its
+      // real outcome visible rather than inviting a duplicate retry.
+      if (nativeSummerChat && observedSteps.some((step) => step.group === "summer_write")) {
+        const steps = observedSteps.filter((step) => step.kind === "tool").map((step) => step.ms !== undefined ? step : {
+          ...step, ms: Math.max(0, Date.now() - step.t),
+          ...(step.group === "summer_write" ? { status: "unknown" as const } : {}),
+        });
+        const reply = "这轮回复中断了，Summer 操作结果已保留在上方记录中；结果未确认的操作请先查询，不要重复写入。";
+        const stamp = await persistRound(sessionId, userMsg, reply, "", [], [], undefined, false, false, [], [], [], steps);
+        return { status: 502, body: { reply, steps, cache: { reply_persisted_time: stamp.time, reply_persisted_date: stamp.date } } };
+      }
       logChatTiming({
         status: isAbortError(error) ? "aborted" : "error",
         mode: skipPersist ? "group" : "direct",

@@ -12,6 +12,27 @@ function clock(start = 1_000_000) {
 const toolUse = (id, name, input = {}) => ({ type: "assistant", message: { content: [{ type: "tool_use", id, name, input }] } });
 const toolResult = (id) => ({ type: "user", message: { content: [{ type: "tool_result", tool_use_id: id, content: "secret output" }] } });
 
+test("Summer writes show real successes, failures and interrupted results without content", () => {
+  const steps = createReplySteps({ mode: "chat" });
+  steps.event(toolUse("ok", "mcp__summer__edit", { action: "add", layer: "xiaoshu", title: "午后", content: "private memory" }));
+  steps.event(toolResult("ok"));
+  steps.event(toolUse("fail", "mcp__summer__edit", { action: "update", layer: "lixia" }));
+  steps.event({ type: "user", message: { content: [{ type: "tool_result", tool_use_id: "fail", is_error: true, content: "private error" }] } });
+  steps.event(toolUse("rpc", "mcp__summer__daily_review", { date: "2026-11-05" }));
+  steps.event({ type: "user", message: { content: [{ type: "tool_result", tool_use_id: "rpc", content: [{ type: "text", text: '{"error":{"message":"private"}}' }] }] } });
+  steps.event(toolUse("pending", "mcp__summer__edit", { action: "delete", layer: "rain" }));
+  const done = steps.finish();
+  assert.deepEqual(done.map(stepLabel), [
+    "已写入 Summer 小暑：午后", "修改 Summer 立夏 · 失败", "写入 Summer 小暑回顾：2026-11-05 · 失败", "删除 Summer rain · 结果未确认",
+  ]);
+  assert.deepEqual(done.map((step) => step.status), ["success", "failed", "failed", "unknown"]);
+  assert.ok(!JSON.stringify(done).includes("private"));
+  const summary = summarizeSteps(done.slice(1), "chat");
+  assert.doesNotMatch(summary, /更新了 Summer/);
+  assert.match(summary, /失败/);
+  assert.match(summary, /结果未确认/);
+});
+
 test("chat steps: thinking, a Summer read and a web search, then the answer", () => {
   const time = clock();
   const seen = [];
