@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { formatStepMs, stepLabel, summarizeSteps, type ReplyStep, type ReplyStepMode } from "../lib/reply-steps";
+import { SummerWriteCards } from "./SummerWriteCards";
 
 function Chevron({ open }: { open: boolean }) {
   return (
@@ -68,7 +69,10 @@ export function ReplyStepsBlock({ steps, mode }: { steps: ReplyStep[]; mode: Rep
 /** Chat, while waiting or streaming: what is finished so far, in one faint line. */
 export function ReplyStepsSoFar({ steps }: { steps: ReplyStep[] }) {
   const summary = summarizeSteps(steps.filter((step) => step.ms !== undefined), "chat");
-  return summary ? <div className="reply-steps"><span className="reply-steps-summary">{summary}</span></div> : null;
+  return <>
+    {summary && <div className="reply-steps"><span className="reply-steps-summary">{summary}</span></div>}
+    <SummerWriteCards steps={steps} />
+  </>;
 }
 
 /** Chat status bubble: the step running right now, or null before the first one. */

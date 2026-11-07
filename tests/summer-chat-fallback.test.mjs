@@ -223,7 +223,8 @@ test("Summer failures do not block Claude replies or lose the round", async (t) 
     });
     await t.test("native mutation results survive streaming and history persistence", async () => {
       reset();
-      fixture.steps = [{ kind: "tool", active: "在写入 Summer 小暑", done: "已写入 Summer 小暑", group: "summer_write", t: 10, ms: 5, status: "success" }];
+      fixture.steps = [{ kind: "tool", active: "在写入 Summer 小暑", done: "已写入 Summer 小暑", group: "summer_write", t: 10, ms: 5, status: "success",
+        summerWrite: { action: "add", layer: "xiaoshu", title: "今天", content: "完成开题报告" } }];
       const data = await chat({ stream: true });
       assert.deepEqual(data.steps, fixture.steps);
       assert.deepEqual(fixture.store.sessions[0].messages.find((msg) => msg.role === "assistant" && msg.content === data.reply).steps, fixture.steps);
@@ -238,8 +239,10 @@ test("Summer failures do not block Claude replies or lose the round", async (t) 
     await t.test("a later generation failure preserves successful and uncertain memory operations", async () => {
       reset(); fixture.failAfterSteps = true;
       fixture.steps = [
-        { kind: "tool", active: "在写入 Summer 小暑", done: "已写入 Summer 小暑", group: "summer_write", t: 10, ms: 5, status: "success" },
-        { kind: "tool", active: "在修改 Summer 立夏", done: "已修改 Summer 立夏", group: "summer_write", t: 20 },
+        { kind: "tool", active: "在写入 Summer 小暑", done: "已写入 Summer 小暑", group: "summer_write", t: 10, ms: 5, status: "success",
+          summerWrite: { action: "add", layer: "xiaoshu", content: "已成功写入的内容" } },
+        { kind: "tool", active: "在修改 Summer 立夏", done: "已修改 Summer 立夏", group: "summer_write", t: 20,
+          summerWrite: { action: "update", layer: "lixia", oldContent: "旧片段", content: "替换片段" } },
       ];
       const response = await POST(new Request("http://iooi.test/api/chat", {
         method: "POST", headers: { "content-type": "application/json" },
@@ -248,6 +251,7 @@ test("Summer failures do not block Claude replies or lose the round", async (t) 
       const data = await response.json();
       assert.equal(response.status, 502);
       assert.deepEqual(data.steps.map((step) => step.status), ["success", "unknown"]);
+      assert.deepEqual(data.steps.map((step) => step.summerWrite), fixture.steps.map((step) => step.summerWrite));
       assert.match(data.reply, /不要重复写入/);
       const saved = fixture.store.sessions[0].messages.find((msg) => msg.content === data.reply);
       assert.deepEqual(saved.steps, data.steps);

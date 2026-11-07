@@ -1,9 +1,21 @@
 // What he is doing while she waits: thinking, reading Summer, searching the
 // web, opening a file. Built from Claude Code's stream-json events. Only the
 // kind of action and a short target are kept, never tool output or code.
+// Private Summer mutations also retain their submitted fields for her receipt.
 // No relative imports, so the node test runner can load this file directly.
 
 export type ReplyStepMode = "chat" | "work";
+
+export type SummerWriteDetail = {
+  action: "add" | "update" | "delete" | "daily_review";
+  layer: string;
+  title?: string;
+  content?: string;
+  oldContent?: string;
+  itemId?: string;
+  fields?: string[];
+  truncated?: boolean;
+};
 
 export type ReplyStep = {
   kind: "think" | "tool";
@@ -21,6 +33,7 @@ export type ReplyStep = {
   n?: number;
   /** Summer mutations are successful only after a successful tool_result. */
   status?: "success" | "failed" | "unknown";
+  summerWrite?: SummerWriteDetail;
 };
 
 type ToolInput = Record<string, unknown>;
@@ -28,6 +41,41 @@ type ToolLabel = { active: string; done: string; group: string };
 
 const MIN_THINK_MS: Record<ReplyStepMode, number> = { chat: 1_000, work: 2_000 };
 const MAX_STEPS = 300;
+const MAX_WRITE_TEXT = 20_000;
+
+function summerWriteDetail(name: string, value: unknown): SummerWriteDetail | undefined {
+  if (name !== "mcp__summer__edit" && name !== "mcp__summer__daily_review") return;
+  if (!value || typeof value !== "object") return;
+  const input = value as ToolInput;
+  const action = name === "mcp__summer__daily_review" ? "daily_review" : input.action;
+  if (action !== "add" && action !== "update" && action !== "delete" && action !== "daily_review") return;
+  const layer = action === "daily_review" ? "xiaoshu" : input.layer;
+  if (typeof layer !== "string" || !SUMMER_LAYERS[layer]) return;
+  const detail: SummerWriteDetail = { action, layer };
+  for (const [key, target, limit] of [
+    ["title", "title", 500], ["content", "content", MAX_WRITE_TEXT],
+    ["old_content", "oldContent", MAX_WRITE_TEXT], ["item_id", "itemId", 500],
+  ] as const) {
+    if (typeof input[key] !== "string") continue;
+    detail[target] = input[key].slice(0, limit);
+    if (input[key].length > limit) detail.truncated = true;
+  }
+  const fields: string[] = [];
+  for (const [key, label] of Object.entries({ date: "日期", weight: "权重", due: "到期", status: "状态", state: "阶段", ttl_hours: "有效小时", expires_at: "失效时间" })) {
+    if (typeof input[key] === "string" || typeof input[key] === "number") fields.push(`${label}：${String(input[key]).slice(0, 500)}`);
+  }
+  if (Array.isArray(input.tags)) fields.push(`标签：${input.tags.filter((tag): tag is string => typeof tag === "string").slice(0, 20).map((tag) => tag.slice(0, 100)).join("、")}`);
+  if (fields.length) detail.fields = fields;
+  return detail;
+}
+
+export function summerWriteTitle(step: ReplyStep) {
+  const detail = step.summerWrite;
+  if (!detail) return "";
+  const action = { add: "新增", update: "修改", delete: "删除", daily_review: "写入回顾" }[detail.action];
+  const status = step.ms === undefined ? "正在提交" : step.status === "success" ? "已完成" : step.status === "failed" ? "失败" : "结果未确认";
+  return `${status} · ${action} Summer ${SUMMER_LAYERS[detail.layer] || detail.layer}${detail.title ? ` · ${detail.title}` : ""}`;
+}
 
 function text(value: unknown, max = 24) {
   const clean = typeof value === "string" ? value.replace(/\s+/g, " ").trim() : "";
@@ -244,7 +292,23 @@ export function isReplyStep(value: unknown): value is ReplyStep {
 }
 
 export function cleanReplySteps(value: unknown): ReplyStep[] {
-  return Array.isArray(value) ? value.filter(isReplyStep).slice(-MAX_STEPS) : [];
+  return Array.isArray(value) ? value.filter(isReplyStep).slice(-MAX_STEPS).map((step) => {
+    if (!step.summerWrite) return step;
+    const next = { ...step };
+    delete next.summerWrite;
+    const stored = step.summerWrite;
+    if (step.group !== "summer_write" || typeof stored !== "object") return next;
+    const detail = summerWriteDetail(stored.action === "daily_review" ? "mcp__summer__daily_review" : "mcp__summer__edit", {
+      action: stored.action, layer: stored.layer, title: stored.title, content: stored.content,
+      old_content: stored.oldContent, item_id: stored.itemId,
+    });
+    if (detail) {
+      if (Array.isArray(stored.fields)) detail.fields = stored.fields.filter((field): field is string => typeof field === "string").slice(0, 10).map((field) => field.slice(0, 1000));
+      if (stored.truncated) detail.truncated = true;
+      next.summerWrite = detail;
+    }
+    return next;
+  }) : [];
 }
 
 type StreamBlock = { type?: string; id?: string; name?: string; input?: unknown; tool_use_id?: string; is_error?: boolean; content?: unknown };
@@ -310,11 +374,11 @@ export function createReplySteps({ mode, onChange, now = Date.now }: {
     steps.push({ kind: "think", active: "在想", done: "想了", t: now() });
     if (steps.length > MAX_STEPS) steps.splice(0, steps.length - MAX_STEPS);
   };
-  const startTool = (id: string, tool: ToolLabel) => {
+  const startTool = (id: string, tool: ToolLabel, summerWrite?: SummerWriteDetail) => {
     if (seen.has(id)) return false;
     seen.add(id);
     closeThink();
-    const step: ReplyStep = { kind: "tool", ...tool, t: now() };
+    const step: ReplyStep = { kind: "tool", ...tool, t: now(), ...(summerWrite ? { summerWrite } : {}) };
     steps.push(step);
     if (steps.length > MAX_STEPS) steps.splice(0, steps.length - MAX_STEPS);
     running.set(id, step);
@@ -329,6 +393,7 @@ export function createReplySteps({ mode, onChange, now = Date.now }: {
     const index = steps.indexOf(step);
     const previous = index > 0 ? steps[index - 1] : null;
     if (index === steps.length - 1 && previous && previous.kind === "tool" && previous.ms !== undefined
+      && !step.summerWrite && !previous.summerWrite
       && previous.done === step.done && previous.status === step.status) {
       previous.n = (previous.n || 1) + 1;
       previous.ms += step.ms;
@@ -360,7 +425,8 @@ export function createReplySteps({ mode, onChange, now = Date.now }: {
         for (const block of content) {
           if (!block || typeof block !== "object") continue;
           if (event.type === "assistant" && block.type === "tool_use" && typeof block.name === "string") {
-            touched = startTool(block.id || `tool-${anonymous += 1}`, describeTool(block.name, block.input, mode)) || touched;
+            touched = startTool(block.id || `tool-${anonymous += 1}`, describeTool(block.name, block.input, mode),
+              mode === "chat" ? summerWriteDetail(block.name, block.input) : undefined) || touched;
           } else if (event.type === "user" && block.type === "tool_result" && typeof block.tool_use_id === "string") {
             touched = endTool(block.tool_use_id, block) || touched;
           }

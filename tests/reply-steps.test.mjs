@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import "./helpers/resolve-typescript.mjs";
 
-const { cleanReplySteps, createReplySteps, describeTool, stepLabel, summarizeSteps } = await import("../app/lib/reply-steps.ts");
+const { cleanReplySteps, createReplySteps, describeTool, stepLabel, summarizeSteps, summerWriteTitle } = await import("../app/lib/reply-steps.ts");
 
 function clock(start = 1_000_000) {
   let now = start;
@@ -12,7 +12,7 @@ function clock(start = 1_000_000) {
 const toolUse = (id, name, input = {}) => ({ type: "assistant", message: { content: [{ type: "tool_use", id, name, input }] } });
 const toolResult = (id) => ({ type: "user", message: { content: [{ type: "tool_result", tool_use_id: id, content: "secret output" }] } });
 
-test("Summer writes show real successes, failures and interrupted results without content", () => {
+test("Summer write receipts retain submitted content and distinguish success, failure and interruption", () => {
   const steps = createReplySteps({ mode: "chat" });
   steps.event(toolUse("ok", "mcp__summer__edit", { action: "add", layer: "xiaoshu", title: "午后", content: "private memory" }));
   steps.event(toolResult("ok"));
@@ -26,11 +26,67 @@ test("Summer writes show real successes, failures and interrupted results withou
     "已写入 Summer 小暑：午后", "修改 Summer 立夏 · 失败", "写入 Summer 小暑回顾：2026-11-05 · 失败", "删除 Summer rain · 结果未确认",
   ]);
   assert.deepEqual(done.map((step) => step.status), ["success", "failed", "failed", "unknown"]);
-  assert.ok(!JSON.stringify(done).includes("private"));
+  assert.equal(done[0].summerWrite.content, "private memory");
+  assert.ok(!JSON.stringify(done).includes("private error"));
+  assert.ok(!JSON.stringify(done).includes('"message":"private"'));
   const summary = summarizeSteps(done.slice(1), "chat");
   assert.doesNotMatch(summary, /更新了 Summer/);
   assert.match(summary, /失败/);
   assert.match(summary, /结果未确认/);
+});
+
+test("Summer receipts keep each same-title change, including before/after fragments and metadata-only updates", () => {
+  const steps = createReplySteps({ mode: "chat" });
+  for (const [id, content] of [["one", "first addition"], ["two", "second addition"]]) {
+    steps.event(toolUse(id, "mcp__summer__edit", { action: "add", layer: "lixia", title: "同一标题", content, api_key: "must not copy" }));
+    steps.event(toolResult(id));
+  }
+  steps.event(toolUse("change", "mcp__summer__edit", { action: "update", layer: "xiaoman", old_content: "old fragment", content: "new fragment" }));
+  steps.event(toolResult("change"));
+  steps.event(toolUse("meta", "mcp__summer__edit", { action: "update", layer: "rain", item_id: "rain-123", status: "done", weight: 8, tags: ["论文"] }));
+  steps.event(toolResult("meta"));
+  steps.event(toolUse("review", "mcp__summer__daily_review", { date: "2026-11-08", content: "today's review" }));
+  steps.event(toolResult("review"));
+  const done = steps.finish();
+  assert.equal(done.length, 5);
+  assert.deepEqual(done.slice(0, 2).map((s) => s.summerWrite.content), ["first addition", "second addition"]);
+  assert.deepEqual(done[2].summerWrite, { action: "update", layer: "xiaoman", content: "new fragment", oldContent: "old fragment" });
+  assert.equal(done[3].summerWrite.itemId, "rain-123");
+  assert.deepEqual(done[3].summerWrite.fields, ["权重：8", "状态：done", "标签：论文"]);
+  assert.deepEqual(done[4].summerWrite, { action: "daily_review", layer: "xiaoshu", content: "today's review", fields: ["日期：2026-11-08"] });
+  assert.match(summerWriteTitle(done[0]), /已完成.*新增 Summer 立夏/);
+  assert.ok(!JSON.stringify(done).includes("must not copy"));
+  assert.ok(!JSON.stringify(done).includes("secret output"));
+  assert.deepEqual(cleanReplySteps(JSON.parse(JSON.stringify(done))), done);
+});
+
+test("receipt boundaries exclude read results, thinking, other tools, and work mode", () => {
+  const steps = createReplySteps({ mode: "chat" });
+  steps.event(toolUse("read", "mcp__summer__read", { content: "read-only secret" }));
+  steps.event(toolResult("read"));
+  steps.event({ type: "assistant", message: { content: [{ type: "thinking", thinking: "hidden thinking" }] } });
+  steps.event(toolUse("other", "mcp__iooi__blog_read", { content: "other tool secret" }));
+  steps.event(toolResult("other"));
+  assert.ok(steps.finish().every((s) => !s.summerWrite));
+  const work = createReplySteps({ mode: "work" });
+  work.event(toolUse("write", "mcp__summer__edit", { action: "add", layer: "xiaoshu", content: "work secret" }));
+  work.event(toolResult("write"));
+  assert.ok(!JSON.stringify(work.finish()).includes("work secret"));
+});
+
+test("long write receipts are bounded, malformed stored fields are dropped, and unknown results stay unconfirmed", () => {
+  const steps = createReplySteps({ mode: "chat" });
+  steps.event(toolUse("long", "mcp__summer__edit", { action: "update", layer: "lixia", old_content: "old", content: "字".repeat(20_010) }));
+  assert.match(summerWriteTitle(steps.steps()[0]), /正在提交/);
+  const done = steps.finish();
+  assert.equal(done[0].summerWrite.content.length, 20_000);
+  assert.equal(done[0].summerWrite.truncated, true);
+  assert.match(summerWriteTitle(done[0]), /结果未确认/);
+  const forged = { ...done[0], summerWrite: { action: "update", layer: "lixia", content: { bad: true }, fields: [null, { bad: true }, "权重：5"], token: "must not render" } };
+  const cleaned = cleanReplySteps([forged])[0];
+  assert.equal(cleaned.summerWrite.content, undefined);
+  assert.deepEqual(cleaned.summerWrite.fields, ["权重：5"]);
+  assert.ok(!JSON.stringify(cleaned).includes("must not render"));
 });
 
 test("chat steps: thinking, a Summer read and a web search, then the answer", () => {

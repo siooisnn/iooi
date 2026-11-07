@@ -35,6 +35,7 @@ import { ReplyStepsBlock, ReplyStepsLive, ReplyStepsSoFar, activeStepText } from
 import { cleanReplySteps, type ReplyStep } from "../lib/reply-steps";
 import { ChatArtwork } from "./ChatArtwork";
 import { WritingDownloads } from "./WritingDownloads";
+import { SummerWriteCards } from "./SummerWriteCards";
 import { writingUploadMessage } from "../lib/writing-attachments";
 import { artworkChunks, splitChatReply } from "../lib/artworks";
 import { ChatGlyph } from "./RetroDesktop";
@@ -1301,6 +1302,7 @@ export function ChatView({
                   {dotBubbles && showSays && dotsTag(message.role === "user", message.time)}
                   {/* Card themes: the steps sit under the name, inside the reply's own column. */}
                   {dotBubbles && stepsBlock}
+                  {message.role === "assistant" && message.steps?.length ? <SummerWriteCards steps={message.steps} /> : null}
                   {!listEntryMode && <span className="msg-time">{message.source === "heartbeat" ? "💬 " : ""}{message.time}</span>}
                   {message.file && <a className={`msg-bubble chat-file-card ${message.role === "user" ? "msg-bubble-user" : "msg-bubble-ai"}`} href={message.file} target="_blank" rel="noreferrer" download={message.fileName || true}>
                     📄 {message.fileName || "文件附件"} <span aria-hidden>↓</span>
