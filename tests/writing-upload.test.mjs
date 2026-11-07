@@ -4,6 +4,7 @@ import { mkdtemp, mkdir, readFile, readdir, rm, symlink, writeFile } from "node:
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import "./helpers/resolve-typescript.mjs";
+import { pdf } from "./helpers/chat-pdf.mjs";
 
 const { uploadWritingFile } = await import("../app/lib/writing-upload.ts");
 const { readWritingDownload } = await import("../app/lib/writing-files.ts");
@@ -17,7 +18,8 @@ test("uploaded PDF/DOCX are readable by shared writing tools and have private im
   try {
     const files = [];
     for (const ext of ["pdf", "docx"]) {
-      const data = await readFile(new URL(`./fixtures/chat-files/sample.${ext}`, import.meta.url));
+      const data = ext === "pdf" ? pdf("Writing upload PDF reference 42")
+        : await readFile(new URL("./fixtures/chat-files/sample.docx", import.meta.url));
       const { file } = await uploadWritingFile(`参考资料.${ext}`, data, work, artifacts);
       files.push(file);
       assert.deepEqual(await readFile(join(work, file.name)), data);
