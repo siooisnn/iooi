@@ -37,7 +37,7 @@ export type BlogCard = {
 };
 
 // Picked but not yet sent; lives only in the composer until she presses send.
-export type PendingAttachment = { id: string; kind: "image" | "file"; url: string; name: string; sticker?: boolean };
+export type PendingAttachment = { id: string; kind: "image" | "file"; url: string; name: string; sticker?: boolean; writingFile?: WritingFile };
 
 export type ChatSession = {
   id: string;

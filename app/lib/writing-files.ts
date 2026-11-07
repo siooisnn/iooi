@@ -23,6 +23,15 @@ function artifactsDirectory() {
   return join(process.cwd(), "data", "writing-files");
 }
 
+export async function saveWritingDownload(name: string, data: Buffer, destination = artifactsDirectory()): Promise<WritingFile> {
+  const id = randomUUID();
+  const metadata: WritingFile = { id, name, size: data.length };
+  await mkdir(destination, { recursive: true, mode: 0o700 });
+  await writeFile(join(destination, `${id}.bin`), data, { mode: 0o600, flag: "wx" });
+  await writeFile(join(destination, `${id}.json`), JSON.stringify(metadata), { mode: 0o600, flag: "wx" });
+  return metadata;
+}
+
 async function safeFile(path: string, root: string) {
   const actual = await realpath(path);
   if (!actual.startsWith(`${root}${sep}`)) throw new Error("文件不在写写目录内");
@@ -80,12 +89,7 @@ export async function exportWritingFiles(before: WritingSnapshot, workspace = WR
     try {
       const { data } = await safeFile(file.path, root);
       if (!data) throw new Error("文件过大");
-      const id = randomUUID();
-      const metadata: WritingFile = { id, name, size: data.length };
-      await mkdir(destination, { recursive: true, mode: 0o700 });
-      await writeFile(join(destination, `${id}.bin`), data, { mode: 0o600, flag: "wx" });
-      await writeFile(join(destination, `${id}.json`), JSON.stringify(metadata), { mode: 0o600, flag: "wx" });
-      files.push(metadata);
+      files.push(await saveWritingDownload(name, data, destination));
     } catch {
       warnings.push(`「${name}」的下载附件暂未生成，原文件仍保留在写写文件夹。`);
     }

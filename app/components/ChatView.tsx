@@ -35,6 +35,7 @@ import { ReplyStepsBlock, ReplyStepsLive, ReplyStepsSoFar, activeStepText } from
 import { cleanReplySteps, type ReplyStep } from "../lib/reply-steps";
 import { ChatArtwork } from "./ChatArtwork";
 import { WritingDownloads } from "./WritingDownloads";
+import { writingUploadMessage } from "../lib/writing-attachments";
 import { artworkChunks, splitChatReply } from "../lib/artworks";
 import { ChatGlyph } from "./RetroDesktop";
 import { NUDGE_USER_TEXT, NUDGE_REPLY_TEXT } from "../lib/chat-nudge";
@@ -154,6 +155,7 @@ export function ChatView({
   const chatStep = !developmentMode && loading ? activeStepText(liveSteps) : null;
   const chatStepText = chatStep && replyRequestState === "very-slow" ? `${chatStep}（还在处理，先别重复发送）` : chatStep;
   const developmentProject: DevelopmentProject = developmentModePref?.project ?? "iooi";
+  const writingMode = developmentMode && developmentProject === "writing";
   const developmentProjectLabel = CODE_PROJECT_LABELS[developmentProject];
   const workUsageMessages = useMemo<UsageMessage[]>(
     () => workContextHistory(session.messages, developmentProject),
@@ -566,18 +568,19 @@ export function ChatView({
     if ((!moneyCard && !nudge && !input.trim() && !attachments.length) || loading || uploading || sendingRef.current) return;
     if (nudge && (isGpt || developmentMode || !retro)) return;
     const codeRequest = !isGpt && developmentMode;
-    // Work mode only takes screenshots; a stray file must not block the send.
-    const sendable = nudge || moneyCard ? [] : codeRequest ? attachments.filter((item) => item.kind === "image") : attachments;
+    const sendable = nudge || moneyCard ? [] : codeRequest ? attachments.filter((item) => item.kind === "image" || (writingMode && item.writingFile)) : attachments;
     const typed = moneyCard ? moneyCard.text : nudge ? NUDGE_USER_TEXT : stripObjectPlaceholders(input);
     if (!typed.trim() && !sendable.length) return;
     sendingRef.current = true;
     if (!nudge) sendHearts();
-    const pendingFile = sendable.find((item) => item.kind === "file");
+    const pendingFile = sendable.find((item) => item.kind === "file" && !item.writingFile);
+    const uploadedWritingFiles = sendable.flatMap((item) => item.writingFile ? [item.writingFile] : []);
     const draft = stickerDraftMessage(typed, sendable);
     const userText = draft.content.trim() || !pendingFile ? draft.content : `📄 ${pendingFile.name}`;
-    const userMsg: Message = { role: "user", content: userText, time: getTime(), date: getTodayStr(),
+    const userMsg: Message = { role: "user", content: writingUploadMessage(userText, uploadedWritingFiles), time: getTime(), date: getTodayStr(),
       ...imageFields(sendable.filter((item) => item.kind === "image").map((item) => item.url)),
       ...(pendingFile ? { file: pendingFile.url, fileName: pendingFile.name } : {}),
+      ...(uploadedWritingFiles.length ? { writingFiles: uploadedWritingFiles } : {}),
       ...(!isGpt ? { roundId: genId() } : {}),
       ...(codeRequest ? { source: `code_task_${developmentProject}` } : {}),
       ...(nudge ? { source: "chat_nudge" } : {}),
@@ -859,25 +862,25 @@ export function ChatView({
     picker.value = "";
     if (!picked.length || uploadingRef.current || loading) return;
 
-    const allowFiles = !developmentMode;
+    const allowFiles = !developmentMode || writingMode;
     const notes: string[] = [];
     let imageSlots = MAX_IMAGES_PER_MESSAGE - attachments.filter((item) => item.kind === "image").length;
-    let fileSlot = allowFiles && !attachments.some((item) => item.kind === "file");
+    let fileSlots = allowFiles ? (writingMode ? 10 : 1) - attachments.filter((item) => item.kind === "file").length : 0;
     const queue: File[] = [];
     for (const file of picked) {
       if (file.type.startsWith("image/")) {
         if (imageSlots > 0) { queue.push(file); imageSlots -= 1; }
         else if (!notes.includes("image-limit")) notes.push("image-limit");
-      } else if (allowFiles && fileSlot) {
+      } else if (fileSlots > 0) {
         queue.push(file);
-        fileSlot = false;
+        fileSlots -= 1;
       } else if (!notes.includes("file")) {
         notes.push("file");
       }
     }
     const messages: string[] = notes.map((note) => note === "image-limit"
       ? `一条消息最多 ${MAX_IMAGES_PER_MESSAGE} 张图片，多出来的没有加上`
-      : allowFiles ? "一条消息只能带一个文件" : "这里只能发图片");
+      : writingMode ? "一次最多上传 10 个资料文件" : allowFiles ? "一条消息只能带一个文件" : "这里只能发图片");
     if (!queue.length) {
       setUploadError(messages.join("；") + "。");
       return;
@@ -893,15 +896,17 @@ export function ChatView({
           const file = isImage ? await prepareImageForUpload(original) : original;
           const formData = new FormData();
           formData.append("file", file);
-          const res = await apiFetch("/api/upload", { method: "POST", body: formData });
+          const saveToWriting = writingMode && !isImage;
+          const res = await apiFetch(saveToWriting ? "/api/writing/upload" : "/api/upload", { method: "POST", body: formData });
           const data = await res.json();
-          if (!res.ok || !data.url) throw new Error(data.error || "上传失败");
+          if (!res.ok || (saveToWriting ? !data.file?.id : !data.url)) throw new Error(data.error || "上传失败");
           if (data.warning) messages.push(`${original.name}：${data.warning}`);
           setAttachments((current) => [...current, {
             id: genId(),
             kind: isImage ? "image" : "file",
-            url: data.url,
-            name: original.name,
+            url: data.url || "",
+            name: data.file?.name || original.name,
+            ...(saveToWriting ? { writingFile: data.file } : {}),
           }]);
         } catch (error) {
           const reason = error instanceof Error ? error.message : "上传失败";
@@ -1379,7 +1384,7 @@ export function ChatView({
                     {detachedArtwork && <div className="msg-detached-artwork"><ChatArtwork content={message.content} part="cards" /></div>}
                     </>
                   )}
-                  {message.source === "code_task_writing" && Boolean(message.writingFiles?.length) && <WritingDownloads files={message.writingFiles!} />}
+                  {Boolean(message.writingFiles?.length) && <WritingDownloads files={message.writingFiles!} />}
                 </div>
                 {speakRuns.has(index) && (() => {
                   const run = speakRuns.get(index)!;
@@ -1475,13 +1480,13 @@ export function ChatView({
               <div key={item.id} className={`composer-attachment${item.sticker ? " composer-attachment-sticker" : ""}${item.kind === "file" ? " composer-attachment-file" : ""}`}>
                 {item.kind === "image"
                   ? <img src={item.url} alt={item.sticker ? item.name : ""} title={item.sticker ? `表情包：${item.name}` : undefined} />
-                  : <span className="composer-attachment-name">📄 {item.name}</span>}
+                  : <span className="composer-attachment-name">📄 {item.name}{item.writingFile ? " · 已存入写写" : ""}</span>}
                 <button
                   type="button"
                   className="composer-attachment-remove"
                   onClick={() => removeAttachment(item.id)}
                   aria-label={item.sticker ? `移除表情包：${item.name}` : item.kind === "image" ? "移除这张图片" : "移除这个文件"}
-                  title="移除"
+                  title={item.writingFile ? "从本条消息移除，写写中的文件仍保留" : "移除"}
                 >
                   ×
                 </button>
@@ -1497,10 +1502,10 @@ export function ChatView({
                 type="file"
                 multiple
                 className="attach-file-input"
-                accept={developmentMode ? "image/*" : "image/*,application/pdf,.pdf,.docx,.txt,.md,.csv"}
+                accept={developmentMode && !writingMode ? "image/*" : "image/*,application/pdf,.pdf,.docx,.txt,.md,.csv"}
                 disabled={uploading || loading}
                 onChange={(event) => void uploadFile(event)}
-                aria-label={developmentMode ? "上传图片" : "上传图片或文件"}
+                aria-label={writingMode ? "上传资料到写写" : developmentMode ? "上传图片" : "上传图片或文件"}
               />
               <button type="button" className="xp-chat-tool" onClick={() => fileInputRef.current?.click()} disabled={uploading || loading}>
                 <svg viewBox="0 0 16 16" aria-hidden="true">
@@ -1508,7 +1513,7 @@ export function ChatView({
                   <path d="M2.5 12l3.6-4 2.6 2.7 1.8-1.8 3 3.1z" fill="#4caf3a" />
                   <circle cx="11" cy="6" r="1.4" fill="#f5b800" />
                 </svg>
-                <span>{uploading ? "上传中…" : developmentMode ? "图片" : "文件"}</span>
+                <span>{uploading ? "上传中…" : developmentMode && !writingMode ? "图片" : "文件"}</span>
               </button>
               <button type="button" className="xp-chat-tool" onClick={() => sendNudge(Date.now())} disabled={loading || uploading || (!isGpt && developmentMode)} title="发送闪屏振动">
                 <svg viewBox="0 0 16 16" aria-hidden="true">
@@ -1556,18 +1561,18 @@ export function ChatView({
               type="file"
               multiple
               className="attach-file-input"
-              accept={developmentMode ? "image/*" : "image/*,application/pdf,.pdf,.docx,.txt,.md,.csv"}
+              accept={developmentMode && !writingMode ? "image/*" : "image/*,application/pdf,.pdf,.docx,.txt,.md,.csv"}
               disabled={uploading || loading}
               onChange={(event) => void uploadFile(event)}
-              aria-label={developmentMode ? "上传图片" : "上传图片或文件"}
+              aria-label={writingMode ? "上传资料到写写" : developmentMode ? "上传图片" : "上传图片或文件"}
             />
             <button
               type="button"
               className={`attach-btn attach-btn-separate${uploading ? " attach-btn-uploading" : ""}`}
               onClick={() => fileInputRef.current?.click()}
               disabled={uploading || loading}
-              aria-label={uploading ? "正在上传" : (developmentMode ? "上传图片" : "上传图片或文件")}
-              title={uploading ? "正在上传" : (developmentMode ? "上传图片" : "上传图片或文件")}
+              aria-label={uploading ? "正在上传" : writingMode ? "上传资料到写写" : developmentMode ? "上传图片" : "上传图片或文件"}
+              title={uploading ? "正在上传" : writingMode ? "上传资料到写写" : developmentMode ? "上传图片" : "上传图片或文件"}
             >
               {uploading ? (
                 <span className="attach-upload-spinner" />

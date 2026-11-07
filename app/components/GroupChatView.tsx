@@ -13,12 +13,13 @@ import { prepareImageForUpload } from "../lib/image-compress";
 import { ContextUsageBadge, type UsageMessage } from "./ContextUsageBadge";
 import { ChatGlyph } from "./RetroDesktop";
 
-type PendingAttachment = { id: string; kind: "image" | "file"; url: string; name: string };
+type PendingAttachment = { id: string; kind: "image" | "file"; url: string; name: string; writingFile?: WritingFile };
 
 import { GROUP_SPEAKERS, groupOptions, groupTargets, type GroupSpeaker, type GroupOptions } from "../lib/group-options";
 import { GPT_MODELS } from "../lib/gpt-models";
 import { WritingDownloads } from "./WritingDownloads";
 import type { WritingFile } from "../lib/writing-file-types";
+import { writingUploadMessage } from "../lib/writing-attachments";
 export type { GroupSpeaker } from "../lib/group-options";
 
 export type GroupSummerWriteProposal = {
@@ -412,12 +413,14 @@ export function GroupChatView({
     sendHearts();
     followLatest();
     const previousMessages = messagesRef.current;
-    const pendingFile = attachments.find((item) => item.kind === "file");
+    const pendingFile = attachments.find((item) => item.kind === "file" && !item.writingFile);
+    const uploadedWritingFiles = attachments.flatMap((item) => item.writingFile ? [item.writingFile] : []);
     const userMessage: GroupChatMessage = {
-      roundId: crypto.randomUUID(), role: "user", content: text || (pendingFile ? `📄 ${pendingFile.name}` : ""),
+      roundId: crypto.randomUUID(), role: "user", content: writingUploadMessage(text || (pendingFile ? `📄 ${pendingFile.name}` : ""), uploadedWritingFiles),
       time: nowTime(), date: today(),
       ...imageFields(attachments.filter((item) => item.kind === "image").map((item) => item.url)),
       ...(pendingFile ? { file: pendingFile.url } : {}),
+      ...(uploadedWritingFiles.length ? { writingFiles: uploadedWritingFiles } : {}),
     };
     let working = [...previousMessages, userMessage];
     messagesRef.current = working;
@@ -484,20 +487,21 @@ export function GroupChatView({
     if (!picked.length || uploadingRef.current || loading) return;
     const notes: string[] = [];
     let imageSlots = MAX_IMAGES_PER_MESSAGE - attachments.filter((item) => item.kind === "image").length;
-    let fileSlot = !attachments.some((item) => item.kind === "file");
+    const writingMode = options.mode === "writing";
+    let fileSlots = (writingMode ? 10 : 1) - attachments.filter((item) => item.kind === "file").length;
     const queue: File[] = [];
     for (const file of picked) {
       if (file.type.startsWith("image/")) {
         if (imageSlots > 0) { queue.push(file); imageSlots -= 1; }
         else if (!notes.includes("image-limit")) notes.push("image-limit");
-      } else if (fileSlot) {
+      } else if (fileSlots > 0) {
         queue.push(file);
-        fileSlot = false;
+        fileSlots -= 1;
       } else if (!notes.includes("file")) notes.push("file");
     }
     const messages: string[] = notes.map((note) => note === "image-limit"
       ? `一条消息最多 ${MAX_IMAGES_PER_MESSAGE} 张图片，多出来的没有加上`
-      : "一条消息只能带一个文件");
+      : writingMode ? "一次最多上传 10 个资料文件" : "一条消息只能带一个文件");
     if (!queue.length) { setUploadError(messages.join("；") + "。"); return; }
     uploadingRef.current = true;
     setUploading(true);
@@ -509,12 +513,15 @@ export function GroupChatView({
           const file = isImage ? await prepareImageForUpload(original) : original;
           const formData = new FormData();
           formData.append("file", file);
-          const response = await groupFetch("/api/upload", { method: "POST", body: formData });
+          const saveToWriting = writingMode && !isImage;
+          const response = await groupFetch(saveToWriting ? "/api/writing/upload" : "/api/upload", { method: "POST", body: formData });
           const data = await response.json();
-          if (!response.ok || !data.url) throw new Error(data.error || "上传失败");
+          if (!response.ok || (saveToWriting ? !data.file?.id : !data.url)) throw new Error(data.error || "上传失败");
+          if (data.warning) messages.push(`${original.name}：${data.warning}`);
           setAttachments((current) => [...current, {
             id: Math.random().toString(36).slice(2), kind: isImage ? "image" : "file",
-            url: data.url, name: original.name,
+            url: data.url || "", name: data.file?.name || original.name,
+            ...(saveToWriting ? { writingFile: data.file } : {}),
           }]);
         } catch (error) {
           messages.push(`${original.name || "一张图片"}：${error instanceof Error ? error.message : "上传失败"}`);
@@ -691,9 +698,10 @@ export function GroupChatView({
           <div className="composer-attachments" aria-label="待发送的附件">
             {attachments.map((item) => (
               <div key={item.id} className={`composer-attachment${item.kind === "file" ? " composer-attachment-file" : ""}`}>
-                {item.kind === "image" ? <img src={item.url} alt="" /> : <span className="composer-attachment-name">📄 {item.name}</span>}
+                {item.kind === "image" ? <img src={item.url} alt="" /> : <span className="composer-attachment-name">📄 {item.name}{item.writingFile ? " · 已存入写写" : ""}</span>}
                 <button type="button" className="composer-attachment-remove" onClick={() => removeAttachment(item.id)}
-                  aria-label={item.kind === "image" ? "移除这张图片" : "移除这个文件"} title="移除">×</button>
+                  aria-label={item.kind === "image" ? "移除这张图片" : "移除这个文件"}
+                  title={item.writingFile ? "从本条消息移除，写写中的文件仍保留" : "移除"}>×</button>
               </div>
             ))}
           </div>
