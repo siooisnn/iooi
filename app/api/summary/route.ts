@@ -1,5 +1,6 @@
 import { isClaudeCodeEnabled, runClaudeCodeChat } from "@/app/lib/claude-code";
 import { allowedGptApiId } from "@/app/lib/gpt-models";
+import { cleanReplyContext } from "@/app/lib/reply-integrity";
 
 export const runtime = "nodejs";
 
@@ -14,6 +15,7 @@ export async function POST(request: Request) {
     const { mode, previousSummary, messages, aiName, gptName, modelId, reasoningEffort } = await request.json();
     const usableMessages = (Array.isArray(messages) ? messages : [])
       .filter((m: SummaryMessage) => m && (m.role === "user" || m.role === "assistant") && String(m.content || "").trim())
+      .flatMap((m: SummaryMessage) => cleanReplyContext(m) || [])
       .slice(0, 80);
 
     if (usableMessages.length === 0) {

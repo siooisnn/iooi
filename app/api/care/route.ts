@@ -3,6 +3,7 @@ import { daydayCareOverview } from "@/app/lib/dayday-tools";
 import { describePushResult, sendPushToAll } from "@/app/lib/push";
 import { isClaudeCodeEnabled, runClaudeCodeChat } from "@/app/lib/claude-code";
 import { latestUserSession } from "@/app/lib/chat-timeline";
+import { cleanReplyContext } from "@/app/lib/reply-integrity";
 import { blogHeartbeat } from "@/app/lib/blog-him";
 import { lifeHeartbeat } from "@/app/lib/life-beat";
 import { ensureLifeLog, noteLifeEntry, todayLifeLines } from "@/app/lib/life-log";
@@ -42,7 +43,8 @@ function log(careState: Record<string, unknown>, action: string, reason: string)
 function recentChat(messages: Msg[], me: string) {
   const lines: string[] = [];
   let total = 0;
-  const usable = messages.filter((m) => !m.source?.startsWith("summer_") && (m.role === "user" || m.role === "assistant"));
+  const usable = messages.filter((m) => !m.source?.startsWith("summer_") && (m.role === "user" || m.role === "assistant"))
+    .flatMap((m) => cleanReplyContext(m) || []);
   for (const m of usable.slice(-RECENT_MESSAGES).reverse()) {
     const body = (m.content || "").replace(/\s+/g, " ").trim();
     if (!body) continue;
