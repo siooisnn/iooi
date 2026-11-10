@@ -8,6 +8,8 @@ import { stripSpeakerPrefix } from "./reply-prefix";
 import { BLOG_MCP_URL, blogConnectionHint, blogMcpConnection, blogToolsForScope } from "./blog-connection";
 import { XIAOHONGSHU_MCP_URL, XIAOHONGSHU_RULES, xiaohongshuTools } from "./xiaohongshu";
 import { createReplySteps, type ReplyStep } from "./reply-steps";
+import { recordClaudeReply } from "./claude-reply-diagnostics";
+import { AbnormalReplyError, hasInternalReplyTag } from "./reply-integrity";
 
 type ClaudeCodeMessage = {
   role: string;
@@ -710,6 +712,12 @@ export async function runClaudeCodeChat({
           }
           try {
             const data = parseResult(stdout);
+            const abnormal = hasInternalReplyTag(data.result || "");
+            if (priority === "interactive") recordClaudeReply(stdout, data.result || "", requestedModel, abnormal);
+            if (abnormal) {
+              finish(new AbnormalReplyError());
+              return;
+            }
             if (data.is_error || !data.result?.trim()) {
               finish(new Error(data.result?.trim() || "Claude Code 返回错误"));
               return;

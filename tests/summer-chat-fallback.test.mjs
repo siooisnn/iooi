@@ -107,6 +107,45 @@ test("Summer failures do not block Claude replies or lose the round", async (t) 
     return data;
   }
   try {
+    await t.test("abnormal replies never persist or replay markers; history and user quotes are preserved", async () => {
+      for (const stream of [false, true]) {
+        reset(); fixture.reply = "ny<thinking_mode>interrupted</thinking_mode>[dayday_money amount=1]";
+        const response = await POST(new Request("http://iooi.test/api/chat", {
+          method: "POST", headers: { "content-type": "application/json" },
+          body: JSON.stringify({ sessionId: "private-test", stream, messages: [
+            { role: "assistant", content: "ny<thinking_mode>interrupted</thinking_mode>" },
+            { role: "user", content: "请解释 <thinking_mode>" },
+          ], userMsg: { role: "user", content: "请解释 <thinking_mode>", roundId: "guard-test" } }),
+        }));
+        const events = stream ? (await response.text()).trim().split("\n").map(JSON.parse) : [];
+        const data = stream ? events.find((event) => event.type === "error") : await response.json();
+        assert.equal(stream ? data.status : response.status, 502);
+        assert.match(data.reply, /^这次回复异常/);
+        assert.equal(fixture.inputs.length, 1, "no automatic retry");
+        assert.ok(fixture.inputs[0].messages.every((msg) => msg.role !== "assistant"));
+        assert.ok(fixture.inputs[0].messages.some((msg) => JSON.stringify(msg.content).includes("请解释 <thinking_mode>")));
+        assert.ok(!fixture.store.sessions.some((s) => s.messages.some((msg) => msg.role === "assistant")));
+        if (stream) {
+          assert.doesNotMatch(events.filter((event) => event.type === "delta").map((event) => event.text).join(""), /thinking_mode|interrupted/);
+          assert.equal(events.at(-2).type, "reset");
+        }
+      }
+    });
+    await t.test("abnormal final replies preserve completed Summer writes", async () => {
+      reset(); fixture.reply = "<thinking_mode>interrupted</thinking_mode>";
+      fixture.steps = [{ kind: "tool", active: "在写入 Summer 小暑", done: "已写入 Summer 小暑", group: "summer_write", t: 10, ms: 5, status: "success" }];
+      const response = await POST(new Request("http://iooi.test/api/chat", {
+        method: "POST", headers: { "content-type": "application/json" },
+        body: JSON.stringify({ sessionId: "private-test", messages: [{ role: "user", content: "记下今天" }], userMsg: { role: "user", content: "记下今天" } }),
+      }));
+      const data = await response.json();
+      assert.equal(response.status, 502);
+      assert.match(data.reply, /^这次回复异常/);
+      assert.equal(data.steps[0].status, "success");
+      assert.ok(fixture.store.sessions[0].messages.some((msg) => msg.content === data.reply));
+      assert.ok(fixture.store.sessions[0].messages.every((msg) => !msg.content.includes("thinking_mode")));
+      assert.equal(fixture.inputs.length, 1);
+    });
     await t.test("Claude chooses to nudge with its reply, persisted without metadata", async () => {
       reset(); fixture.reply = "抖回来啦。[iooi_nudge]";
       const data = await chat({ stream: true, retroNudge: true,

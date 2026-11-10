@@ -836,7 +836,7 @@ export function ChatView({
           ? `开发任务未完成：${serverFailure}。请先检查聊天记录或工作区，再决定是否重试。`
           : typeof navigator !== "undefined" && !navigator.onLine
           ? "现在网络断开了，但刚才的消息已经保存。网络恢复后先重新打开看看；如果仍没有回复，再发送一次。"
-          : serverFailure.includes("没有转用 API")
+          : serverFailure.includes("没有转用 API") || serverFailure.startsWith("这次回复异常")
             ? serverFailure
           : error instanceof SyntaxError
             ? "连接中途断开了，但消息已经保存。酥酥可能仍在后台回复，先别重复发送，稍后重新打开会自动取回。"

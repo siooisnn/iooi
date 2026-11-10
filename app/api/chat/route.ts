@@ -13,6 +13,7 @@ import { currentRoundStart, imageKey, messageImages, MAX_IMAGES_PER_MESSAGE, san
 import { startCodeRelease } from "@/app/lib/code-release";
 import { parseCodeReleaseCommand } from "@/app/lib/code-release-command";
 import { createVisibleReplyStream } from "@/app/lib/visible-reply-stream";
+import { AbnormalReplyError, ABNORMAL_REPLY_NOTICE, createReplyIntegrityGuard, excludeAbnormalReply, hasInternalReplyTag } from "@/app/lib/reply-integrity";
 import { NUDGE_PROMPT, NUDGE_REPLY_TEXT, parseNudgeReply } from "@/app/lib/chat-nudge";
 import { isExplicitSummerWriteRequest } from "@/app/lib/summer-write-intent";
 import { hasSafeSummerEdit, SUMMER_CHAT_RULES } from "@/app/lib/summer-tools";
@@ -804,6 +805,7 @@ export async function POST(request: Request) {
   } = await request.json();
   const requestMessages: ChatRequestMessage[] = Array.isArray(messages)
     ? messages.map((message: ChatRequestMessage) => sanitizeIncomingMessage(message))
+      .filter((message: ChatRequestMessage) => !excludeAbnormalReply(message))
     : [];
   const userMsg: StoreMsg | undefined = rawUserMsg && typeof rawUserMsg === "object"
     ? sanitizeIncomingMessage(rawUserMsg as StoreMsg)
@@ -1247,6 +1249,8 @@ ${combinedDynamicPrompt}
       queueWaitMs = data.queueWaitMs;
       claudeDurationMs = data.durationMs;
       let reply = data.reply || "没有收到回复";
+      // Defense in depth before marker side effects and persistence.
+      if (hasInternalReplyTag(reply)) throw new AbnormalReplyError();
       const thinkingContent = "";
 
       const proposalStartedAt = Date.now();
@@ -1389,7 +1393,9 @@ ${combinedDynamicPrompt}
           ...step, ms: Math.max(0, Date.now() - step.t),
           ...(step.group === "summer_write" ? { status: "unknown" as const } : {}),
         });
-        const reply = "这轮回复中断了，Summer 操作结果已保留在上方记录中；结果未确认的操作请先查询，不要重复写入。";
+        const reply = error instanceof AbnormalReplyError
+          ? `${ABNORMAL_REPLY_NOTICE}\nSummer 操作结果已保留在上方记录中；结果未确认的操作请先查询，不要重复写入。`
+          : "这轮回复中断了，Summer 操作结果已保留在上方记录中；结果未确认的操作请先查询，不要重复写入。";
         const stamp = await persistRound(sessionId, userMsg, reply, "", [], [], undefined, false, false, [], [], [], steps);
         return { status: 502, body: { reply, steps, cache: { reply_persisted_time: stamp.time, reply_persisted_date: stamp.date } } };
       }
@@ -1410,7 +1416,7 @@ ${combinedDynamicPrompt}
       if (isAbortError(error)) {
         return { status: 504, body: { reply: "已暂停等待；如果请求已经送达，回复稍后仍可能回来。", cache: { status: "unknown", reason: "请求已暂停", summer_used: true } } };
       }
-      return { status: 502, body: { reply: claudeSubscriptionFailure(error, Boolean(webSearch)) } };
+      return { status: 502, body: { reply: error instanceof AbnormalReplyError ? ABNORMAL_REPLY_NOTICE : claudeSubscriptionFailure(error, Boolean(webSearch)) } };
     }
   };
 
@@ -1421,6 +1427,7 @@ ${combinedDynamicPrompt}
 
   const encoder = new TextEncoder();
   let visibleReply = createVisibleReplyStream();
+  let integrity = createReplyIntegrityGuard();
   let connected = true;
   let streamController: ReadableStreamDefaultController<Uint8Array> | null = null;
   let heartbeatTimer: ReturnType<typeof setInterval> | null = null;
@@ -1456,11 +1463,14 @@ ${combinedDynamicPrompt}
     },
   });
   const job = executeChat((delta) => {
-    const visible = visibleReply.push(delta);
+    const safe = integrity.push(delta);
+    if (integrity.blocked) return;
+    const visible = visibleReply.push(safe);
     if (visible) emit({ type: "delta", text: visible });
   }, () => {
     // What streamed so far led into a tool call; the answer starts over.
     visibleReply = createVisibleReplyStream();
+    integrity = createReplyIntegrityGuard();
     emit({ type: "reset" });
   }, (steps) => {
     // Only the private chat shows the step line.
@@ -1468,6 +1478,7 @@ ${combinedDynamicPrompt}
   }).then((result) => {
     stopHeartbeat();
     visibleReply.finish();
+    if (result.status !== 200) emit({ type: "reset" });
     emit({ type: result.status === 200 ? "done" : "error", status: result.status, ...result.body });
     if (connected && streamController) {
       try {
