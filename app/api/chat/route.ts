@@ -13,7 +13,7 @@ import { currentRoundStart, imageKey, messageImages, MAX_IMAGES_PER_MESSAGE, san
 import { startCodeRelease } from "@/app/lib/code-release";
 import { parseCodeReleaseCommand } from "@/app/lib/code-release-command";
 import { createVisibleReplyStream } from "@/app/lib/visible-reply-stream";
-import { AbnormalReplyError, ABNORMAL_REPLY_NOTICE, createReplyIntegrityGuard, excludeAbnormalReply, hasInternalReplyTag } from "@/app/lib/reply-integrity";
+import { AbnormalReplyError, ABNORMAL_REPLY_NOTICE, createReplyIntegrityGuard, cleanReplyContext, hasInternalReplyTag } from "@/app/lib/reply-integrity";
 import { NUDGE_PROMPT, NUDGE_REPLY_TEXT, parseNudgeReply } from "@/app/lib/chat-nudge";
 import { isExplicitSummerWriteRequest } from "@/app/lib/summer-write-intent";
 import { hasSafeSummerEdit, SUMMER_CHAT_RULES } from "@/app/lib/summer-tools";
@@ -805,7 +805,10 @@ export async function POST(request: Request) {
   } = await request.json();
   const requestMessages: ChatRequestMessage[] = Array.isArray(messages)
     ? messages.map((message: ChatRequestMessage) => sanitizeIncomingMessage(message))
-      .filter((message: ChatRequestMessage) => !excludeAbnormalReply(message))
+      .flatMap((message: ChatRequestMessage) => {
+        const cleaned = cleanReplyContext(message);
+        return cleaned ? [cleaned] : [];
+      })
     : [];
   const userMsg: StoreMsg | undefined = rawUserMsg && typeof rawUserMsg === "object"
     ? sanitizeIncomingMessage(rawUserMsg as StoreMsg)

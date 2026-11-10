@@ -3,8 +3,10 @@ import test from "node:test";
 import { mkdtempSync, readFileSync, rmSync, writeFileSync, statSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { createHash } from "node:crypto";
 import "./helpers/resolve-typescript.mjs";
-const { createReplyIntegrityGuard, hasInternalReplyTag, excludeAbnormalReply } = await import("../app/lib/reply-integrity.ts");
+const { createReplyIntegrityGuard, hasInternalReplyTag, excludeAbnormalReply, cleanReplyContext } = await import("../app/lib/reply-integrity.ts");
+const { buildChatContext } = await import("../app/lib/chat-context.ts");
 const { summarizeClaudeReply, recordClaudeReply } = await import("../app/lib/claude-reply-diagnostics.ts");
 
 test("internal tags are blocked at every stream split, including truncated tags", () => {
@@ -29,6 +31,34 @@ test("normal English, HTML and quoted protocol examples survive character stream
   }
   assert.equal(excludeAbnormalReply({ role: "user", content: "<thinking_mode>" }), false);
   assert.equal(excludeAbnormalReply({ role: "assistant", content: "ny<thinking_mode>interrupted</thinking_mode>" }), true);
+});
+
+test("confirmed planning is excluded after bubble merging while real replies and stored text survive", () => {
+  const planning = "Planning-only test fixture.";
+  const prefix = "Response plan test fixture.";
+  const answer = "你好，继续聊。";
+  const mixed = prefix + answer;
+  const fingerprint = (text) => createHash("sha256").update(text).digest("hex");
+  const rules = { [fingerprint(planning)]: null, [fingerprint(mixed)]: prefix.length };
+  const saved = [
+    { role: "user", content: "hello" },
+    { role: "assistant", content: planning },
+    { role: "assistant", content: mixed },
+    { role: "assistant", content: "A normal English answer." },
+    { role: "user", content: "continue" },
+  ];
+  const before = structuredClone(saved);
+  const merged = buildChatContext(saved, { mode: "full-window", maxUserTurns: 80 }).messages;
+  const cleaned = merged.flatMap((message) => cleanReplyContext(message, rules) || []);
+  assert.equal(cleaned[1].content, `${answer}\n\nA normal English answer.`);
+  assert.deepEqual(saved, before, "history is never rewritten");
+  assert.equal(cleanReplyContext({ role: "assistant", content: planning }, rules), null);
+  const user = { role: "user", content: planning };
+  assert.equal(cleanReplyContext(user, rules), user, "user quotations remain verbatim");
+  const code = { role: "assistant", content: `\`\`\`text\nexample\n\n${planning}\n\n\`\`\`` };
+  assert.equal(cleanReplyContext(code, rules), code, "quoted code is not filtered");
+  const similar = { role: "assistant", content: `${planning} This is a different paragraph.` };
+  assert.equal(cleanReplyContext(similar, rules), similar, "similar English is not a confirmed match");
 });
 
 test("response evidence separates text from thinking and tools, bounds excerpts and rotates", () => {

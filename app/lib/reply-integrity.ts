@@ -60,11 +60,41 @@ export function hasInternalReplyTag(text: string): boolean {
   return guard.blocked;
 }
 
-// One verified, untagged historical anomaly. Exact fingerprint only: do not
-// generalize to English or planning-like language. Stored history stays intact.
-const KNOWN_BAD_REPLY = "ca11ce247b834388bc7f56d1781ece18f5a78cbb08caf082ccfa36b15d783686";
+// Verified paragraph fingerprints only. Values are UTF-16 offsets to the real
+// answer; null excludes a planning-only paragraph. No private text is stored
+// in source. Work on model-bound copies, including bubbles joined by the client.
+const CONFIRMED_CONTEXT_PREFIXES: Readonly<Record<string, number | null | undefined>> = {
+  ca11ce247b834388bc7f56d1781ece18f5a78cbb08caf082ccfa36b15d783686: 266,
+  be5cb3aab44457ae1410567cc1e3d2943cf480532372f3db6f53e42e638a4c27: null,
+  "35edbf7c3fcbfd030b70dcea80b79af9d4c3cc2ac9b88075d6fb76ffd04cdc41": 314,
+};
+
+export function cleanReplyContext<T extends { role: string; content?: unknown }>(
+  message: T,
+  prefixes = CONFIRMED_CONTEXT_PREFIXES,
+): T | null {
+  if (message.role !== "assistant" || typeof message.content !== "string") return message;
+  if (message.content.startsWith(ABNORMAL_REPLY_NOTICE) || hasInternalReplyTag(message.content)) return null;
+  let changed = false;
+  let fence = "";
+  const paragraphs = message.content.split(/\n{2,}/).flatMap((paragraph) => {
+    const quoted = Boolean(fence);
+    for (const match of paragraph.matchAll(/^[ \t]*(`{3,}|~{3,})/gm)) {
+      if (!fence) fence = match[1];
+      else if (match[1][0] === fence[0] && match[1].length >= fence.length) fence = "";
+    }
+    if (quoted) return [paragraph];
+    const text = paragraph.trim();
+    const offset = prefixes[createHash("sha256").update(text).digest("hex")];
+    if (offset === undefined) return [paragraph];
+    changed = true;
+    return offset === null ? [] : [text.slice(offset).trim()].filter(Boolean);
+  });
+  if (!changed) return message;
+  const content = paragraphs.join("\n\n").trim();
+  return content ? { ...message, content } : null;
+}
+
 export function excludeAbnormalReply(message: { role: string; content?: unknown }): boolean {
-  if (message.role !== "assistant" || typeof message.content !== "string") return false;
-  return message.content.startsWith(ABNORMAL_REPLY_NOTICE) || hasInternalReplyTag(message.content)
-    || createHash("sha256").update(message.content.trim()).digest("hex") === KNOWN_BAD_REPLY;
+  return cleanReplyContext(message) === null;
 }
