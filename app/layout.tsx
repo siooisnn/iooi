@@ -23,6 +23,7 @@ import "./themes/mood.css";
 import "./themes/xp-control.css";
 import "./themes/cute.css";
 import "./themes/sky-wallpaper.css";
+import "./themes/startup.css";
 import { ThemeProvider } from "./components/ThemeProvider";
 
 export const metadata: Metadata = {

@@ -81,12 +81,15 @@ export function createServerSync(endpoint: string) {
         } catch {}
       }, 500);
     },
-    async fetch() {
+    async fetch(options: { signal?: AbortSignal; requireSuccess?: boolean } = {}) {
       try {
-        const res = await apiFetch(endpoint);
+        const res = await apiFetch(endpoint, { signal: options.signal });
         if (res.status === 401) return "unauthorized" as const;
         if (res.ok) return await res.json();
-      } catch {}
+        if (options.requireSuccess) throw new Error("暂时没能完整读取聊天记录，请检查网络后重试。");
+      } catch (error) {
+        if (options.requireSuccess) throw error;
+      }
       return null;
     },
   };
@@ -101,3 +104,43 @@ export const syncGptToServer = gptServerSync.sync;
 export const fetchGptFromServer = gptServerSync.fetch;
 export const syncGroupToServer = groupServerSync.sync;
 export const fetchGroupFromServer = groupServerSync.fetch;
+
+export class StartupAuthError extends Error {}
+
+/** Startup must finish all reads before any empty/default state can be synced. */
+export async function fetchStartupData(signal?: AbortSignal, timeoutMs = 90_000) {
+  const controller = new AbortController();
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  let onAbort: () => void = () => {};
+  const deadline = new Promise<never>((_, reject) => {
+    onAbort = () => {
+      reject(new DOMException("Startup cancelled", "AbortError"));
+      controller.abort();
+    };
+    signal?.addEventListener("abort", onAbort, { once: true });
+    if (signal?.aborted) { onAbort(); return; }
+    timer = setTimeout(() => {
+      reject(new Error("读取聊天记录超时了，请检查网络后重试。"));
+      controller.abort();
+    }, timeoutMs);
+  });
+  const read = async (sync: typeof claudeServerSync) => {
+    const data = await sync.fetch({ signal: controller.signal, requireSuccess: true });
+    if (data === "unauthorized") throw new StartupAuthError();
+    if (!data || typeof data !== "object" || Array.isArray(data)
+      || (data.sessions !== undefined && !Array.isArray(data.sessions))) {
+      throw new Error("聊天记录没有完整加载，请重新连接。");
+    }
+    return data;
+  };
+  try {
+    return await Promise.race([
+      Promise.all([read(claudeServerSync), read(gptServerSync), read(groupServerSync)]),
+      deadline,
+    ]);
+  } finally {
+    clearTimeout(timer);
+    signal?.removeEventListener("abort", onAbort);
+    controller.abort();
+  }
+}

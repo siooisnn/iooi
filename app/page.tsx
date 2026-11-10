@@ -11,7 +11,8 @@ import type { AssistantMode, CacheStats, ChatListTab, ChatSession, FragmentEntry
 import { CLAUDE_DEFAULT_NAME, DEFAULT_PROMPT, MODELS, normalizeClaudeSettings } from "./lib/app-settings";
 import type { Settings } from "./lib/app-settings";
 import { createGroupSession, genId, mergeChatMessages, mergeChatSessionLists, mergeFragments } from "./lib/chat-sessions";
-import { apiFetch, fetchFromServer, fetchGptFromServer, fetchGroupFromServer, getToken, loadLocal, loadLocalRaw, saveLocal, syncGptToServer, syncGroupToServer, syncToServer } from "./lib/client-api";
+import { apiFetch, fetchStartupData, StartupAuthError, getToken, loadLocal, loadLocalRaw, saveLocal, syncGptToServer, syncGroupToServer, syncToServer } from "./lib/client-api";
+import { StartupScreen } from "./components/StartupScreen";
 import { ChatListView } from "./components/ChatListView";
 import { MoonPage } from "./components/HomeView";
 import type { HomeApp } from "./components/HomeView";
@@ -117,6 +118,9 @@ export default function Home() {
   const [needKey, setNeedKey] = useState(false);
   const [keyInput, setKeyInput] = useState("");
   const [mounted, setMounted] = useState(false);
+  const [startupError, setStartupError] = useState("");
+  const [startupSlow, setStartupSlow] = useState(false);
+  const [startupAttempt, setStartupAttempt] = useState(0);
   const dailyMood = useDailyMood(mounted && !needKey);
   // The shell div only exists once the app is unlocked and mounted.
   useFullscreenShell(mounted && !needKey && !chatRoomOpen, shellRef);
@@ -124,18 +128,12 @@ export default function Home() {
   const gptDeletedSessionIds = useRef<Set<string>>(new Set(loadLocalRaw<string[]>("iooi-gpt-deleted-session-ids", [])));
 
   useEffect(() => {
+    const controller = new AbortController();
+    const slowTimer = setTimeout(() => setStartupSlow(true), 8_000);
     async function init() {
-      // Try server first, fall back to localStorage
-      const [serverData, gptServerData, groupServerData] = await Promise.all([
-        fetchFromServer(),
-        fetchGptFromServer(),
-        fetchGroupFromServer(),
-      ]);
-
-      if (serverData === "unauthorized" || gptServerData === "unauthorized" || groupServerData === "unauthorized") {
-        setNeedKey(true);
-        return;
-      }
+      // Do not enable persistence until every initial snapshot has loaded.
+      const [serverData, gptServerData, groupServerData] = await fetchStartupData(controller.signal);
+      if (controller.signal.aborted) return;
 
       let s: Settings;
       let sess: ChatSession[];
@@ -233,8 +231,14 @@ export default function Home() {
       if (new URLSearchParams(window.location.search).has("iooiblog")) setTab("settings");
       setMounted(true);
     }
-    init();
-  }, []);
+    init().catch((error) => {
+      if (controller.signal.aborted) return;
+      if (error instanceof StartupAuthError) setNeedKey(true);
+      else setStartupError(error instanceof Error && !["TypeError", "SyntaxError"].includes(error.name)
+        ? error.message : "暂时没能完整读取聊天记录，请检查网络后重试。");
+    }).finally(() => clearTimeout(slowTimer));
+    return () => { clearTimeout(slowTimer); controller.abort(); };
+  }, [startupAttempt]);
 
   // Register service worker
   useEffect(() => {
@@ -543,7 +547,11 @@ export default function Home() {
     || groupSessions[0]
     || createGroupSession();
 
-  if (!mounted && !needKey) return <main className="app-bg"><div className="chat-container" /></main>;
+  if (!mounted && !needKey) return <StartupScreen error={startupError} slow={startupSlow} onRetry={() => {
+    setStartupError("");
+    setStartupSlow(false);
+    setStartupAttempt((attempt) => attempt + 1);
+  }} />;
 
   function openApp(app: HomeApp) {
     setPhoneReturn(false);
