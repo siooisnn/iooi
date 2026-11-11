@@ -8,7 +8,7 @@ import { stripSpeakerPrefix } from "./reply-prefix";
 import { BLOG_MCP_URL, blogConnectionHint, blogMcpConnection, blogToolsForScope } from "./blog-connection";
 import { XIAOHONGSHU_MCP_URL, XIAOHONGSHU_RULES, xiaohongshuTools } from "./xiaohongshu";
 import { createReplySteps, type ReplyStep } from "./reply-steps";
-import { recordClaudeReply } from "./claude-reply-diagnostics";
+import { recordClaudeFailure, recordClaudeReply, type ClaudeFailurePhase } from "./claude-reply-diagnostics";
 import { AbnormalReplyError, hasInternalReplyTag } from "./reply-integrity";
 
 type ClaudeCodeMessage = {
@@ -669,57 +669,58 @@ export async function runClaudeCodeChat({
           }
         };
 
-        const finish = (error?: Error) => {
+        const finish = (error: Error, phase: ClaudeFailurePhase, exitCode: number | null = null, exitSignal: NodeJS.Signals | null = null) => {
           if (settled) return;
           settled = true;
           clearTimeout(timeout);
           signal?.removeEventListener("abort", abort);
-          if (error) reject(error);
+          if (priority === "interactive") recordClaudeFailure(stdout, stderr, requestedModel, { phase, exitCode, signal: exitSignal, error });
+          reject(error);
         };
-        const terminate = (error: Error) => {
+        const terminate = (error: Error, phase: ClaudeFailurePhase) => {
           if (child.exitCode === null) {
             child.kill("SIGTERM");
             setTimeout(() => {
               if (child.exitCode === null) child.kill("SIGKILL");
             }, 2_000).unref();
           }
-          finish(error);
+          finish(error, phase);
         };
-        const abort = () => terminate(new DOMException("Request aborted", "AbortError"));
-        const timeout = setTimeout(() => terminate(new Error("Claude Code 回复超时")), timeoutMs);
+        const abort = () => terminate(new DOMException("Request aborted", "AbortError"), "abort");
+        const timeout = setTimeout(() => terminate(new Error("Claude Code 回复超时"), "timeout"), timeoutMs);
 
         signal?.addEventListener("abort", abort, { once: true });
         tracker.start();
-        child.on("error", (error) => finish(error));
+        child.on("error", (error) => finish(error, "spawn"));
         child.stdout.setEncoding("utf8");
         child.stderr.setEncoding("utf8");
         child.stdout.on("data", (chunk: string) => {
           stdout += chunk;
           emitPartialLines(chunk);
           // Blog photos come back inside tool results, so tool turns get room.
-          if (stdout.length > (usesMcp ? 16_000_000 : webSearch ? 4_000_000 : 2_000_000)) terminate(new Error("Claude Code 返回内容过大"));
+          if (stdout.length > (usesMcp ? 16_000_000 : webSearch ? 4_000_000 : 2_000_000)) terminate(new Error("Claude Code 返回内容过大"), "output_limit");
         });
         child.stderr.on("data", (chunk: string) => {
           stderr = (stderr + chunk).slice(-8_000);
         });
-        child.on("close", (code) => {
+        child.on("close", (code, exitSignal) => {
           if (settled) return;
           emitPartialLines("", true);
           const steps = tracker.finish();
           if (code !== 0) {
-            finish(new Error(stderr.trim() || `Claude Code 退出码 ${code}`));
+            finish(new Error(stderr.trim() || `Claude Code 退出码 ${code}`), "exit", code, exitSignal);
             return;
           }
           try {
             const data = parseResult(stdout);
             const abnormal = hasInternalReplyTag(data.result || "");
-            if (priority === "interactive") recordClaudeReply(stdout, data.result || "", requestedModel, abnormal);
+            if (priority === "interactive" && !data.is_error && data.result?.trim()) recordClaudeReply(stdout, data.result, requestedModel, abnormal);
             if (abnormal) {
-              finish(new AbnormalReplyError());
+              finish(new AbnormalReplyError(), "integrity", code);
               return;
             }
             if (data.is_error || !data.result?.trim()) {
-              finish(new Error(data.result?.trim() || "Claude Code 返回错误"));
+              finish(new Error(data.result?.trim() || "Claude Code 返回错误"), "result", code);
               return;
             }
             const usage = data.usage || {};
@@ -744,7 +745,7 @@ export async function runClaudeCodeChat({
               },
             });
           } catch (error) {
-            finish(error instanceof Error ? error : new Error("Claude Code 返回解析失败"));
+            finish(error instanceof Error ? error : new Error("Claude Code 返回解析失败"), "parse", code);
           }
         });
         child.stdin.on("error", () => {});

@@ -67,6 +67,7 @@ const CONFIRMED_CONTEXT_PREFIXES: Readonly<Record<string, number | null | undefi
   ca11ce247b834388bc7f56d1781ece18f5a78cbb08caf082ccfa36b15d783686: 266,
   be5cb3aab44457ae1410567cc1e3d2943cf480532372f3db6f53e42e638a4c27: null,
   "35edbf7c3fcbfd030b70dcea80b79af9d4c3cc2ac9b88075d6fb76ffd04cdc41": 314,
+  "686db1bd8da530b9d6e84317c88fd8e4db292a98ef0b30c73774cb233a17806a": 537,
 };
 
 export function cleanReplyContext<T extends { role: string; content?: unknown }>(
