@@ -7,7 +7,7 @@ import { CLAUDE_DEFAULT_NAME } from "../../lib/app-settings";
 import { formatChatListTime } from "../../lib/app-time";
 import { getLatestSessionMessage, getSessionPreview, getSessionStamp, latestPrivateSession, listedPrivateSessions, sortByStamp } from "../../lib/chat-sessions";
 import { AvatarBlock, CHAT_LIST_TABS, GroupAvatarStack } from "../ChatListView";
-import { RococoArtIcon, RococoBow, RococoCorner, RococoDivider, RococoRose } from "./RococoArt";
+import { RococoArtIcon, RococoBow, RococoDivider } from "./RococoArt";
 
 const TAB_LABELS: Record<ChatListTab, string> = { chats: "来信", groups: "我们的圆桌", contacts: "收信人" };
 
@@ -116,8 +116,6 @@ export function RococoChatList({
 
   return (
     <section className="rococo-chat-list" onClick={() => { if (openActionsFor) setOpenActionsFor(null); }}>
-      <RococoCorner className="rococo-list-corner" />
-      <RococoRose className="rococo-list-rose" />
       <header className="rococo-list-header">
         <button type="button" className="rococo-back-ornament" onClick={onBack} aria-label="返回首页"><span aria-hidden="true">‹</span><small>retour</small></button>
         <div>

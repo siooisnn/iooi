@@ -7,7 +7,7 @@ import { DEFAULT_THEME, isTheme, THEME_STORAGE_KEY } from "../lib/theme";
 import type { Theme } from "../lib/theme";
 
 const PAGE_GRAY = "#e8e8e8";
-const ROCOCO_IVORY = "#f8f3eb";
+const ROCOCO_SKY = "#dce8f3";
 const SKY_TOP = "#5cbcff";
 
 type ThemeContextValue = { theme: Theme; setTheme: (theme: Theme) => void };
@@ -24,7 +24,7 @@ const chromeLayers: string[] = [];
 
 function syncBrowserChrome() {
   const color = chromeLayers.at(-1);
-  const pageColor = document.documentElement.dataset.theme === "rococo" ? ROCOCO_IVORY : PAGE_GRAY;
+  const pageColor = document.documentElement.dataset.theme === "rococo" ? ROCOCO_SKY : PAGE_GRAY;
   document.querySelector('meta[name="theme-color"]')?.setAttribute("content", color ?? pageColor);
   for (const node of [document.documentElement, document.body]) {
     if (color) node.style.backgroundColor = color;
@@ -48,7 +48,7 @@ export function paintBrowserChrome(color: string) {
 /** Rendered inside a sky-wallpaper screen: the status bar matches its top. */
 export function SkyChrome() {
   const { theme } = useTheme();
-  useEffect(() => paintBrowserChrome(theme === "rococo" ? ROCOCO_IVORY : SKY_TOP), [theme]);
+  useEffect(() => paintBrowserChrome(theme === "rococo" ? ROCOCO_SKY : SKY_TOP), [theme]);
   return null;
 }
 

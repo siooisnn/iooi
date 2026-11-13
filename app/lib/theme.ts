@@ -3,7 +3,7 @@ export const DEFAULT_THEME = "white-pink";
 
 export const THEME_OPTIONS = [
   { id: "white-pink", label: "经典 XP", description: "回到熟悉的复古小窝" },
-  { id: "rococo", label: "洛可可情书", description: "花体、藤蔓与法式婚礼手账" },
+  { id: "rococo", label: "洛可可情书", description: "雾蓝、冷白与古典情书" },
 ] as const;
 
 export type Theme = (typeof THEME_OPTIONS)[number]["id"];

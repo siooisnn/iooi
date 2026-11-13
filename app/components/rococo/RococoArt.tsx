@@ -3,11 +3,8 @@ import type { CSSProperties } from "react";
 export function RococoDivider({ className = "" }: { className?: string }) {
   return (
     <svg className={`rococo-divider ${className}`} viewBox="0 0 260 34" fill="none" aria-hidden="true">
-      <path d="M4 19c37 0 44-13 75-8 17 3 21 13 36 10 10-2 12-11 15-16 3 5 5 14 15 16 15 3 19-7 36-10 31-5 38 8 75 8" />
-      <path d="M80 12c-15-12-27-8-26-1 1 6 12 6 18 2M180 12c15-12 27-8 26-1-1 6-12 6-18 2M113 21c-12 11-25 10-27 4-2-7 10-9 20-5M147 21c12 11 25 10 27 4 2-7-10-9-20-5" />
-      <path d="M130 4c-7 8-8 15 0 23 8-8 7-15 0-23Z" />
-      <circle cx="130" cy="16" r="2.2" />
-      <circle cx="37" cy="19" r="1.6" /><circle cx="223" cy="19" r="1.6" />
+      <path d="M4 17h112m28 0h112" />
+      <path d="m130 12 5 5-5 5-5-5 5-5Z" />
     </svg>
   );
 }

@@ -1,14 +1,12 @@
 "use client";
 
-import { useId } from "react";
-import type { CSSProperties } from "react";
 import { SkyChrome } from "../ThemeProvider";
 import { Petals, useTogether } from "../HomeView";
 import type { HomeApp } from "../HomeView";
 import { useReadyLetters } from "../RetroDesktop";
 import type { Settings } from "../../lib/app-settings";
 import { CLAUDE_DEFAULT_NAME } from "../../lib/app-settings";
-import { RococoArtIcon, RococoBow, RococoCorner, RococoDivider, RococoFlourish, RococoFrame, RococoRose } from "./RococoArt";
+import { RococoArtIcon, RococoBow, RococoDivider } from "./RococoArt";
 
 const ENTRIES: Array<{ app: HomeApp; label: string; french: string; shape: string }> = [
   { app: "chat", label: "写一封信", french: "Nos conversations", shape: "envelope" },
@@ -31,7 +29,6 @@ const ENTRIES: Array<{ app: HomeApp; label: string; french: string; shape: strin
 export function RococoHome({ settings, onOpen }: { settings: Settings; onOpen: (app: HomeApp) => void }) {
   const { days, hours, minutes, seconds, ready, isAnniversary } = useTogether(settings.startDate);
   const letters = useReadyLetters();
-  const curveId = `rococo-title-curve-${useId().replace(/:/g, "")}`;
   const claudeName = settings.aiName || CLAUDE_DEFAULT_NAME;
   const herName = settings.userName || "宝宝";
   const counter = [{ value: days, unit: "天" }, { value: hours, unit: "时" }, { value: minutes, unit: "分" }, { value: seconds, unit: "秒" }];
@@ -40,8 +37,6 @@ export function RococoHome({ settings, onOpen }: { settings: Settings; onOpen: (
     <section className="rococo-home" aria-label="洛可可情书首页">
       <SkyChrome />
       {isAnniversary && <Petals />}
-      <RococoCorner className="rococo-home-corner rococo-home-corner-left" />
-      <RococoCorner className="rococo-home-corner rococo-home-corner-right" />
       <div className="rococo-paper-grain" aria-hidden="true" />
       <div className="rococo-home-scroll">
         <header className="rococo-masthead">
@@ -55,15 +50,12 @@ export function RococoHome({ settings, onOpen }: { settings: Settings; onOpen: (
         <section className="rococo-invitation" aria-labelledby="rococo-home-title">
           <span className="rococo-paper-layer rococo-paper-layer-one" aria-hidden="true" />
           <span className="rococo-paper-layer rococo-paper-layer-two" aria-hidden="true" />
-          <RococoRose className="rococo-hero-rose" />
+          <div className="rococo-architecture" aria-hidden="true"><span /><span /></div>
           <RococoBow className="rococo-hero-bow" />
           <div className="rococo-invitation-copy">
             <p className="rococo-overline">Une invitation à aimer</p>
             <h1 id="rococo-home-title"><span>Notre</span><em>iooi</em><span>amour</span></h1>
-            <svg className="rococo-curved-title" viewBox="0 0 300 56" aria-hidden="true">
-              <defs><path id={curveId} d="M12 36Q150 2 288 36" /></defs>
-              <text><textPath href={`#${curveId}`} startOffset="50%" textAnchor="middle">every moment, a love letter</textPath></text>
-            </svg>
+            <p className="rococo-title-caption">every moment, a love letter</p>
             <RococoDivider />
             <p className="rococo-chinese-title">此后我们的每一秒都是恩赐</p>
           </div>
@@ -71,7 +63,6 @@ export function RococoHome({ settings, onOpen }: { settings: Settings; onOpen: (
         </section>
 
         <section className="rococo-together" aria-label="在一起的时间">
-          <RococoFrame />
           <div className="rococo-together-heading">
             <span>Depuis le premier jour</span>
             <h2>相爱的时光</h2>
@@ -84,8 +75,6 @@ export function RococoHome({ settings, onOpen }: { settings: Settings; onOpen: (
           <p><i>{claudeName}</i><span aria-hidden="true">♡</span><i>{herName}</i></p>
         </section>
 
-        <RococoFlourish className="rococo-home-flourish" />
-
         <nav className="rococo-scrapbook" aria-label="小窝功能">
           <p className="rococo-collection-title"><span>Les petits bonheurs</span><small>把日常收藏成一本情书</small></p>
           <div className="rococo-object-collage">
@@ -94,7 +83,7 @@ export function RococoHome({ settings, onOpen }: { settings: Settings; onOpen: (
                 type="button"
                 key={entry.app}
                 className={`rococo-object rococo-object-${entry.shape}`}
-                style={{ "--object-index": index } as CSSProperties}
+                data-index={String(index + 1).padStart(2, "0")}
                 onClick={() => onOpen(entry.app)}
               >
                 <span className="rococo-object-art"><RococoArtIcon kind={entry.app} /></span>
