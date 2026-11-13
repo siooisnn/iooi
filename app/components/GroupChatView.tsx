@@ -773,7 +773,7 @@ export function GroupChatView({
           {!retro &&
           <button type="button" className="attach-btn attach-btn-separate group-menu-trigger" aria-label="群聊菜单" aria-expanded={showMenu}
             onClick={() => { setShowMenu((open) => !open); setShowWebSearchMenu(false); }}>
-            {rococo ? "菜单" : <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16" /></svg>}
+            {<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16" /></svg>}
           </button>}
           <input
             ref={fileInputRef}
@@ -793,7 +793,7 @@ export function GroupChatView({
             aria-label={uploading ? "正在上传" : "上传图片或文件"}
             title={uploading ? "正在上传" : "上传图片或文件"}
           >
-            {rococo ? (uploading ? "上传中" : "上传") : uploading ? (
+            {uploading ? (
               <span className="attach-upload-spinner" />
             ) : (
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
@@ -822,7 +822,7 @@ export function GroupChatView({
               className={retro ? "xp-chat-send" : `send-btn${loading ? " pause-reply-btn" : ""}`}
               aria-label={loading ? "暂停等待回复" : "发送消息"}
             >
-              {retro || rococo ? (loading ? "暂停" : "发送") : loading ? (
+              {retro ? (loading ? "暂停" : "发送") : loading ? (
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="white" aria-hidden="true"><rect x="6" y="5" width="4" height="14" rx="1" /><rect x="14" y="5" width="4" height="14" rx="1" /></svg>
               ) : (
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><line x1="12" y1="19" x2="12" y2="5" /><polyline points="5 12 12 5 19 12" /></svg>
