@@ -348,9 +348,10 @@
 :root[data-theme="rococo"] .rococo-composer .group-menu-trigger { grid-column: 1; }
 :root[data-theme="rococo"] .group-chat-footer .rococo-composer-row > .context-usage-control { grid-column: 4 / 6; grid-row: 3; }
 
-/* Keep settings in the window's flex flow: no viewport-wide absolute panel. */
+/* Keep a stable panel height even when the transcript has hundreds of rows.
+   Only the message area shrinks; settings scroll inside their own box. */
 :root[data-theme="rococo"] .chat-container[data-chat-ui="rococo"] > .room-settings-panel {
-  position: relative; z-index: 60; inset: auto; flex: 0 1 320px; height: min(420px, 40dvh); min-height: 80px;
+  position: relative; z-index: 60; inset: auto; flex: 0 0 auto; height: min(420px, 40dvh); min-height: 80px;
   width: auto; max-width: none; max-height: 46%; margin: 10px 14px 0; padding: 12px;
   overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable;
 }
