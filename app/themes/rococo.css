@@ -381,38 +381,34 @@
 .rococo-empty-letter p { margin-top: 16px; color: #4e6789; font-size: 14px; letter-spacing: .08em; }
 .rococo-empty-letter small { margin-top: 9px; color: #7a90ad; font-size: 10px; }
 
-/* The sheet owns both the writing area and its compact lower toolbar. */
-:root[data-theme="rococo"] .chat-container[data-chat-ui="rococo"] > .rococo-composer { position: relative; z-index: 40; flex: none; padding: 13px 14px calc(env(safe-area-inset-bottom) + 15px); border: 0; background: linear-gradient(#f8fbfe, #e9eff8); }
+/* A message field and one quiet toolbar leave room for the conversation. */
+:root[data-theme="rococo"] .chat-container[data-chat-ui="rococo"] > .rococo-composer { position: relative; z-index: 40; flex: none; padding: 7px 10px calc(env(safe-area-inset-bottom) + 8px); border: 0; background: #f8fbfe; }
 :root[data-theme="rococo"] .rococo-composer .rococo-composer-row {
-  position: relative; isolation: isolate; display: grid;
-  grid-template-columns: repeat(3, 52px) minmax(0, 1fr) 52px 52px;
-  grid-template-rows: auto auto auto; align-items: center; gap: 9px 8px;
-  padding: 9px 9px 5px; border: 5px solid #fff; border-radius: 2px;
-  background: linear-gradient(#fff, #eef2fb); box-shadow: inset 0 0 0 1px #b7c5da, inset 0 0 0 3px #fff, inset 0 0 0 4px var(--rococo-gold-pale), 0 3px 12px #42577712;
+  display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)) 44px 52px;
+  grid-template-rows: auto auto; align-items: center; gap: 4px 6px;
+  padding: 6px; border: 1px solid #c5d2e2; border-radius: 9px;
+  background: #fff; box-shadow: none;
 }
-:root[data-theme="rococo"] .rococo-composer-row::before { content: ""; position: absolute; z-index: -1; inset: -8px; pointer-events: none; border: 4px dotted #fff; border-radius: 4px; }
-.rococo-writing-heading { grid-column: 1 / -1; grid-row: 1; display: flex; align-items: baseline; gap: 12px; min-width: 0; padding: 0 2px; color: #607795; }
-.rococo-writing-heading > span { color: var(--rococo-rose-ink); font: 24px/1.1 var(--rococo-script); }
-.rococo-writing-heading > small { color: #7486a3; font: italic 10px/1 var(--rococo-serif); }
+:root[data-theme="rococo"] .rococo-composer-row::before { content: none; }
+.rococo-writing-heading { display: none; }
 :root[data-theme="rococo"] .rococo-composer .input-wrapper { display: contents; }
-:root[data-theme="rococo"] .rococo-composer .chat-input { grid-column: 1 / -1; grid-row: 2; width: 100%; min-width: 0; min-height: 44px; max-height: 120px; margin: 0; padding: 5px 2px 9px; border: 0; border-radius: 0; background: transparent; color: #263b57; font-family: "Songti SC", "SimSun", serif; font-size: 16px; line-height: 1.6; outline: none; box-shadow: none; }
-:root[data-theme="rococo"] .rococo-composer .chat-input::placeholder { color: #8694ad; font-size: 13px; opacity: 1; }
-:root[data-theme="rococo"] .rococo-composer .attach-btn { grid-row: 3; width: 52px; height: 40px; min-width: 0; margin: 0; padding: 0; border: 1px solid #bfccdf; border-radius: 3px; background: #f8faff; color: #526b8d; font: 12px/1.2 var(--rococo-serif); box-shadow: none; }
+:root[data-theme="rococo"] .rococo-composer .chat-input { grid-column: 1 / 5; grid-row: 1; width: 100%; min-width: 0; min-height: 40px; max-height: 96px; margin: 0; padding: 7px 5px; border: 0; border-radius: 0; background: transparent; color: #263b57; font-family: "Songti SC", "SimSun", serif; font-size: 16px; line-height: 24px; outline: none; box-shadow: none; }
+:root[data-theme="rococo"] .rococo-composer .chat-input::placeholder { color: #8694ad; font-size: 14px; opacity: 1; }
+:root[data-theme="rococo"] .rococo-composer .attach-btn { grid-row: 2; width: 100%; height: 36px; min-width: 0; margin: 0; padding: 0 3px; border: 0; border-radius: 5px; background: transparent; color: #526b8d; font: 12px/1.2 var(--rococo-serif); box-shadow: none; }
 :root[data-theme="rococo"] .rococo-composer [aria-label="红包/转账"] { grid-column: 3; }
 :root[data-theme="rococo"] .rococo-composer [aria-label="表情包"] { grid-column: 2; }
 :root[data-theme="rococo"] .rococo-composer .attach-btn-separate:not(.composer-settings-btn):not(.group-menu-trigger) { grid-column: 1; }
-:root[data-theme="rococo"] .rococo-composer .attach-btn:hover { background: #dfe8f580; }
-:root[data-theme="rococo"] .rococo-composer .composer-settings-btn { grid-column: 5; justify-self: end; width: 52px; max-width: 100%; padding: 0 5px; border: 1px solid #c4cedf; background: #ffffffa6; }
+:root[data-theme="rococo"] .rococo-composer .attach-btn:hover { background: #edf2f8; }
+:root[data-theme="rococo"] .rococo-composer .composer-settings-btn { grid-column: 4; justify-self: end; max-width: 100%; }
 :root[data-theme="rococo"] .rococo-composer .composer-settings-btn > svg { display: none; }
-.rococo-model-label { display: flex; align-items: center; gap: 5px; min-width: 0; overflow: hidden; color: #4d6588; font: 11px/1.2 var(--rococo-serif); white-space: nowrap; }
-.rococo-model-label small { overflow: hidden; color: #8897b0; font-size: 8px; text-transform: uppercase; text-overflow: ellipsis; }
-.rococo-model-label i { font-size: 12px; font-style: normal; }
-:root[data-theme="rococo"] .rococo-composer .send-btn { grid-column: 6; grid-row: 3; width: 52px; height: 40px; color: #fff; font: 12px/1.2 var(--rococo-serif); border: 1px solid #26395b; border-radius: 2px; background: #2f4569; box-shadow: inset 0 0 0 2px #2f4569, inset 0 0 0 3px #c3a96f99; }
+.rococo-model-label { display: flex; align-items: center; justify-content: center; min-width: 0; color: #526b8d; font: 12px/1.2 var(--rococo-serif); white-space: nowrap; }
+:root[data-theme="rococo"] .rococo-composer .send-btn { grid-column: 5; grid-row: 1; align-self: end; width: 52px; height: 40px; color: #fff; font: 12px/1.2 var(--rococo-serif); border: 0; border-radius: 6px; background: #2f4569; box-shadow: none; }
 :root[data-theme="rococo"] .rococo-composer .send-btn:hover { background: #3c557d; transform: none; }
-:root[data-theme="rococo"] .rococo-composer-row > .context-usage-control { grid-column: 1 / -1; grid-row: 4; justify-self: end; }
-:root[data-theme="rococo"] .rococo-composer .context-usage-badge { height: 25px; min-width: 28px; width: auto; padding: 0 5px; border: 1px solid #c4cedf; border-radius: 2px; background: #ffffffa6; color: #6d809c; font-size: 9px; }
+:root[data-theme="rococo"] .rococo-composer-row > .context-usage-control { grid-column: 5; grid-row: 2; justify-self: end; }
+:root[data-theme="rococo"] .rococo-composer .context-usage-badge { height: 28px; min-width: 28px; width: auto; padding: 0 4px; border: 0; border-radius: 4px; background: transparent; color: #6d809c; font-size: 9px; }
 :root[data-theme="rococo"] .rococo-composer .group-menu-trigger { grid-column: 1; }
-:root[data-theme="rococo"] .group-chat-footer .rococo-composer-row > .context-usage-control { grid-column: 4 / 6; grid-row: 3; }
+:root[data-theme="rococo"] .group-chat-footer .rococo-composer-row > .context-usage-control { grid-column: 3 / 6; grid-row: 2; justify-self: end; }
+:root[data-theme="rococo"] .rococo-composer.group-chat-footer .attach-btn-separate:not(.composer-settings-btn):not(.group-menu-trigger) { grid-column: 2; }
 
 /* Keep a stable panel height even when the transcript has hundreds of rows.
    Only the message area shrinks; settings scroll inside their own box. */
@@ -459,7 +455,7 @@
     border-radius: 20px;
   }
   :root[data-theme="rococo"] .rococo-composer { padding-left: 24px; padding-right: 24px; }
-  :root[data-theme="rococo"] .rococo-composer .chat-input { min-height: 52px; }
+  :root[data-theme="rococo"] .rococo-composer .chat-input { min-height: 40px; }
 }
 
 :root[data-theme="rococo"]:is([data-page="chat"], [data-page="settings"]) .app-bg[data-wallpaper="sky"] {
@@ -479,22 +475,3 @@
 @media (min-width: 700px) {
   :root[data-theme="rococo"][data-page="settings"] .chat-container { max-width: 760px; height: min(960px, calc(100dvh - 64px)); }
 }
-@media (max-width: 599px) {
-  :root[data-theme="rococo"] .rococo-composer .rococo-composer-row { grid-template-columns: repeat(3, minmax(0, 1fr)); column-gap: 10px; row-gap: 9px; }
-  :root[data-theme="rococo"] .rococo-composer .attach-btn,
-  :root[data-theme="rococo"] .rococo-composer .send-btn { width: 100%; height: 40px; }
-  :root[data-theme="rococo"] .rococo-composer .composer-settings-btn { grid-column: 2; grid-row: 4; justify-self: stretch; max-width: none; }
-  :root[data-theme="rococo"] .rococo-composer .send-btn { grid-column: 3; grid-row: 4; }
-  :root[data-theme="rococo"] .rococo-composer-row > .context-usage-control { grid-row: 5; }
-  :root[data-theme="rococo"] .group-chat-footer .rococo-composer-row > .context-usage-control { grid-column: 1; grid-row: 4; justify-self: start; }
-  /* Private chats: no empty cell beside the last row, and the send key is the widest. */
-  :root[data-theme="rococo"] .single-chat-footer .rococo-composer-row .composer-settings-btn { grid-column: 1; }
-  :root[data-theme="rococo"] .single-chat-footer .rococo-composer-row .send-btn { grid-column: 2 / 4; }
-  :root[data-theme="rococo"] .single-chat-footer .rococo-composer-row:not(:has(.composer-settings-btn)) .send-btn { grid-column: 1 / -1; }
-  :root[data-theme="rococo"] .single-chat-footer .rococo-composer-row:not(:has([aria-label="表情包"])) .attach-btn-separate:not(.composer-settings-btn) { grid-column: 1; grid-row: 4; }
-  :root[data-theme="rococo"] .single-chat-footer .rococo-composer-row:not(:has([aria-label="表情包"])) .composer-settings-btn { grid-column: 2; }
-  :root[data-theme="rococo"] .single-chat-footer .rococo-composer-row:not(:has([aria-label="表情包"])) .send-btn { grid-column: 3; }
-  :root[data-theme="rococo"] .single-chat-footer .rococo-composer-row:not(:has([aria-label="表情包"])):not(:has(.composer-settings-btn)) .send-btn { grid-column: 2 / 4; }
-}
-
-:root[data-theme="rococo"] .rococo-composer.group-chat-footer .attach-btn-separate:not(.composer-settings-btn):not(.group-menu-trigger) { grid-column: 2; }
