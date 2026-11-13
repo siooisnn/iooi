@@ -49,7 +49,10 @@ export function SettingsView({
   const [directoryOpen, setDirectoryOpen] = useState(false);
   function jumpTo(index: number) {
     setDirectoryOpen(false);
-    settingsRef.current?.children[index]?.scrollIntoView({ block: "start", behavior: "auto" });
+    const body = settingsRef.current;
+    const target = body?.children[index] as HTMLElement | undefined;
+    if (theme === "rococo" && body && target) body.scrollTo({ top: target.offsetTop, behavior: "instant" });
+    else target?.scrollIntoView({ block: "start", behavior: "auto" });
   }
   function handleAvatarUpload(field: "aiAvatar" | "gptAvatar" | "userAvatar") {
     const input = document.createElement("input");
@@ -299,6 +302,20 @@ export function SettingsView({
           <p className="settings-hint">与读书、冲浪共用原有时段，不会自动买东西、动余额或扣必支出。关闭后仍可在聊天里请他看商品。</p>
         </div>
       </section>
+  );
+
+  if (theme === "rococo") return (
+    <section className="rococo-settings-page" aria-label="小窝设置">
+      <header className="rococo-settings-header">
+        <button type="button" onClick={onBack}>返回</button><div><p>La maison</p><h1>小窝设置</h1></div>
+      </header>
+      <nav className="rococo-settings-index" aria-label="设置目录">
+        {CONTROL_SECTIONS.flatMap((section) => section.items).map((item) => (
+          <button type="button" key={item.index} onClick={() => jumpTo(item.index)}>{item.label}</button>
+        ))}
+      </nav>
+      {content}
+    </section>
   );
 
   if (!settings.retroDesktop) return <>{content}<PageBack onBack={onBack} /></>;

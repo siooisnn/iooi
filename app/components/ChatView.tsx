@@ -1580,9 +1580,9 @@ export function ChatView({
           </>
         ) : (
           <div className={`composer-row${rococo ? " rococo-composer-row" : ""}`}>
-            {rococo && <div className="rococo-writing-heading" aria-hidden="true"><span>Écrivez-moi</span><small>une lettre pour toi</small></div>}
-            {!isGpt && !developmentMode && <button type="button" className="attach-btn" aria-label="红包/转账" disabled={loading || uploading} onClick={() => setShowMoneyDialog(true)}><DaydayMoneyIcon kind="redpacket" /></button>}
-            {!isGpt && !developmentMode && <button type="button" className="attach-btn" aria-label="表情包" disabled={loading || uploading} onClick={() => setShowStickers(true)}>☺</button>}
+            {rococo && <div className="rococo-writing-heading" aria-hidden="true"><span>Écrivez-moi</span><small>{isGpt ? currentGptModel.label : currentModel.label}</small></div>}
+            {!isGpt && !developmentMode && <button type="button" className="attach-btn" aria-label="红包/转账" disabled={loading || uploading} onClick={() => setShowMoneyDialog(true)}>{rococo ? "红包" : <DaydayMoneyIcon kind="redpacket" />}</button>}
+            {!isGpt && !developmentMode && <button type="button" className="attach-btn" aria-label="表情包" disabled={loading || uploading} onClick={() => setShowStickers(true)}>{rococo ? "表情包" : "☺"}</button>}
             <input
               ref={fileInputRef}
               type="file"
@@ -1601,7 +1601,7 @@ export function ChatView({
               aria-label={uploading ? "正在上传" : writingMode ? "上传资料到写写" : developmentMode ? "上传图片" : "上传图片或文件"}
               title={uploading ? "正在上传" : writingMode ? "上传资料到写写" : developmentMode ? "上传图片" : "上传图片或文件"}
             >
-              {uploading ? (
+              {rococo ? (uploading ? "上传中" : "上传") : uploading ? (
                 <span className="attach-upload-spinner" />
               ) : (
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
@@ -1622,7 +1622,7 @@ export function ChatView({
                 aria-label={loading ? "暂停等待回复" : "发送消息"}
                 title={loading ? "暂停等待回复" : "发送"}
               >
-                {loading ? (
+                {rococo ? (loading ? "暂停" : "发送") : loading ? (
                   <svg width="15" height="15" viewBox="0 0 24 24" fill="white" aria-hidden="true">
                     <rect x="6" y="5" width="4" height="14" rx="1" />
                     <rect x="14" y="5" width="4" height="14" rx="1" />
@@ -1646,7 +1646,7 @@ export function ChatView({
                 title="聊天设置"
                 onClick={() => setShowModelMenu((open) => !open)}
               >
-                {rococo && <span className="rococo-model-label">{isGpt ? currentGptModel.label : currentModel.label}<small>{isGpt ? settings.gptReasoningEffort : settings.claudeReasoningEffort}</small><i aria-hidden="true">⌃</i></span>}
+                {rococo && <span className="rococo-model-label">设置</span>}
                 <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
                   <path d="m9.5 3-.6 2.4-2 .9-2.3-.7L2 10l1.8 1.7v2.2L2 15.6l2.6 4.4 2.3-.7 2 .9.6 2.4h5l.6-2.4 2-.9 2.3.7 2.6-4.4-1.8-1.7v-2.2L22 10l-2.6-4.4-2.3.7-2-.9L14.5 3Z" transform="translate(0 -1) scale(1 .95)" />
                   <circle cx="12" cy="12" r="3" />
