@@ -4,9 +4,7 @@ import { useState, useEffect } from "react";
 import { MoonLetter } from "./MoonLetter";
 import type { Settings } from "../lib/app-settings";
 
-/* The 2026 glass home is retired: the XP desktop is the only home. This
-   file keeps the shared home pieces — the together timer, petals and the
-   full moon letter. */
+/* Shared home pieces: the together timer, petals and the full moon letter. */
 
 /** Every page the desktop can open. */
 export type HomeApp = "moon" | "chat" | "heartbeat" | "blog" | "reading" | "surf" | "dayday" | "clawd" | "mood" | "settings" | "summer-claude" | "summer-gpt" | "susu-phone" | "artworks" | "capsule";

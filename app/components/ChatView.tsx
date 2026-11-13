@@ -42,6 +42,8 @@ import { ChatGlyph } from "./RetroDesktop";
 import { NUDGE_USER_TEXT, NUDGE_REPLY_TEXT } from "../lib/chat-nudge";
 import { hasSpeakableText } from "../lib/tts-text";
 import { useSpeaker } from "../lib/use-speaker";
+import { useTheme } from "./ThemeProvider";
+import { RococoBow, RococoDivider, RococoRose } from "./rococo/RococoArt";
 
 // Animate only the current interaction, never a replayed history entry.
 const NUDGE_FRAMES: Keyframe[] = [
@@ -122,6 +124,8 @@ export function ChatView({
   /** A blog card in the chat was tapped: open that post in the blog. */
   onOpenBlogPost?: (target: BlogTarget) => void;
 }) {
+  const { theme } = useTheme();
+  const rococo = theme === "rococo";
   const isGpt = assistantMode === "gpt";
   const compactComposer = retro && settings.chatCompactComposer === true;
   const ledgerBook = useChatLedger(!isGpt);
@@ -972,7 +976,23 @@ export function ChatView({
 
   return (
     <>
-      {listEntryMode && retro ? (
+      {listEntryMode && rococo ? (
+        <header className="chat-header chat-room-header rococo-room-header">
+          <RococoRose className="rococo-room-rose" />
+          <div className="rococo-room-topline"><span />CORRESPONDANCE AMOUREUSE<span /></div>
+          <div className="header-top">
+            <button className="header-icon-btn chat-room-back rococo-room-back" onClick={handleBackToList} aria-label="返回列表"><span aria-hidden="true">‹</span><small>lettres</small></button>
+            <div className="header-center">
+              <p>Lettre à</p>
+              {roomIdentity}
+            </div>
+            <div className="room-header-usage">
+              {showQuota && <ClaudeUsageCircle {...claudeUsage} className="room-header-quota" title="剩余百分比：五小时 / 本周；详细额度在聊天设置" />}
+            </div>
+          </div>
+          <RococoDivider className="rococo-room-divider" />
+        </header>
+      ) : listEntryMode && retro ? (
         <header className={`chat-header chat-room-header xp-chat-header${dotBubbles ? " xp-chat-header-dots" : ""}`}>
           <div className="xp-chat-titlebar">
             <span className="xp-chat-title-icon" aria-hidden="true"><ChatGlyph /></span>
@@ -1210,9 +1230,13 @@ export function ChatView({
         </div>
       )}
 
-      <section className={`chat-messages${saysAvatars ? " xp-log-avatars" : ""}${dotBubbles ? " xp-log-dots" : ""}${brickBubbles ? " xp-log-brick" : ""}`} ref={scrollRef} onScroll={handleScroll}>
+      <section className={`chat-messages${rococo ? " rococo-message-paper" : ""}${saysAvatars ? " xp-log-avatars" : ""}${dotBubbles ? " xp-log-dots" : ""}${brickBubbles ? " xp-log-brick" : ""}`} ref={scrollRef} onScroll={handleScroll}>
         {session.messages.length === 0 && (
-          <div className="empty-chat"><p>说点什么开始聊天吧</p></div>
+          <div className={`empty-chat${rococo ? " rococo-empty-letter" : ""}`}>
+            {rococo && <><RococoBow /><span>Ma très chère</span></>}
+            <p>说点什么开始聊天吧</p>
+            {rococo && <small>这张信纸，正等你的第一句话</small>}
+          </div>
         )}
         {displayMessages.map(({ message, index }, displayIndex) => {
           if (message.source === "summer_write_ignored") return null;
@@ -1472,7 +1496,7 @@ export function ChatView({
 
       {showStickers && <StickerLibrary onClose={() => setShowStickers(false)} onSelect={chooseSticker} />}
       {showMoneyDialog && <ChatMoneyDialog key={session.id} book={ledgerBook} sessionId={session.id} onClose={() => setShowMoneyDialog(false)} onSent={(card) => { setShowMoneyDialog(false); void sendMessage(false, card); }} />}
-      <footer className={`chat-footer single-chat-footer${retro ? " xp-chat-footer" : ""}${dotBubbles ? " xp-chat-footer-dots" : ""}${compactComposer ? " xp-chat-footer-compact" : ""}`}>
+      <footer className={`chat-footer single-chat-footer${rococo ? " rococo-composer" : ""}${retro ? " xp-chat-footer" : ""}${dotBubbles ? " xp-chat-footer-dots" : ""}${compactComposer ? " xp-chat-footer-compact" : ""}`}>
         <ChatClawd />
 
         {uploadError && <p className="composer-upload-error" role="alert">{uploadError}</p>}
@@ -1555,7 +1579,7 @@ export function ChatView({
             </div>
           </>
         ) : (
-          <div className="composer-row">
+          <div className={`composer-row${rococo ? " rococo-composer-row" : ""}`}>
             {!isGpt && !developmentMode && <button type="button" className="attach-btn" aria-label="红包/转账" disabled={loading || uploading} onClick={() => setShowMoneyDialog(true)}><DaydayMoneyIcon kind="redpacket" /></button>}
             {!isGpt && !developmentMode && <button type="button" className="attach-btn" aria-label="表情包" disabled={loading || uploading} onClick={() => setShowStickers(true)}>☺</button>}
             <input

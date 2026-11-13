@@ -24,7 +24,7 @@ import "./themes/xp-control.css";
 import "./themes/cute.css";
 import "./themes/sky-wallpaper.css";
 import "./themes/startup.css";
-import "./themes/white-wedding.css";
+import "./themes/rococo.css";
 import { ThemeProvider } from "./components/ThemeProvider";
 import { THEME_INIT_SCRIPT } from "./lib/theme";
 

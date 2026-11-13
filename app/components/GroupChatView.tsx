@@ -12,6 +12,8 @@ import { imageFields, MAX_IMAGES_PER_MESSAGE, messageImages, stripObjectPlacehol
 import { prepareImageForUpload } from "../lib/image-compress";
 import { ContextUsageBadge, type UsageMessage } from "./ContextUsageBadge";
 import { ChatGlyph } from "./RetroDesktop";
+import { useTheme } from "./ThemeProvider";
+import { RococoDivider, RococoRose } from "./rococo/RococoArt";
 
 type PendingAttachment = { id: string; kind: "image" | "file"; url: string; name: string; writingFile?: WritingFile };
 
@@ -273,6 +275,8 @@ export function GroupChatView({
   onBack: () => void;
   retro?: boolean;
 }) {
+  const { theme } = useTheme();
+  const rococo = theme === "rococo";
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [streamingReply, setStreamingReply] = useState<{ speaker: GroupSpeaker; text: string } | null>(null);
@@ -559,7 +563,8 @@ export function GroupChatView({
 
   return (
     <>
-      <header className="chat-header chat-room-header group-room-header">
+      <header className={`chat-header chat-room-header group-room-header${rococo ? " rococo-room-header rococo-group-header" : ""}`}>
+        {rococo && <><RococoRose className="rococo-room-rose" /><div className="rococo-room-topline"><span />NOTRE PETITE ASSEMBLÉE<span /></div></>}
         {retro ? <>
           <div className="xp-chat-titlebar">
             <span className="xp-chat-title-icon" aria-hidden="true"><ChatGlyph /></span>
@@ -598,9 +603,10 @@ export function GroupChatView({
             <ClaudeUsageCircle {...claudeUsage} className="room-header-quota" title="剩余百分比：五小时 / 本周" />
           </div>
         </div>}
+        {rococo && <RococoDivider className="rococo-room-divider" />}
       </header>
 
-      <section className="chat-messages" ref={scrollRef} onScroll={handleScroll}>
+      <section className={`chat-messages${rococo ? " rococo-message-paper" : ""}`} ref={scrollRef} onScroll={handleScroll}>
         {displayedMessages.length === 0 && (
           <div className="empty-chat"><p>{memberNames ? `你和${memberNames}都在这里` : "请先选择本窗口的参与者。"}</p></div>
         )}
@@ -679,7 +685,7 @@ export function GroupChatView({
         )}
       </section>
 
-      <footer className="chat-footer group-chat-footer">
+      <footer className={`chat-footer group-chat-footer${rococo ? " rococo-composer" : ""}`}>
         <ChatClawd />
         {retro && <div className="xp-chat-toolbar">
           <button type="button" className="xp-chat-tool" aria-label="群聊菜单" aria-expanded={showMenu}
