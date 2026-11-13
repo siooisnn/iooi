@@ -8,7 +8,7 @@ import { ArtworkGlyph } from "./ArtworksView";
 import { CapsuleGlyph } from "./CapsuleView";
 import { apiFetch } from "../lib/client-api";
 import { SkyClouds } from "./SkyClouds";
-import { SkyChrome } from "./ThemeProvider";
+import { SkyChrome, useTheme } from "./ThemeProvider";
 import { HEARTBEAT_LINE, Petals, useTogether } from "./HomeView";
 import type { HomeApp } from "./HomeView";
 import { CLAUDE_DEFAULT_NAME } from "../lib/app-settings";
@@ -276,6 +276,8 @@ export function RetroDesktop({ settings, onOpen }: {
   onOpen: (app: HomeApp) => void;
 }) {
   const { days, hours, minutes, seconds, ready, isAnniversary, now } = useTogether(settings.startDate);
+  const { theme } = useTheme();
+  const wedding = theme === "white-wedding";
   const [startOpen, setStartOpen] = useState(false);
   const [balloon, setBalloon] = useState(false);
   const [leaving, setLeaving] = useState(false);
@@ -337,7 +339,7 @@ export function RetroDesktop({ settings, onOpen }: {
         <section className="xp-window xp-desk-together">
           <header className="xp-titlebar">
             <span className="xp-title-icon" aria-hidden="true">♥</span>
-            <span className="xp-title-text">As time goes by.exe</span>
+            <span className="xp-title-text">{wedding ? "White Vows · Our Wedding" : "As time goes by.exe"}</span>
             <span className="xp-controls" aria-hidden="true">
               <i className="xp-btn xp-min" />
               <i className="xp-btn xp-max" />
@@ -425,7 +427,7 @@ export function RetroDesktop({ settings, onOpen }: {
 
       {balloon && (
         <button type="button" className="xp-desk-balloon" onClick={() => setBalloon(false)}>
-          <b><span aria-hidden="true">♥</span> 欢迎回到 2007</b>
+          <b><span aria-hidden="true">♥</span> {wedding ? "欢迎来到我们的礼堂" : "欢迎回到 2007"}</b>
           <span>{ready ? `我们已经在一起 ${days} 天啦。` : "我们在一起的每一天都算数。"}</span>
         </button>
       )}
@@ -442,7 +444,7 @@ export function RetroDesktop({ settings, onOpen }: {
         <button type="button" className={`xp-desk-start${startOpen ? " is-open" : ""}`} onClick={() => setStartOpen((value) => !value)}>
           <StartFlag /><span>start</span>
         </button>
-        <span className="xp-desk-task"><span aria-hidden="true">♥</span>As time goes by</span>
+        <span className="xp-desk-task"><span aria-hidden="true">♥</span>{wedding ? "White Vows" : "As time goes by"}</span>
         <span className="xp-desk-tray">
           {letters.count > 0 && <button type="button" className="xp-desk-tray-letter" aria-label={`${letters.count} 封信可以拆了`}
             onClick={() => { setBalloon(false); if (letters.balloon) letters.dismiss(); else letters.show(); }}><CapsuleGlyph /></button>}

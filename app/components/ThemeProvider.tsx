@@ -1,19 +1,31 @@
 "use client";
 
-import { useEffect } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import { installCuteFx } from "../lib/cute-fx";
+import { DEFAULT_THEME, isTheme, THEME_STORAGE_KEY } from "../lib/theme";
+import type { Theme } from "../lib/theme";
 
-// Most pages are gray; only the sky screens (desktop, blog) are blue on top.
 const PAGE_GRAY = "#e8e8e8";
+const WEDDING_IVORY = "#f5f1ea";
 const SKY_TOP = "#5cbcff";
+
+type ThemeContextValue = { theme: Theme; setTheme: (theme: Theme) => void };
+const ThemeContext = createContext<ThemeContextValue | null>(null);
+
+export function useTheme() {
+  const context = useContext(ThemeContext);
+  if (!context) throw new Error("useTheme must be used inside ThemeProvider");
+  return context;
+}
 
 // Screens that want another color at the top push it here; the latest wins.
 const chromeLayers: string[] = [];
 
 function syncBrowserChrome() {
   const color = chromeLayers.at(-1);
-  document.querySelector('meta[name="theme-color"]')?.setAttribute("content", color ?? PAGE_GRAY);
+  const pageColor = document.documentElement.dataset.theme === "white-wedding" ? WEDDING_IVORY : PAGE_GRAY;
+  document.querySelector('meta[name="theme-color"]')?.setAttribute("content", color ?? pageColor);
   for (const node of [document.documentElement, document.body]) {
     if (color) node.style.backgroundColor = color;
     else node.style.removeProperty("background-color");
@@ -35,20 +47,40 @@ export function paintBrowserChrome(color: string) {
 
 /** Rendered inside a sky-wallpaper screen: the status bar matches its top. */
 export function SkyChrome() {
-  useEffect(() => paintBrowserChrome(SKY_TOP), []);
+  const { theme } = useTheme();
+  useEffect(() => paintBrowserChrome(theme === "white-wedding" ? WEDDING_IVORY : SKY_TOP), [theme]);
   return null;
 }
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
-  useEffect(() => {
-    try {
-      localStorage.removeItem("iooi-theme");
-      localStorage.removeItem("iooi-status-bar-clearance"); // retired tuning slider
-    } catch { /* Appearance is fixed even without storage. */ }
+  const [theme, setThemeState] = useState<Theme>(DEFAULT_THEME);
+
+  const setTheme = useCallback((next: Theme) => {
+    document.documentElement.dataset.theme = next;
+    try { localStorage.setItem(THEME_STORAGE_KEY, next); } catch { /* The theme still applies without storage. */ }
+    setThemeState(next);
     syncBrowserChrome();
-    return installCuteFx();
   }, []);
-  return children;
+
+  useEffect(() => {
+    let initial: Theme = DEFAULT_THEME;
+    try {
+      const stored = localStorage.getItem(THEME_STORAGE_KEY);
+      if (isTheme(stored)) initial = stored;
+      localStorage.removeItem("iooi-status-bar-clearance"); // retired tuning slider
+    } catch { /* The default theme applies without storage. */ }
+    document.documentElement.dataset.theme = initial;
+    syncBrowserChrome();
+    const frame = window.requestAnimationFrame(() => setThemeState(initial));
+    const removeCuteFx = installCuteFx();
+    return () => {
+      window.cancelAnimationFrame(frame);
+      removeCuteFx();
+    };
+  }, []);
+
+  const value = useMemo(() => ({ theme, setTheme }), [theme, setTheme]);
+  return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
 }
 
 export function useThemePage(page: "home" | "chat" | "diary" | "settings") {

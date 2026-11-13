@@ -13,12 +13,14 @@ import type { Settings } from "../lib/app-settings";
 import { apiFetch } from "../lib/client-api";
 import { GearGlyph } from "./RetroDesktop";
 import { BlogConnection } from "./BlogConnection";
+import { useTheme } from "./ThemeProvider";
+import { THEME_OPTIONS } from "../lib/theme";
 
 const CONTROL_SECTIONS = [
-  { title: "账号连接", items: [{ label: "独立博客连接", index: 11 }] },
-  { title: "外观与身份", items: [{ label: "姓名与头像", index: 0 }, { label: "桌面背景", index: 1 }, { label: "聊天背景", index: 2 }] },
-  { title: "日常与提醒", items: [{ label: "主动关怀", index: 3 }, { label: "day day", index: 12 }, { label: "天气与城市", index: 4 }, { label: "纪念日", index: 5 }, { label: "消息通知", index: 6 }] },
-  { title: "运行信息", items: [{ label: "酥酥 · 缓存", index: 7 }, { label: "酥酥 · 上下文", index: 8 }, { label: "郁郁 · 缓存", index: 9 }, { label: "郁郁 · 上下文", index: 10 }] },
+  { title: "账号连接", items: [{ label: "独立博客连接", index: 12 }] },
+  { title: "外观与身份", items: [{ label: "姓名与头像", index: 0 }, { label: "主题", index: 1 }, { label: "桌面背景", index: 2 }, { label: "聊天背景", index: 3 }] },
+  { title: "日常与提醒", items: [{ label: "主动关怀", index: 4 }, { label: "day day", index: 13 }, { label: "天气与城市", index: 5 }, { label: "纪念日", index: 6 }, { label: "消息通知", index: 7 }] },
+  { title: "运行信息", items: [{ label: "酥酥 · 缓存", index: 8 }, { label: "酥酥 · 上下文", index: 9 }, { label: "郁郁 · 缓存", index: 10 }, { label: "郁郁 · 上下文", index: 11 }] },
 ];
 
 // Settings View
@@ -42,6 +44,7 @@ export function SettingsView({
   gptSession?: ChatSession;
 }) {
   const settingsRef = useRef<HTMLElement>(null);
+  const { theme, setTheme } = useTheme();
   // Phones fold the blue task pane behind one bar instead of a system <select>.
   const [directoryOpen, setDirectoryOpen] = useState(false);
   function jumpTo(index: number) {
@@ -109,6 +112,26 @@ export function SettingsView({
                   <svg className="avatar-list-pencil" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16v4z" /><path d="M13.5 6.5l4 4" /></svg>
                 </label>
               </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="settings-group theme-setting">
+          <h2 className="settings-group-title">主题</h2>
+          <p className="settings-hint">选择后立即生效，并保存在当前浏览器。</p>
+          <div className="theme-options" role="group" aria-label="界面主题">
+            {THEME_OPTIONS.map((option) => (
+              <button
+                type="button"
+                key={option.id}
+                className={`theme-option ${theme === option.id ? "theme-option-active" : ""}`}
+                aria-pressed={theme === option.id}
+                onClick={() => setTheme(option.id)}
+              >
+                <span className={`theme-option-preview theme-option-preview-${option.id}`} aria-hidden="true"><i /><i /><i /></span>
+                <span className="theme-option-text"><b>{option.label}</b><small>{option.description}</small></span>
+                <span className="theme-option-check" aria-hidden="true">✓</span>
+              </button>
             ))}
           </div>
         </div>
@@ -311,7 +334,7 @@ export function SettingsView({
           </nav>
           {content}
         </div>
-        <footer className="xp-summer-statusbar"><span>13 个设置项目</span><span>更改后自动保存</span></footer>
+        <footer className="xp-summer-statusbar"><span>14 个设置项目</span><span>更改后自动保存</span></footer>
       </section>
     </div>
   );

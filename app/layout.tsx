@@ -24,7 +24,9 @@ import "./themes/xp-control.css";
 import "./themes/cute.css";
 import "./themes/sky-wallpaper.css";
 import "./themes/startup.css";
+import "./themes/white-wedding.css";
 import { ThemeProvider } from "./components/ThemeProvider";
+import { THEME_INIT_SCRIPT } from "./lib/theme";
 
 export const metadata: Metadata = {
   title: "iooi",
@@ -54,6 +56,7 @@ export default function RootLayout({
   return (
     <html lang="zh-CN" data-theme="white-pink" suppressHydrationWarning>
       <head>
+        <script id="iooi-theme-init" dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
         <link rel="apple-touch-icon" href="/icon-love-letter-192.png" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
       </head>

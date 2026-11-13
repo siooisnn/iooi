@@ -1,0 +1,788 @@
+:root[data-theme="white-wedding"] {
+  color-scheme: light;
+  --page-gray: #f5f1ea;
+  --bg-warm: #f5f1ea;
+  --bg-chat: #fffefb;
+  --chrome-bg: #f5f1ea;
+  --conversation-bg: #faf7f1;
+  --border-soft: #e5dac8;
+  --text-primary: #453f38;
+  --text-secondary: #766b5f;
+  --text-light: #9a8e7f;
+  --bubble-ai: #fffefb;
+  --bubble-user: #eee3d2;
+  --avatar-user: #eee6da;
+  --brand: #b3986a;
+  --brand-text: #876d45;
+  --brand-light: #d3bd98;
+  --brand-rgb: 179, 152, 106;
+  --brand-bubble: #eee3d2;
+  --brand-bubble-ink: #4c4134;
+  --accent: var(--brand);
+  --accent-text: var(--brand-text);
+  --accent-light: var(--brand-light);
+  --accent-glow: rgba(179, 152, 106, 0.16);
+  --glass: rgba(255, 254, 251, 0.92);
+  --glass-border: #e5dac8;
+  --shadow-soft: 0 8px 24px rgba(100, 80, 51, 0.07);
+  --shadow-card: 0 18px 50px rgba(100, 80, 51, 0.1);
+  --shadow-bubble: 0 3px 12px rgba(100, 80, 51, 0.06);
+  --theme-accent: var(--accent);
+  --theme-link: var(--accent-text);
+  --theme-text: var(--text-primary);
+  --theme-secondary: var(--text-secondary);
+  --theme-muted: var(--text-light);
+  --theme-disabled: #d8cfc2;
+  --theme-focus: var(--accent-light);
+  --theme-surface: #fffefb;
+  --theme-surface-soft: #faf6ef;
+  --theme-canvas: var(--bg-chat);
+  --theme-avatar: #eee6da;
+  --theme-bubble-user: var(--bubble-user);
+  --theme-action-muted: #a89a86;
+  --theme-accent-rgb: var(--brand-rgb);
+  --theme-surface-rgb: 255, 254, 251;
+  --theme-soft-rgb: 239, 231, 219;
+  --theme-ambient-rgb: 224, 210, 188;
+  --theme-line-rgb: 206, 187, 157;
+  --theme-shadow-rgb: 100, 80, 51;
+  --liquid-glass-edge: rgba(179, 152, 106, 0.28);
+  --liquid-glass-shadow: 0 10px 30px rgba(100, 80, 51, 0.09);
+  --liquid-glass-filter: blur(20px) saturate(1.15);
+  --wedding-line: #c8b28a;
+  --wedding-soft-line: #e5dac8;
+  --wedding-paper: #fffefb;
+  --wedding-ivory: #f5f1ea;
+  --wedding-ink: #453f38;
+  --wedding-gold: #a88b5c;
+}
+
+:root[data-theme="white-wedding"],
+:root[data-theme="white-wedding"] body {
+  background-color: var(--wedding-ivory);
+}
+
+:root[data-theme="white-wedding"] body {
+  color: var(--wedding-ink);
+}
+
+:root[data-theme="white-wedding"] .app-bg {
+  background:
+    radial-gradient(ellipse at 50% 0%, rgba(255, 255, 255, 0.95), transparent 58%),
+    var(--wedding-ivory);
+}
+
+:root[data-theme="white-wedding"] .chat-container {
+  border-color: var(--wedding-soft-line);
+  background: var(--wedding-paper);
+}
+
+:root[data-theme="white-wedding"] :is(.settings-body, .chat-list-home, .chat-messages, .diary-body) {
+  background-color: var(--wedding-ivory);
+}
+
+:root[data-theme="white-wedding"] :is(.settings-group, .chat-list-profile-card, .chat-list-tabs, .chat-list-card,
+  .home-card, .counter-item, .mini-counter, .letter-card, .summer-native-toolbar, .summer-layer-card,
+  .summer-memory-card, .summer-memory-group, .summer-doc, .summer-writer, .settings-menu-row) {
+  border-color: var(--wedding-soft-line);
+  background-color: var(--wedding-paper);
+  box-shadow: var(--shadow-soft);
+}
+
+:root[data-theme="white-wedding"] :is(.settings-group-title, .chat-list-profile-name, .home-card-title,
+  .summer-native-toolbar h2, .summer-section-head h3, .summer-layer-card h3) {
+  color: var(--wedding-ink);
+  font-family: Georgia, "Times New Roman", "Songti SC", "SimSun", serif;
+}
+
+:root[data-theme="white-wedding"] :is(.settings-group-title, .home-card-title) {
+  color: var(--wedding-gold);
+  letter-spacing: 0.08em;
+}
+
+:root[data-theme="white-wedding"] :is(.settings-input, .settings-textarea, .model-option, .input-wrapper,
+  .chat-control-pill, .claude-usage-pill, .chat-config-panel, .claude-usage-popover,
+  .group-web-search-panel, .chat-entry-menu, .chat-model-popover, .sessions-dropdown) {
+  border-color: var(--wedding-soft-line);
+  background-color: var(--wedding-paper);
+}
+
+:root[data-theme="white-wedding"] :is(.chat-list-tabs-thumb, .send-btn, .modal-save, .mood-save) {
+  background: var(--wedding-gold);
+}
+
+:root[data-theme="white-wedding"] .chat-list-tab-active {
+  color: #fff;
+}
+
+:root[data-theme="white-wedding"] .msg-bubble-user {
+  color: var(--brand-bubble-ink);
+}
+
+:root[data-theme="white-wedding"] :is(.msg-bubble-ai, .chat-entry-avatar) {
+  border-color: var(--wedding-soft-line);
+}
+
+.theme-options {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.theme-option {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+  min-width: 0;
+  padding: 10px;
+  border: 1px solid var(--border-soft);
+  border-radius: 12px;
+  background: var(--theme-surface);
+  color: var(--text-primary);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.2s, box-shadow 0.2s, transform 0.2s;
+}
+
+.theme-option:hover {
+  border-color: var(--theme-focus);
+  transform: translateY(-1px);
+}
+
+.theme-option-active {
+  border-color: var(--theme-accent);
+  box-shadow: 0 0 0 1px var(--theme-accent);
+}
+
+.theme-option-preview {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 5px;
+  width: 100%;
+  height: 62px;
+  padding: 12px 10px 9px;
+  overflow: hidden;
+  border: 1px solid #e3e3e3;
+  border-radius: 8px;
+  background: #e8e8e8;
+}
+
+.theme-option-preview i {
+  display: block;
+  border-radius: 3px;
+  background: #fff;
+}
+
+.theme-option-preview i:first-child {
+  grid-column: 1 / -1;
+  height: 9px;
+  background: #545458;
+}
+
+.theme-option-preview-white-wedding {
+  border-color: #d9c8aa;
+  border-radius: 32px 32px 8px 8px;
+  background: #f5f1ea;
+}
+
+.theme-option-preview-white-wedding i {
+  border: 1px solid #e5dac8;
+  background: #fffefb;
+}
+
+.theme-option-preview-white-wedding i:first-child {
+  border-color: #c8b28a;
+  background: #c8b28a;
+}
+
+.theme-option-text {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.theme-option-text b {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.theme-option-text small {
+  color: var(--text-light);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.theme-option-check {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  display: none;
+  width: 19px;
+  height: 19px;
+  border-radius: 50%;
+  background: var(--theme-accent);
+  color: var(--theme-surface);
+  font-size: 12px;
+  line-height: 19px;
+  text-align: center;
+}
+
+.theme-option-active .theme-option-check {
+  display: block;
+}
+
+:root[data-theme="white-wedding"] .xp-desktop {
+  --xp-blue: var(--wedding-gold);
+  --xp-blue-dark: var(--wedding-gold);
+  --xp-face: var(--wedding-paper);
+  color: var(--wedding-ink);
+  font-family: Georgia, "Times New Roman", "Songti SC", "SimSun", serif;
+  background:
+    radial-gradient(ellipse at 50% 0%, #fff 0%, transparent 58%),
+    radial-gradient(circle at 8% 16%, rgba(200, 178, 138, 0.16) 0 2px, transparent 3px),
+    radial-gradient(circle at 92% 78%, rgba(200, 178, 138, 0.14) 0 2px, transparent 3px),
+    linear-gradient(145deg, #faf7f1, #f1eadf);
+}
+
+:root[data-theme="white-wedding"] .xp-desktop::before {
+  content: "";
+  position: absolute;
+  inset: 18px;
+  border: 1px solid rgba(200, 178, 138, 0.42);
+  border-radius: 180px 180px 22px 22px;
+  pointer-events: none;
+}
+
+:root[data-theme="white-wedding"] .xp-desktop .iooi-sky-clouds {
+  display: none;
+}
+
+:root[data-theme="white-wedding"] .xp-desktop .xp-desk-area {
+  width: min(760px, 100%);
+  margin: 0 auto;
+  padding-top: calc(env(safe-area-inset-top) + 38px);
+}
+
+:root[data-theme="white-wedding"] .xp-desktop .xp-desk-together {
+  overflow: hidden;
+  border: 1px solid var(--wedding-line);
+  border-radius: 150px 150px 18px 18px;
+  background: var(--wedding-paper);
+  box-shadow: 0 18px 46px rgba(100, 80, 51, 0.12);
+}
+
+:root[data-theme="white-wedding"] .xp-desktop .xp-titlebar {
+  justify-content: center;
+  height: 72px;
+  margin: 0;
+  padding: 28px 20px 0;
+  border-bottom: 1px solid var(--wedding-soft-line);
+  border-radius: 0;
+  background: #fffefb;
+  color: var(--wedding-gold);
+  text-shadow: none;
+}
+
+:root[data-theme="white-wedding"] .xp-desktop .xp-title-text {
+  flex: none;
+  font-size: 16px;
+  font-weight: 400;
+  letter-spacing: 0.12em;
+}
+
+:root[data-theme="white-wedding"] .xp-desktop .xp-title-icon {
+  background: transparent;
+  color: var(--wedding-gold);
+  font-style: normal;
+}
+
+:root[data-theme="white-wedding"] .xp-desktop .xp-controls {
+  display: none;
+}
+
+:root[data-theme="white-wedding"] .xp-desktop .xp-body {
+  padding: 22px 24px 24px;
+  background: #fffefb;
+}
+
+:root[data-theme="white-wedding"] .xp-desktop .xp-desk-portrait {
+  width: 58px;
+  height: 66px;
+  padding: 3px;
+  border-color: var(--wedding-line);
+  border-radius: 30px 30px 12px 12px;
+  box-shadow: 0 3px 10px rgba(100, 80, 51, 0.1);
+}
+
+:root[data-theme="white-wedding"] .xp-desktop .xp-desk-portrait > * {
+  border-radius: 26px 26px 9px 9px;
+  background-color: #f1e9dc;
+}
+
+:root[data-theme="white-wedding"] .xp-desktop .xp-desk-monitor {
+  height: 48px;
+  border: 0;
+  border-bottom: 1px solid var(--wedding-line);
+  background: transparent;
+}
+
+:root[data-theme="white-wedding"] .xp-desktop .xp-desk-monitor path {
+  stroke: var(--wedding-gold);
+  filter: none;
+}
+
+:root[data-theme="white-wedding"] .xp-desk-promise {
+  margin: 18px 0 16px;
+  color: var(--text-secondary);
+  font-size: 14px;
+  letter-spacing: 0.2em;
+}
+
+:root[data-theme="white-wedding"] .xp-desk-counter {
+  gap: 12px;
+}
+
+:root[data-theme="white-wedding"] .xp-desk-counter > span {
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 0;
+  border: 0;
+  border-bottom: 1px solid var(--wedding-soft-line);
+  background: transparent;
+}
+
+:root[data-theme="white-wedding"] .xp-desk-counter b {
+  color: var(--wedding-gold);
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 25px;
+  font-weight: 400;
+}
+
+:root[data-theme="white-wedding"] .xp-desk-counter small {
+  color: var(--text-light);
+}
+
+:root[data-theme="white-wedding"] .xp-desktop .xp-desk-icon-art {
+  width: 52px;
+  height: 52px;
+  padding: 8px;
+  border: 1px solid var(--wedding-soft-line);
+  border-radius: 50%;
+  background: rgba(255, 254, 251, 0.9);
+  filter: none;
+  box-shadow: 0 5px 14px rgba(100, 80, 51, 0.08);
+}
+
+:root[data-theme="white-wedding"] .xp-desktop .xp-desk-icon-art svg {
+  filter: grayscale(0.65) sepia(0.2) saturate(0.65);
+}
+
+:root[data-theme="white-wedding"] .xp-desktop .xp-desk-icon-label {
+  color: var(--wedding-ink);
+  font-size: 12px;
+  text-shadow: none;
+}
+
+:root[data-theme="white-wedding"] .xp-desktop :is(.xp-desk-icon, .xp-desk-gadget):active .xp-desk-icon-label {
+  background: #eee3d2;
+  outline-color: var(--wedding-line);
+}
+
+:root[data-theme="white-wedding"] .xp-desktop .xp-desk-icon:active .xp-desk-icon-art {
+  filter: none;
+  background: #eee3d2;
+}
+
+:root[data-theme="white-wedding"] .xp-desktop .xp-desk-gadget-pixels {
+  border: 5px solid #fffefb;
+  border-radius: 70px 70px 12px 12px;
+  outline: 1px solid var(--wedding-line);
+  box-shadow: 0 8px 20px rgba(100, 80, 51, 0.12);
+}
+
+:root[data-theme="white-wedding"] .xp-desktop .xp-desk-taskbar {
+  border-top: 1px solid var(--wedding-line);
+  background: rgba(255, 254, 251, 0.94);
+  box-shadow: 0 -8px 24px rgba(100, 80, 51, 0.07);
+  color: var(--wedding-ink);
+}
+
+:root[data-theme="white-wedding"] .xp-desktop .xp-desk-start {
+  border-radius: 0 22px 22px 0;
+  background: var(--wedding-gold);
+  box-shadow: none;
+  font-family: Georgia, "Times New Roman", serif;
+  font-style: normal;
+  font-weight: 400;
+  text-shadow: none;
+}
+
+:root[data-theme="white-wedding"] .xp-desktop .xp-desk-flag {
+  filter: grayscale(1) sepia(0.3) brightness(1.5);
+}
+
+:root[data-theme="white-wedding"] .xp-desktop .xp-desk-task {
+  border-color: var(--wedding-soft-line);
+  border-radius: 999px;
+  background: #faf6ef;
+  box-shadow: none;
+  color: var(--wedding-ink);
+}
+
+:root[data-theme="white-wedding"] .xp-desktop :is(.xp-desk-task span, .xp-desk-tray-heart) {
+  color: var(--wedding-gold);
+}
+
+:root[data-theme="white-wedding"] .xp-desktop .xp-desk-tray {
+  border-left-color: var(--wedding-soft-line);
+  background: transparent;
+  box-shadow: none;
+  color: var(--wedding-ink);
+}
+
+:root[data-theme="white-wedding"] .xp-desktop .xp-desk-menu {
+  border: 1px solid var(--wedding-line);
+  border-radius: 18px 18px 0 0;
+  background: var(--wedding-paper);
+  box-shadow: 0 -14px 40px rgba(100, 80, 51, 0.14);
+}
+
+:root[data-theme="white-wedding"] .xp-desktop .xp-desk-menu-user {
+  background: #f4ecdf;
+  color: var(--wedding-ink);
+  text-shadow: none;
+}
+
+:root[data-theme="white-wedding"] .xp-desktop .xp-desk-menu-columns {
+  border-top-color: var(--wedding-line);
+}
+
+:root[data-theme="white-wedding"] .xp-desktop .xp-desk-menu-right {
+  border-left-color: var(--wedding-soft-line);
+  background: #faf6ef;
+}
+
+:root[data-theme="white-wedding"] .xp-desktop .xp-desk-menu-item:active {
+  background: #eee3d2;
+  color: var(--wedding-ink);
+}
+
+:root[data-theme="white-wedding"] .xp-desktop .xp-desk-menu-item:active small {
+  color: var(--text-secondary);
+}
+
+:root[data-theme="white-wedding"] .xp-desktop .xp-desk-menu-foot {
+  background: #f4ecdf;
+}
+
+:root[data-theme="white-wedding"] .xp-desktop .xp-desk-menu-foot button {
+  color: var(--wedding-ink);
+}
+
+:root[data-theme="white-wedding"] .xp-desktop .xp-desk-balloon {
+  border-color: var(--wedding-line);
+  background: var(--wedding-paper);
+  box-shadow: var(--shadow-card);
+  color: var(--wedding-ink);
+}
+
+:root[data-theme="white-wedding"] .xp-desktop .xp-desk-balloon::after {
+  border-top-color: var(--wedding-paper);
+  filter: none;
+}
+
+:root[data-theme="white-wedding"] :is(.xp-summer-screen, .xp-buddy-screen) {
+  --text-primary: var(--wedding-ink);
+  --accent: var(--wedding-gold);
+  --border-soft: var(--wedding-soft-line);
+  --xp-line: var(--wedding-line);
+  --xp-face: #f5f1ea;
+  --xp-select: var(--wedding-gold);
+  --xp-msn: linear-gradient(180deg, #fffefb, #f5efe5);
+  background: linear-gradient(145deg, #faf7f1, #eee5d8);
+  color: var(--wedding-ink);
+  font-family: Georgia, "Times New Roman", "Songti SC", "SimSun", serif;
+}
+
+:root[data-theme="white-wedding"] :is(.xp-summer-screen, .xp-buddy-screen) :is(.xp-summer-window, .xp-buddy-window) {
+  background: var(--wedding-gold);
+  box-shadow: 0 18px 48px rgba(100, 80, 51, 0.15);
+}
+
+:root[data-theme="white-wedding"] :is(.xp-summer-screen .xp-summer-titlebar, .xp-buddy-screen .xp-buddy-titlebar) {
+  background: linear-gradient(180deg, #fffefb, #f4ecdf);
+  color: var(--wedding-gold);
+  text-shadow: none;
+}
+
+:root[data-theme="white-wedding"] :is(.xp-summer-screen .xp-summer-titlebar h1, .xp-buddy-screen .xp-buddy-title) {
+  color: var(--wedding-gold);
+  font-weight: 400;
+  letter-spacing: 0.08em;
+}
+
+:root[data-theme="white-wedding"] :is(.xp-summer-screen .xp-summer-window-button, .xp-buddy-screen .xp-buddy-btn) {
+  border-color: var(--wedding-line);
+  background: #fffefb;
+  box-shadow: none;
+}
+
+:root[data-theme="white-wedding"] :is(.xp-summer-screen .xp-summer-min::after,
+  .xp-summer-screen .xp-summer-max::after, .xp-buddy-screen .xp-buddy-min::after, .xp-buddy-screen .xp-buddy-max::after) {
+  border-color: var(--wedding-gold);
+  background-color: var(--wedding-gold);
+}
+
+:root[data-theme="white-wedding"] :is(.xp-summer-screen button.xp-summer-close, .xp-buddy-screen button.xp-buddy-close) {
+  border-color: var(--wedding-line);
+  background: #eee3d2;
+}
+
+:root[data-theme="white-wedding"] :is(.xp-summer-screen .xp-summer-close svg, .xp-buddy-screen .xp-buddy-close svg) {
+  stroke: var(--wedding-gold);
+}
+
+:root[data-theme="white-wedding"] .xp-summer-screen :is(.xp-summer-address, .xp-summer-statusbar) {
+  border-color: var(--wedding-soft-line);
+  background: #f5f1ea;
+  color: var(--text-secondary);
+}
+
+:root[data-theme="white-wedding"] .xp-summer-screen .xp-summer-address-field {
+  border-color: var(--wedding-soft-line);
+  background: #fffefb;
+}
+
+:root[data-theme="white-wedding"] .xp-summer-screen .xp-summer-address b {
+  color: var(--wedding-ink);
+}
+
+:root[data-theme="white-wedding"] .xp-summer-screen .xp-summer-statusbar span {
+  border-color: var(--wedding-soft-line);
+}
+
+:root[data-theme="white-wedding"] .xp-control-screen .xp-control-browser,
+:root[data-theme="white-wedding"] .xp-control-screen .settings-body {
+  background: #faf7f1;
+}
+
+:root[data-theme="white-wedding"] .xp-control-screen .xp-control-navigation {
+  border-right-color: var(--wedding-soft-line);
+  background: #f0e8dc;
+}
+
+:root[data-theme="white-wedding"] .xp-control-screen .xp-control-nav-heading,
+:root[data-theme="white-wedding"] .xp-control-screen .xp-control-nav-heading h2 {
+  color: var(--wedding-gold);
+  text-shadow: none;
+}
+
+:root[data-theme="white-wedding"] .xp-control-screen .xp-control-task-group h3 {
+  background: #fffefb;
+  color: var(--wedding-gold);
+}
+
+:root[data-theme="white-wedding"] .xp-control-screen .xp-control-task-group > div {
+  border-color: #fffefb;
+  background: #faf6ef;
+}
+
+:root[data-theme="white-wedding"] .xp-control-screen .xp-control-task-group button {
+  color: var(--text-secondary);
+}
+
+:root[data-theme="white-wedding"] .xp-control-screen .xp-control-task-group button > span[aria-hidden] {
+  background: var(--wedding-gold);
+}
+
+:root[data-theme="white-wedding"] .xp-control-screen .xp-control-task-group button:is(:hover, :active) {
+  color: var(--wedding-gold);
+}
+
+:root[data-theme="white-wedding"] .xp-control-screen .settings-body > .settings-group {
+  border-color: var(--wedding-soft-line);
+  border-radius: 14px;
+  background: #fffefb;
+  box-shadow: var(--shadow-soft);
+  color: var(--wedding-ink);
+}
+
+:root[data-theme="white-wedding"] .xp-control-screen .settings-group-title {
+  color: var(--wedding-gold);
+}
+
+:root[data-theme="white-wedding"] .xp-control-screen :is(.settings-input, .avatar-list-input) {
+  border-color: var(--wedding-soft-line);
+  border-radius: 8px;
+  background: #fffefb;
+  color: var(--wedding-ink);
+}
+
+:root[data-theme="white-wedding"] .xp-control-screen :is(.model-option, .settings-danger-btn) {
+  border-color: var(--wedding-line);
+  border-radius: 999px;
+  background: #faf6ef;
+  color: var(--wedding-ink);
+}
+
+:root[data-theme="white-wedding"] .xp-control-screen .model-option-active {
+  border-color: var(--wedding-gold);
+  background: #eee3d2;
+  color: var(--wedding-gold);
+}
+
+:root[data-theme="white-wedding"] .xp-control-screen .model-option-dot {
+  border-color: var(--wedding-line);
+  background: #fffefb;
+}
+
+:root[data-theme="white-wedding"] .xp-control-screen .model-option-active .model-option-dot {
+  background: #fffefb;
+}
+
+:root[data-theme="white-wedding"] .xp-control-screen .model-option-active .model-option-dot::after {
+  background: var(--wedding-gold);
+}
+
+:root[data-theme="white-wedding"] .xp-buddy-screen :is(.xp-buddy-me, .xp-buddy-toolbar) {
+  border-color: var(--wedding-soft-line);
+  background: #f5f1ea;
+}
+
+:root[data-theme="white-wedding"] .xp-buddy-screen .xp-buddy-list {
+  background: #fffefb;
+}
+
+:root[data-theme="white-wedding"] .xp-buddy-screen :is(.xp-buddy-me-name b, .xp-buddy-line b, .xp-buddy-tool) {
+  color: var(--wedding-ink);
+}
+
+:root[data-theme="white-wedding"] .xp-buddy-screen .xp-buddy-group {
+  color: var(--wedding-gold);
+}
+
+:root[data-theme="white-wedding"] .xp-buddy-screen .xp-buddy-row-picked {
+  border-color: var(--wedding-soft-line);
+  background: #faf6ef;
+}
+
+:root[data-theme="white-wedding"] .app-bg:has(> .chat-container[data-chat-ui="xp"]:is([data-chat-view="room"], [data-chat-view="group"])) {
+  background: linear-gradient(145deg, #faf7f1, #eee5d8);
+}
+
+:root[data-theme="white-wedding"] .app-bg .chat-container[data-chat-ui="xp"]:is([data-chat-view="room"], [data-chat-view="group"]) {
+  --xp-frame: var(--wedding-gold);
+  --xp-face: #f5f1ea;
+  --xp-msn: linear-gradient(180deg, #fffefb, #f5efe5);
+  --xp-line: var(--wedding-line);
+  color: var(--wedding-ink);
+  font-family: Georgia, "Times New Roman", "Songti SC", "SimSun", serif;
+}
+
+:root[data-theme="white-wedding"] .app-bg .chat-container[data-chat-ui="xp"]:is([data-chat-view="room"], [data-chat-view="group"]) .xp-chat-titlebar {
+  background: linear-gradient(180deg, #fffefb, #f4ecdf);
+  color: var(--wedding-gold);
+  text-shadow: none;
+}
+
+:root[data-theme="white-wedding"] .app-bg .chat-container[data-chat-ui="xp"]:is([data-chat-view="room"], [data-chat-view="group"]) .xp-chat-title {
+  color: var(--wedding-gold);
+  font-weight: 400;
+  letter-spacing: 0.08em;
+}
+
+:root[data-theme="white-wedding"] .app-bg .chat-container[data-chat-ui="xp"]:is([data-chat-view="room"], [data-chat-view="group"]) .xp-chat-btn {
+  border-color: var(--wedding-line);
+  background: #fffefb;
+  box-shadow: none;
+}
+
+:root[data-theme="white-wedding"] .app-bg .chat-container[data-chat-ui="xp"]:is([data-chat-view="room"], [data-chat-view="group"]) .xp-chat-close {
+  background: #eee3d2;
+}
+
+:root[data-theme="white-wedding"] .app-bg .chat-container[data-chat-ui="xp"]:is([data-chat-view="room"], [data-chat-view="group"]) .xp-chat-close svg {
+  stroke: var(--wedding-gold);
+}
+
+:root[data-theme="white-wedding"] .app-bg .chat-container[data-chat-ui="xp"]:is([data-chat-view="room"], [data-chat-view="group"]) .xp-chat-to {
+  border-color: var(--wedding-soft-line);
+  background: #f5f1ea;
+  color: var(--text-secondary);
+}
+
+:root[data-theme="white-wedding"] .app-bg .chat-container[data-chat-ui="xp"]:is([data-chat-view="room"], [data-chat-view="group"]) > .chat-messages {
+  background: #fffefb;
+  color: var(--wedding-ink);
+}
+
+:root[data-theme="white-wedding"] .app-bg .chat-container[data-chat-ui="xp"]:is([data-chat-view="room"], [data-chat-view="group"]) .msg-bubble {
+  color: var(--wedding-ink);
+}
+
+:root[data-theme="white-wedding"] .app-bg .chat-container[data-chat-ui="xp"]:is([data-chat-view="room"], [data-chat-view="group"]) .msg-bubble .chat-message-link {
+  color: var(--wedding-gold);
+}
+
+:root[data-theme="white-wedding"] .app-bg .chat-container[data-chat-ui="xp"]:is([data-chat-view="room"], [data-chat-view="group"]) > .chat-footer {
+  border-color: var(--wedding-soft-line);
+  background-color: #f5f1ea;
+}
+
+:root[data-theme="white-wedding"] .app-bg .chat-container[data-chat-ui="xp"]:is([data-chat-view="room"], [data-chat-view="group"]) .xp-chat-tool {
+  color: var(--text-secondary);
+}
+
+:root[data-theme="white-wedding"] .app-bg .chat-container[data-chat-ui="xp"]:is([data-chat-view="room"], [data-chat-view="group"]) .xp-chat-input {
+  border-color: var(--wedding-soft-line);
+  border-radius: 10px;
+  background: #fffefb;
+  box-shadow: none;
+  color: var(--wedding-ink);
+}
+
+:root[data-theme="white-wedding"] .app-bg .chat-container[data-chat-ui="xp"]:is([data-chat-view="room"], [data-chat-view="group"]) .xp-chat-send {
+  border-color: var(--wedding-gold);
+  border-radius: 10px;
+  background: #eee3d2;
+  color: var(--wedding-gold);
+}
+
+:root[data-theme="white-wedding"] .rd-screen :is(.rd-toolbar, .rd-content, .rd-reader) {
+  border-color: var(--wedding-soft-line);
+  background-color: #f5f1ea;
+  color: var(--wedding-ink);
+}
+
+:root[data-theme="white-wedding"] .rd-screen :is(.rd-tab-panel, .rd-blurb, .rd-note-view) {
+  border-color: var(--wedding-soft-line);
+  background: #fffefb;
+}
+
+@media (max-width: 480px) {
+  .theme-options {
+    grid-template-columns: 1fr;
+  }
+
+  :root[data-theme="white-wedding"] .xp-desktop::before {
+    inset: 10px;
+    border-radius: 120px 120px 16px 16px;
+  }
+
+  :root[data-theme="white-wedding"] .xp-desktop .xp-desk-area {
+    padding-top: calc(env(safe-area-inset-top) + 30px);
+  }
+
+  :root[data-theme="white-wedding"] .xp-desktop .xp-desk-together {
+    border-radius: 110px 110px 16px 16px;
+  }
+
+  :root[data-theme="white-wedding"] .xp-desktop .xp-body {
+    padding: 18px 14px 20px;
+  }
+}
