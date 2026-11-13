@@ -768,7 +768,8 @@ export function GroupChatView({
             Web Search
           </button>
         </div>}
-        <div className={retro ? "xp-chat-compose" : "composer-row"}>
+        <div className={retro ? "xp-chat-compose" : `composer-row${rococo ? " rococo-composer-row" : ""}`}>
+          {rococo && <div className="rococo-writing-heading" aria-hidden="true"><span>Écrivez-nous</span><small>notre correspondance</small></div>}
           {!retro &&
           <button type="button" className="attach-btn attach-btn-separate group-menu-trigger" aria-label="群聊菜单" aria-expanded={showMenu}
             onClick={() => { setShowMenu((open) => !open); setShowWebSearchMenu(false); }}>

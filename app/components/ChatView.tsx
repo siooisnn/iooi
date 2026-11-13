@@ -1580,6 +1580,7 @@ export function ChatView({
           </>
         ) : (
           <div className={`composer-row${rococo ? " rococo-composer-row" : ""}`}>
+            {rococo && <div className="rococo-writing-heading" aria-hidden="true"><span>Écrivez-moi</span><small>une lettre pour toi</small></div>}
             {!isGpt && !developmentMode && <button type="button" className="attach-btn" aria-label="红包/转账" disabled={loading || uploading} onClick={() => setShowMoneyDialog(true)}><DaydayMoneyIcon kind="redpacket" /></button>}
             {!isGpt && !developmentMode && <button type="button" className="attach-btn" aria-label="表情包" disabled={loading || uploading} onClick={() => setShowStickers(true)}>☺</button>}
             <input
@@ -1645,6 +1646,7 @@ export function ChatView({
                 title="聊天设置"
                 onClick={() => setShowModelMenu((open) => !open)}
               >
+                {rococo && <span className="rococo-model-label">{isGpt ? currentGptModel.label : currentModel.label}<small>{isGpt ? settings.gptReasoningEffort : settings.claudeReasoningEffort}</small><i aria-hidden="true">⌃</i></span>}
                 <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
                   <path d="m9.5 3-.6 2.4-2 .9-2.3-.7L2 10l1.8 1.7v2.2L2 15.6l2.6 4.4 2.3-.7 2 .9.6 2.4h5l.6-2.4 2-.9 2.3.7 2.6-4.4-1.8-1.7v-2.2L22 10l-2.6-4.4-2.3.7-2-.9L14.5 3Z" transform="translate(0 -1) scale(1 .95)" />
                   <circle cx="12" cy="12" r="3" />
