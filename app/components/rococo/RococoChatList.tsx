@@ -63,13 +63,13 @@ export function RococoChatList({
 
   function rename(session: ChatSession) {
     setOpenActionsFor(null);
-    const next = window.prompt("Rename:", session.name);
+    const next = window.prompt("给这封信改个名字:", session.name);
     if (next?.trim()) renameSession(session.id, next.trim());
   }
 
   function remove(session: ChatSession) {
     setOpenActionsFor(null);
-    if (window.confirm(`Delete "${session.name}"? This conversation cannot be restored.`)) deleteSession(session.id);
+    if (window.confirm(`确定删除「${session.name}」吗？删除后无法恢复。`)) deleteSession(session.id);
   }
 
   function groupPreview(group: ChatSession) {
@@ -100,7 +100,7 @@ export function RococoChatList({
           <span className="rococo-letter-copy">
             <span className="rococo-letter-heading"><b>{name}</b><time>{latest ? formatChatListTime(getSessionStamp(session)) : "未拆封"}</time></span>
             <span className="rococo-letter-preview">{preview}</span>
-            <small>{group ? "Notre petite assemblée" : mode === "gpt" ? "A letter from Yuyu" : "A letter from Susu"}</small>
+            <small>{group ? "Notre petite assemblée" : `Une lettre de ${personName(mode || assistantMode)}`}</small>
           </span>
           <span className="rococo-letter-stamp" aria-hidden="true"><i>♡</i></span>
         </button>
@@ -131,7 +131,7 @@ export function RococoChatList({
 
       <div className="rococo-list-scroll">
         <section className="rococo-correspondent" aria-label="我的信息">
-          <span className="rococo-profile-portrait">{settings.userAvatar ? <img src={settings.userAvatar} alt="" /> : <RococoArtIcon kind="mood" />}</span>
+          <span className="rococo-profile-portrait"><RococoBow className="rococo-profile-bow" />{settings.userAvatar ? <img src={settings.userAvatar} alt="" /> : <RococoArtIcon kind="mood" />}</span>
           <div><p>La destinataire</p><h2>{settings.userName || "宝宝"}</h2><span>Today’s state · {todayState || "静静想你"}</span></div>
           <i className="rococo-profile-flourish" aria-hidden="true">❧</i>
         </section>
