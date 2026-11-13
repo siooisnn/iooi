@@ -1,3 +1,4 @@
+import { fableUsageWindow, type FableUsageWindow } from "@/app/lib/claude-usage";
 import { randomUUID } from "crypto";
 import { spawn } from "child_process";
 import { chmod, chown, readFile, rename, stat, unlink, writeFile } from "fs/promises";
@@ -14,6 +15,7 @@ type ClaudeUsage = {
   seven_day: UsageWindow | null;
   seven_day_opus: UsageWindow | null;
   seven_day_sonnet: UsageWindow | null;
+  seven_day_fable: FableUsageWindow | null;
   updated_at: string;
   stale?: boolean;
 };
@@ -119,6 +121,7 @@ async function requestClaudeUsage(accessToken: string): Promise<ClaudeUsage> {
       seven_day: normalizeWindow(raw.seven_day),
       seven_day_opus: normalizeWindow(raw.seven_day_opus),
       seven_day_sonnet: normalizeWindow(raw.seven_day_sonnet),
+      seven_day_fable: fableUsageWindow(raw),
       updated_at: new Date().toISOString(),
     };
   } finally {

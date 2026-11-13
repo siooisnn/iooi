@@ -68,6 +68,7 @@ export type Settings = {
 // ━━━━━━━━━━━━━━━ Constants ━━━━━━━━━━━━━━━
 // ━━━━━━━━━━━━━━━━━
 export const MODELS = [
+  { id: "fable52", label: "Fable 5.2", apiId: "claude-fable-5-2" },
   { id: "sonnet5", label: "Sonnet 5", apiId: "claude-sonnet-5" },
   { id: "sonnet46", label: "Sonnet 4.6", apiId: "claude-sonnet-4-6" },
   { id: "opus55", label: "Opus 5.5", apiId: "claude-opus-5-5" },
@@ -118,6 +119,10 @@ export function normalizeClaudeSettings(settings: Settings): Settings {
   const oldDefaultName = /^小[kKＫｋ]$/;
   const modelValue = String(settings.model || "").trim().toLowerCase().replace(/^anthropic\//, "");
   const modelAliases: Record<string, string> = {
+    fable52: "fable52",
+    "fable5.2": "fable52",
+    "claude-fable-5.2": "fable52",
+    "claude-fable-5-2": "fable52",
     sonnet5: "sonnet5",
     "claude-sonnet-5": "sonnet5",
     sonnet46: "sonnet46",

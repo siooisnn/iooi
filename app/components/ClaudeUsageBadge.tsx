@@ -1,5 +1,7 @@
 "use client";
 
+import type { FableUsageWindow } from "@/app/lib/claude-usage";
+
 import { useCallback, useEffect, useRef, useState } from "react";
 
 type UsageWindow = {
@@ -12,6 +14,7 @@ type ClaudeUsage = {
   seven_day: UsageWindow | null;
   seven_day_opus: UsageWindow | null;
   seven_day_sonnet: UsageWindow | null;
+  seven_day_fable?: FableUsageWindow | null;
   updated_at: string;
   stale?: boolean;
 };
@@ -117,6 +120,7 @@ export function ClaudeUsageCircle({ usage, loading, className = "composer-usage-
 export function ClaudeUsageDetails({ usage, refresh }: UsageState) {
   const fiveHourRemaining = remaining(usage?.five_hour || null);
   const weeklyRemaining = remaining(usage?.seven_day || null);
+  const fableRemaining = remaining(usage?.seven_day_fable);
   return (
     <section className="claude-usage-details chat-config-section">
       <div className="claude-usage-title">Claude 订阅额度</div>
@@ -131,6 +135,19 @@ export function ClaudeUsageDetails({ usage, refresh }: UsageState) {
             <span>本周</span>
             <b>剩余 {weeklyRemaining ?? "--"}%</b>
             <small>{resetLabel(usage.seven_day?.resets_at || null)} 重置</small>
+          </div>
+          <div className="claude-usage-row">
+            <span>Fable 本周</span>
+            <b>{fableRemaining === null ? "暂未提供" : `剩余 ${fableRemaining}%`}</b>
+            <small>{usage.seven_day_fable
+              ? `${resetLabel(usage.seven_day_fable.resets_at)} 重置`
+              : "账号接口未提供 Fable 独立额度"}</small>
+            {fableRemaining !== null && (
+              <progress className="claude-fable-progress" aria-label="Fable 本周剩余额度" max={100} value={fableRemaining} />
+            )}
+            {usage.seven_day_fable?.allowance_percent_of_weekly != null && (
+              <small>Fable 上限为总周额度的 {usage.seven_day_fable.allowance_percent_of_weekly}%</small>
+            )}
           </div>
           {usage.seven_day_opus && (
             <div className="claude-usage-row">
