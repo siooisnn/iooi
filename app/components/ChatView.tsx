@@ -44,7 +44,7 @@ import { hasSpeakableText } from "../lib/tts-text";
 import { useSpeaker } from "../lib/use-speaker";
 import { useTheme } from "./ThemeProvider";
 import { RococoBow, RococoDivider, RococoRose } from "./rococo/RococoArt";
-import { LetterRoomBud, LetterRoomFlourish, useLetterChrome } from "./letter/LetterArt";
+import { LetterClipIcon, LetterComposerFrame, LetterGearIcon, LetterRing, LetterRoomBud, LetterRoomFlourish, LetterSeal, LetterSmileIcon, useLetterChrome } from "./letter/LetterArt";
 
 // Animate only the current interaction, never a replayed history entry.
 const NUDGE_FRAMES: Keyframe[] = [
@@ -1355,7 +1355,7 @@ export function ChatView({
                   </a>}
                   {messageImages(message).length ? (
                     <>
-                    {dotBubbles && message.content && message.source !== "sticker" && (
+                    {(dotBubbles || letter) && message.content && message.source !== "sticker" && (
                       <div className={`msg-bubble ${message.role === "user" ? "msg-bubble-user" : "msg-bubble-ai"}`}>{renderContent(message.content)}</div>
                     )}
                     <div className={`msg-bubble msg-bubble-img ${message.source === "sticker" ? "msg-bubble-sticker" : message.source === "sticker_message" ? "msg-bubble-sticker-message" : ""} ${message.role === "user" ? "msg-bubble-user" : "msg-bubble-ai"}`}>
@@ -1368,7 +1368,7 @@ export function ChatView({
                           ))}
                         </div>
                       )}
-                      {!dotBubbles && message.content && message.source !== "sticker" && <p className="msg-image-caption">{renderContent(message.content)}</p>}
+                      {!dotBubbles && !letter && message.content && message.source !== "sticker" && <p className="msg-image-caption">{renderContent(message.content)}</p>}
                     </div>
                     </>
                   ) : (
@@ -1600,8 +1600,59 @@ export function ChatView({
               </button>
             </div>
           </>
+        ) : letter ? (
+          /* The letter: one hand-drawn frame; the pen's tools sit in its
+             lower margin and sending is pressing the seal. No red packet here. */
+          <div className="letter-frame">
+            <LetterComposerFrame />
+            <textarea
+              ref={inputRef} value={input} onChange={handleInputChange}
+              placeholder="Write to me…" rows={1} className="chat-input letter-frame-input"
+              aria-label="输入消息"
+            />
+            <input
+              ref={fileInputRef}
+              type="file"
+              multiple
+              className="attach-file-input"
+              accept={developmentMode && !writingMode ? "image/*" : "image/*,application/pdf,.pdf,.docx,.txt,.md,.csv"}
+              disabled={uploading || loading}
+              onChange={(event) => void uploadFile(event)}
+              aria-label={writingMode ? "上传资料到写写" : developmentMode ? "上传图片" : "上传图片或文件"}
+            />
+            <div className="letter-frame-tools">
+              <button type="button" className="letter-tool" aria-label="聊天设置" title="聊天设置" aria-expanded={showModelMenu}
+                onClick={() => setShowModelMenu((open) => !open)}>
+                <LetterRing turn={-12} /><LetterGearIcon />
+              </button>
+              <button type="button" className={`letter-tool${uploading ? " letter-tool-busy" : ""}`}
+                onClick={() => fileInputRef.current?.click()} disabled={uploading || loading}
+                aria-label={uploading ? "正在上传" : writingMode ? "上传资料到写写" : developmentMode ? "上传图片" : "上传图片或文件"}
+                title={uploading ? "正在上传" : writingMode ? "上传资料到写写" : developmentMode ? "上传图片" : "上传图片或文件"}>
+                <LetterRing turn={70} />{uploading ? <span className="attach-upload-spinner" /> : <LetterClipIcon />}
+              </button>
+              {!isGpt && !developmentMode && <button type="button" className="letter-tool" aria-label="表情包" title="表情包"
+                disabled={loading || uploading} onClick={() => setShowStickers(true)}>
+                <LetterRing turn={160} /><LetterSmileIcon />
+              </button>}
+              <span className="letter-frame-gap" />
+              {developmentMode && (
+                <ContextUsageBadge kind="work" sessionId={session.id} project={developmentProject} messages={workUsageMessages} />
+              )}
+              <button
+                type="button"
+                onClick={loading ? pauseReply : () => void sendMessage()}
+                disabled={!loading && ((!input.trim() && !attachments.length) || uploading)}
+                className={`letter-seal-btn${loading ? " letter-seal-waiting" : ""}`}
+                aria-label={loading ? "暂停等待回复" : "封好寄出"}
+                title={loading ? "暂停等待回复" : "封好寄出"}
+              >
+                <LetterSeal waiting={loading} />
+              </button>
+            </div>
+          </div>
         ) : (
-          <div className={`composer-row${rococo ? " rococo-composer-row" : ""}${letter ? " letter-composer-row" : ""}`}>
+          <div className={`composer-row${rococo ? " rococo-composer-row" : ""}`}>
             {rococo && <div className="rococo-writing-heading" aria-hidden="true"><span>Écrivez-moi</span><small>{isGpt ? currentGptModel.label : currentModel.label}</small></div>}
             {!isGpt && !developmentMode && <button type="button" className="attach-btn" aria-label="红包/转账" disabled={loading || uploading} onClick={() => setShowMoneyDialog(true)}>{<DaydayMoneyIcon kind="redpacket" />}</button>}
             {!isGpt && !developmentMode && <button type="button" className="attach-btn" aria-label="表情包" disabled={loading || uploading} onClick={() => setShowStickers(true)}>{rococo ? <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M8 14s1 3 4 3 4-3 4-3M8 9h.01M16 9h.01" /></svg> : "☺"}</button>}

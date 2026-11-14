@@ -460,40 +460,49 @@
   font-style: italic;
 }
 
-/* The group's name sits on its own line below, like the single room's. */
-:root[data-theme="letter"] .chat-container[data-chat-ui="letter"] .letter-group-header .header-top { flex-wrap: wrap; }
+/* One line under the way back: "My dearest  susurain  舍不得…".
+   The group's line sits below its own top row, the same way. */
+:root[data-theme="letter"] .chat-container[data-chat-ui="letter"] .letter-group-header .header-top { flex-wrap: wrap; height: auto; }
 :root[data-theme="letter"] .chat-container[data-chat-ui="letter"] .letter-room-header .header-center {
   display: flex;
   min-width: 0;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 0;
-  padding: 2px 0 0 2px;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  align-items: baseline;
+  justify-content: flex-start;
+  gap: 10px;
+  padding: 0 0 0 2px;
 }
 :root[data-theme="letter"] .chat-container[data-chat-ui="letter"] .letter-group-header .header-center { order: 3; flex: 1 0 100%; }
-.letter-room-salutation { margin: 0 0 2px; color: var(--lt-rose); font: 25px/1.15 var(--lt-script); }
+.letter-room-salutation { flex: none; margin: 0; color: var(--lt-rose); font: 25px/1.15 var(--lt-script); white-space: nowrap; }
 :root[data-theme="letter"] .chat-container[data-chat-ui="letter"] .letter-room-header .header-title.chat-room-title {
+  flex: 0 1 auto;
+  min-width: 0;
   max-width: 100%;
   overflow: hidden;
   color: var(--lt-ink);
-  font: 400 22px/1.3 var(--lt-cjk);
-  letter-spacing: .08em;
+  font: 400 20px/1.3 var(--lt-cjk);
+  letter-spacing: .06em;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 :root[data-theme="letter"] .chat-container[data-chat-ui="letter"] .letter-room-header .header-subtitle.chat-room-status {
-  align-self: flex-start;
-  max-width: 100%;
-  margin: 3px 0 0;
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: none;
+  margin: 0;
+  overflow: hidden;
   color: var(--lt-ink-faint);
   font: 12px/1.4 var(--lt-cjk);
   letter-spacing: .04em;
   text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .letter-room-ornament {
   position: relative;
-  height: 26px;
-  margin: 4px -6px 0 -2px;
+  height: 24px;
+  margin: 0 -6px 0 -2px;
   pointer-events: none;
 }
 .letter-room-flourish { position: absolute; inset: 0 22px 0 0; width: calc(100% - 22px); height: 100%; overflow: visible; }
@@ -576,10 +585,18 @@
 :root[data-theme="letter"] .chat-container[data-chat-ui="letter"] .msg-bubble :is(pre, code) { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: .86em; line-height: 1.6; }
 :root[data-theme="letter"] .chat-container[data-chat-ui="letter"] .msg-bubble pre { max-width: 100%; overflow-x: auto; white-space: pre-wrap; background: #f3efe7; border-radius: 4px; }
 :root[data-theme="letter"] .chat-container[data-chat-ui="letter"] .msg-bubble blockquote { border-left: 1px solid var(--lt-gold); color: var(--lt-ink-soft); }
-:root[data-theme="letter"] .chat-container[data-chat-ui="letter"] .msg-bubble-img { padding: 4px !important; border: 0; border-radius: 2px; background: #fff; box-shadow: 0 1px 3px #33405a1f; }
+:root[data-theme="letter"] .app-bg .chat-container[data-chat-ui="letter"] .msg-bubble.msg-bubble-img { padding: 0 !important; border: 0; border-radius: 2px; background: transparent; box-shadow: none; }
+:root[data-theme="letter"] .app-bg .chat-container[data-chat-ui="letter"] .msg-bubble-img:not(.msg-bubble-sticker, .msg-bubble-sticker-message) :is(.msg-image, .msg-image-tile) { border-radius: 2px; }
+/* White-backed stickers melt into the paper instead of showing a white card:
+   the picture is multiplied onto a scrap of the same paper colour. */
+:root[data-theme="letter"] .app-bg .chat-container[data-chat-ui="letter"] .msg-bubble.msg-bubble-img { background: var(--lt-paper); }
+:root[data-theme="letter"] .app-bg .chat-container[data-chat-ui="letter"] .msg-bubble-img :is(.msg-image, .msg-image-tile) { mix-blend-mode: multiply; }
+/* Words sent with a picture are written above it as their own line,
+   never as a caption inside the picture's paper scrap. */
+:root[data-theme="letter"] .app-bg .chat-container[data-chat-ui="letter"] .msg-bubble:not(.msg-bubble-img) + .msg-bubble-img { margin-top: 6px; }
+:root[data-theme="letter"] .app-bg .chat-container[data-chat-ui="letter"] .msg-bubble-img .msg-image-caption { padding: 6px 2px 0; color: var(--lt-ink); font: 15px/1.75 var(--lt-cjk); }
 :root[data-theme="letter"] .chat-container[data-chat-ui="letter"] .msg-bubble-img::before,
 :root[data-theme="letter"] .chat-container[data-chat-ui="letter"] .msg-bubble-img::after { display: none; }
-:root[data-theme="letter"] .chat-container[data-chat-ui="letter"] :is(.msg-image, .msg-image-tile) { border-radius: 1px; }
 :root[data-theme="letter"] .chat-container[data-chat-ui="letter"] .msg-speak { color: var(--lt-mist); }
 :root[data-theme="letter"] .chat-container[data-chat-ui="letter"] .group-speaker-meta { color: var(--lt-ink-faint); }
 
@@ -604,7 +621,9 @@
 .letter-empty > span { color: var(--lt-rose); font: 34px/1.1 var(--lt-script); }
 :root[data-theme="letter"] .letter-empty p { color: var(--lt-ink-soft); font: 14px/1.7 var(--lt-cjk); letter-spacing: .1em; }
 
-/* Writing: the next line of the same sheet. */
+/* Writing: a hand-drawn frame at the foot of the sheet. The words go in
+   the top of it, three ringed tools sit in its lower-left margin, and the
+   letter is sent by pressing the wax seal in the lower right. */
 :root[data-theme="letter"] .chat-container[data-chat-ui="letter"] > .chat-footer.letter-composer {
   position: relative;
   z-index: 40;
@@ -613,52 +632,96 @@
   border: 0;
   background: linear-gradient(#fbf8f300, var(--lt-paper) 14px);
 }
-:root[data-theme="letter"] .chat-container[data-chat-ui="letter"] .letter-composer .letter-composer-row { align-items: center; gap: 6px; }
-:root[data-theme="letter"] .chat-container[data-chat-ui="letter"] .letter-composer .input-wrapper,
-:root[data-theme="letter"] .chat-container[data-chat-ui="letter"] .letter-composer .input-wrapper:focus-within {
-  align-items: center;
-  padding: 0 0 0 2px;
+.letter-frame {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 10px 8px 16px;
+}
+.letter-frame-line {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+}
+.letter-frame-line path { fill: none; stroke: var(--lt-gold); stroke-width: .9; stroke-linecap: round; vector-effect: non-scaling-stroke; opacity: .9; transition: stroke .25s; }
+.letter-frame:focus-within .letter-frame-line path { stroke: #b99b67; }
+:root[data-theme="letter"] .chat-container[data-chat-ui="letter"] .letter-frame .letter-frame-input {
+  position: relative;
+  display: block;
+  width: 100%;
+  min-height: 40px;
+  max-height: 120px;
+  padding: 6px 4px 2px 0;
   border: 0;
-  border-bottom: 1px solid var(--lt-rule);
   border-radius: 0;
+  outline: none;
   background: transparent;
   box-shadow: none;
-  backdrop-filter: none;
-  -webkit-backdrop-filter: none;
-}
-:root[data-theme="letter"] .chat-container[data-chat-ui="letter"] .letter-composer .input-wrapper:focus-within { border-bottom-color: var(--lt-mist); }
-:root[data-theme="letter"] .chat-container[data-chat-ui="letter"] .letter-composer .chat-input {
-  min-height: 36px;
-  padding: 6px 0;
   color: var(--lt-ink);
   font: 16px/1.6 var(--lt-cjk);
+  resize: none;
 }
-:root[data-theme="letter"] .chat-container[data-chat-ui="letter"] .letter-composer .chat-input::placeholder { color: var(--lt-ink-faint); font-size: 14px; opacity: .85; }
-:root[data-theme="letter"] .chat-container[data-chat-ui="letter"] .letter-composer .send-btn {
-  width: 32px;
-  height: 32px;
+:root[data-theme="letter"] .chat-container[data-chat-ui="letter"] .letter-frame .letter-frame-input::placeholder {
+  color: var(--lt-rose);
+  font: 23px/1.35 var(--lt-script);
+  letter-spacing: .01em;
+  opacity: .72;
+}
+.letter-frame-tools { position: relative; display: flex; align-items: center; gap: 6px; min-height: 44px; }
+.letter-frame-gap { flex: 1; }
+:root[data-theme="letter"] .chat-container[data-chat-ui="letter"] .letter-tool {
+  position: relative;
+  display: grid;
+  flex: 0 0 34px;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  padding: 0;
   border: 0;
-  background: var(--lt-ink);
-  box-shadow: none;
-  opacity: 1;
-}
-:root[data-theme="letter"] .chat-container[data-chat-ui="letter"] .letter-composer .send-btn:hover { transform: none; background: #26324a; }
-:root[data-theme="letter"] .chat-container[data-chat-ui="letter"] .letter-composer .send-btn:disabled { background: var(--lt-mist); opacity: .7; }
-:root[data-theme="letter"] .chat-container[data-chat-ui="letter"] .letter-composer .pause-reply-btn { background: var(--lt-rose); }
-:root[data-theme="letter"] .chat-container[data-chat-ui="letter"] .letter-composer .attach-btn {
-  color: var(--lt-ink-soft);
-  font-family: var(--lt-serif);
-}
-:root[data-theme="letter"] .chat-container[data-chat-ui="letter"] .letter-composer .attach-btn:hover { background: #33405a0d; color: var(--lt-ink); }
-:root[data-theme="letter"] .chat-container[data-chat-ui="letter"] .letter-composer .attach-btn.attach-btn-separate {
-  width: 32px;
-  height: 32px;
-  flex: 0 0 32px;
-  border: 1px solid #c9d2de;
+  border-radius: 50%;
   background: transparent;
   color: var(--lt-ink-soft);
+  cursor: pointer;
+  transition: color .2s, opacity .2s;
 }
-:root[data-theme="letter"] .chat-container[data-chat-ui="letter"] .letter-composer .attach-btn.attach-btn-separate svg { width: 17px; height: 17px; stroke-width: 1.6; }
+.letter-tool > * { grid-area: 1 / 1; }
+.letter-tool-ring { width: 34px; height: 34px; overflow: visible; }
+.letter-tool-ring path { fill: none; stroke: var(--lt-mist); stroke-width: .9; stroke-linecap: round; vector-effect: non-scaling-stroke; }
+.letter-tool-icon { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+:root[data-theme="letter"] .chat-container[data-chat-ui="letter"] .letter-tool:active { color: var(--lt-ink); }
+:root[data-theme="letter"] .chat-container[data-chat-ui="letter"] .letter-tool[aria-expanded="true"] { color: var(--lt-rose); }
+:root[data-theme="letter"] .chat-container[data-chat-ui="letter"] .letter-tool[aria-expanded="true"] .letter-tool-ring path { stroke: var(--lt-rose); }
+:root[data-theme="letter"] .chat-container[data-chat-ui="letter"] .letter-tool:disabled { opacity: .45; cursor: default; }
+.letter-tool .attach-upload-spinner { width: 14px; height: 14px; }
+
+:root[data-theme="letter"] .chat-container[data-chat-ui="letter"] .letter-seal-btn {
+  display: grid;
+  flex: 0 0 44px;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  margin: 0 -2px 0 2px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  cursor: pointer;
+  transition: opacity .2s, filter .2s, transform .15s;
+}
+.letter-seal { width: 40px; height: 40px; transform: rotate(-10deg); filter: drop-shadow(0 2px 2px #b47f8c40); }
+.letter-seal-wax { fill: #d39aa8; }
+.letter-seal-ring { fill: none; stroke: #f5e2e6; stroke-width: .9; }
+.letter-seal text { fill: #fdf3f5; font: 18px var(--lt-script); }
+.letter-seal-pause { fill: none; stroke: #fdf3f5; stroke-width: 2; stroke-linecap: round; }
+:root[data-theme="letter"] .chat-container[data-chat-ui="letter"] .letter-seal-btn:active:not(:disabled) { transform: scale(.92); }
+:root[data-theme="letter"] .chat-container[data-chat-ui="letter"] .letter-seal-btn:disabled { opacity: .42; filter: saturate(.5); cursor: default; }
+:root[data-theme="letter"] .chat-container[data-chat-ui="letter"] .letter-frame-tools :is(.context-usage-badge, .context-usage) { margin-right: 2px; }
+
+:root[data-theme="letter"] .chat-container[data-chat-ui="letter"] .letter-composer :is(.composer-attachments) { margin: 0 4px 8px; }
 :root[data-theme="letter"] .chat-container[data-chat-ui="letter"] .letter-composer :is(.composer-attachment) { border-color: var(--lt-rule); border-radius: 2px; background: #fff; }
 :root[data-theme="letter"] .chat-container[data-chat-ui="letter"] .letter-composer .composer-upload-error { color: #9a566c; }
 
@@ -678,7 +741,17 @@
   color: var(--lt-ink-soft);
   box-shadow: none;
 }
-:root[data-theme="letter"] .chat-container[data-chat-ui="letter"] .chat-config-option-active { border-color: var(--lt-mist); background: var(--lt-mist-pale); color: var(--lt-ink); }
+:root[data-theme="letter"] .chat-container[data-chat-ui="letter"] .chat-config-option.chat-config-option-active { border-color: var(--lt-rose); background: var(--lt-blush); color: #7a4858; font-weight: 600; }
+:root[data-theme="letter"] .chat-container[data-chat-ui="letter"] .chat-config-option.chat-config-option-active::before {
+  content: "";
+  display: inline-block;
+  width: 5px;
+  height: 5px;
+  margin: 0 7px 0 -2px;
+  border-radius: 50%;
+  background: var(--lt-rose);
+  vertical-align: .15em;
+}
 :root[data-theme="letter"] .chat-container[data-chat-ui="letter"] .chat-config-switch-on i { background: var(--lt-ink-soft); }
 :root[data-theme="letter"] .chat-container[data-chat-ui="letter"] .group-mention-row { flex-wrap: wrap; }
 

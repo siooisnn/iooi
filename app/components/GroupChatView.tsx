@@ -14,7 +14,7 @@ import { ContextUsageBadge, type UsageMessage } from "./ContextUsageBadge";
 import { ChatGlyph } from "./RetroDesktop";
 import { useTheme } from "./ThemeProvider";
 import { RococoDivider, RococoRose } from "./rococo/RococoArt";
-import { LetterRoomBud, LetterRoomFlourish, useLetterChrome } from "./letter/LetterArt";
+import { LetterClipIcon, LetterComposerFrame, LetterMenuIcon, LetterRing, LetterRoomBud, LetterRoomFlourish, LetterSeal, useLetterChrome } from "./letter/LetterArt";
 
 type PendingAttachment = { id: string; kind: "image" | "file"; url: string; name: string; writingFile?: WritingFile };
 
@@ -632,6 +632,8 @@ export function GroupChatView({
                 <div className={isUser ? "msg-content-user" : "msg-content-ai"}>
                   {!retro && <span className={`msg-time ${!isUser ? "group-speaker-meta" : ""}`}>{!isUser && owner ? `${owner} · ` : ""}{message.time}</span>}
                   {messageImages(message).length > 0 ? (
+                    <>
+                    {letter && message.content && <div className={`msg-bubble ${isUser ? "msg-bubble-user" : "msg-bubble-ai"}`}>{message.content}</div>}
                     <div className={`msg-bubble msg-bubble-img ${isUser ? "msg-bubble-user" : "msg-bubble-ai"}`}>
                       {messageImages(message).length === 1 ? (
                         <img src={messageImages(message)[0]} className="msg-image" alt="" onClick={() => window.open(messageImages(message)[0], "_blank")} />
@@ -642,8 +644,9 @@ export function GroupChatView({
                           ))}
                         </div>
                       )}
-                      {message.content && <p className="msg-image-caption">{message.content}</p>}
+                      {!letter && message.content && <p className="msg-image-caption">{message.content}</p>}
                     </div>
+                    </>
                   ) : message.file ? (
                     <a className={`msg-bubble group-file-bubble ${isUser ? "msg-bubble-user" : "msg-bubble-ai"}`} href={message.file} target="_blank" rel="noreferrer">
                       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -773,7 +776,59 @@ export function GroupChatView({
             Web Search
           </button>
         </div>}
-        <div className={retro ? "xp-chat-compose" : `composer-row${rococo ? " rococo-composer-row" : ""}${letter ? " letter-composer-row" : ""}`}>
+        {letter ? (
+          /* The letter: a hand-drawn frame, tools in its lower margin, a seal to send. */
+          <div className="letter-frame">
+            <LetterComposerFrame />
+            <textarea
+              ref={inputRef}
+              value={input}
+              onChange={(event) => {
+                setInput(event.target.value);
+                event.target.style.height = "auto";
+                event.target.style.height = `${Math.min(event.target.scrollHeight, 120)}px`;
+              }}
+              placeholder="Write to us…"
+              rows={1}
+              className="chat-input letter-frame-input"
+              aria-label="输入消息"
+            />
+            <input
+              ref={fileInputRef}
+              type="file"
+              multiple
+              className="attach-file-input"
+              accept="image/*,application/pdf,.docx,.txt,.md,.csv"
+              disabled={uploading || loading}
+              onChange={(event) => void uploadFile(event)}
+              aria-label="上传图片或文件"
+            />
+            <div className="letter-frame-tools">
+              <button type="button" className="letter-tool group-menu-trigger" aria-label="群聊菜单" title="群聊菜单" aria-expanded={showMenu}
+                onClick={() => { setShowMenu((open) => !open); setShowWebSearchMenu(false); }}>
+                <LetterRing turn={-12} /><LetterMenuIcon />
+              </button>
+              <button type="button" className={`letter-tool${uploading ? " letter-tool-busy" : ""}`}
+                onClick={() => fileInputRef.current?.click()} disabled={uploading || loading}
+                aria-label={uploading ? "正在上传" : "上传图片或文件"} title={uploading ? "正在上传" : "上传图片或文件"}>
+                <LetterRing turn={70} />{uploading ? <span className="attach-upload-spinner" /> : <LetterClipIcon />}
+              </button>
+              <span className="letter-frame-gap" />
+              <ContextUsageBadge kind="group" sessionId={session.id} messages={usageMessages} systemPrompt={usageSystemPrompt} />
+              <button
+                type="button"
+                onClick={loading ? pauseReply : () => void sendMessage()}
+                disabled={!loading && ((!input.trim() && !attachments.length) || uploading)}
+                className={`letter-seal-btn${loading ? " letter-seal-waiting" : ""}`}
+                aria-label={loading ? "暂停等待回复" : "封好寄出"}
+                title={loading ? "暂停等待回复" : "封好寄出"}
+              >
+                <LetterSeal waiting={loading} />
+              </button>
+            </div>
+          </div>
+        ) : (
+        <div className={retro ? "xp-chat-compose" : `composer-row${rococo ? " rococo-composer-row" : ""}`}>
           {rococo && <div className="rococo-writing-heading" aria-hidden="true"><span>Écrivez-nous</span><small>notre correspondance</small></div>}
           {!retro &&
           <button type="button" className="attach-btn attach-btn-separate group-menu-trigger" aria-label="群聊菜单" aria-expanded={showMenu}
@@ -836,6 +891,7 @@ export function GroupChatView({
           </div>
           {!retro && <ContextUsageBadge kind="group" sessionId={session.id} messages={usageMessages} systemPrompt={usageSystemPrompt} />}
         </div>
+        )}
       </footer>
     </>
   );
