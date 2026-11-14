@@ -1,0 +1,716 @@
+/* White love letter, part two and three ("letter" theme).
+   列表·目录: one sheet of paper; the composition is free (a big script title
+   on the left, a rose stem reaching in from the right), the rows are not.
+   对话·正文: a sheet that keeps being written on. Her words lie on the paper,
+   his own lines rest on the palest pink; ornament only at the very top. */
+
+.lc-list,
+:root[data-theme="letter"] .chat-container[data-chat-ui="letter"] {
+  --lt-paper: #fbf8f3;
+  --lt-ink: #33405a;
+  --lt-ink-soft: #66728a;
+  --lt-ink-faint: #97a2b4;
+  --lt-mist: #a9b9cc;
+  --lt-mist-pale: #e4ecf4;
+  --lt-blush: #f6e2e7;
+  --lt-rose: #b47f8c;
+  --lt-gold: #c9ae7c;
+  --lt-rule: #e8e1d5;
+  --lt-script: "Rococo Pinyon", "Snell Roundhand", "Apple Chancery", cursive;
+  --lt-serif: "Bodoni 72", "Didot", "Baskerville", "Iowan Old Style", Georgia, serif;
+  --lt-cjk: "Songti SC", "STSong", "Noto Serif SC", "Source Han Serif SC", serif;
+}
+
+
+/* ── 列表·目录 ─────────────────────────────────────────────── */
+
+.lc-list {
+  position: fixed;
+  inset: 0;
+  z-index: 340;
+  overflow: hidden;
+  color: var(--lt-ink);
+  font-family: var(--lt-serif);
+  background:
+    radial-gradient(110% 50% at 100% 0%, #f7e7eb 0%, transparent 56%),
+    radial-gradient(90% 45% at 0% 100%, #e7eef6 0%, transparent 60%),
+    var(--lt-paper);
+  -webkit-tap-highlight-color: transparent;
+}
+:where(.lc-list) button { font: inherit; color: inherit; }
+
+.lc-scroll {
+  height: 100%;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  scrollbar-width: none;
+}
+.lc-scroll::-webkit-scrollbar { display: none; }
+
+.lc-sheet {
+  width: min(100%, 460px);
+  margin: 0 auto;
+  padding:
+    calc(env(safe-area-inset-top) + 14px)
+    max(28px, env(safe-area-inset-right))
+    calc(env(safe-area-inset-bottom) + 40px)
+    max(28px, env(safe-area-inset-left));
+}
+
+/* The way home on the left, a pen on the right. */
+.lc-top {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 40px;
+}
+.lc-back,
+.lc-write {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 40px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+.lc-back { margin-left: -6px; color: var(--lt-ink-soft); font-style: italic; font-size: 15px; }
+.lc-back svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.3; stroke-linecap: round; stroke-linejoin: round; }
+.lc-write { gap: 6px; color: var(--lt-rose); }
+.lc-write span { font: 25px/1 var(--lt-script); transform: translateY(2px); }
+.lc-write svg { width: 19px; height: 19px; fill: none; stroke: currentColor; stroke-width: 1.1; stroke-linecap: round; stroke-linejoin: round; }
+
+/* Masthead: title on the left, the stem comes in from the right edge. */
+.lc-masthead {
+  position: relative;
+  padding: 10px 0 2px;
+}
+.lc-vine {
+  position: absolute;
+  top: 6px;
+  right: calc(-1 * max(28px, env(safe-area-inset-right)));
+  width: 150px;
+  height: 132px;
+  overflow: visible;
+  pointer-events: none;
+}
+.lc-vine path { vector-effect: non-scaling-stroke; }
+.lc-vine-stem { fill: none; stroke: #9fb0c5; stroke-width: 1; stroke-linecap: round; }
+.lc-vine-tendril { stroke-width: .8; }
+.lc-vine-leaf { fill: #e8eef5; stroke: #9fb0c5; stroke-width: .8; }
+.lc-vine-vein { fill: none; stroke: #b6c4d4; stroke-width: .6; }
+.lc-vine-petal { fill: var(--lt-blush); stroke: var(--lt-rose); stroke-width: .8; }
+.lc-vine-cup { fill: #f2d3db; }
+.lc-vine-sepal { fill: none; stroke: #8fa3ba; stroke-width: .8; stroke-linecap: round; }
+.lc-vine-curl { fill: none; stroke: var(--lt-rose); stroke-width: .7; stroke-linecap: round; }
+
+.lc-title {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  margin: 0;
+  font-family: var(--lt-script);
+  font-weight: 400;
+  line-height: .9;
+}
+.lc-title > span:first-child { color: var(--lt-ink-soft); font-size: 44px; }
+.lc-title-turn { margin: -10px 0 0 38px; color: var(--lt-ink); font-size: 74px; letter-spacing: .01em; }
+
+.lc-pinned {
+  position: relative;
+  display: block;
+  max-width: 68%;
+  margin: 14px 0 0 2px;
+  padding: 0 0 0 22px;
+  border: 0;
+  background: transparent;
+  color: var(--lt-ink-soft);
+  font: 13px/1.75 var(--lt-cjk);
+  letter-spacing: .06em;
+  text-align: left;
+  cursor: pointer;
+}
+.lc-pinned::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: .87em;
+  width: 14px;
+  height: 1px;
+  background: var(--lt-gold);
+}
+.lc-state {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin: 12px 0 0 2px;
+  color: var(--lt-ink-faint);
+  font-size: 12px;
+  font-style: italic;
+}
+.lc-state em { color: var(--lt-rose); font-family: var(--lt-cjk); font-style: normal; }
+.lc-state-photo {
+  display: block;
+  flex: none;
+  width: 24px;
+  height: 27px;
+  padding: 2px 2px 4px;
+  background: #fff;
+  box-shadow: 0 1px 3px #33405a24;
+  transform: rotate(-5deg);
+}
+.lc-state-photo img,
+.lc-state-photo:empty::before { display: block; width: 100%; height: 100%; object-fit: cover; }
+.lc-state-photo:empty::before { content: ""; background: var(--lt-mist-pale); }
+
+/* Tabs read as three words in a line, the current one underlined in rose. */
+.lc-tabs {
+  display: flex;
+  gap: 26px;
+  margin-top: 22px;
+}
+.lc-tab {
+  position: relative;
+  min-height: 34px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--lt-ink-faint);
+  font: 14px/1 var(--lt-cjk);
+  letter-spacing: .22em;
+  cursor: pointer;
+}
+.lc-tab-active { color: var(--lt-ink); }
+.lc-tab-active::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: .22em;
+  bottom: 4px;
+  height: 1px;
+  background: var(--lt-rose);
+}
+
+/* Search is only a blank line on the paper, waiting to be filled in. */
+.lc-search {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin-top: 12px;
+  padding: 2px 0;
+  border-bottom: 1px solid var(--lt-rule);
+  color: var(--lt-ink-faint);
+  transition: border-color .2s;
+}
+.lc-search:focus-within { border-bottom-color: var(--lt-mist); }
+.lc-search svg { width: 15px; height: 15px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.2; stroke-linecap: round; }
+.lc-search input {
+  width: 100%;
+  min-width: 0;
+  height: 38px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  outline: none;
+  background: transparent;
+  color: var(--lt-ink);
+  font: 16px/1.4 var(--lt-cjk);
+  -webkit-appearance: none;
+  appearance: none;
+}
+.lc-search input::placeholder { color: var(--lt-ink-faint); font-size: 14px; opacity: .8; }
+.lc-search input::-webkit-search-cancel-button { -webkit-appearance: none; }
+
+/* The letters themselves keep a plain reading order. */
+.lc-letters { margin-top: 28px; }
+.lc-letters-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 4px;
+}
+.lc-letters-head h2 { margin: 0; color: var(--lt-rose); font: 400 28px/1.1 var(--lt-script); }
+.lc-letters-head span { color: var(--lt-ink-faint); font-size: 12px; font-style: italic; font-variant-numeric: tabular-nums; letter-spacing: .06em; }
+
+.lc-rows { display: flex; flex-direction: column; }
+.lc-row {
+  position: relative;
+  border-bottom: 1px solid var(--lt-rule);
+}
+.lc-row-open {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  width: 100%;
+  min-height: 76px;
+  padding: 13px 30px 13px 2px;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color .2s;
+}
+.lc-row-open:active { background-color: #f3ede4; }
+@media (hover: hover) { .lc-row-open:hover { background-color: #f6f1e9; } }
+.lc-row-open:focus-visible { outline: 1px solid var(--lt-mist); outline-offset: -1px; }
+
+/* Avatars are small photographs slipped in with the letter. */
+.lc-photo {
+  position: relative;
+  display: block;
+  flex: none;
+  width: 42px;
+  height: 47px;
+  padding: 3px 3px 6px;
+  background: #fff;
+  box-shadow: 0 1px 2px #33405a1f, 0 3px 8px #33405a12;
+}
+.lc-photo img,
+.lc-photo i { display: block; width: 100%; height: 100%; object-fit: cover; background: var(--lt-mist-pale); }
+.lc-photo-tilt-0 { transform: rotate(-3deg); }
+.lc-photo-tilt-1 { transform: rotate(2deg); }
+.lc-photo-tilt-2 { transform: rotate(-1deg); }
+.lc-photos { position: relative; display: block; flex: none; width: 42px; height: 47px; }
+.lc-photo-mini { position: absolute; width: 27px; height: 30px; padding: 2px 2px 4px; }
+.lc-photo-mini-1 { left: -2px; top: 2px; transform: rotate(-8deg); }
+.lc-photo-mini-2 { right: -3px; top: 0; transform: rotate(6deg); }
+.lc-photo-mini-3 { left: 8px; bottom: -2px; z-index: 1; transform: rotate(-1deg); }
+
+.lc-row-text { display: flex; min-width: 0; flex: 1; flex-direction: column; gap: 6px; }
+.lc-row-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; min-width: 0; }
+.lc-row-head b {
+  overflow: hidden;
+  color: var(--lt-ink);
+  font: 500 15.5px/1.3 var(--lt-cjk);
+  letter-spacing: .04em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.lc-row-head time { flex: none; color: var(--lt-ink-faint); font-size: 12px; font-variant-numeric: tabular-nums; letter-spacing: .03em; }
+.lc-chosen { flex: none; color: var(--lt-rose); font: normal 11px/1 var(--lt-cjk); letter-spacing: .08em; }
+.lc-row-preview {
+  overflow: hidden;
+  color: var(--lt-ink-soft);
+  font: 13px/1.45 var(--lt-cjk);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lc-row-more { position: absolute; top: 50%; right: -6px; z-index: 3; transform: translateY(-50%); }
+.lc-row-more > button {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 40px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--lt-ink-faint);
+  cursor: pointer;
+}
+.lc-row-more svg { width: 15px; height: 5px; fill: currentColor; }
+.lc-row-menu {
+  position: absolute;
+  top: calc(100% - 4px);
+  right: 6px;
+  display: flex;
+  flex-direction: column;
+  min-width: 118px;
+  padding: 4px;
+  border: 1px solid var(--lt-rule);
+  border-radius: 3px;
+  background: #fffdfa;
+  box-shadow: 0 8px 22px #33405a1c;
+}
+.lc-row-menu button {
+  min-height: 38px;
+  padding: 0 14px;
+  border: 0;
+  background: transparent;
+  font: 13px/1 var(--lt-cjk);
+  letter-spacing: .06em;
+  text-align: left;
+  cursor: pointer;
+}
+.lc-row-menu button + button { border-top: 1px solid #f0ebe2; color: var(--lt-rose); }
+
+.lc-row:has(.lc-row-aside) .lc-row-open { padding-right: 76px; }
+.lc-row-aside {
+  position: absolute;
+  top: 50%;
+  right: 0;
+  padding: 8px 0;
+  border: 0;
+  background: transparent;
+  color: var(--lt-rose);
+  font: 12px/1 var(--lt-cjk);
+  letter-spacing: .06em;
+  text-decoration: underline;
+  text-decoration-color: #b47f8c66;
+  text-underline-offset: 4px;
+  transform: translateY(-50%);
+  cursor: pointer;
+}
+
+.lc-empty {
+  margin: 0;
+  padding: 34px 0 10px;
+  color: var(--lt-ink-faint);
+  font: 13px/1.7 var(--lt-cjk);
+  letter-spacing: .08em;
+  text-align: center;
+}
+
+/* The fold: the rest of the letters are kept, not shown. */
+.lc-unfold,
+.lc-refold {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 7px;
+  width: 100%;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+.lc-unfold { padding: 26px 0 6px; }
+.lc-unfold-script { color: var(--lt-rose); font: 26px/1.1 var(--lt-script); }
+.lc-unfold-line { color: var(--lt-ink-faint); font: 12px/1.5 var(--lt-cjk); letter-spacing: .1em; }
+.lc-unfold::before {
+  content: "";
+  width: 34px;
+  height: 1px;
+  margin-bottom: 8px;
+  background: var(--lt-gold);
+}
+.lc-refold {
+  padding: 24px 0 6px;
+  color: var(--lt-ink-faint);
+  font: 12px/1.5 var(--lt-cjk);
+  letter-spacing: .1em;
+}
+
+@media (max-width: 360px) {
+  .lc-sheet { padding-left: max(20px, env(safe-area-inset-left)); padding-right: max(20px, env(safe-area-inset-right)); }
+  .lc-vine { right: calc(-1 * max(20px, env(safe-area-inset-right))); width: 138px; height: 122px; }
+  .lc-title > span:first-child { font-size: 38px; }
+  .lc-title-turn { margin-left: 28px; font-size: 62px; }
+  .lc-pinned { max-width: 76%; }
+  .lc-tabs { gap: 20px; }
+  .lc-row-open { gap: 12px; }
+}
+
+
+/* ── 对话·正文 ─────────────────────────────────────────────── */
+
+:root[data-theme="letter"] .chat-container[data-chat-ui="letter"] {
+  position: relative;
+  isolation: isolate;
+  color: var(--lt-ink);
+  font-family: var(--lt-cjk);
+  background:
+    radial-gradient(110% 32% at 100% 0%, #f7e8ec 0%, transparent 60%),
+    radial-gradient(90% 30% at 0% 100%, #e9eff6 0%, transparent 62%),
+    var(--lt-paper);
+}
+
+/* The top of the sheet: a way back, a salutation, the name, one flourish. */
+:root[data-theme="letter"] .chat-container[data-chat-ui="letter"] .letter-room-header {
+  position: relative;
+  z-index: 80;
+  flex: none;
+  padding: calc(env(safe-area-inset-top) + 4px) 24px 2px;
+  overflow: visible;
+  border: 0;
+  background: transparent;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  box-shadow: none;
+}
+:root[data-theme="letter"] .chat-container[data-chat-ui="letter"] .letter-room-header .header-top {
+  justify-content: space-between;
+  min-height: 40px;
+}
+:root[data-theme="letter"] .chat-container[data-chat-ui="letter"] .letter-room-header .chat-room-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  width: auto;
+  min-width: 40px;
+  height: 40px;
+  margin-left: -8px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--lt-ink-soft);
+  font: italic 15px/1 var(--lt-serif);
+}
+.letter-room-back svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.3; stroke-linecap: round; stroke-linejoin: round; }
+:root[data-theme="letter"] .chat-container[data-chat-ui="letter"] .letter-group-header .chat-room-back svg { stroke-width: 1.5; }
+:root[data-theme="letter"] .chat-container[data-chat-ui="letter"] .letter-room-header .room-header-quota {
+  color: var(--lt-ink-faint);
+  font-family: var(--lt-serif);
+  font-size: 12px;
+  font-style: italic;
+}
+
+/* The group's name sits on its own line below, like the single room's. */
+:root[data-theme="letter"] .chat-container[data-chat-ui="letter"] .letter-group-header .header-top { flex-wrap: wrap; }
+:root[data-theme="letter"] .chat-container[data-chat-ui="letter"] .letter-room-header .header-center {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0;
+  padding: 2px 0 0 2px;
+}
+:root[data-theme="letter"] .chat-container[data-chat-ui="letter"] .letter-group-header .header-center { order: 3; flex: 1 0 100%; }
+.letter-room-salutation { margin: 0 0 2px; color: var(--lt-rose); font: 25px/1.15 var(--lt-script); }
+:root[data-theme="letter"] .chat-container[data-chat-ui="letter"] .letter-room-header .header-title.chat-room-title {
+  max-width: 100%;
+  overflow: hidden;
+  color: var(--lt-ink);
+  font: 400 22px/1.3 var(--lt-cjk);
+  letter-spacing: .08em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+:root[data-theme="letter"] .chat-container[data-chat-ui="letter"] .letter-room-header .header-subtitle.chat-room-status {
+  align-self: flex-start;
+  max-width: 100%;
+  margin: 3px 0 0;
+  color: var(--lt-ink-faint);
+  font: 12px/1.4 var(--lt-cjk);
+  letter-spacing: .04em;
+  text-align: left;
+}
+.letter-room-ornament {
+  position: relative;
+  height: 26px;
+  margin: 4px -6px 0 -2px;
+  pointer-events: none;
+}
+.letter-room-flourish { position: absolute; inset: 0 22px 0 0; width: calc(100% - 22px); height: 100%; overflow: visible; }
+.letter-room-flourish-line { fill: none; stroke: var(--lt-gold); stroke-width: .8; stroke-linecap: round; vector-effect: non-scaling-stroke; opacity: .8; }
+.letter-room-bud { position: absolute; right: -2px; top: 1px; width: 36px; height: 30px; overflow: visible; }
+.letter-room-bud-stem { fill: none; stroke: #9fb0c5; stroke-width: .9; stroke-linecap: round; }
+.letter-room-bud-leaf { fill: #e8eef5; stroke: #9fb0c5; stroke-width: .7; }
+.letter-room-bud-petal { fill: var(--lt-blush); stroke: var(--lt-rose); stroke-width: .8; }
+.letter-room-bud-sepal { fill: none; stroke: #8fa3ba; stroke-width: .7; stroke-linecap: round; }
+
+/* The page itself. */
+:root[data-theme="letter"] .chat-container[data-chat-ui="letter"] > .chat-messages {
+  position: relative;
+  z-index: 1;
+  flex: 1 1 auto;
+  min-height: 0;
+  gap: 18px;
+  padding: 18px 20px 26px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  background: transparent;
+  color: var(--lt-ink);
+  scroll-padding-top: 16px;
+}
+:root[data-theme="letter"] .chat-container[data-chat-ui="letter"] .chat-messages > div { min-width: 0; }
+:root[data-theme="letter"] .chat-container[data-chat-ui="letter"] .msg-row { gap: 11px; }
+:root[data-theme="letter"] .chat-container[data-chat-ui="letter"] .msg-row-summer-utility { padding-left: 45px; }
+:root[data-theme="letter"] .chat-container[data-chat-ui="letter"] .msg-content-ai { max-width: 86%; }
+:root[data-theme="letter"] .chat-container[data-chat-ui="letter"] .msg-content-user { max-width: 78%; }
+
+/* Avatars stay, as small square photos with a white edge. */
+:root[data-theme="letter"] .chat-container[data-chat-ui="letter"] :is(.avatar, .avatar-img) {
+  width: 34px;
+  height: 34px;
+  flex: 0 0 34px;
+  padding: 2px;
+  border: 0;
+  border-radius: 2px;
+  background: #fff;
+  object-fit: cover;
+  box-shadow: 0 1px 2px #33405a24, 0 2px 6px #33405a10;
+}
+:root[data-theme="letter"] .chat-container[data-chat-ui="letter"] .avatar-spacer { box-shadow: none; }
+:root[data-theme="letter"] .chat-container[data-chat-ui="letter"] .msg-time {
+  margin-bottom: 4px;
+  padding: 0 2px;
+  color: var(--lt-ink-faint);
+  font: 400 11px/1.3 var(--lt-serif);
+  letter-spacing: .04em;
+}
+
+/* The text: never script, always an easy book face. */
+:root[data-theme="letter"] .chat-container[data-chat-ui="letter"] .msg-bubble:not(.msg-bubble-summer-utility):not(.msg-bubble-img) {
+  min-height: 0;
+  color: var(--lt-ink);
+  font-family: var(--lt-cjk);
+  font-size: 15.5px;
+  line-height: 1.85;
+  letter-spacing: .02em;
+  overflow-wrap: anywhere;
+}
+:root[data-theme="letter"] .chat-container[data-chat-ui="letter"] .msg-bubble-ai:not(.msg-bubble-summer-utility):not(.msg-bubble-img) {
+  padding: 5px 2px 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+:root[data-theme="letter"] .chat-container[data-chat-ui="letter"] .msg-bubble-user:not(.msg-bubble-summer-utility):not(.msg-bubble-img) {
+  padding: 8px 14px;
+  border: 0;
+  border-radius: 14px 14px 4px 14px;
+  background: #f6e2e7c2;
+  box-shadow: none;
+  color: var(--lt-ink);
+}
+:root[data-theme="letter"] .chat-container[data-chat-ui="letter"] .msg-bubble-ai::before,
+:root[data-theme="letter"] .chat-container[data-chat-ui="letter"] .msg-bubble-user::after { display: none; }
+:root[data-theme="letter"] .chat-container[data-chat-ui="letter"] .msg-bubble :is(h1, h2, h3, h4, strong) { color: #26324a; }
+:root[data-theme="letter"] .chat-container[data-chat-ui="letter"] .msg-bubble :is(pre, code) { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: .86em; line-height: 1.6; }
+:root[data-theme="letter"] .chat-container[data-chat-ui="letter"] .msg-bubble pre { max-width: 100%; overflow-x: auto; white-space: pre-wrap; background: #f3efe7; border-radius: 4px; }
+:root[data-theme="letter"] .chat-container[data-chat-ui="letter"] .msg-bubble blockquote { border-left: 1px solid var(--lt-gold); color: var(--lt-ink-soft); }
+:root[data-theme="letter"] .chat-container[data-chat-ui="letter"] .msg-bubble-img { padding: 4px !important; border: 0; border-radius: 2px; background: #fff; box-shadow: 0 1px 3px #33405a1f; }
+:root[data-theme="letter"] .chat-container[data-chat-ui="letter"] .msg-bubble-img::before,
+:root[data-theme="letter"] .chat-container[data-chat-ui="letter"] .msg-bubble-img::after { display: none; }
+:root[data-theme="letter"] .chat-container[data-chat-ui="letter"] :is(.msg-image, .msg-image-tile) { border-radius: 1px; }
+:root[data-theme="letter"] .chat-container[data-chat-ui="letter"] .msg-speak { color: var(--lt-mist); }
+:root[data-theme="letter"] .chat-container[data-chat-ui="letter"] .group-speaker-meta { color: var(--lt-ink-faint); }
+
+/* A new day: a short gold rule and the date in italics. */
+:root[data-theme="letter"] .chat-container[data-chat-ui="letter"] .date-separator { gap: 12px; margin: 6px 0 2px; padding: 6px 0; }
+:root[data-theme="letter"] .chat-container[data-chat-ui="letter"] .date-separator::before,
+:root[data-theme="letter"] .chat-container[data-chat-ui="letter"] .date-separator::after { content: ""; width: 26px; height: 1px; background: var(--lt-gold); opacity: .75; }
+:root[data-theme="letter"] .chat-container[data-chat-ui="letter"] .date-separator-text {
+  padding: 0;
+  color: var(--lt-ink-faint);
+  font: italic 12px/1 var(--lt-serif);
+  letter-spacing: .08em;
+}
+
+:root[data-theme="letter"] .chat-container[data-chat-ui="letter"] .thinking-toggle { color: var(--lt-ink-faint); font-family: var(--lt-serif); font-style: italic; }
+:root[data-theme="letter"] .chat-container[data-chat-ui="letter"] .thinking-content { border: 0; border-left: 1px solid var(--lt-mist); border-radius: 0; background: #eef3f866; color: var(--lt-ink-soft); box-shadow: none; }
+:root[data-theme="letter"] .chat-container[data-chat-ui="letter"] :is(.msg-bubble-summer-call, .msg-bubble-summer-write, .reply-status-bubble) { border-color: #dde5ee; background: #eef3f8b3; color: var(--lt-ink-soft); box-shadow: none; }
+:root[data-theme="letter"] .chat-container[data-chat-ui="letter"] .msg-bubble-summer-utility { padding: 4px 0; border: 0; background: transparent; box-shadow: none; }
+:root[data-theme="letter"] .chat-container[data-chat-ui="letter"] .typing-dots span { background: var(--lt-mist); }
+
+.letter-empty { flex-direction: column; gap: 14px; text-align: center; }
+.letter-empty > span { color: var(--lt-rose); font: 34px/1.1 var(--lt-script); }
+:root[data-theme="letter"] .letter-empty p { color: var(--lt-ink-soft); font: 14px/1.7 var(--lt-cjk); letter-spacing: .1em; }
+
+/* Writing: the next line of the same sheet. */
+:root[data-theme="letter"] .chat-container[data-chat-ui="letter"] > .chat-footer.letter-composer {
+  position: relative;
+  z-index: 40;
+  flex: none;
+  padding: 8px 18px calc(10px + max(4px, calc(env(safe-area-inset-bottom) - 14px)));
+  border: 0;
+  background: linear-gradient(#fbf8f300, var(--lt-paper) 14px);
+}
+:root[data-theme="letter"] .chat-container[data-chat-ui="letter"] .letter-composer .letter-composer-row { align-items: center; gap: 6px; }
+:root[data-theme="letter"] .chat-container[data-chat-ui="letter"] .letter-composer .input-wrapper,
+:root[data-theme="letter"] .chat-container[data-chat-ui="letter"] .letter-composer .input-wrapper:focus-within {
+  align-items: center;
+  padding: 0 0 0 2px;
+  border: 0;
+  border-bottom: 1px solid var(--lt-rule);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+:root[data-theme="letter"] .chat-container[data-chat-ui="letter"] .letter-composer .input-wrapper:focus-within { border-bottom-color: var(--lt-mist); }
+:root[data-theme="letter"] .chat-container[data-chat-ui="letter"] .letter-composer .chat-input {
+  min-height: 36px;
+  padding: 6px 0;
+  color: var(--lt-ink);
+  font: 16px/1.6 var(--lt-cjk);
+}
+:root[data-theme="letter"] .chat-container[data-chat-ui="letter"] .letter-composer .chat-input::placeholder { color: var(--lt-ink-faint); font-size: 14px; opacity: .85; }
+:root[data-theme="letter"] .chat-container[data-chat-ui="letter"] .letter-composer .send-btn {
+  width: 32px;
+  height: 32px;
+  border: 0;
+  background: var(--lt-ink);
+  box-shadow: none;
+  opacity: 1;
+}
+:root[data-theme="letter"] .chat-container[data-chat-ui="letter"] .letter-composer .send-btn:hover { transform: none; background: #26324a; }
+:root[data-theme="letter"] .chat-container[data-chat-ui="letter"] .letter-composer .send-btn:disabled { background: var(--lt-mist); opacity: .7; }
+:root[data-theme="letter"] .chat-container[data-chat-ui="letter"] .letter-composer .pause-reply-btn { background: var(--lt-rose); }
+:root[data-theme="letter"] .chat-container[data-chat-ui="letter"] .letter-composer .attach-btn {
+  color: var(--lt-ink-soft);
+  font-family: var(--lt-serif);
+}
+:root[data-theme="letter"] .chat-container[data-chat-ui="letter"] .letter-composer .attach-btn:hover { background: #33405a0d; color: var(--lt-ink); }
+:root[data-theme="letter"] .chat-container[data-chat-ui="letter"] .letter-composer .attach-btn.attach-btn-separate {
+  width: 32px;
+  height: 32px;
+  flex: 0 0 32px;
+  border: 1px solid #c9d2de;
+  background: transparent;
+  color: var(--lt-ink-soft);
+}
+:root[data-theme="letter"] .chat-container[data-chat-ui="letter"] .letter-composer .attach-btn.attach-btn-separate svg { width: 17px; height: 17px; stroke-width: 1.6; }
+:root[data-theme="letter"] .chat-container[data-chat-ui="letter"] .letter-composer :is(.composer-attachment) { border-color: var(--lt-rule); border-radius: 2px; background: #fff; }
+:root[data-theme="letter"] .chat-container[data-chat-ui="letter"] .letter-composer .composer-upload-error { color: #9a566c; }
+
+/* Panels opened from the composer: plain paper cards. */
+:root[data-theme="letter"] .chat-container[data-chat-ui="letter"] :is(.chat-config-panel, .claude-usage-popover, .group-web-search-panel, .group-window-settings, .group-composer-menu, .context-usage-popover, .room-settings-panel) {
+  border-color: var(--lt-rule);
+  border-radius: 4px;
+  background: #fffdfa;
+  color: var(--lt-ink);
+  font-family: var(--lt-cjk);
+  box-shadow: 0 8px 26px #33405a1a;
+}
+:root[data-theme="letter"] .chat-container[data-chat-ui="letter"] :is(.chat-config-option, .chat-control-pill, .claude-usage-pill, .group-mention-row button) {
+  border-color: #dde3ea;
+  border-radius: 3px;
+  background: #fff;
+  color: var(--lt-ink-soft);
+  box-shadow: none;
+}
+:root[data-theme="letter"] .chat-container[data-chat-ui="letter"] .chat-config-option-active { border-color: var(--lt-mist); background: var(--lt-mist-pale); color: var(--lt-ink); }
+:root[data-theme="letter"] .chat-container[data-chat-ui="letter"] .chat-config-switch-on i { background: var(--lt-ink-soft); }
+:root[data-theme="letter"] .chat-container[data-chat-ui="letter"] .group-mention-row { flex-wrap: wrap; }
+
+/* Same stable settings sheet as the rococo room: only the page shrinks. */
+:root[data-theme="letter"] .chat-container[data-chat-ui="letter"] > .room-settings-panel {
+  position: relative; z-index: 60; inset: auto; flex: 0 0 auto; height: min(420px, 40dvh); min-height: 80px;
+  width: auto; max-width: none; max-height: 46%; margin: 10px 16px 0; padding: 12px;
+  overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable;
+}
+:root[data-theme="letter"] .chat-container[data-chat-ui="letter"] .room-settings-heading { position: sticky; z-index: 1; top: -12px; margin: -1px 0 10px; padding: 5px 0; background: #fffdfa; }
+:root[data-theme="letter"] .group-chat-footer.letter-composer :is(.group-composer-menu, .group-window-settings, .group-web-search-panel) { position: relative; inset: auto; max-height: min(200px, 26dvh); margin: 0 0 10px; overflow-y: auto; overscroll-behavior: contain; }
+:root[data-theme="letter"] .chat-container[data-chat-ui="letter"] > .group-chat-footer:has(.group-window-settings) { max-height: calc(100% - 120px); overflow-y: auto; }
+
+@media (max-width: 360px) {
+  :root[data-theme="letter"] .chat-container[data-chat-ui="letter"] .letter-room-header { padding-left: 18px; padding-right: 18px; }
+  :root[data-theme="letter"] .chat-container[data-chat-ui="letter"] > .chat-messages { padding-left: 14px; padding-right: 14px; }
+  :root[data-theme="letter"] .chat-container[data-chat-ui="letter"] > .chat-footer.letter-composer { padding-left: 12px; padding-right: 12px; }
+}
+
+@media (min-width: 700px) {
+  :root[data-theme="letter"] .chat-container[data-chat-ui="letter"] {
+    max-width: 680px;
+    height: min(960px, calc(100dvh - 64px));
+    border: 1px solid #ece6db;
+    border-radius: 6px;
+    box-shadow: 0 18px 50px #33405a14;
+  }
+  :root[data-theme="letter"] .chat-container[data-chat-ui="letter"] .letter-room-header { padding-left: 40px; padding-right: 40px; }
+  :root[data-theme="letter"] .chat-container[data-chat-ui="letter"] > .chat-messages { padding-left: 40px; padding-right: 40px; }
+  :root[data-theme="letter"] .chat-container[data-chat-ui="letter"] > .chat-footer.letter-composer { padding-left: 36px; padding-right: 36px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lc-list *, :root[data-theme="letter"] .chat-container[data-chat-ui="letter"] * { transition: none !important; }
+}

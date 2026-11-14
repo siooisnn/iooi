@@ -19,6 +19,7 @@ import type { HomeApp } from "./components/HomeView";
 import { RetroDesktop } from "./components/RetroDesktop";
 import { RococoHome } from "./components/rococo/RococoHome";
 import { LetterHome } from "./components/letter/LetterHome";
+import { LetterChatList } from "./components/letter/LetterChatList";
 import { RococoChatList } from "./components/rococo/RococoChatList";
 import { HeartbeatView } from "./components/AppPages";
 import { readLifeLog, type LifeEntry } from "./lib/life-log";
@@ -42,6 +43,9 @@ import { useDailyMood } from "./lib/use-daily-mood";
 export default function Home() {
   const { theme } = useTheme();
   const rococo = theme === "rococo";
+  // The white love letter: its own chat list and a paper room, never the XP windows.
+  const letter = theme === "letter";
+  const plainRooms = rococo || letter;
   const defaultSettings: Settings = {
     model: "sonnet5",
     gptModel: DEFAULT_GPT_MODEL.id,
@@ -97,8 +101,8 @@ export default function Home() {
   const chatRoomOpen = tab === "chat" && chatView !== "list";
   const shellRef = useRef<HTMLDivElement>(null);
   // Retro mode turns private and group rooms into MSN windows.
-  const retroRoom = !rococo && settings.retroDesktop && tab === "chat" && (chatView === "room" || chatView === "group");
-  const activeChatBackground = chatRoomOpen && !retroRoom && !rococo ? settings.classicChatBackground || "" : "";
+  const retroRoom = !plainRooms && settings.retroDesktop && tab === "chat" && (chatView === "room" || chatView === "group");
+  const activeChatBackground = chatRoomOpen && !retroRoom && !plainRooms ? settings.classicChatBackground || "" : "";
   // Which private room is open: always the person ticked in Contacts.
   const [roomMode, setRoomMode] = useState<AssistantMode>("claude");
   const [listTab, setListTab] = useState<ChatListTab>("chats");
@@ -671,7 +675,7 @@ export default function Home() {
         ref={shellRef}
         className="chat-container"
         data-chat-view={tab === "chat" ? chatView : undefined}
-        data-chat-ui={tab === "chat" && (chatView === "room" || chatView === "group") ? (rococo ? "rococo" : retroRoom ? "xp" : "default") : undefined}
+        data-chat-ui={tab === "chat" && (chatView === "room" || chatView === "group") ? (rococo ? "rococo" : letter ? "letter" : retroRoom ? "xp" : "default") : undefined}
         data-chat-background={activeChatBackground ? "image" : undefined}
       >
         {activeChatBackground && (
@@ -711,7 +715,28 @@ export default function Home() {
             todayState={dailyMood.current?.value || ""}
           />
         )}
-        {chatListOpen && !rococo && (
+        {chatListOpen && letter && (
+          <LetterChatList
+            key={`letter-${listMode}`}
+            assistantMode={listMode}
+            settings={settings}
+            updateSettings={updateSettings}
+            sessions={listMode === "gpt" ? gptSessions : sessions}
+            groupSessions={groupSessions}
+            renameSession={listMode === "gpt" ? renameGptSession : renameSession}
+            deleteSession={listMode === "gpt" ? deleteGptSession : deleteSession}
+            openSession={openPrivateRoom}
+            openGroup={openGroupRoom}
+            createSession={openNewPrivateRoom}
+            createGroup={openNewGroupRoom}
+            listTab={listTab}
+            setListTab={setListTab}
+            onBack={goHome}
+            contactSessions={{ claude: sessions, gpt: gptSessions }}
+            todayState={dailyMood.current?.value || ""}
+          />
+        )}
+        {chatListOpen && !rococo && !letter && (
           <ChatListView
             key={listMode}
             assistantMode={listMode}
@@ -752,7 +777,7 @@ export default function Home() {
             renameSession={renameSession}
             listEntryMode
             onBackToList={() => setChatView("list")}
-            retro={settings.retroDesktop && !rococo}
+            retro={settings.retroDesktop && !plainRooms}
             onOpenBlogPost={openBlogFromChat}
           />
         )}
@@ -775,7 +800,7 @@ export default function Home() {
             renameSession={renameGptSession}
             listEntryMode
             onBackToList={() => setChatView("list")}
-            retro={settings.retroDesktop && !rococo}
+            retro={settings.retroDesktop && !plainRooms}
           />
         )}
         {tab === "chat" && chatView === "group" && (
@@ -783,7 +808,7 @@ export default function Home() {
             key={`group-${groupSession.id}`}
             session={groupSession}
             settings={settings}
-            retro={settings.retroDesktop && !rococo}
+            retro={settings.retroDesktop && !plainRooms}
             claudeModelId={(MODELS.find((model) => model.id === settings.model) || MODELS[0]).apiId}
             updateOptions={updateGroupOptions}
             updateSettings={updateSettings}

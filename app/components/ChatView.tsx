@@ -44,6 +44,7 @@ import { hasSpeakableText } from "../lib/tts-text";
 import { useSpeaker } from "../lib/use-speaker";
 import { useTheme } from "./ThemeProvider";
 import { RococoBow, RococoDivider, RococoRose } from "./rococo/RococoArt";
+import { LetterRoomBud, LetterRoomFlourish, useLetterChrome } from "./letter/LetterArt";
 
 // Animate only the current interaction, never a replayed history entry.
 const NUDGE_FRAMES: Keyframe[] = [
@@ -126,6 +127,9 @@ export function ChatView({
 }) {
   const { theme } = useTheme();
   const rococo = theme === "rococo";
+  // The white love letter: one sheet of paper that keeps being written on.
+  const letter = theme === "letter" && listEntryMode === true && !retro;
+  useLetterChrome(letter);
   const isGpt = assistantMode === "gpt";
   const compactComposer = retro && settings.chatCompactComposer === true;
   const ledgerBook = useChatLedger(!isGpt);
@@ -992,6 +996,23 @@ export function ChatView({
           </div>
           <RococoDivider className="rococo-room-divider" />
         </header>
+      ) : letter ? (
+        <header className="chat-header chat-room-header letter-room-header">
+          <div className="header-top">
+            <button className="header-icon-btn chat-room-back letter-room-back" onClick={handleBackToList} aria-label="返回列表">
+              <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M10 3.5 5.5 8l4.5 4.5" /></svg>
+              <span>letters</span>
+            </button>
+            <div className="room-header-usage">
+              {showQuota && <ClaudeUsageCircle {...claudeUsage} className="room-header-quota" title="剩余百分比：五小时 / 本周；详细额度在聊天设置" />}
+            </div>
+          </div>
+          <div className="header-center letter-room-heading">
+            <p className="letter-room-salutation">My dearest</p>
+            {roomIdentity}
+          </div>
+          <div className="letter-room-ornament"><LetterRoomFlourish /><LetterRoomBud /></div>
+        </header>
       ) : listEntryMode && retro ? (
         <header className={`chat-header chat-room-header xp-chat-header${dotBubbles ? " xp-chat-header-dots" : ""}`}>
           <div className="xp-chat-titlebar">
@@ -1230,11 +1251,12 @@ export function ChatView({
         </div>
       )}
 
-      <section className={`chat-messages${rococo ? " rococo-message-paper" : ""}${saysAvatars ? " xp-log-avatars" : ""}${dotBubbles ? " xp-log-dots" : ""}${brickBubbles ? " xp-log-brick" : ""}`} ref={scrollRef} onScroll={handleScroll}>
+      <section className={`chat-messages${rococo ? " rococo-message-paper" : ""}${letter ? " letter-paper" : ""}${saysAvatars ? " xp-log-avatars" : ""}${dotBubbles ? " xp-log-dots" : ""}${brickBubbles ? " xp-log-brick" : ""}`} ref={scrollRef} onScroll={handleScroll}>
         {session.messages.length === 0 && (
-          <div className={`empty-chat${rococo ? " rococo-empty-letter" : ""}`}>
+          <div className={`empty-chat${rococo ? " rococo-empty-letter" : ""}${letter ? " letter-empty" : ""}`}>
             {rococo && <><RococoBow /><span>Ma très chère</span></>}
-            <p>说点什么开始聊天吧</p>
+            {letter && <span>A blank page, for you</span>}
+            <p>{letter ? "这张信纸，正等你的第一句话。" : "说点什么开始聊天吧"}</p>
             {rococo && <small>这张信纸，正等你的第一句话</small>}
           </div>
         )}
@@ -1496,8 +1518,8 @@ export function ChatView({
 
       {showStickers && <StickerLibrary onClose={() => setShowStickers(false)} onSelect={chooseSticker} />}
       {showMoneyDialog && <ChatMoneyDialog key={session.id} book={ledgerBook} sessionId={session.id} onClose={() => setShowMoneyDialog(false)} onSent={(card) => { setShowMoneyDialog(false); void sendMessage(false, card); }} />}
-      <footer className={`chat-footer single-chat-footer${rococo ? " rococo-composer" : ""}${retro ? " xp-chat-footer" : ""}${dotBubbles ? " xp-chat-footer-dots" : ""}${compactComposer ? " xp-chat-footer-compact" : ""}`}>
-        <ChatClawd />
+      <footer className={`chat-footer single-chat-footer${rococo ? " rococo-composer" : ""}${letter ? " letter-composer" : ""}${retro ? " xp-chat-footer" : ""}${dotBubbles ? " xp-chat-footer-dots" : ""}${compactComposer ? " xp-chat-footer-compact" : ""}`}>
+        {!letter && <ChatClawd />}
 
         {uploadError && <p className="composer-upload-error" role="alert">{uploadError}</p>}
         {attachments.length > 0 && (
@@ -1579,7 +1601,7 @@ export function ChatView({
             </div>
           </>
         ) : (
-          <div className={`composer-row${rococo ? " rococo-composer-row" : ""}`}>
+          <div className={`composer-row${rococo ? " rococo-composer-row" : ""}${letter ? " letter-composer-row" : ""}`}>
             {rococo && <div className="rococo-writing-heading" aria-hidden="true"><span>Écrivez-moi</span><small>{isGpt ? currentGptModel.label : currentModel.label}</small></div>}
             {!isGpt && !developmentMode && <button type="button" className="attach-btn" aria-label="红包/转账" disabled={loading || uploading} onClick={() => setShowMoneyDialog(true)}>{<DaydayMoneyIcon kind="redpacket" />}</button>}
             {!isGpt && !developmentMode && <button type="button" className="attach-btn" aria-label="表情包" disabled={loading || uploading} onClick={() => setShowStickers(true)}>{rococo ? <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M8 14s1 3 4 3 4-3 4-3M8 9h.01M16 9h.01" /></svg> : "☺"}</button>}
