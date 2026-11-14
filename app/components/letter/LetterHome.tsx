@@ -8,11 +8,13 @@ import type { HomeApp } from "../HomeView";
 import { useReadyLetters } from "../RetroDesktop";
 import type { Settings } from "../../lib/app-settings";
 import { CLAUDE_DEFAULT_NAME } from "../../lib/app-settings";
+import { LetterBud, LetterForgetMeNot, LetterLeaf, LetterPaperBloom, LetterPosy, LetterRuleSprig, LetterSealSprig, LetterTitleSpray } from "./LetterFlowers";
 
 /* The white love-letter home: one page read from top to bottom. The entries
-   are paragraphs of the letter rather than buttons, and the few ornaments
-   (a rose sprig, one flowing line, a ribbon, a sliver of moon, one wax seal)
-   grow out of the words and the white space around them. */
+   are paragraphs of the letter rather than buttons, and the ornaments (a
+   rose spray, one flowing line ending in a posy, sprigged rules, a ribbon, a
+   sliver of moon, a wax seal over dried flowers, one faint rose pressed into
+   the paper) grow out of the words and the white space around them. */
 
 const PAPER = "#fbf8f3";
 
@@ -65,15 +67,16 @@ export function LetterHome({ settings, onOpen }: { settings: Settings; onOpen: (
   return (
     <section className="lh-home" aria-label="白色情书首页">
       {isAnniversary && <Petals />}
+      <LetterPaperBloom className="letter-bloom-home" />
       <div className="lh-scroll">
         <article className="lh-letter">
           <header className="lh-letterhead">
-            <span className="lh-brand">iooi</span>
+            <span className="lh-brand">iooi<LetterPosy className="lh-brand-posy" /></span>
             <time className="lh-dateline" dateTime={today ? today.toISOString().slice(0, 10) : undefined}>{dateline}</time>
           </header>
 
           <section className="lh-opening lh-unfold" style={{ "--lh-delay": "80ms" } as CSSProperties} aria-labelledby="lh-title">
-            <Sprig />
+            <LetterTitleSpray className="lh-sprig" />
             <h1 id="lh-title" className="lh-title">
               <span>As time</span>
               <span className="lh-title-turn">goes by</span>
@@ -103,7 +106,7 @@ export function LetterHome({ settings, onOpen }: { settings: Settings; onOpen: (
             <p className="lh-still">And still counting, my love.</p>
           </section>
 
-          <span className="lh-rule lh-unfold" style={{ "--lh-delay": "380ms" } as CSSProperties} aria-hidden="true" />
+          <span className="lh-rule lh-unfold" style={{ "--lh-delay": "380ms" } as CSSProperties} aria-hidden="true"><LetterRuleSprig /></span>
 
           <nav className="lh-body" aria-label="信里的段落">
             {PASSAGES.map((passage, index) => (
@@ -139,14 +142,14 @@ export function LetterHome({ settings, onOpen }: { settings: Settings; onOpen: (
             ))}
           </nav>
 
-          <span className="lh-rule lh-unfold" style={{ "--lh-delay": "1360ms" } as CSSProperties} aria-hidden="true" />
+          <span className="lh-rule lh-rule-closing lh-unfold" style={{ "--lh-delay": "1360ms" } as CSSProperties} aria-hidden="true"><LetterRuleSprig /></span>
 
           <footer className="lh-closing lh-unfold" style={{ "--lh-delay": "1400ms" } as CSSProperties}>
             <p className="lh-closing-script">With love, always.</p>
             <p className="lh-closing-line">未完待续，关于我们。</p>
             <p className="lh-signature">
               <span>{claudeName}</span><i aria-hidden="true">&amp;</i><span>{herName}</span>
-              <WaxSeal />
+              <span className="lh-seal-wrap"><LetterSealSprig className="lh-seal-sprig" /><WaxSeal /></span>
             </p>
             <p className="lh-since">since {since}</p>
             <p className="lh-ps">
@@ -163,40 +166,25 @@ export function LetterHome({ settings, onOpen }: { settings: Settings; onOpen: (
 }
 
 /** A thin Art Nouveau line: it leaves the promise, turns back on itself once,
-    then slips down the left margin and comes to rest beside the days. The
-    path runs past the bottom of its box on purpose (overflow is visible). */
+    then slips down the left margin and comes to rest beside the days in a
+    small posy. The path runs past the bottom of its box on purpose
+    (overflow is visible). */
 function FlowLine() {
   return (
     <svg className="lh-flow" viewBox="0 0 320 92" aria-hidden="true">
       <path
         d="M6 12 C 44 3, 82 22, 128 19 C 176 16, 214 -2, 252 12 C 276 22, 270 50, 236 58 C 196 67, 126 54, 78 70 C 34 85, 10 116, 16 144 C 21 164, 38 176, 56 177"
+        className="lh-flow-line"
         pathLength={1}
       />
-      <circle cx="60" cy="176.5" r="2.6" />
-    </svg>
-  );
-}
-
-/** A slender rose sprig beside the title: a long soft stem, misty leaves,
-    one open rose and one bud, leaning to one side. */
-function Sprig() {
-  return (
-    <svg className="lh-sprig" viewBox="0 0 64 128" aria-hidden="true">
-      <path className="lh-sprig-stem" d="M22 126 C 30 108, 16 92, 22 74 C 27 58, 44 50, 42 28" />
-      <path className="lh-sprig-stem" d="M23 70 C 12 64, 8 54, 11 44" />
-      <path className="lh-sprig-leaf" d="M26 100 C 34 92, 46 92, 52 97 C 45 104, 34 105, 26 100 Z" />
-      <path className="lh-sprig-vein" d="M28 100 C 36 98, 43 97, 49 97" />
-      <path className="lh-sprig-leaf" d="M21 86 C 12 85, 5 79, 3 71 C 12 72, 19 78, 21 86 Z" />
-      <path className="lh-sprig-leaf" d="M33 54 C 38 47, 47 44, 54 46 C 50 53, 41 56, 33 54 Z" />
-      <g className="lh-sprig-bud" transform="translate(11 43) rotate(-18)">
-        <path className="lh-sprig-petal" d="M0 0 C -4 -3, -4 -9, 0 -13 C 4 -9, 4 -3, 0 0 Z" />
-        <path className="lh-sprig-sepal" d="M0 0 C -3 -2, -4 -5, -4 -7 M0 0 C 3 -2, 4 -5, 4 -7" />
-      </g>
-      <g className="lh-sprig-rose" transform="translate(42 20) rotate(-8)">
-        <path className="lh-sprig-petal" d="M-12 3 C -14 -6, -7 -13, 0 -12 C 8 -14, 14 -7, 12 2 C 11 9, 4 13, -1 12 C -7 12, -11 8, -12 3 Z" />
-        <path className="lh-sprig-petal lh-sprig-cup" d="M-7 1 C -7 -5, -1 -8, 4 -6 C 8 -4, 8 2, 4 4 C 0 6, -5 5, -7 1 Z" />
-        <path className="lh-sprig-curl" d="M0 -1 C 2 -2.5, 3.5 0, 1.5 1.6 C -0.8 3, -3.2 0.6, -2 -2 C -0.6 -4.4, 3.4 -4.4, 5 -1.6" />
-        <path className="lh-sprig-curl" d="M-10 6 C -5 11, 4 11, 10 5" />
+      <g className="lh-flow-posy">
+        <path className="letter-art-stem letter-art-fine" d="M56 177 C 62 177.4, 68 176, 73 171.5" />
+        <LetterLeaf x={61} y={177.2} turn={-128} size={0.66} />
+        <LetterLeaf x={64} y={176.8} turn={36} size={0.62} />
+        <LetterBud x={73} y={171.5} turn={58} size={0.8} />
+        <LetterForgetMeNot x={59} y={183} size={1} />
+        <LetterForgetMeNot x={66} y={186} size={0.72} />
+        <circle className="letter-art-seed" cx="80" cy="181" r=".9" />
       </g>
     </svg>
   );

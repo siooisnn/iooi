@@ -2,6 +2,9 @@
 
 import { useEffect } from "react";
 import { paintBrowserChrome } from "../ThemeProvider";
+import { LetterBud, LetterForgetMeNot, LetterLeaf, LetterOpenRose } from "./LetterFlowers";
+
+export { LetterPaperBloom } from "./LetterFlowers";
 
 /* Shared pieces of the white love letter's chat pages. */
 
@@ -137,73 +140,6 @@ export function LetterRoomBud() {
       <circle className="letter-art-seed" cx="20" cy="22" r="1" />
       <circle className="letter-art-seed" cx="86" cy="40" r=".9" />
       <circle className="letter-art-seed" cx="100" cy="24" r=".8" />
-    </svg>
-  );
-}
-
-type Spot = { x: number; y: number; turn?: number; size?: number };
-
-function place({ x, y, turn = 0, size = 1 }: Spot) {
-  return `translate(${x} ${y}) rotate(${turn}) scale(${size})`;
-}
-
-function LetterLeaf(spot: Spot) {
-  return (
-    <g transform={place(spot)}>
-      <path className="letter-art-leaf" d="M0 0 C 3 -4.6, 10 -5, 15 0 C 10 4.4, 3 4.2, 0 0 Z" />
-      <path className="letter-art-vein" d="M1.2 0 C 5.5 -.5, 10 -.5, 13.6 0" />
-    </g>
-  );
-}
-
-function LetterBud(spot: Spot) {
-  return (
-    <g transform={place(spot)}>
-      <path className="letter-art-petal" d="M0 0 C -4.8 -3, -4.6 -10.5, 0 -13.5 C 4.6 -10.5, 4.8 -3, 0 0 Z" />
-      <path className="letter-art-petal letter-art-cup" d="M0 -1 C 2.6 -3.4, 3 -8, .6 -11.6 C 2.8 -8, 2 -3.6, 0 -1 Z" />
-      <path className="letter-art-sepal" d="M0 0 C -3 -2, -4.2 -5, -4 -8 M0 0 C 3 -2, 4.2 -5, 4 -8 M0 0 C 0 -2, -.6 -4, -1.6 -5.4" />
-    </g>
-  );
-}
-
-function LetterOpenRose(spot: Spot) {
-  return (
-    <g transform={place(spot)}>
-      <path className="letter-art-petal" d="M0 -11 C 5 -12.4, 10.4 -8.4, 10.8 -3 C 13 1.4, 10 8.4, 5 9.8 C 1.6 12.4, -4.4 12, -6.4 9 C -11 8, -12.8 2, -10.2 -2 C -11 -8, -5.4 -12, 0 -11 Z" />
-      <path className="letter-art-fold" d="M-10.2 -2 C -6.4 -1, -5.4 3.6, -6.4 9 M10.8 -3 C 7.4 -1.6, 6.4 2.4, 5 9.8 M0 -11 C -1.4 -8.6, -.6 -7.4, 1.6 -7" />
-      <path className="letter-art-petal letter-art-cup" d="M-6.6 -1 C -7 -6, -2 -8.6, 2.6 -7.2 C 7.2 -6, 8.2 -1, 6.6 2.6 C 5 6.6, 0 7.6, -3 6.2 C -6 5, -7 2, -6.6 -1 Z" />
-      <path className="letter-art-curl" d="M0 -.5 C 2 -2, 3.6 .5, 1.6 2 C -1 3.6, -3.6 1, -2.6 -1.8 C -1.6 -4.6, 2.6 -4.8, 4.2 -2.4" />
-    </g>
-  );
-}
-
-function LetterForgetMeNot({ x, y, size = 1 }: Spot) {
-  return (
-    <g className="letter-art-forget" transform={`translate(${x} ${y}) scale(${size})`}>
-      {[0, 72, 144, 216, 288].map((turn) => <circle key={turn} cx="0" cy="-2.1" r="1.7" transform={`rotate(${turn})`} />)}
-      <circle className="letter-art-forget-eye" cx="0" cy="0" r=".9" />
-    </g>
-  );
-}
-
-/** A large, very faint rose pressed into the paper behind the words. It stays
-    put while the letter scrolls. */
-export function LetterPaperBloom() {
-  return (
-    <svg className="letter-bloom" viewBox="0 0 120 140" aria-hidden="true">
-      <path className="letter-art-stem" d="M118 136 C 104 120, 92 104, 80 86 C 72 74, 66 64, 64 52" />
-      <path className="letter-art-stem" d="M84 92 C 70 90, 52 84, 38 70 C 30 62, 26 50, 28 38" />
-      <path className="letter-art-stem letter-art-fine" d="M98 112 C 106 104, 112 100, 118 100" />
-      <LetterLeaf x={88} y={98} turn={-150} size={2.2} />
-      <LetterLeaf x={98} y={112} turn={-30} size={1.9} />
-      <LetterLeaf x={58} y={80} turn={-170} size={2} />
-      <LetterLeaf x={74} y={74} turn={-70} size={1.8} />
-      <LetterLeaf x={34} y={58} turn={-120} size={1.6} />
-      <LetterOpenRose x={64} y={46} size={2.6} />
-      <LetterBud x={28} y={38} turn={-24} size={2} />
-      <LetterForgetMeNot x={92} y={70} size={2.2} />
-      <LetterForgetMeNot x={102} y={82} size={1.6} />
-      <LetterForgetMeNot x={44} y={96} size={1.8} />
     </svg>
   );
 }

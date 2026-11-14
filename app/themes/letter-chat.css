@@ -4,9 +4,11 @@
    对话·正文: a sheet that keeps being written on. Her words lie on the paper,
    his own lines rest on the palest pink. Flowers stay in the margins: a
    spray under the title, sprigs on the date rules and the composer, one
-   faint rose pressed into the paper; never across the words. */
+   faint rose pressed into the paper; never across the words. The list
+   (and the home page) share the same flowers from LetterFlowers.tsx. */
 
 .lc-list,
+.lh-home,
 :root[data-theme="letter"] .chat-container[data-chat-ui="letter"] {
   --lt-paper: #fbf8f3;
   --lt-ink: #33405a;
@@ -42,6 +44,8 @@
 :where(.lc-list) button { font: inherit; color: inherit; }
 
 .lc-scroll {
+  position: relative;
+  z-index: 1;
   height: 100%;
   overflow-x: hidden;
   overflow-y: auto;
@@ -100,15 +104,6 @@
   overflow: visible;
   pointer-events: none;
 }
-.lc-vine path { vector-effect: non-scaling-stroke; }
-.lc-vine-stem { fill: none; stroke: #9fb0c5; stroke-width: 1; stroke-linecap: round; }
-.lc-vine-tendril { stroke-width: .8; }
-.lc-vine-leaf { fill: #e8eef5; stroke: #9fb0c5; stroke-width: .8; }
-.lc-vine-vein { fill: none; stroke: #b6c4d4; stroke-width: .6; }
-.lc-vine-petal { fill: var(--lt-blush); stroke: var(--lt-rose); stroke-width: .8; }
-.lc-vine-cup { fill: #f2d3db; }
-.lc-vine-sepal { fill: none; stroke: #8fa3ba; stroke-width: .8; stroke-linecap: round; }
-.lc-vine-curl { fill: none; stroke: var(--lt-rose); stroke-width: .7; stroke-linecap: round; }
 
 .lc-title {
   position: relative;
@@ -237,7 +232,8 @@
   gap: 12px;
   padding-bottom: 4px;
 }
-.lc-letters-head h2 { margin: 0; color: var(--lt-rose); font: 400 28px/1.1 var(--lt-script); }
+.lc-letters-head h2 { display: inline-flex; align-items: center; gap: 6px; margin: 0; color: var(--lt-rose); font: 400 28px/1.1 var(--lt-script); }
+.lc-head-posy { flex: none; width: 34px; height: 21px; overflow: visible; transform: translateY(-3px) rotate(-6deg); }
 .lc-letters-head span { color: var(--lt-ink-faint); font-size: 12px; font-style: italic; font-variant-numeric: tabular-nums; letter-spacing: .06em; }
 
 .lc-rows { display: flex; flex-direction: column; }
@@ -404,13 +400,9 @@
 .lc-unfold { padding: 26px 0 6px; }
 .lc-unfold-script { color: var(--lt-rose); font: 26px/1.1 var(--lt-script); }
 .lc-unfold-line { color: var(--lt-ink-faint); font: 12px/1.5 var(--lt-cjk); letter-spacing: .1em; }
-.lc-unfold::before {
-  content: "";
-  width: 34px;
-  height: 1px;
-  margin-bottom: 8px;
-  background: var(--lt-gold);
-}
+/* A gold rule with a rosebud in the middle marks the fold, or the end. */
+.lc-fold-sprig { display: block; flex: none; width: 88px; height: 20px; margin-bottom: 4px; overflow: visible; }
+.lc-end-sprig { margin: 26px auto 0; opacity: .9; }
 .lc-refold {
   padding: 24px 0 6px;
   color: var(--lt-ink-faint);
@@ -545,6 +537,7 @@
 .letter-art-forget circle { fill: #dde6f1; stroke: #93a7bf; stroke-width: .45; }
 .letter-art-forget .letter-art-forget-eye { fill: var(--lt-gold); stroke: none; }
 .letter-art-seed { fill: var(--lt-gold); opacity: .75; }
+.letter-art-gold { fill: none; stroke: var(--lt-gold); stroke-width: .8; stroke-linecap: round; opacity: .9; }
 
 /* One large rose pressed into the paper, so faint it reads as a watermark.
    It belongs to the sheet, not the text, and does not scroll. */
@@ -560,6 +553,20 @@
   pointer-events: none;
 }
 .letter-bloom :is(path, circle) { vector-effect: non-scaling-stroke; }
+/* The same pressed rose on the home page (bottom left, turned the other
+   way, so it faces the signature) and in the list (bottom right). */
+.letter-bloom-home {
+  right: auto;
+  left: -40px;
+  bottom: calc(env(safe-area-inset-bottom) + 18px);
+  opacity: .2;
+  transform: scaleX(-1);
+}
+.letter-bloom-list {
+  right: -38px;
+  bottom: calc(env(safe-area-inset-bottom) + 22px);
+  opacity: .2;
+}
 
 /* The page itself. */
 :root[data-theme="letter"] .chat-container[data-chat-ui="letter"] > .chat-messages {

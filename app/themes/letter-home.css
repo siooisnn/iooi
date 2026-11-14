@@ -30,6 +30,8 @@
 }
 
 .lh-scroll {
+  position: relative;
+  z-index: 1;
   height: 100%;
   overflow-x: hidden;
   overflow-y: auto;
@@ -57,7 +59,8 @@
   gap: 12px;
   min-height: 34px;
 }
-.lh-brand { color: var(--lh-rose); font: 26px/1 var(--lh-script); }
+.lh-brand { display: inline-flex; align-items: flex-end; gap: 2px; color: var(--lh-rose); font: 26px/1 var(--lh-script); }
+.lh-brand-posy { width: 30px; height: 18px; overflow: visible; transform: translateY(-2px) rotate(-10deg); }
 .lh-dateline { color: var(--lh-ink-faint); font: italic 11px/1.4 var(--lh-serif); letter-spacing: .06em; }
 
 /* The first sentence. */
@@ -78,20 +81,12 @@
   letter-spacing: .14em;
 }
 
-/* The rose sprig: long and leaning, never mirrored. */
-.lh-sprig { position: absolute; top: -34px; right: -2px; width: 58px; height: auto; transform: rotate(7deg); transform-origin: 50% 100%; pointer-events: none; }
-.lh-sprig path { stroke-linecap: round; stroke-linejoin: round; }
-.lh-sprig-stem { fill: none; stroke: #9fb1c6; stroke-width: .9; }
-.lh-sprig-leaf { fill: #e3ebf3; stroke: #a9b9cc; stroke-width: .7; }
-.lh-sprig-vein { fill: none; stroke: #b8c6d6; stroke-width: .5; }
-.lh-sprig-petal { fill: #f7e3e8; stroke: #d6a9b4; stroke-width: .7; }
-.lh-sprig-cup { fill: #f1d2da; }
-.lh-sprig-curl { fill: none; stroke: #c9919f; stroke-width: .6; }
-.lh-sprig-sepal { fill: none; stroke: #9fb1c6; stroke-width: .6; }
+/* The rose spray: long and leaning, never mirrored. */
+.lh-sprig { position: absolute; top: -44px; right: -10px; width: 74px; height: auto; overflow: visible; transform: rotate(7deg); transform-origin: 50% 100%; pointer-events: none; }
 
 /* A line leaves the title and leads the eye down to the days. */
 .lh-flow { position: relative; z-index: 0; display: block; width: 92%; height: auto; margin: 4px 0 10px; overflow: visible; pointer-events: none; }
-.lh-flow path {
+.lh-flow-line {
   fill: none;
   stroke: var(--lh-mist);
   stroke-width: .9;
@@ -101,7 +96,7 @@
   stroke-dashoffset: 0;
   animation: lh-draw 2.4s .5s cubic-bezier(.45, .1, .25, 1) both;
 }
-.lh-flow circle { fill: var(--lh-blush); stroke: #d3a5b0; stroke-width: .8; animation: lh-unfold .8s 2.6s both; }
+.lh-flow-posy { animation: lh-unfold .8s 2.6s both; }
 
 /* The pause in the letter: the days carry it, the rest whispers. */
 .lh-together { padding-right: 4%; text-align: right; }
@@ -143,7 +138,12 @@
 .lh-clock i { margin: 0 7px; color: var(--lh-gold); font-style: normal; }
 .lh-still { margin-top: 12px; color: #8794aa; font: 25px/1.3 var(--lh-script); }
 
-.lh-rule { display: block; width: 34px; height: 1px; margin: 48px 0 42px; background: var(--lh-gold); opacity: .75; }
+/* The pauses: a short gold rule that ends in leaves and a rosebud. The last
+   one answers from the right, facing the closing. */
+.lh-rule { display: block; width: 74px; height: 22px; margin: 38px 0 32px; }
+.lh-rule svg { display: block; width: 100%; height: 100%; overflow: visible; }
+.lh-rule-closing { margin-left: auto; }
+.lh-rule-closing svg { transform: scaleX(-1); }
 
 /* The body: each entry is a paragraph of the letter. */
 .lh-body { position: relative; }
@@ -250,7 +250,10 @@
   font: italic 15px/1.4 var(--lh-serif);
 }
 .lh-signature i { color: var(--lh-gold); font-family: var(--lh-script); font-size: 20px; font-style: normal; }
-.lh-seal { width: 34px; height: 34px; margin-left: 6px; transform: rotate(-10deg); filter: drop-shadow(0 2px 2px #b47f8c33); }
+/* The seal is pressed over a few dried flowers that fan out beneath it. */
+.lh-seal-wrap { position: relative; display: inline-flex; margin-left: 10px; }
+.lh-seal-sprig { position: absolute; left: 50%; top: 50%; width: 54px; height: auto; overflow: visible; transform: translate(-50%, -50%) rotate(-12deg); pointer-events: none; }
+.lh-seal { position: relative; width: 34px; height: 34px; transform: rotate(-10deg); filter: drop-shadow(0 2px 2px #b47f8c33); }
 .lh-seal-wax { fill: #dcaab5; }
 .lh-seal-ring { fill: none; stroke: #f5e2e6; stroke-width: .9; }
 .lh-seal text { fill: #fdf3f5; font: 17px var(--lh-script); }

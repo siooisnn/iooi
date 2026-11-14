@@ -9,11 +9,13 @@ import { CODE_PROJECT_LABELS, sessionWorkProject } from "../../lib/code-projects
 import { getLatestSessionMessage, getSessionPreview, getSessionStamp, latestPrivateSession, listedPrivateSessions, sortByStamp } from "../../lib/chat-sessions";
 import { CHAT_LIST_TABS } from "../ChatListView";
 import { useLetterChrome } from "./LetterArt";
+import { LetterFoldSprig, LetterListVine, LetterPaperBloom, LetterPosy } from "./LetterFlowers";
 
 /* The white love-letter chat list: the table of contents to the home
    page's preface. The page itself is composed loosely (title to the left,
-   a vine reaching in from the right, the search a blank line on the paper),
-   but the letters underneath keep one calm reading order. Only the newest
+   a climbing rose reaching in from the right, the search a blank line on
+   the paper, one faint rose pressed into the corner), but the letters
+   underneath keep one calm reading order. Only the newest
    ten are laid out; the rest stay folded until she asks for them. */
 
 const PAGE_SIZE = 10;
@@ -149,6 +151,7 @@ export function LetterChatList({
 
   return (
     <section className="lc-list" aria-label="聊天列表" onClick={() => { if (menuFor) setMenuFor(null); }}>
+      <LetterPaperBloom className="letter-bloom-list" />
       <div className="lc-scroll">
         <div className="lc-sheet">
           <header className="lc-top">
@@ -163,7 +166,7 @@ export function LetterChatList({
           </header>
 
           <section className="lc-masthead">
-            <Vine />
+            <LetterListVine className="lc-vine" />
             <h1 className="lc-title"><span>Our</span><span className="lc-title-turn">letters</span></h1>
             <button type="button" className="lc-pinned" onClick={editPinnedLine} title="点一下改写">
               {pinnedLine || "……"}
@@ -203,7 +206,7 @@ export function LetterChatList({
 
           <section className="lc-letters" aria-label={copy.heading}>
             <div className="lc-letters-head">
-              <h2>{copy.heading}</h2>
+              <h2>{copy.heading}<LetterPosy className="lc-head-posy" /></h2>
               {listTab !== "contacts" && found.length > 0 && <span>{visible.length} / {found.length}</span>}
             </div>
 
@@ -277,14 +280,16 @@ export function LetterChatList({
 
                 {folded > 0 ? (
                   <button type="button" className="lc-unfold" onClick={() => setShown((count) => count + PAGE_SIZE)}>
+                    <LetterFoldSprig className="lc-fold-sprig" />
                     <span className="lc-unfold-script">More letters to unfold…</span>
                     <span className="lc-unfold-line">还有 {folded} 封{listTab === "groups" ? "围坐的信" : "来信"}，轻轻收在这里</span>
                   </button>
-                ) : shown > PAGE_SIZE && found.length > PAGE_SIZE && (
+                ) : shown > PAGE_SIZE && found.length > PAGE_SIZE ? (
                   <button type="button" className="lc-refold" onClick={() => setShown(PAGE_SIZE)}>
+                    <LetterFoldSprig className="lc-fold-sprig" />
                     把它们重新折好
                   </button>
-                )}
+                ) : found.length > 0 && <LetterFoldSprig className="lc-fold-sprig lc-end-sprig" />}
               </>
             )}
           </section>
@@ -321,30 +326,5 @@ function GroupPhotos({ avatars }: { avatars: string[] }) {
         </span>
       ))}
     </span>
-  );
-}
-
-/** A climbing rose stem that reaches into the page from the right edge
-    and curls back under the title. */
-function Vine() {
-  return (
-    <svg className="lc-vine" viewBox="0 0 150 132" aria-hidden="true">
-      <path className="lc-vine-stem" d="M152 6 C 128 10, 116 26, 112 44 C 108 64, 92 74, 72 72 C 52 70, 44 84, 50 98 C 56 110, 72 112, 80 102" />
-      <path className="lc-vine-stem" d="M113 40 C 100 34, 90 22, 92 8" />
-      <path className="lc-vine-stem lc-vine-tendril" d="M80 102 C 86 94, 80 88, 75 92 C 71 95, 74 100, 77 99" />
-      <path className="lc-vine-leaf" d="M124 26 C 134 18, 146 20, 150 26 C 142 33, 131 33, 124 26 Z" />
-      <path className="lc-vine-leaf" d="M104 62 C 104 50, 112 44, 120 44 C 120 54, 113 61, 104 62 Z" />
-      <path className="lc-vine-leaf" d="M62 72 C 52 64, 40 66, 36 72 C 44 78, 55 78, 62 72 Z" />
-      <path className="lc-vine-vein" d="M126 26 C 134 25, 141 25, 147 26 M62 72 C 54 71, 46 71, 39 72" />
-      <g transform="translate(92 9) rotate(-14)">
-        <path className="lc-vine-petal" d="M0 0 C -4.5 -3, -4.5 -10, 0 -14 C 4.5 -10, 4.5 -3, 0 0 Z" />
-        <path className="lc-vine-sepal" d="M0 0 C -3 -2, -4 -5, -4 -8 M0 0 C 3 -2, 4 -5, 4 -8" />
-      </g>
-      <g transform="translate(52 100) rotate(10)">
-        <path className="lc-vine-petal" d="M-9 2 C -10 -5, -5 -10, 0 -9 C 6 -10, 10 -5, 9 1 C 8 7, 3 9, -1 9 C -5 9, -8 6, -9 2 Z" />
-        <path className="lc-vine-petal lc-vine-cup" d="M-5 1 C -5 -3.5, -1 -6, 3 -4.5 C 6 -3, 6 1.5, 3 3 C 0 4.5, -4 4, -5 1 Z" />
-        <path className="lc-vine-curl" d="M0 -.6 C 1.6 -1.8, 2.6 0, 1.2 1.2 C -.6 2.3, -2.4 .5, -1.5 -1.5" />
-      </g>
-    </svg>
   );
 }
