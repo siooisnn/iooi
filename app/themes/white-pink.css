@@ -1,10 +1,10 @@
 /* White Peach is the app appearance. */
-:root[data-theme="white-pink"] .home-body.moon-home {
+:root:is([data-theme="white-pink"], [data-theme="letter"]) .home-body.moon-home {
   background: var(--page-gray);
   padding: 4px 20px 24px;
   gap: 4px;
 }
-:root[data-theme="white-pink"] {
+:root:is([data-theme="white-pink"], [data-theme="letter"]) {
   color-scheme: light;
   /* One gray behind every page, from the desktop to the message list; white
      cards sit on it with no outline, so the gray alone sets them apart. */
@@ -63,15 +63,15 @@
 }
 
 /* Her bubble's text colour, in classic rooms. */
-:root[data-theme="white-pink"] .chat-container:not([data-chat-ui="glass"]) .msg-bubble-user:not(.msg-bubble-summer-utility) {
+:root:is([data-theme="white-pink"], [data-theme="letter"]) .chat-container:not([data-chat-ui="glass"]) .msg-bubble-user:not(.msg-bubble-summer-utility) {
   color: var(--brand-bubble-ink);
 }
-:root[data-theme="white-pink"] .chat-container .msg-bubble-user .chat-message-link {
+:root:is([data-theme="white-pink"], [data-theme="letter"]) .chat-container .msg-bubble-user .chat-message-link {
   color: inherit;
   text-decoration-color: currentColor;
 }
 
-:root[data-theme="white-pink"] .settings-body {
+:root:is([data-theme="white-pink"], [data-theme="letter"]) .settings-body {
   /* Status values (通道, 截断 否, summer…) read like the other values. */
   --theme-success: var(--theme-muted);
   background: var(--page-gray);
@@ -80,39 +80,39 @@
 
 /* Settings, like Summer: every block sits in a white card, so gray only shows
    in the gaps between cards. No outline: the gray is enough. */
-:root[data-theme="white-pink"] .settings-body .settings-group {
+:root:is([data-theme="white-pink"], [data-theme="letter"]) .settings-body .settings-group {
   padding: 16px;
   border: 0;
   border-radius: 16px;
   background: #ffffff;
 }
 
-:root[data-theme="white-pink"] .settings-body .settings-menu {
+:root:is([data-theme="white-pink"], [data-theme="letter"]) .settings-body .settings-menu {
   padding: 0;
 }
 
-:root[data-theme="white-pink"] .chat-entry-avatar,
-:root[data-theme="white-pink"] .msg-bubble-ai {
+:root:is([data-theme="white-pink"], [data-theme="letter"]) .chat-entry-avatar,
+:root:is([data-theme="white-pink"], [data-theme="letter"]) .msg-bubble-ai {
   border-color: var(--border-soft);
 }
 
-:root[data-theme="white-pink"] .chat-entry-avatar {
+:root:is([data-theme="white-pink"], [data-theme="letter"]) .chat-entry-avatar {
   background: #ececf0;
 }
 
-:root[data-theme="white-pink"] .chat-entry-pinned-line,
-:root[data-theme="white-pink"] .group-session-switcher {
+:root:is([data-theme="white-pink"], [data-theme="letter"]) .chat-entry-pinned-line,
+:root:is([data-theme="white-pink"], [data-theme="letter"]) .group-session-switcher {
   border-bottom-color: var(--border-soft);
 }
 
-:root[data-theme="white-pink"] .chat-entry-contact::after,
-:root[data-theme="white-pink"] .chat-entry-group::after,
-:root[data-theme="white-pink"] .chat-swipe-shell::after {
+:root:is([data-theme="white-pink"], [data-theme="letter"]) .chat-entry-contact::after,
+:root:is([data-theme="white-pink"], [data-theme="letter"]) .chat-entry-group::after,
+:root:is([data-theme="white-pink"], [data-theme="letter"]) .chat-swipe-shell::after {
   background: var(--border-soft);
 }
 
 /* Keep the composer quiet; only its send action keeps the theme colour. */
-:root[data-theme="white-pink"] .chat-footer {
+:root:is([data-theme="white-pink"], [data-theme="letter"]) .chat-footer {
   --accent: #696969;
   --accent-text: #515151;
   --accent-light: #ababab;
@@ -122,16 +122,16 @@
   --theme-accent-rgb: 105, 105, 105;
 }
 
-:root[data-theme="white-pink"] .chat-footer .claude-usage-pill {
+:root:is([data-theme="white-pink"], [data-theme="letter"]) .chat-footer .claude-usage-pill {
   color: var(--text-secondary);
   border-color: var(--border-soft);
 }
 
-:root[data-theme="white-pink"] .chat-footer .claude-usage-row b {
+:root:is([data-theme="white-pink"], [data-theme="letter"]) .chat-footer .claude-usage-row b {
   color: var(--text-primary);
 }
 
-:root[data-theme="white-pink"] .chat-footer .send-btn {
+:root:is([data-theme="white-pink"], [data-theme="letter"]) .chat-footer .send-btn {
   --theme-accent: var(--brand);
   --theme-accent-rgb: var(--brand-rgb);
   --accent-glow: rgba(var(--brand-rgb), 0.12);
@@ -144,22 +144,22 @@
    The blog is its own 2007 room (rainbow title text is a background-clip
    gradient, the bar is a dotted gradient), so it keeps its effects. :where()
    adds no specificity, so every other rule wins or loses exactly as before. */
-:root[data-theme="white-pink"] body *:where(:not(.blog-overlay, .blog-overlay *)),
-:root[data-theme="white-pink"] body *:where(:not(.blog-overlay, .blog-overlay *))::before,
-:root[data-theme="white-pink"] body *:where(:not(.blog-overlay, .blog-overlay *))::after,
-:root[data-theme="white-pink"] .chat-footer * {
+:root:is([data-theme="white-pink"], [data-theme="letter"]) body *:where(:not(.blog-overlay, .blog-overlay *)),
+:root:is([data-theme="white-pink"], [data-theme="letter"]) body *:where(:not(.blog-overlay, .blog-overlay *))::before,
+:root:is([data-theme="white-pink"], [data-theme="letter"]) body *:where(:not(.blog-overlay, .blog-overlay *))::after,
+:root:is([data-theme="white-pink"], [data-theme="letter"]) .chat-footer * {
   background-image: none;
   box-shadow: none;
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
 }
 
-:root[data-theme="white-pink"] .app-bg {
+:root:is([data-theme="white-pink"], [data-theme="letter"]) .app-bg {
   background-color: var(--bg-warm);
 }
 
 /* All four main tabs and chat rooms share a 48px title bar (+ safe area). */
-:root[data-theme="white-pink"] .chat-header {
+:root:is([data-theme="white-pink"], [data-theme="letter"]) .chat-header {
   position: sticky;
   top: 0;
   padding: calc(7px + env(safe-area-inset-top)) 14px 8px;
@@ -167,47 +167,47 @@
   background: var(--chrome-bg);
 }
 
-:root[data-theme="white-pink"] .chat-header .header-top {
+:root:is([data-theme="white-pink"], [data-theme="letter"]) .chat-header .header-top {
   height: 32px;
 }
 
-:root[data-theme="white-pink"] .chat-header :is(.header-icon-btn, .header-icon-spacer, .header-dot) {
+:root:is([data-theme="white-pink"], [data-theme="letter"]) .chat-header :is(.header-icon-btn, .header-icon-spacer, .header-dot) {
   width: 32px;
   height: 32px;
   flex-shrink: 0;
 }
 
-:root[data-theme="white-pink"] .chat-header .header-title {
+:root:is([data-theme="white-pink"], [data-theme="letter"]) .chat-header .header-title {
   line-height: 32px;
 }
 
-:root[data-theme="white-pink"] .compact-section-header .header-subtitle {
+:root:is([data-theme="white-pink"], [data-theme="letter"]) .compact-section-header .header-subtitle {
   display: none;
 }
 
 /* Every title bar drops 18px below iOS's status-bar blur.
    min() limits the extra space to devices with a top safe area, so desktop is unchanged. */
-:root[data-theme="white-pink"] .chat-header {
+:root:is([data-theme="white-pink"], [data-theme="letter"]) .chat-header {
   padding-top: calc(7px + env(safe-area-inset-top) + min(18px, env(safe-area-inset-top)));
 }
 
-:root[data-theme="white-pink"] :is(.chat-room-back, .chat-room-more) {
+:root:is([data-theme="white-pink"], [data-theme="letter"]) :is(.chat-room-back, .chat-room-more) {
   border-color: var(--border-soft);
   background: #ffffff;
 }
 
-:root[data-theme="white-pink"] :is(.bottom-nav, .chat-footer, .wall-header) {
+:root:is([data-theme="white-pink"], [data-theme="letter"]) :is(.bottom-nav, .chat-footer, .wall-header) {
   background: var(--chrome-bg);
 }
 
-:root[data-theme="white-pink"] .chat-footer {
+:root:is([data-theme="white-pink"], [data-theme="letter"]) .chat-footer {
   padding-bottom: calc(4px + env(safe-area-inset-bottom) / 2);
 }
 
 /* Classic rooms: lift the composer bar off the gray message list with a
    slightly lighter gray, still dark enough for the borderless white input to
    read clearly, plus the same hairline the title bar has underneath. */
-:root[data-theme="white-pink"] .chat-container:not([data-chat-ui="glass"]) .chat-footer {
+:root:is([data-theme="white-pink"], [data-theme="letter"]) .chat-container:not([data-chat-ui="glass"]) .chat-footer {
   background: #f2f2f2;
   border-top: 1px solid var(--glass-border);
   /* Same space under the row as the bottom nav leaves under its tab labels
@@ -217,104 +217,104 @@
 
 /* Classic single rooms are as tall as the bottom nav: 1px line + 10px + 37px row
    matches the nav's 1px line + 4px + 6px above its 37px icon-and-label stack. */
-:root[data-theme="white-pink"] .chat-container:not([data-chat-ui="glass"]) .single-chat-footer {
+:root:is([data-theme="white-pink"], [data-theme="letter"]) .chat-container:not([data-chat-ui="glass"]) .single-chat-footer {
   padding-top: 10px;
 }
 
-:root[data-theme="white-pink"] .bottom-nav {
+:root:is([data-theme="white-pink"], [data-theme="letter"]) .bottom-nav {
   /* 6px higher than before (the gap between a tab label and its pink bar),
      so the iPhone home indicator doesn't crowd the tabs. */
   padding-bottom: max(4px, calc(env(safe-area-inset-bottom) - 14px));
 }
 
 /* Tabs rest in gray; the current tab's icon fills in and its label turns black. */
-:root[data-theme="white-pink"] .nav-btn,
-:root[data-theme="white-pink"] .nav-btn:hover {
+:root:is([data-theme="white-pink"], [data-theme="letter"]) .nav-btn,
+:root:is([data-theme="white-pink"], [data-theme="letter"]) .nav-btn:hover {
   color: #a2a2a2;
 }
 
 /* Touch browsers can retain :hover after a tap; it must not dim the active tab. */
-:root[data-theme="white-pink"] .nav-btn[aria-current="page"] {
+:root:is([data-theme="white-pink"], [data-theme="letter"]) .nav-btn[aria-current="page"] {
   color: var(--text-primary);
 }
 
-:root[data-theme="white-pink"] .chat-messages {
+:root:is([data-theme="white-pink"], [data-theme="letter"]) .chat-messages {
   background: var(--conversation-bg);
 }
 
 /* Classic rooms: the page gray behind the messages so the pure-white AI
    bubbles stand out, and the list opens into a room without a colour jump. */
-:root[data-theme="white-pink"] .chat-container:not([data-chat-ui="glass"]) :is(.chat-messages, .chat-room-header) {
+:root:is([data-theme="white-pink"], [data-theme="letter"]) .chat-container:not([data-chat-ui="glass"]) :is(.chat-messages, .chat-room-header) {
   background: var(--page-gray);
 }
 
-:root[data-theme="white-pink"] .msg-bubble-ai {
+:root:is([data-theme="white-pink"], [data-theme="letter"]) .msg-bubble-ai {
   border-color: transparent;
 }
 
-:root[data-theme="white-pink"] .chat-entry-pinned-line {
+:root:is([data-theme="white-pink"], [data-theme="letter"]) .chat-entry-pinned-line {
   margin-bottom: 4px;
   padding-bottom: 10px;
 }
 
-:root[data-theme="white-pink"] :is(.chat-entry-pinned, .chat-entry-item, .chat-entry-subscribe) {
+:root:is([data-theme="white-pink"], [data-theme="letter"]) :is(.chat-entry-pinned, .chat-entry-item, .chat-entry-subscribe) {
   padding-top: 8px;
   padding-bottom: 8px;
 }
 
-:root[data-theme="white-pink"] .app-bg :is(.chat-entry-pinned, .chat-entry-item, .chat-entry-subscribe) {
+:root:is([data-theme="white-pink"], [data-theme="letter"]) .app-bg :is(.chat-entry-pinned, .chat-entry-item, .chat-entry-subscribe) {
   padding-top: 13px;
   padding-bottom: 13px;
 }
 
-:root[data-theme="white-pink"] .chat-entry-history {
+:root:is([data-theme="white-pink"], [data-theme="letter"]) .chat-entry-history {
   gap: 0;
 }
 
-:root[data-theme="white-pink"] .chat-entry-name {
+:root:is([data-theme="white-pink"], [data-theme="letter"]) .chat-entry-name {
   color: #1a1a1a;
   font-weight: 400;
   -webkit-text-stroke: 0.15px currentColor;
 }
 
-:root[data-theme="white-pink"] .chat-entry-side {
+:root:is([data-theme="white-pink"], [data-theme="letter"]) .chat-entry-side {
   top: 8px;
   bottom: 8px;
 }
 
-:root[data-theme="white-pink"] .app-bg .chat-entry-side {
+:root:is([data-theme="white-pink"], [data-theme="letter"]) .app-bg .chat-entry-side {
   top: 13px;
   bottom: 13px;
 }
 
-:root[data-theme="white-pink"] .chat-entry-tag {
+:root:is([data-theme="white-pink"], [data-theme="letter"]) .chat-entry-tag {
   color: var(--text-light);
 }
 
-:root[data-theme="white-pink"] .chat-entry-group .chat-entry-preview {
+:root:is([data-theme="white-pink"], [data-theme="letter"]) .chat-entry-group .chat-entry-preview {
   padding-right: 36px;
 }
 
-:root[data-theme="white-pink"] .chat-entry-preview {
+:root:is([data-theme="white-pink"], [data-theme="letter"]) .chat-entry-preview {
   color: #818181;
   font-weight: 500;
 }
 
 /* Muted rose metadata, for secondary text. */
-:root[data-theme="white-pink"] :is(.single-room-header .chat-room-status, .group-speaker-meta) {
+:root:is([data-theme="white-pink"], [data-theme="letter"]) :is(.single-room-header .chat-room-status, .group-speaker-meta) {
   color: #848484;
   font-weight: 400;
 }
 
 /* 经典 rooms: the line under the room name and group speaker names are the
    same quiet gray as the message times. */
-:root[data-theme="white-pink"] .chat-container:not([data-chat-ui="glass"]) :is(.chat-room-header .chat-room-status, .group-speaker-meta) {
+:root:is([data-theme="white-pink"], [data-theme="letter"]) .chat-container:not([data-chat-ui="glass"]) :is(.chat-room-header .chat-room-status, .group-speaker-meta) {
   color: var(--text-light);
 }
 
 /* 经典 group: every name · time line uses the single room's time line type
    (globals.css .date-separator-text): regular weight, 1px letter spacing. */
-:root[data-theme="white-pink"] .chat-container:not([data-chat-ui="glass"])[data-chat-view="group"] .msg-time {
+:root:is([data-theme="white-pink"], [data-theme="letter"]) .chat-container:not([data-chat-ui="glass"])[data-chat-view="group"] .msg-time {
   color: var(--text-light);
   font-weight: 400;
   letter-spacing: 1px;
@@ -324,11 +324,11 @@
    bar and composer stay solid. Without a photo the list stays the page gray.
    z-index -1 inside the isolated room keeps it under every in-flow piece
    (like the group list under the title), not just the positioned ones. */
-:root[data-theme="white-pink"] .chat-container:not([data-chat-ui="glass"])[data-chat-background="image"] {
+:root:is([data-theme="white-pink"], [data-theme="letter"]) .chat-container:not([data-chat-ui="glass"])[data-chat-background="image"] {
   position: relative;
   isolation: isolate;
 }
-:root[data-theme="white-pink"] .chat-container:not([data-chat-ui="glass"]) .chat-room-background {
+:root:is([data-theme="white-pink"], [data-theme="letter"]) .chat-container:not([data-chat-ui="glass"]) .chat-room-background {
   position: absolute;
   inset: 0;
   z-index: -1;
@@ -338,23 +338,23 @@
   object-position: center;
   pointer-events: none;
 }
-:root[data-theme="white-pink"] .chat-container:not([data-chat-ui="glass"])[data-chat-background="image"] .chat-messages {
+:root:is([data-theme="white-pink"], [data-theme="letter"]) .chat-container:not([data-chat-ui="glass"])[data-chat-background="image"] .chat-messages {
   background: transparent;
 }
 
-:root[data-theme="white-pink"] :is(.home-card, .counter-item, .mini-counter, .letter-card,
+:root:is([data-theme="white-pink"], [data-theme="letter"]) :is(.home-card, .counter-item, .mini-counter, .letter-card,
   .summer-native-toolbar, .summer-layer-card, .summer-memory-card, .summer-memory-group,
   .summer-doc, .summer-writer, .settings-input, .settings-textarea, .model-option, .settings-menu) {
   background-color: var(--theme-surface-soft);
 }
 
-:root[data-theme="white-pink"] .counter-numbers .counter-item {
+:root:is([data-theme="white-pink"], [data-theme="letter"]) .counter-numbers .counter-item {
   border-color: rgba(var(--brand-rgb), 0.3);
   box-shadow: 0 0 0 1px rgba(var(--brand-rgb), 0.12), 0 0 14px rgba(var(--brand-rgb), 0.22);
 }
 
 /* Opaque input and popover surfaces keep the footer crisp when content scrolls. */
-:root[data-theme="white-pink"] :is(.input-wrapper, .attach-btn.attach-btn-separate,
+:root:is([data-theme="white-pink"], [data-theme="letter"]) :is(.input-wrapper, .attach-btn.attach-btn-separate,
   .chat-control-pill, .claude-usage-pill, .chat-config-panel, .claude-usage-popover,
   .group-web-search-panel, .group-mention-row button, .chat-entry-menu, .chat-model-popover,
   .sessions-dropdown, .group-session-switcher) {
@@ -362,40 +362,40 @@
   border-color: var(--border-soft);
 }
 
-:root[data-theme="white-pink"] .input-wrapper:focus-within {
+:root:is([data-theme="white-pink"], [data-theme="letter"]) .input-wrapper:focus-within {
   border-color: #dcdce2;
 }
 
-:root[data-theme="white-pink"] .chat-config-option-active {
+:root:is([data-theme="white-pink"], [data-theme="letter"]) .chat-config-option-active {
   border-color: rgba(var(--brand-rgb), 0.45);
   background-color: rgba(var(--brand-rgb), 0.08);
   color: var(--brand-text);
 }
 
 /* Match the outer canvas used by browser/system bars to the page's title bar. */
-:root[data-theme="white-pink"],
-:root[data-theme="white-pink"] body {
+:root:is([data-theme="white-pink"], [data-theme="letter"]),
+:root:is([data-theme="white-pink"], [data-theme="letter"]) body {
   background-color: var(--chrome-bg);
 }
 
 /* Summer and Settings: white cards on the same gray page as everything else. */
-:root[data-theme="white-pink"]:is([data-page="diary"], [data-page="settings"]) {
+:root:is([data-theme="white-pink"], [data-theme="letter"]):is([data-page="diary"], [data-page="settings"]) {
   --chrome-bg: var(--page-gray);
   --bg-chat: var(--page-gray);
   --theme-surface-soft: #ffffff;
 }
 
 /* No startup overlay. */
-:root[data-theme="white-pink"] .splash {
+:root:is([data-theme="white-pink"], [data-theme="letter"]) .splash {
   display: none;
 }
 
-:root[data-theme="white-pink"] :is(.home-body, .diary-body, .settings-body, .chat-messages) {
+:root:is([data-theme="white-pink"], [data-theme="letter"]) :is(.home-body, .diary-body, .settings-body, .chat-messages) {
   animation: none;
 }
 
 /* ── Chat rooms (single, work mode, group). ── */
-:root[data-theme="white-pink"] .chat-container:not([data-chat-ui="glass"]) :is(.chat-room-back, .chat-room-back:hover) {
+:root:is([data-theme="white-pink"], [data-theme="letter"]) .chat-container:not([data-chat-ui="glass"]) :is(.chat-room-back, .chat-room-back:hover) {
   border-color: transparent;
   background: transparent;
 }
@@ -424,17 +424,17 @@
 .room-header-quota.composer-usage-stale { opacity: .55; }
 
 /* Status / work line sits centred under the name. */
-:root[data-theme="white-pink"] .chat-container:not([data-chat-ui="glass"]) .single-room-header .header-center {
+:root:is([data-theme="white-pink"], [data-theme="letter"]) .chat-container:not([data-chat-ui="glass"]) .single-room-header .header-center {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: 1px;
 }
-:root[data-theme="white-pink"] .chat-container:not([data-chat-ui="glass"]) .single-room-header .chat-room-title {
+:root:is([data-theme="white-pink"], [data-theme="letter"]) .chat-container:not([data-chat-ui="glass"]) .single-room-header .chat-room-title {
   line-height: 19px;
 }
-:root[data-theme="white-pink"] .chat-container:not([data-chat-ui="glass"]) .single-room-header .chat-room-status {
+:root:is([data-theme="white-pink"], [data-theme="letter"]) .chat-container:not([data-chat-ui="glass"]) .single-room-header .chat-room-status {
   /* globals.css gives it align-self: baseline, which a column flexbox treats
      as start, pushing the line to the left edge. */
   align-self: center;
@@ -445,58 +445,58 @@
 }
 
 /* The gear sits at the far left of the input row (left of the paperclip). */
-:root[data-theme="white-pink"] .chat-container:not([data-chat-ui="glass"]) .single-chat-footer .composer-settings-btn {
+:root:is([data-theme="white-pink"], [data-theme="letter"]) .chat-container:not([data-chat-ui="glass"]) .single-chat-footer .composer-settings-btn {
   order: -1;
 }
 
 /* Settings, paperclip and group menu: black ring the size of the send button.
    The 18px icon's stroke-width 2.2 draws 18 / 24 × 2.2 = 1.65px, so the ring
    uses the same 1.65px line. */
-:root[data-theme="white-pink"] .chat-container:not([data-chat-ui="glass"]) .chat-footer .attach-btn.attach-btn-separate {
+:root:is([data-theme="white-pink"], [data-theme="letter"]) .chat-container:not([data-chat-ui="glass"]) .chat-footer .attach-btn.attach-btn-separate {
   border: 1.65px solid var(--text-primary);
   color: var(--text-primary);
 }
-:root[data-theme="white-pink"] .chat-container:not([data-chat-ui="glass"]) .chat-footer .attach-btn.attach-btn-separate svg {
+:root:is([data-theme="white-pink"], [data-theme="letter"]) .chat-container:not([data-chat-ui="glass"]) .chat-footer .attach-btn.attach-btn-separate svg {
   width: 18px;
   height: 18px;
   stroke-width: 2.2;
 }
 
 /* No outline around the input, even while typing. */
-:root[data-theme="white-pink"] .chat-container:not([data-chat-ui="glass"]) .chat-footer .input-wrapper,
-:root[data-theme="white-pink"] .chat-container:not([data-chat-ui="glass"]) .chat-footer .input-wrapper:focus-within {
+:root:is([data-theme="white-pink"], [data-theme="letter"]) .chat-container:not([data-chat-ui="glass"]) .chat-footer .input-wrapper,
+:root:is([data-theme="white-pink"], [data-theme="letter"]) .chat-container:not([data-chat-ui="glass"]) .chat-footer .input-wrapper:focus-within {
   border-color: transparent;
 }
 
 /* The context-window circle is hidden in classic rooms; it still counts. */
-:root[data-theme="white-pink"] .chat-container:not([data-chat-ui="glass"]) .chat-footer .context-usage-control {
+:root:is([data-theme="white-pink"], [data-theme="letter"]) .chat-container:not([data-chat-ui="glass"]) .chat-footer .context-usage-control {
   display: none;
 }
 
 /* Composer row one sixth lower: 44px → 37px. Icons keep their size. */
-:root[data-theme="white-pink"] .chat-container:not([data-chat-ui="glass"]) .chat-footer :is(.attach-btn.attach-btn-separate, .composer-usage-circle) {
+:root:is([data-theme="white-pink"], [data-theme="letter"]) .chat-container:not([data-chat-ui="glass"]) .chat-footer :is(.attach-btn.attach-btn-separate, .composer-usage-circle) {
   width: 37px;
   height: 37px;
   flex: 0 0 37px;
 }
 /* Ringed buttons match the 31px send button. */
-:root[data-theme="white-pink"] .chat-container:not([data-chat-ui="glass"]) .chat-footer .attach-btn.attach-btn-separate {
+:root:is([data-theme="white-pink"], [data-theme="letter"]) .chat-container:not([data-chat-ui="glass"]) .chat-footer .attach-btn.attach-btn-separate {
   width: 31px;
   height: 31px;
   flex: 0 0 31px;
 }
-:root[data-theme="white-pink"] .chat-container:not([data-chat-ui="glass"]) .chat-footer .input-wrapper {
+:root:is([data-theme="white-pink"], [data-theme="letter"]) .chat-container:not([data-chat-ui="glass"]) .chat-footer .input-wrapper {
   padding: 2px 3px 2px 13px;
 }
-:root[data-theme="white-pink"] .chat-container:not([data-chat-ui="glass"]) .chat-footer .chat-input {
+:root:is([data-theme="white-pink"], [data-theme="letter"]) .chat-container:not([data-chat-ui="glass"]) .chat-footer .chat-input {
   min-height: 31px;
   padding: 5px 0;
 }
-:root[data-theme="white-pink"] .chat-container:not([data-chat-ui="glass"]) .chat-footer .send-btn {
+:root:is([data-theme="white-pink"], [data-theme="letter"]) .chat-container:not([data-chat-ui="glass"]) .chat-footer .send-btn {
   width: 31px;
   height: 31px;
 }
-:root[data-theme="white-pink"] .chat-container:not([data-chat-ui="glass"]) .chat-footer .composer-upload-error {
+:root:is([data-theme="white-pink"], [data-theme="letter"]) .chat-container:not([data-chat-ui="glass"]) .chat-footer .composer-upload-error {
   margin-left: 47px;
 }
 
@@ -524,7 +524,7 @@
 
 /* Settings open from the gear beside the input, just above the input row,
    and never reach under the title bar. */
-:root[data-theme="white-pink"] .chat-container:not([data-chat-ui="glass"]) .room-settings-panel {
+:root:is([data-theme="white-pink"], [data-theme="letter"]) .chat-container:not([data-chat-ui="glass"]) .room-settings-panel {
   top: auto;
   /* Footer (1 + 10 + 37 + 8 + bottom inset share) plus a 7px gap. */
   bottom: calc(63px + max(4px, calc(env(safe-area-inset-bottom) - 14px)));
@@ -533,46 +533,46 @@
 }
 
 /* Remaining quota and 刷新 in the theme colour instead of green. */
-:root[data-theme="white-pink"] .chat-container:not([data-chat-ui="glass"]) .claude-usage-row b,
-:root[data-theme="white-pink"] .chat-container:not([data-chat-ui="glass"]) .claude-usage-refresh {
+:root:is([data-theme="white-pink"], [data-theme="letter"]) .chat-container:not([data-chat-ui="glass"]) .claude-usage-row b,
+:root:is([data-theme="white-pink"], [data-theme="letter"]) .chat-container:not([data-chat-ui="glass"]) .claude-usage-refresh {
   color: var(--brand-text);
 }
 
 /* The footer is otherwise grey; switches that are on use the send button's colour. */
-:root[data-theme="white-pink"] .chat-container:not([data-chat-ui="glass"]) .chat-footer .chat-config-switch-on {
+:root:is([data-theme="white-pink"], [data-theme="letter"]) .chat-container:not([data-chat-ui="glass"]) .chat-footer .chat-config-switch-on {
   color: var(--brand-text);
 }
-:root[data-theme="white-pink"] .chat-container:not([data-chat-ui="glass"]) .chat-footer .chat-config-switch-on i,
-:root[data-theme="white-pink"] .chat-container:not([data-chat-ui="glass"]) .group-mention-row .group-web-search-trigger-active::after {
+:root:is([data-theme="white-pink"], [data-theme="letter"]) .chat-container:not([data-chat-ui="glass"]) .chat-footer .chat-config-switch-on i,
+:root:is([data-theme="white-pink"], [data-theme="letter"]) .chat-container:not([data-chat-ui="glass"]) .group-mention-row .group-web-search-trigger-active::after {
   background: var(--brand);
 }
 
 /* The group list under the title shows more rows (its last row opens a new group). */
-:root[data-theme="white-pink"] .chat-container:not([data-chat-ui="glass"]) .group-session-switcher {
+:root:is([data-theme="white-pink"], [data-theme="letter"]) .chat-container:not([data-chat-ui="glass"]) .group-session-switcher {
   max-height: min(480px, 60dvh);
 }
 
 /* Settings rows: no tint on press (iOS keeps :hover after a light tap). */
-:root[data-theme="white-pink"] .settings-menu-row:is(:hover, :focus-visible, :active) {
+:root:is([data-theme="white-pink"], [data-theme="letter"]) .settings-menu-row:is(:hover, :focus-visible, :active) {
   background: transparent;
 }
-:root[data-theme="white-pink"] .settings-menu-row {
+:root:is([data-theme="white-pink"], [data-theme="letter"]) .settings-menu-row {
   -webkit-tap-highlight-color: transparent;
 }
 
 /* 经典 group list under the title: the current group and 新群聊 are gray,
    not the theme colour. */
-:root[data-theme="white-pink"] .chat-container:not([data-chat-ui="glass"]) .group-session-row-active {
+:root:is([data-theme="white-pink"], [data-theme="letter"]) .chat-container:not([data-chat-ui="glass"]) .group-session-row-active {
   background: rgba(var(--theme-shadow-rgb), 0.05);
 }
-:root[data-theme="white-pink"] .chat-container:not([data-chat-ui="glass"]) .group-session-row i {
+:root:is([data-theme="white-pink"], [data-theme="letter"]) .chat-container:not([data-chat-ui="glass"]) .group-session-row i {
   color: var(--text-secondary);
 }
-:root[data-theme="white-pink"] .chat-container:not([data-chat-ui="glass"]) .group-session-create-row {
+:root:is([data-theme="white-pink"], [data-theme="letter"]) .chat-container:not([data-chat-ui="glass"]) .group-session-create-row {
   border-color: rgba(var(--theme-line-rgb), 0.9);
   color: var(--text-secondary);
 }
-:root[data-theme="white-pink"] .chat-container:not([data-chat-ui="glass"]) .group-session-new {
+:root:is([data-theme="white-pink"], [data-theme="letter"]) .chat-container:not([data-chat-ui="glass"]) .group-session-new {
   color: var(--text-secondary);
 }
 
@@ -581,7 +581,7 @@
    switch with a sliding black pill, then white cards on the gray page.
    Like Summer and Settings, the gray shows only between cards, so the cards
    need no outline and the rows inside need no hairlines. */
-:root[data-theme="white-pink"] .chat-list-home {
+:root:is([data-theme="white-pink"], [data-theme="letter"]) .chat-list-home {
   background: var(--page-gray);
 }
 .chat-list-profile-card {
@@ -725,14 +725,14 @@
   right: 14px;
 }
 /* No hairlines between rows; a little less air takes their place. */
-:root[data-theme="white-pink"] .app-bg .chat-list-card :is(.chat-entry-item, .chat-entry-subscribe, .chat-swipe-shell)::after {
+:root:is([data-theme="white-pink"], [data-theme="letter"]) .app-bg .chat-list-card :is(.chat-entry-item, .chat-entry-subscribe, .chat-swipe-shell)::after {
   content: none;
 }
-:root[data-theme="white-pink"] .app-bg .chat-list-card :is(.chat-entry-item, .chat-entry-subscribe) {
+:root:is([data-theme="white-pink"], [data-theme="letter"]) .app-bg .chat-list-card :is(.chat-entry-item, .chat-entry-subscribe) {
   padding-top: 10px;
   padding-bottom: 10px;
 }
-:root[data-theme="white-pink"] .app-bg .chat-list-card .chat-entry-side {
+:root:is([data-theme="white-pink"], [data-theme="letter"]) .app-bg .chat-list-card .chat-entry-side {
   top: 10px;
   bottom: 10px;
 }

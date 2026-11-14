@@ -7,7 +7,8 @@ const { DEFAULT_THEME, THEME_INIT_SCRIPT, THEME_OPTIONS, THEME_STORAGE_KEY, isTh
 
 test('theme options include the default and reject unknown stored values', () => {
   assert.equal(DEFAULT_THEME, 'white-pink');
-  assert.deepEqual(THEME_OPTIONS.map((option) => option.id), ['white-pink', 'rococo']);
+  assert.deepEqual(THEME_OPTIONS.map((option) => option.id), ['white-pink', 'rococo', 'letter']);
+  assert.equal(isTheme('letter'), true);
   assert.equal(isTheme('white-pink'), true);
   assert.equal(isTheme('rococo'), true);
   assert.equal(isTheme('white-wedding'), false);
@@ -16,7 +17,7 @@ test('theme options include the default and reject unknown stored values', () =>
 });
 
 test('the early theme script restores only a valid saved theme', () => {
-  for (const [stored, expected] of [['rococo', 'rococo'], ['white-pink', 'white-pink'], ['white-wedding', 'white-pink'], ['unknown', 'white-pink']]) {
+  for (const [stored, expected] of [['rococo', 'rococo'], ['letter', 'letter'], ['white-pink', 'white-pink'], ['white-wedding', 'white-pink'], ['unknown', 'white-pink']]) {
     const context = {
       document: { documentElement: { dataset: { theme: 'white-pink' } } },
       localStorage: { getItem: (key) => {

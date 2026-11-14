@@ -1,0 +1,296 @@
+/* White love-letter home ("letter" theme). Only the home page changes; the
+   rest of the app keeps the classic XP styles from white-pink.css.
+   Soft white paper, misty blue and pale pink, a little champagne gold. */
+
+.lh-home {
+  --lh-paper: #fbf8f3;
+  --lh-ink: #33405a;
+  --lh-ink-soft: #66728a;
+  --lh-ink-faint: #97a2b4;
+  --lh-mist: #a9b9cc;
+  --lh-mist-pale: #e4ecf4;
+  --lh-blush: #f6e2e7;
+  --lh-rose: #b47f8c;
+  --lh-gold: #c9ae7c;
+  --lh-script: "Rococo Pinyon", "Snell Roundhand", "Apple Chancery", cursive;
+  --lh-serif: "Bodoni 72", "Didot", "Baskerville", "Iowan Old Style", Georgia, serif;
+  --lh-cjk: "Songti SC", "STSong", "Noto Serif SC", "Source Han Serif SC", serif;
+
+  position: fixed;
+  inset: 0;
+  z-index: 340;
+  overflow: hidden;
+  color: var(--lh-ink);
+  font-family: var(--lh-serif);
+  background:
+    radial-gradient(120% 55% at 0% 0%, #e7eef6 0%, transparent 58%),
+    radial-gradient(90% 45% at 100% 100%, #f7e5ea 0%, transparent 62%),
+    var(--lh-paper);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.lh-scroll {
+  height: 100%;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  scrollbar-width: none;
+}
+.lh-scroll::-webkit-scrollbar { display: none; }
+
+.lh-letter {
+  width: min(100%, 460px);
+  margin: 0 auto;
+  padding:
+    calc(env(safe-area-inset-top) + 18px)
+    max(30px, env(safe-area-inset-right))
+    calc(env(safe-area-inset-bottom) + 44px)
+    max(30px, env(safe-area-inset-left));
+}
+
+
+/* Letterhead: a name and a date, nothing more. */
+.lh-letterhead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 34px;
+}
+.lh-brand { color: var(--lh-rose); font: 26px/1 var(--lh-script); }
+.lh-dateline { color: var(--lh-ink-faint); font: italic 11px/1.4 var(--lh-serif); letter-spacing: .06em; }
+
+/* The first sentence. */
+.lh-opening { position: relative; margin-top: 46px; }
+.lh-title {
+  margin: 0;
+  color: var(--lh-ink);
+  font: 400 clamp(56px, 17vw, 78px)/.98 var(--lh-script);
+  letter-spacing: 0;
+}
+.lh-title span { display: block; }
+.lh-title-turn { margin-top: -2px; padding-left: 22%; }
+.lh-promise {
+  margin-top: 20px;
+  padding-left: 3px;
+  color: var(--lh-ink-soft);
+  font: 15px/1.8 var(--lh-cjk);
+  letter-spacing: .14em;
+}
+
+.lh-sprig { position: absolute; top: -14px; right: 4px; width: 50px; height: auto; transform: rotate(8deg); }
+.lh-sprig-stem { fill: none; stroke: var(--lh-mist); stroke-width: 1; stroke-linecap: round; }
+.lh-sprig-leaf { fill: var(--lh-mist-pale); stroke: var(--lh-mist); stroke-width: .8; }
+.lh-sprig-bloom circle { fill: var(--lh-blush); stroke: #d3a5b0; stroke-width: .7; }
+.lh-sprig-bloom .lh-sprig-heart { fill: #e4c995; stroke: none; }
+
+/* A line leaves the title and leads the eye down to the days. */
+.lh-flow { display: block; width: 92%; height: auto; margin: 4px 0 10px; overflow: visible; }
+.lh-flow path {
+  fill: none;
+  stroke: var(--lh-mist);
+  stroke-width: .9;
+  stroke-linecap: round;
+  vector-effect: non-scaling-stroke;
+  stroke-dasharray: 1;
+  stroke-dashoffset: 0;
+  animation: lh-draw 2.4s .5s cubic-bezier(.45, .1, .25, 1) both;
+}
+.lh-flow circle { fill: var(--lh-blush); stroke: #d3a5b0; stroke-width: .8; animation: lh-unfold .8s 2.4s both; }
+
+/* The pause in the letter: the days carry it, the rest whispers. */
+.lh-together { padding-right: 4%; text-align: right; }
+.lh-together-lead { color: var(--lh-ink-soft); font: italic 15px/1.6 var(--lh-serif); letter-spacing: .02em; }
+.lh-days {
+  position: relative;
+  isolation: isolate;
+  display: flex;
+  align-items: baseline;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 2px;
+}
+.lh-days b {
+  color: #2e3a54;
+  font: 300 clamp(86px, 27vw, 116px)/1 "Didot", "Bodoni 72", var(--lh-serif);
+  font-variant-numeric: lining-nums;
+  letter-spacing: -.02em;
+}
+.lh-days-word { color: var(--lh-rose); font: 36px/1 var(--lh-script); }
+.lh-days-wash {
+  position: absolute;
+  z-index: -1;
+  top: 14%;
+  right: 6%;
+  width: 78%;
+  height: 76%;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, #dfe8f2 0%, #e9eff6aa 55%, transparent 100%);
+  transform: rotate(-6deg);
+}
+.lh-clock {
+  margin-top: 6px;
+  color: var(--lh-ink-faint);
+  font: 12px/1.6 var(--lh-serif);
+  letter-spacing: .08em;
+}
+.lh-clock b { color: var(--lh-ink-soft); font-weight: 400; font-variant-numeric: tabular-nums; }
+.lh-clock i { margin: 0 7px; color: var(--lh-gold); font-style: normal; }
+.lh-still { margin-top: 12px; color: #8794aa; font: 25px/1.3 var(--lh-script); }
+
+.lh-rule { display: block; width: 34px; height: 1px; margin: 48px 0 42px; background: var(--lh-gold); opacity: .75; }
+
+/* The body: each entry is a paragraph of the letter. */
+.lh-body { position: relative; }
+.lh-body::before {
+  /* The faint crease where the letter was folded. */
+  content: "";
+  position: absolute;
+  top: -44px;
+  left: -40px;
+  right: -40px;
+  height: 22px;
+  background: linear-gradient(to bottom, transparent, #8ea2bb12 50%, transparent);
+  pointer-events: none;
+}
+
+.lh-passage {
+  display: block;
+  width: fit-content;
+  max-width: 88%;
+  margin: 0 0 34px;
+  padding: 4px 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.lh-passage-title {
+  display: inline;
+  color: var(--lh-ink);
+  font: italic 22px/1.3 var(--lh-serif);
+  letter-spacing: .01em;
+  background: linear-gradient(var(--lh-rose), var(--lh-rose)) 0 100% / 0 1px no-repeat;
+  transition: color .3s, background-size .45s cubic-bezier(.3, .7, .2, 1);
+}
+.lh-passage-title i {
+  /* Inline (not inline-block) so the no-break space keeps it beside the last word. */
+  position: relative;
+  left: 0;
+  margin-left: 4px;
+  color: var(--lh-gold);
+  font: normal 12px/1 var(--lh-serif);
+  vertical-align: .3em;
+  opacity: .6;
+  transition: left .3s, opacity .3s;
+}
+.lh-passage-line {
+  display: block;
+  margin-top: 6px;
+  color: var(--lh-ink-soft);
+  font: 14px/1.75 var(--lh-cjk);
+  letter-spacing: .06em;
+}
+.lh-passage:is(:hover, :focus-visible, :active) .lh-passage-title { color: #8f5a69; background-size: 100% 1px; }
+.lh-passage:is(:hover, :focus-visible, :active) .lh-passage-title i { opacity: 1; left: 3px; }
+.lh-passage:focus-visible { outline: 1px dashed var(--lh-mist); outline-offset: 6px; }
+
+/* The first passage leads, in the same hand as the title. */
+.lh-passage-1 .lh-passage-title { font: 400 40px/1.1 var(--lh-script); letter-spacing: 0; }
+.lh-passage-1 .lh-passage-title i { vertical-align: .5em; }
+.lh-passage-1 .lh-passage-line { margin-top: 4px; font-size: 15px; }
+.lh-passage-2 { margin-left: 15%; }
+.lh-passage-3 { margin-left: auto; text-align: right; }
+.lh-passage-4 { margin-left: 5%; }
+.lh-passage-5 { margin-left: 11%; }
+.lh-passage-6 { margin-left: 1%; margin-bottom: 26px; }
+
+.lh-aside {
+  margin: 8px 0 24px;
+  padding-left: 9%;
+  color: var(--lh-ink-faint);
+  font: italic 13px/1.6 var(--lh-serif);
+  letter-spacing: .03em;
+}
+
+/* Later passages: the same voice, written a little smaller. */
+.lh-passage-quiet { margin-bottom: 22px; }
+.lh-passage-quiet .lh-passage-title { color: #4a566f; font-size: 18px; }
+.lh-passage-quiet .lh-passage-line { margin-top: 3px; font-size: 13px; color: #79849a; }
+.lh-quiet-1 { margin-left: 4%; }
+.lh-quiet-2 { margin-left: 13%; }
+.lh-quiet-3 { margin-left: 0; }
+.lh-quiet-4 { margin-left: auto; text-align: right; }
+.lh-quiet-5 { margin-left: 8%; }
+.lh-quiet-6 { margin-left: 17%; margin-bottom: 0; }
+.lh-passage-waiting .lh-passage-line { color: var(--lh-rose); }
+
+/* The closing, signed and sealed. */
+.lh-closing { text-align: right; }
+.lh-closing-script { color: var(--lh-ink); font: 40px/1.15 var(--lh-script); }
+.lh-closing-line { margin-top: 8px; color: var(--lh-ink-soft); font: 14px/1.8 var(--lh-cjk); letter-spacing: .12em; }
+.lh-signature {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 7px;
+  margin-top: 22px;
+  color: var(--lh-ink-soft);
+  font: italic 15px/1.4 var(--lh-serif);
+}
+.lh-signature i { color: var(--lh-gold); font-family: var(--lh-script); font-size: 20px; font-style: normal; }
+.lh-seal { width: 34px; height: 34px; margin-left: 6px; transform: rotate(-10deg); filter: drop-shadow(0 2px 2px #b47f8c33); }
+.lh-seal-wax { fill: #dcaab5; }
+.lh-seal-ring { fill: none; stroke: #f5e2e6; stroke-width: .9; }
+.lh-seal text { fill: #fdf3f5; font: 17px var(--lh-script); }
+.lh-since { margin-top: 6px; color: var(--lh-ink-faint); font: 11px/1.5 var(--lh-serif); letter-spacing: .14em; }
+
+.lh-ps {
+  margin-top: 46px;
+  color: #7a859a;
+  font: 13px/2.05 var(--lh-cjk);
+  letter-spacing: .04em;
+  text-align: left;
+}
+.lh-ps-mark { margin-right: 8px; color: #b2936a; font: italic 15px var(--lh-serif); letter-spacing: .02em; }
+.lh-ps button {
+  margin: 0 3px;
+  padding: 0 0 1px;
+  border: 0;
+  border-bottom: 1px solid #e4c9d0;
+  background: none;
+  color: #9b6676;
+  font: inherit;
+  cursor: pointer;
+}
+.lh-ps button:is(:hover, :focus-visible, :active) { border-bottom-color: var(--lh-rose); color: #7f4c5c; outline: none; }
+
+/* The letter unfolds once as it opens. */
+.lh-unfold { animation: lh-unfold .9s var(--lh-delay, 0ms) cubic-bezier(.2, .7, .2, 1) both; }
+@keyframes lh-unfold {
+  from { opacity: 0; transform: translateY(10px); filter: blur(2px); }
+  to { opacity: 1; transform: none; filter: none; }
+}
+@keyframes lh-draw {
+  from { stroke-dashoffset: 1; }
+  to { stroke-dashoffset: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .lh-home *, .lh-home *::before { animation: none !important; transition: none !important; }
+}
+
+@media (max-width: 360px) {
+  .lh-letter { padding-left: max(22px, env(safe-area-inset-left)); padding-right: max(22px, env(safe-area-inset-right)); }
+  .lh-passage-5 { margin-left: 6%; }
+}
+
+/* Settings preview card. */
+.theme-option-preview-letter {
+  border-color: #eedfe3;
+  background: radial-gradient(90% 80% at 0 0, #e7eef6, transparent 60%), radial-gradient(80% 70% at 100% 100%, #f7e5ea, transparent 65%), #fbf8f3;
+}
+.theme-option-preview-letter i { height: 1px; align-self: center; border-radius: 0; background: #b6c4d4; }
+.theme-option-preview-letter i:first-child { height: 1px; background: #c9ae7c; width: 40%; }
+.theme-option-preview-letter i:last-child { background: #dcaab5; width: 70%; justify-self: end; }

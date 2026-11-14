@@ -18,6 +18,7 @@ import { MoonPage } from "./components/HomeView";
 import type { HomeApp } from "./components/HomeView";
 import { RetroDesktop } from "./components/RetroDesktop";
 import { RococoHome } from "./components/rococo/RococoHome";
+import { LetterHome } from "./components/letter/LetterHome";
 import { RococoChatList } from "./components/rococo/RococoChatList";
 import { HeartbeatView } from "./components/AppPages";
 import { readLifeLog, type LifeEntry } from "./lib/life-log";
@@ -678,6 +679,8 @@ export default function Home() {
         )}
         {tab === "home" && (rococo ? (
           <RococoHome settings={settings} onOpen={openApp} />
+        ) : theme === "letter" ? (
+          <LetterHome settings={settings} onOpen={openApp} />
         ) : (
           <RetroDesktop settings={settings} onOpen={openApp} />
         ))}
