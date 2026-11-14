@@ -249,11 +249,37 @@ const WORK_GROUPS: Record<string, (count: number, unique: number) => string> = {
   compact: () => "压缩了上下文",
 };
 
+/** English, for the letter's name line: "6s", "1m 13s", "2m". */
+export function formatStepMsShort(ms: number) {
+  const seconds = Math.max(1, Math.round(ms / 1000));
+  if (seconds < 60) return `${seconds}s`;
+  const minutes = Math.floor(seconds / 60);
+  const rest = seconds % 60;
+  return rest ? `${minutes}m ${rest}s` : `${minutes}m`;
+}
+
+/**
+ * Only the time a reply took, in English: "thought for 6s" in chat (the
+ * thinking, or the whole span when he only used tools), "worked for 1m 13s"
+ * in work mode (the whole span, the same as "忙了").
+ */
+export function replyTookLabel(steps: ReplyStep[], mode: ReplyStepMode) {
+  if (!steps.length) return "";
+  const start = Math.min(...steps.map((step) => step.t));
+  const span = Math.max(...steps.map((step) => step.t + (step.ms || 0))) - start;
+  if (mode === "work") return span > 0 ? `worked for ${formatStepMsShort(span)}` : "";
+  const thinkMs = steps.reduce((sum, step) => sum + (step.kind === "think" ? step.ms || 0 : 0), 0);
+  const ms = thinkMs || span;
+  return ms > 0 ? `thought for ${formatStepMsShort(ms)}` : "";
+}
+
 /** The faint line above a finished reply, e.g. "想了 8 秒 · 翻了 Summer · 搜了 2 次". */
-export function summarizeSteps(steps: ReplyStep[], mode: ReplyStepMode) {
+export function summarizeSteps(steps: ReplyStep[], mode: ReplyStepMode, withTime = true) {
   if (!steps.length) return "";
   const parts: string[] = [];
-  if (mode === "work") {
+  if (!withTime) {
+    // The letter shows the time on the name line; the rest opens below it.
+  } else if (mode === "work") {
     const start = Math.min(...steps.map((step) => step.t));
     const end = Math.max(...steps.map((step) => step.t + (step.ms || 0)));
     if (end > start) parts.push(`忙了 ${formatStepMs(end - start)}`);

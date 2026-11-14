@@ -10,7 +10,7 @@
 .lc-list,
 .lh-home,
 :root[data-theme="letter"] .chat-container[data-chat-ui="letter"] {
-  --lt-paper: #fbf8f3;
+  --lt-paper: #fbfbfa;
   --lt-ink: #33405a;
   --lt-ink-soft: #66728a;
   --lt-ink-faint: #97a2b4;
@@ -18,8 +18,8 @@
   --lt-mist-pale: #e4ecf4;
   --lt-blush: #f6e2e7;
   --lt-rose: #b47f8c;
-  --lt-gold: #c9ae7c;
-  --lt-rule: #e8e1d5;
+  --lt-gold: #c3b69f;
+  --lt-rule: #e6e2e3;
   --lt-script: "Rococo Pinyon", "Snell Roundhand", "Apple Chancery", cursive;
   --lt-serif: "Bodoni 72", "Didot", "Baskerville", "Iowan Old Style", Georgia, serif;
   --lt-cjk: "Songti SC", "STSong", "Noto Serif SC", "Source Han Serif SC", serif;
@@ -254,8 +254,8 @@
   cursor: pointer;
   transition: background-color .2s;
 }
-.lc-row-open:active { background-color: #f3ede4; }
-@media (hover: hover) { .lc-row-open:hover { background-color: #f6f1e9; } }
+.lc-row-open:active { background-color: #f1eff0; }
+@media (hover: hover) { .lc-row-open:hover { background-color: #f5f3f4; } }
 .lc-row-open:focus-visible { outline: 1px solid var(--lt-mist); outline-offset: -1px; }
 
 /* Avatars are small photographs slipped in with the letter. */
@@ -343,7 +343,7 @@
   padding: 4px;
   border: 1px solid var(--lt-rule);
   border-radius: 3px;
-  background: #fffdfa;
+  background: #fefefe;
   box-shadow: 0 8px 22px #33405a1c;
 }
 .lc-row-menu button {
@@ -356,7 +356,7 @@
   text-align: left;
   cursor: pointer;
 }
-.lc-row-menu button + button { border-top: 1px solid #f0ebe2; color: var(--lt-rose); }
+.lc-row-menu button + button { border-top: 1px solid #efecee; color: var(--lt-rose); }
 
 .lc-row:has(.lc-row-aside) .lc-row-open { padding-right: 76px; }
 .lc-row-aside {
@@ -500,6 +500,13 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+/* The private letter: his name is written in the same hand as "My dearest".
+   Chinese names fall through to the book face. */
+:root[data-theme="letter"] .chat-container[data-chat-ui="letter"] .letter-room-heading .header-title.chat-room-title {
+  padding-right: 4px;
+  font: 400 25px/1.15 var(--lt-script), var(--lt-cjk);
+  letter-spacing: 0;
+}
 :root[data-theme="letter"] .chat-container[data-chat-ui="letter"] .letter-room-header .header-subtitle.chat-room-status {
   flex: 0 1 auto;
   min-width: 0;
@@ -512,6 +519,21 @@
   text-align: left;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+/* Under the private letter's name the line is English in the same hand:
+   "yours", "writing to you…", "at work · iooi", "xiexie". */
+:root[data-theme="letter"] .chat-container[data-chat-ui="letter"] .letter-room-header .header-subtitle.letter-room-status {
+  padding-right: 4px;
+  color: var(--lt-ink-faint);
+  font: 18px/1.15 var(--lt-script);
+  letter-spacing: .01em;
+}
+/* The group's writing mode, "xiexie", in the hand of "Round the table". */
+:root[data-theme="letter"] .chat-container[data-chat-ui="letter"] .letter-room-header .header-title.letter-room-mode {
+  padding-right: 4px;
+  color: var(--lt-ink-faint);
+  font: 400 22px/1.15 var(--lt-script);
+  letter-spacing: .01em;
 }
 .letter-room-ornament {
   position: relative;
@@ -651,7 +673,7 @@
 :root[data-theme="letter"] .chat-container[data-chat-ui="letter"] .msg-bubble-user::after { display: none; }
 :root[data-theme="letter"] .chat-container[data-chat-ui="letter"] .msg-bubble :is(h1, h2, h3, h4, strong) { color: #26324a; }
 :root[data-theme="letter"] .chat-container[data-chat-ui="letter"] .msg-bubble :is(pre, code) { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: .86em; line-height: 1.6; }
-:root[data-theme="letter"] .chat-container[data-chat-ui="letter"] .msg-bubble pre { max-width: 100%; overflow-x: auto; white-space: pre-wrap; background: #f3efe7; border-radius: 4px; }
+:root[data-theme="letter"] .chat-container[data-chat-ui="letter"] .msg-bubble pre { max-width: 100%; overflow-x: auto; white-space: pre-wrap; background: #f2f1f2; border-radius: 4px; }
 :root[data-theme="letter"] .chat-container[data-chat-ui="letter"] .msg-bubble blockquote { border-left: 1px solid var(--lt-gold); color: var(--lt-ink-soft); }
 :root[data-theme="letter"] .app-bg .chat-container[data-chat-ui="letter"] .msg-bubble.msg-bubble-img { padding: 0 !important; border: 0; border-radius: 2px; background: transparent; box-shadow: none; }
 :root[data-theme="letter"] .app-bg .chat-container[data-chat-ui="letter"] .msg-bubble-img:not(.msg-bubble-sticker, .msg-bubble-sticker-message) :is(.msg-image, .msg-image-tile) { border-radius: 2px; }
@@ -668,6 +690,36 @@
 :root[data-theme="letter"] .chat-container[data-chat-ui="letter"] .msg-speak { color: var(--lt-mist); }
 :root[data-theme="letter"] .chat-container[data-chat-ui="letter"] .group-speaker-meta { color: var(--lt-ink-faint); }
 
+/* "酥酥 · 21:04 · thought for 6s ›": only the time he took rides on the name
+   line; tapping it opens the summary and steps underneath. */
+:root[data-theme="letter"] .chat-container[data-chat-ui="letter"] .letter-reply-meta { font-weight: 400; }
+:root[data-theme="letter"] .chat-container[data-chat-ui="letter"] .letter-reply-meta-bare { margin: 4px 0 0; }
+:root[data-theme="letter"] .chat-container[data-chat-ui="letter"] .letter-reply-took {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  white-space: pre;
+}
+.letter-reply-took > span { font-style: italic; }
+:root[data-theme="letter"] .chat-container[data-chat-ui="letter"] button.letter-reply-took { cursor: pointer; }
+:root[data-theme="letter"] .chat-container[data-chat-ui="letter"] button.letter-reply-took svg { width: 8px; height: 8px; opacity: .8; }
+:root[data-theme="letter"] .chat-container[data-chat-ui="letter"] button.letter-reply-took[aria-expanded="true"] { color: var(--lt-ink-soft); }
+:root[data-theme="letter"] .chat-container[data-chat-ui="letter"] .letter-reply-steps {
+  margin: 0 2px 6px;
+  padding: 2px 0 4px 8px;
+  border-left: 1px solid var(--lt-rule);
+  color: var(--lt-ink-faint);
+  font: 12px/1.6 var(--lt-cjk);
+  opacity: 1;
+}
+:root[data-theme="letter"] .chat-container[data-chat-ui="letter"] .letter-reply-steps .reply-steps-list { margin: 2px 0 0; }
+
 /* A new day: the date in italics between two gold rules, each ending in a
    pair of leaves and a rosebud that point toward the date. */
 :root[data-theme="letter"] .chat-container[data-chat-ui="letter"] .date-separator { gap: 8px; margin: 6px 0 2px; padding: 6px 0; }
@@ -677,7 +729,7 @@
   flex: none;
   width: 48px;
   height: 12px;
-  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 12'%3E%3Cpath d='M1 6.6C12 6 24 6.7 37 6' fill='none' stroke='%23c9ae7c' stroke-width='.8' stroke-linecap='round'/%3E%3Cpath d='M27 6.3C29 3 32.5 2.2 35 2.8 33.8 5 30.6 6.2 27 6.3Z' fill='%23e8eef5' stroke='%239fb0c5' stroke-width='.6'/%3E%3Cpath d='M25 6.6C27.2 9.4 30.6 10 33 9.2 31.2 7.4 28.4 6.6 25 6.6Z' fill='%23e8eef5' stroke='%239fb0c5' stroke-width='.6'/%3E%3Cpath d='M37 6C39.6 3 43.8 3.2 46 6 43.8 8.8 39.6 9 37 6Z' fill='%23f6e2e7' stroke='%23b47f8c' stroke-width='.65'/%3E%3Cpath d='M37 6C38.6 4.8 39.6 4.4 40.6 4.6M37 6C38.6 7.2 39.6 7.6 40.6 7.4' fill='none' stroke='%238fa3ba' stroke-width='.55' stroke-linecap='round'/%3E%3Ccircle cx='18' cy='4' r='.8' fill='%23c9ae7c'/%3E%3C/svg%3E") center / contain no-repeat;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 12'%3E%3Cpath d='M1 6.6C12 6 24 6.7 37 6' fill='none' stroke='%23c3b69f' stroke-width='.8' stroke-linecap='round'/%3E%3Cpath d='M27 6.3C29 3 32.5 2.2 35 2.8 33.8 5 30.6 6.2 27 6.3Z' fill='%23e8eef5' stroke='%239fb0c5' stroke-width='.6'/%3E%3Cpath d='M25 6.6C27.2 9.4 30.6 10 33 9.2 31.2 7.4 28.4 6.6 25 6.6Z' fill='%23e8eef5' stroke='%239fb0c5' stroke-width='.6'/%3E%3Cpath d='M37 6C39.6 3 43.8 3.2 46 6 43.8 8.8 39.6 9 37 6Z' fill='%23f6e2e7' stroke='%23b47f8c' stroke-width='.65'/%3E%3Cpath d='M37 6C38.6 4.8 39.6 4.4 40.6 4.6M37 6C38.6 7.2 39.6 7.6 40.6 7.4' fill='none' stroke='%238fa3ba' stroke-width='.55' stroke-linecap='round'/%3E%3Ccircle cx='18' cy='4' r='.8' fill='%23c3b69f'/%3E%3C/svg%3E") center / contain no-repeat;
 }
 :root[data-theme="letter"] .chat-container[data-chat-ui="letter"] .date-separator::after { transform: scaleX(-1); }
 :root[data-theme="letter"] .chat-container[data-chat-ui="letter"] .date-separator-text {
@@ -706,7 +758,7 @@
   flex: none;
   padding: 8px 18px calc(10px + max(4px, calc(env(safe-area-inset-bottom) - 14px)));
   border: 0;
-  background: linear-gradient(#fbf8f300, var(--lt-paper) 14px);
+  background: linear-gradient(#fbfbfa00, var(--lt-paper) 14px);
 }
 .letter-frame {
   position: relative;
@@ -724,7 +776,7 @@
   pointer-events: none;
 }
 .letter-frame-line path { fill: none; stroke: var(--lt-gold); stroke-width: .9; stroke-linecap: round; vector-effect: non-scaling-stroke; opacity: .9; transition: stroke .25s; }
-.letter-frame:focus-within .letter-frame-line path { stroke: #b99b67; }
+.letter-frame:focus-within .letter-frame-line path { stroke: #ae9f86; }
 :root[data-theme="letter"] .chat-container[data-chat-ui="letter"] .letter-frame .letter-frame-input {
   position: relative;
   display: block;
@@ -800,6 +852,31 @@
 :root[data-theme="letter"] .chat-container[data-chat-ui="letter"] .letter-seal-btn:disabled { opacity: .42; filter: saturate(.5); cursor: default; }
 :root[data-theme="letter"] .chat-container[data-chat-ui="letter"] .letter-frame-tools :is(.context-usage-badge, .context-usage) { margin-right: 2px; }
 
+/* His mood on a thin satin ribbon: the tail is cut like a swallow's, the
+   other end slips under the seal. Up to about ten characters, then "…". */
+.letter-mood-ribbon {
+  position: relative;
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 10.5em;
+  height: 20px;
+  margin: 0 -18px 0 4px;
+  padding: 0 22px 0 14px;
+  background:
+    linear-gradient(#b47f8c80, #b47f8c80) top / 100% 1px no-repeat,
+    linear-gradient(#b47f8c80, #b47f8c80) bottom / 100% 1px no-repeat,
+    linear-gradient(#ffffff00 3px, #fdf3f5 3px, #fdf3f5 4px, #ffffff00 4px) 0 0 / 100% 100% no-repeat,
+    linear-gradient(#f9e9ed, #f3d9e0);
+  clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%, 8px 50%);
+  color: var(--lt-rose);
+  font: 12px/20px var(--lt-cjk);
+  letter-spacing: .06em;
+  transform: rotate(-2deg);
+  pointer-events: none;
+}
+.letter-mood-ribbon > span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+:root[data-theme="letter"] .chat-container[data-chat-ui="letter"] .letter-mood-ribbon + .letter-seal-btn { position: relative; z-index: 1; }
+
 :root[data-theme="letter"] .chat-container[data-chat-ui="letter"] .letter-composer :is(.composer-attachments) { margin: 0 4px 8px; }
 :root[data-theme="letter"] .chat-container[data-chat-ui="letter"] .letter-composer :is(.composer-attachment) { border-color: var(--lt-rule); border-radius: 2px; background: #fff; }
 :root[data-theme="letter"] .chat-container[data-chat-ui="letter"] .letter-composer .composer-upload-error { color: #9a566c; }
@@ -808,7 +885,7 @@
 :root[data-theme="letter"] .chat-container[data-chat-ui="letter"] :is(.chat-config-panel, .claude-usage-popover, .group-web-search-panel, .group-window-settings, .group-composer-menu, .context-usage-popover, .room-settings-panel) {
   border-color: var(--lt-rule);
   border-radius: 4px;
-  background: #fffdfa;
+  background: #fefefe;
   color: var(--lt-ink);
   font-family: var(--lt-cjk);
   box-shadow: 0 8px 26px #33405a1a;
@@ -840,7 +917,7 @@
   width: auto; max-width: none; max-height: 46%; margin: 10px 16px 0; padding: 12px;
   overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable;
 }
-:root[data-theme="letter"] .chat-container[data-chat-ui="letter"] .room-settings-heading { position: sticky; z-index: 1; top: -12px; margin: -1px 0 10px; padding: 5px 0; background: #fffdfa; }
+:root[data-theme="letter"] .chat-container[data-chat-ui="letter"] .room-settings-heading { position: sticky; z-index: 1; top: -12px; margin: -1px 0 10px; padding: 5px 0; background: #fefefe; }
 :root[data-theme="letter"] .group-chat-footer.letter-composer :is(.group-composer-menu, .group-window-settings, .group-web-search-panel) { position: relative; inset: auto; max-height: min(200px, 26dvh); margin: 0 0 10px; overflow-y: auto; overscroll-behavior: contain; }
 :root[data-theme="letter"] .chat-container[data-chat-ui="letter"] > .group-chat-footer:has(.group-window-settings) { max-height: calc(100% - 120px); overflow-y: auto; }
 
@@ -854,7 +931,7 @@
   :root[data-theme="letter"] .chat-container[data-chat-ui="letter"] {
     max-width: 680px;
     height: min(960px, calc(100dvh - 64px));
-    border: 1px solid #ece6db;
+    border: 1px solid #e8e5e7;
     border-radius: 6px;
     box-shadow: 0 18px 50px #33405a14;
   }

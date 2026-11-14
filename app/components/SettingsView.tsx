@@ -121,7 +121,7 @@ export function SettingsView({
 
         <div className="settings-group theme-setting">
           <h2 className="settings-group-title">主题</h2>
-          <p className="settings-hint">选择后立即生效，并保存在当前浏览器。</p>
+          <p className="settings-hint">选择后立即生效，也会同步保存，换浏览器或重开都还是它。</p>
           <div className="theme-options" role="group" aria-label="界面主题">
             {THEME_OPTIONS.map((option) => (
               <button
@@ -129,7 +129,7 @@ export function SettingsView({
                 key={option.id}
                 className={`theme-option ${theme === option.id ? "theme-option-active" : ""}`}
                 aria-pressed={theme === option.id}
-                onClick={() => setTheme(option.id)}
+                onClick={() => { setTheme(option.id); updateSettings({ theme: option.id }); }}
               >
                 <span className={`theme-option-preview theme-option-preview-${option.id}`} aria-hidden="true"><i /><i /><i /></span>
                 <span className="theme-option-text"><b>{option.label}</b><small>{option.description}</small></span>

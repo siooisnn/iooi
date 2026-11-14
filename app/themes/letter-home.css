@@ -3,7 +3,7 @@
    Soft white paper, misty blue and pale pink, a little champagne gold. */
 
 .lh-home {
-  --lh-paper: #fbf8f3;
+  --lh-paper: #fbfbfa;
   --lh-ink: #33405a;
   --lh-ink-soft: #66728a;
   --lh-ink-faint: #97a2b4;
@@ -11,7 +11,7 @@
   --lh-mist-pale: #e4ecf4;
   --lh-blush: #f6e2e7;
   --lh-rose: #b47f8c;
-  --lh-gold: #c9ae7c;
+  --lh-gold: #c3b69f;
   --lh-script: "Rococo Pinyon", "Snell Roundhand", "Apple Chancery", cursive;
   --lh-serif: "Bodoni 72", "Didot", "Baskerville", "Iowan Old Style", Georgia, serif;
   --lh-cjk: "Songti SC", "STSong", "Noto Serif SC", "Source Han Serif SC", serif;
@@ -233,9 +233,9 @@
 .lh-quiet-5 { margin-left: auto; max-width: 86%; text-align: right; --lh-gap: 0px; }
 .lh-moonlet { display: inline-block; width: 24px; height: 16px; margin-left: 6px; vertical-align: .55em; overflow: visible; transform: rotate(-8deg); }
 .lh-moonlet path { stroke-linejoin: round; }
-.lh-moonlet-moon { fill: #fbf3e6; stroke: #c9ae7c; stroke-width: .7; }
-.lh-moonlet-star { fill: #e9d7b3; stroke: #c9ae7c; stroke-width: .45; }
-.lh-moonlet-dot { fill: #c9ae7c; opacity: .7; }
+.lh-moonlet-moon { fill: #faf6f1; stroke: #c3b69f; stroke-width: .7; }
+.lh-moonlet-star { fill: #e2d9c8; stroke: #c3b69f; stroke-width: .45; }
+.lh-moonlet-dot { fill: #c3b69f; opacity: .7; }
 .lh-passage-waiting .lh-passage-line { color: var(--lh-rose); }
 
 /* The closing, signed and sealed. */
@@ -268,7 +268,7 @@
   letter-spacing: .04em;
   text-align: left;
 }
-.lh-ps-mark { margin-right: 8px; color: #b2936a; font: italic 15px var(--lh-serif); letter-spacing: .02em; }
+.lh-ps-mark { margin-right: 8px; color: #a8977e; font: italic 15px var(--lh-serif); letter-spacing: .02em; }
 .lh-ps button {
   margin: 0 3px;
   padding: 0 0 1px;
@@ -308,8 +308,8 @@
 /* Settings preview card. */
 .theme-option-preview-letter {
   border-color: #eedfe3;
-  background: radial-gradient(90% 80% at 0 0, #e7eef6, transparent 60%), radial-gradient(80% 70% at 100% 100%, #f7e5ea, transparent 65%), #fbf8f3;
+  background: radial-gradient(90% 80% at 0 0, #e7eef6, transparent 60%), radial-gradient(80% 70% at 100% 100%, #f7e5ea, transparent 65%), #fbfbfa;
 }
 .theme-option-preview-letter i { height: 1px; align-self: center; border-radius: 0; background: #b6c4d4; }
-.theme-option-preview-letter i:first-child { height: 1px; background: #c9ae7c; width: 40%; }
+.theme-option-preview-letter i:first-child { height: 1px; background: #c3b69f; width: 40%; }
 .theme-option-preview-letter i:last-child { background: #dcaab5; width: 70%; justify-self: end; }

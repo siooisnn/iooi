@@ -16,7 +16,7 @@ import { LetterBud, LetterForgetMeNot, LetterLeaf, LetterPaperBloom, LetterPosy,
    sliver of moon, a wax seal over dried flowers, one faint rose pressed into
    the paper) grow out of the words and the white space around them. */
 
-const PAPER = "#fbf8f3";
+const PAPER = "#fbfbfa";
 
 type Passage = { app: HomeApp; title: string; line: string };
 

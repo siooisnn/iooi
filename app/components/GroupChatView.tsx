@@ -599,7 +599,11 @@ export function GroupChatView({
             aria-label={`一个群${session.summary ? "，已记住前情" : ""}${summarizing ? "，整理前情中" : ""}`}
           >
             {letter && <p className="letter-room-salutation">Round the table</p>}
-            <h1 className="header-title chat-room-title">一个群{options.mode === "writing" ? " · 写写" : ""}</h1>
+            {/* The letter keeps only its salutation; "一个群" would just repeat it.
+                Writing mode is written in pinyin so it can share the script hand. */}
+            {letter
+              ? options.mode === "writing" && <h1 className="header-title chat-room-title letter-room-mode" title="写写">xiexie</h1>
+              : <h1 className="header-title chat-room-title">一个群{options.mode === "writing" ? " · 写写" : ""}</h1>}
           </div>
           {/* The quota is plain numbers top right; the context circle sits
               beside the input. New group windows open from the chat list. */}

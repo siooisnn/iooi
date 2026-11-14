@@ -8,7 +8,7 @@ export { LetterPaperBloom } from "./LetterFlowers";
 
 /* Shared pieces of the white love letter's chat pages. */
 
-export const LETTER_PAPER = "#fbf8f3";
+export const LETTER_PAPER = "#fbfbfa";
 
 /** Paints the status bar the colour of the paper while a letter page is open. */
 export function useLetterChrome(active: boolean) {

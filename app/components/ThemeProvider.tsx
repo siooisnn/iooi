@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { installCuteFx } from "../lib/cute-fx";
 import { DEFAULT_THEME, isTheme, THEME_STORAGE_KEY } from "../lib/theme";
@@ -54,8 +54,12 @@ export function SkyChrome() {
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const [theme, setThemeState] = useState<Theme>(DEFAULT_THEME);
+  // Once something picks a theme (her tap, or the copy saved on the server),
+  // the first-frame read of the browser's storage must not undo it.
+  const picked = useRef(false);
 
   const setTheme = useCallback((next: Theme) => {
+    picked.current = true;
     document.documentElement.dataset.theme = next;
     try { localStorage.setItem(THEME_STORAGE_KEY, next); } catch { /* The theme still applies without storage. */ }
     setThemeState(next);
@@ -69,9 +73,9 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
       if (isTheme(stored)) initial = stored;
       localStorage.removeItem("iooi-status-bar-clearance"); // retired tuning slider
     } catch { /* The default theme applies without storage. */ }
-    document.documentElement.dataset.theme = initial;
+    if (!picked.current) document.documentElement.dataset.theme = initial;
     syncBrowserChrome();
-    const frame = window.requestAnimationFrame(() => setThemeState(initial));
+    const frame = window.requestAnimationFrame(() => { if (!picked.current) setThemeState(initial); });
     const removeCuteFx = installCuteFx();
     return () => {
       window.cancelAnimationFrame(frame);

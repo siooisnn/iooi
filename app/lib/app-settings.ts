@@ -15,6 +15,9 @@ export type Settings = {
   // Always on: the 2026 glass desktop is retired and the XP screen is the
   // only home. Kept so older saved settings can't switch back.
   retroDesktop?: boolean;
+  // The chosen theme, kept on the server too: iOS sometimes loses the
+  // browser's copy, and the app would fall back to XP.
+  theme?: string;
   // The little phone has its own appearance; older settings open at night.
   susuPhoneAppearance?: "day" | "night";
   susuPhoneLockBackground?: string;

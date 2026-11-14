@@ -31,7 +31,7 @@ import { APP_TIME_ZONE, formatChatRoomTime, getDateLabel, getNowContext, getTime
 import { genId, getChatStatusLabel, hasLaterUserMessage, isSummerUtilityMessage, mergeChatMessages, shouldShowChatRoomTime } from "../lib/chat-sessions";
 import { apiFetch, saveLocal, syncGptToServer, syncToServer } from "../lib/client-api";
 import { CollapsibleSummerCard, ThinkingBlock, renderContent } from "./ChatContent";
-import { ReplyStepsBlock, ReplyStepsLive, ReplyStepsSoFar, activeStepText } from "./ReplySteps";
+import { LetterReplyMeta, ReplyStepsBlock, ReplyStepsLive, ReplyStepsSoFar, activeStepText } from "./ReplySteps";
 import { cleanReplySteps, type ReplyStep } from "../lib/reply-steps";
 import { ChatArtwork } from "./ChatArtwork";
 import { WritingDownloads } from "./WritingDownloads";
@@ -955,14 +955,23 @@ export function ChatView({
     </span>
   );
 
+  // The letter writes its line in the same hand as "My dearest", so it is
+  // English: work mode, xiexie, or "yours" until he starts writing back.
+  // His mood moves down to a ribbon by the seal.
+  const letterStatus = writingMode ? "xiexie"
+    : developmentMode ? `at work · ${developmentProject}`
+    : loading || streamingReply ? "writing to you…" : "yours";
   const roomIdentity = (
     <>
       <h1 className="header-title chat-room-title">{assistantName}</h1>
-      <span className="header-subtitle chat-room-status">
-        {developmentBadge || (isGpt ? "在线" : getChatStatusLabel(aiMood))}
-      </span>
+      {letter
+        ? <span className="header-subtitle chat-room-status letter-room-status" title={developmentMode ? `工作模式 · ${developmentProjectLabel}` : undefined}>{letterStatus}</span>
+        : <span className="header-subtitle chat-room-status">
+            {developmentBadge || (isGpt ? "在线" : getChatStatusLabel(aiMood))}
+          </span>}
     </>
   );
+  const letterMood = letter && !developmentMode && !isGpt && aiMood.emoji ? getChatStatusLabel(aiMood, true) : "";
 
   const retroUserName = settings.userName || "我";
   // XP rooms only: the avatar sits on each run's "说" line; off keeps the plain log.
@@ -1345,7 +1354,8 @@ export function ChatView({
                   <ThinkingBlock content={message.thinking} />
                 </div>
               )}
-              {!dotBubbles && stepsBlock}
+              {/* The letter puts how long he took on his name line instead. */}
+              {!dotBubbles && !letter && stepsBlock}
               <div className={`msg-row ${message.role === "user" ? "msg-row-user" : "msg-row-ai"} ${isSummerUtility ? "msg-row-summer-utility" : ""} ${compactTop ? "msg-row-compact-top" : ""} ${compactBottom ? "msg-row-compact-bottom" : ""} ${animateMessage ? "" : "msg-row-static"}${dotBubbles && showSays ? " msg-row-says" : ""}`} style={animateMessage ? { animationDelay: `${Math.min(index * 0.03, 0.3)}s` } : undefined}>
                 {message.role === "assistant" && !isSummerUtility && (
                   assistantAvatar
@@ -1353,6 +1363,16 @@ export function ChatView({
                     : <div className="avatar avatar-ai" />
                 )}
                 <div className={message.role === "user" ? "msg-content-user" : "msg-content-ai"}>
+                  {/* The letter heads each run once, beside the single photo:
+                      "酥酥 · 21:04 · thought for 6s". Later replies in the run
+                      keep only the time they took. */}
+                  {letter && !isSummerUtility && (message.role === "assistant"
+                    ? <LetterReplyMeta
+                        lead={compactTop ? undefined : [assistantName, message.time].filter(Boolean).join(" · ")}
+                        steps={message.steps}
+                        mode={message.source?.startsWith("code_task_") ? "work" : "chat"}
+                      />
+                    : !compactTop && <span className="msg-time">{message.time}</span>)}
                   {dotBubbles && showSays && dotsTag(message.role === "user", message.time)}
                   {/* Card themes: the steps sit under the name, inside the reply's own column. */}
                   {dotBubbles && stepsBlock}
@@ -1472,8 +1492,13 @@ export function ChatView({
           <div key={note.id} className="xp-msg-nudge" role="status">{note.text}</div>
         ))}
         {retro && !dotBubbles && streamingReply && <div className="xp-msg-says xp-msg-says-ai">{saysAvatar(false)}{assistantName} 说:</div>}
-        {!dotBubbles && loading && !developmentMode && liveSteps.length > 0 && (
+        {!dotBubbles && !letter && loading && !developmentMode && liveSteps.length > 0 && (
           <div className="thinking-row"><ReplyStepsSoFar steps={liveSteps} /></div>
+        )}
+        {/* The letter has no floating line while he writes: the status says
+            what he is doing, and only Summer receipts are kept. */}
+        {letter && loading && !developmentMode && liveSteps.length > 0 && (
+          <div className="thinking-row"><SummerWriteCards steps={liveSteps} /></div>
         )}
         {streamingReply && (
           <div className={`msg-row msg-row-ai msg-row-streaming${dotBubbles ? " msg-row-says" : ""}`}>
@@ -1482,6 +1507,7 @@ export function ChatView({
               : <div className="avatar avatar-ai" />
             }
             <div className="msg-content-ai">
+              {letter && <span className="msg-time group-speaker-meta">{assistantName}</span>}
               {dotBubbles && dotsTag(false)}
               {dotBubbles && loading && !developmentMode && <ReplyStepsSoFar steps={liveSteps} />}
               <div className="msg-bubble msg-bubble-ai msg-bubble-streaming" aria-live="polite">
@@ -1498,6 +1524,7 @@ export function ChatView({
               : <div className="avatar avatar-ai" />
             }
             <div className="msg-content-ai">
+              {letter && !streamingReply && <span className="msg-time group-speaker-meta">{assistantName}</span>}
               {dotBubbles && loading && !streamingReply && !developmentMode && <ReplyStepsSoFar steps={liveSteps} />}
               <div className={`msg-bubble msg-bubble-ai reply-status-bubble reply-status-${replyRequestState}${workSteps.length ? " reply-status-steps" : ""}`} aria-live="polite">
                 {loading && <TypingKitty />}
@@ -1644,6 +1671,12 @@ export function ChatView({
                 <LetterRing turn={160} /><LetterSmileIcon />
               </button>}
               <span className="letter-frame-gap" />
+              {/* His mood on a satin ribbon tucked under the seal. */}
+              {letterMood && (
+                <span className="letter-mood-ribbon" title={`心情：${letterMood}`} aria-label={`心情：${letterMood}`}>
+                  <span>{letterMood}</span>
+                </span>
+              )}
               {developmentMode && (
                 <ContextUsageBadge kind="work" sessionId={session.id} project={developmentProject} messages={workUsageMessages} />
               )}

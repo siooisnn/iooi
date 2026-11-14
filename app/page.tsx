@@ -5,6 +5,7 @@ import NextImage from "next/image";
 import { GroupChatView } from "./components/GroupChatView";
 import type { GroupOptions } from "./lib/group-options";
 import { useTheme, useThemePage } from "./components/ThemeProvider";
+import { isTheme, THEME_STORAGE_KEY } from "./lib/theme";
 import { useFullscreenShell } from "./lib/use-fullscreen-shell";
 import { DEFAULT_GPT_MODEL } from "./lib/gpt-models";
 import type { AssistantMode, CacheStats, ChatListTab, ChatSession, FragmentEntry, Message, Mood } from "./lib/app-types";
@@ -41,7 +42,7 @@ import { useDailyMood } from "./lib/use-daily-mood";
 
 // Main App
 export default function Home() {
-  const { theme } = useTheme();
+  const { theme, setTheme } = useTheme();
   const rococo = theme === "rococo";
   // The white love letter: its own chat list and a paper room, never the XP windows.
   const letter = theme === "letter";
@@ -215,6 +216,15 @@ export default function Home() {
 
       // The 2026 theme is retired: the XP desktop is always on.
       s = { ...s, retroDesktop: true };
+      // The server keeps her theme too: if this browser lost its copy (iOS
+      // clears it now and then), put the saved one back instead of XP.
+      let localTheme: string | null = null;
+      try { localTheme = localStorage.getItem(THEME_STORAGE_KEY); } catch { /* No storage: the server copy decides. */ }
+      if (isTheme(s.theme)) {
+        if (s.theme !== localTheme) setTheme(s.theme);
+      } else if (isTheme(localTheme)) {
+        s = { ...s, theme: localTheme };
+      }
       setSettings(s);
       saveLocal("iooi-settings", s);
       syncToServer({ settings: s });
@@ -247,7 +257,7 @@ export default function Home() {
         ? error.message : "暂时没能完整读取聊天记录，请检查网络后重试。");
     }).finally(() => clearTimeout(slowTimer));
     return () => { clearTimeout(slowTimer); controller.abort(); };
-  }, [startupAttempt]);
+  }, [startupAttempt, setTheme]);
 
   // Register service worker
   useEffect(() => {

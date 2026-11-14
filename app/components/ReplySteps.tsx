@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { formatStepMs, stepLabel, summarizeSteps, type ReplyStep, type ReplyStepMode } from "../lib/reply-steps";
+import { formatStepMs, replyTookLabel, stepLabel, summarizeSteps, type ReplyStep, type ReplyStepMode } from "../lib/reply-steps";
 import { SummerWriteCards } from "./SummerWriteCards";
 
 function Chevron({ open }: { open: boolean }) {
@@ -64,6 +64,37 @@ export function ReplyStepsBlock({ steps, mode }: { steps: ReplyStep[]; mode: Rep
       {open && <StepList steps={steps} now={0} />}
     </div>
   );
+}
+
+/**
+ * The letter's line above a reply: "酥酥 · 21:04 · thought for 6s ›". Only the
+ * time sits on the line; tapping it opens the same summary and step list below.
+ * Without a lead (the same run going on) it is just the time, small and grey.
+ */
+export function LetterReplyMeta({ lead, steps, mode }: { lead?: string; steps?: ReplyStep[]; mode: ReplyStepMode }) {
+  const [open, setOpen] = useState(false);
+  const took = steps?.length ? replyTookLabel(steps, mode) : "";
+  if (!lead && !took) return null;
+  // Only thought, no tools: there is nothing more to open.
+  const expandable = !!steps?.length && !(steps.length === 1 && steps[0].kind === "think");
+  const detail = expandable ? summarizeSteps(steps!, mode, false) : "";
+  const joiner = lead ? " · " : "";
+  return <>
+    <span className={`msg-time group-speaker-meta letter-reply-meta${lead ? "" : " letter-reply-meta-bare"}`}>
+      {lead}
+      {took && (expandable
+        ? <button type="button" className="letter-reply-took" aria-expanded={open} onClick={() => setOpen(!open)}>
+            {joiner}<span>{took}</span><Chevron open={open} />
+          </button>
+        : <span className="letter-reply-took">{joiner}<span>{took}</span></span>)}
+    </span>
+    {open && expandable && (
+      <div className="reply-steps letter-reply-steps">
+        {detail && <span className="reply-steps-summary">{detail}</span>}
+        <StepList steps={steps!} now={0} />
+      </div>
+    )}
+  </>;
 }
 
 /** Chat, while waiting or streaming: what is finished so far, in one faint line. */
