@@ -140,8 +140,10 @@
 
 /* The pauses: a short gold rule that ends in leaves and a rosebud. The last
    one answers from the right, facing the closing. */
-.lh-rule { display: block; width: 74px; height: 22px; margin: 38px 0 32px; }
+.lh-rule { display: block; width: 96px; height: 24px; margin: 37px 0 31px; }
 .lh-rule svg { display: block; width: 100%; height: 100%; overflow: visible; }
+/* The same blue hairline as the flowing line, carried on into the sprig. */
+.lh-rule-line { fill: none; stroke: var(--lh-mist); stroke-width: .9; stroke-linecap: round; }
 .lh-rule-closing { margin-left: auto; }
 .lh-rule-closing svg { transform: scaleX(-1); }
 

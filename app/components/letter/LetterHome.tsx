@@ -106,7 +106,7 @@ export function LetterHome({ settings, onOpen }: { settings: Settings; onOpen: (
             <p className="lh-still">And still counting, my love.</p>
           </section>
 
-          <span className="lh-rule lh-unfold" style={{ "--lh-delay": "380ms" } as CSSProperties} aria-hidden="true"><LetterRuleSprig /></span>
+          <span className="lh-rule lh-unfold" style={{ "--lh-delay": "380ms" } as CSSProperties} aria-hidden="true"><LetterRuleSprig lineClass="lh-rule-line" /></span>
 
           <nav className="lh-body" aria-label="信里的段落">
             {PASSAGES.map((passage, index) => (
@@ -142,7 +142,7 @@ export function LetterHome({ settings, onOpen }: { settings: Settings; onOpen: (
             ))}
           </nav>
 
-          <span className="lh-rule lh-rule-closing lh-unfold" style={{ "--lh-delay": "1360ms" } as CSSProperties} aria-hidden="true"><LetterRuleSprig /></span>
+          <span className="lh-rule lh-rule-closing lh-unfold" style={{ "--lh-delay": "1360ms" } as CSSProperties} aria-hidden="true"><LetterRuleSprig lineClass="lh-rule-line" /></span>
 
           <footer className="lh-closing lh-unfold" style={{ "--lh-delay": "1400ms" } as CSSProperties}>
             <p className="lh-closing-script">With love, always.</p>

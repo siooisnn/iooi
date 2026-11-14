@@ -124,20 +124,22 @@ export function LetterPosy({ className = "" }: { className?: string }) {
   );
 }
 
-/** A short gold rule that ends in a pair of leaves, a rosebud and one
-    forget-me-not: the pauses in the home letter. */
-export function LetterRuleSprig({ className = "" }: { className?: string }) {
+/** The pauses in the home letter: a short length of the same blue hairline
+    as the flowing line above, waving once and growing straight on into a
+    stem with a pair of leaves, a rosebud and two forget-me-nots. `lineClass`
+    gives the hairline its stroke on the page that uses it. */
+export function LetterRuleSprig({ className = "", lineClass = "letter-art-stem" }: { className?: string; lineClass?: string }) {
   return (
-    <svg className={className} viewBox="0 0 76 22" aria-hidden="true">
-      <path className="letter-art-gold" d="M1 11.6 C 14 11, 30 11.8, 50 11" />
-      <path className="letter-art-stem letter-art-fine" d="M44 11.2 C 48 9.6, 52 9, 57 9.6" />
-      <LetterLeaf x={44} y={11.2} turn={-148} size={0.66} />
-      <LetterLeaf x={43} y={11.6} turn={150} size={0.6} />
-      <LetterBud x={57} y={9.6} turn={84} size={0.72} />
-      <LetterForgetMeNot x={68} y={15.5} size={0.72} />
-      <LetterForgetMeNot x={72.5} y={10.5} size={0.52} />
-      <circle className="letter-art-seed" cx="27" cy="8.4" r=".75" />
-      <circle className="letter-art-seed" cx="64" cy="5" r=".6" />
+    <svg className={className} viewBox="0 0 96 24" aria-hidden="true">
+      <path className={lineClass} d="M1 13 C 11 9.6, 19 15.6, 30 13.4 C 40 11.4, 48 14, 58 12.4 C 65 11.2, 71 9.6, 77 10.2" />
+      <LetterLeaf x={61} y={11.9} turn={-150} size={0.66} />
+      <LetterLeaf x={60} y={12.3} turn={150} size={0.6} />
+      <LetterLeaf x={24} y={14.2} turn={-28} size={0.46} />
+      <LetterBud x={77} y={10.2} turn={84} size={0.72} />
+      <LetterForgetMeNot x={88} y={15.5} size={0.72} />
+      <LetterForgetMeNot x={92.5} y={10.5} size={0.52} />
+      <circle className="letter-art-seed" cx="42" cy="8.6" r=".75" />
+      <circle className="letter-art-seed" cx="84" cy="5" r=".6" />
     </svg>
   );
 }

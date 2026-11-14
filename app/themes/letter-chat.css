@@ -3,7 +3,7 @@
    on the left, a rose stem reaching in from the right), the rows are not.
    对话·正文: a sheet that keeps being written on. Her words lie on the paper,
    his own lines rest on the palest pink. Flowers stay in the margins: a
-   spray under the title, sprigs on the date rules and the composer, one
+   spray under the title, sprigs on the date rules and under the seal, one
    faint rose pressed into the paper; never across the words. The list
    (and the home page) share the same flowers from LetterFlowers.tsx. */
 
@@ -723,17 +723,6 @@
   overflow: visible;
   pointer-events: none;
 }
-/* A sprig resting on the frame's top line, where it dips. */
-.letter-sprig {
-  position: absolute;
-  top: -18px;
-  right: 19%;
-  z-index: 1;
-  width: 78px;
-  height: 28px;
-  overflow: visible;
-  pointer-events: none;
-}
 .letter-frame-line path { fill: none; stroke: var(--lt-gold); stroke-width: .9; stroke-linecap: round; vector-effect: non-scaling-stroke; opacity: .9; transition: stroke .25s; }
 .letter-frame:focus-within .letter-frame-line path { stroke: #b99b67; }
 :root[data-theme="letter"] .chat-container[data-chat-ui="letter"] .letter-frame .letter-frame-input {
@@ -799,7 +788,10 @@
   cursor: pointer;
   transition: opacity .2s, filter .2s, transform .15s;
 }
-.letter-seal { width: 40px; height: 40px; transform: rotate(-10deg); filter: drop-shadow(0 2px 2px #b47f8c40); }
+/* The seal is pressed over dried flowers, like the one that closes the home letter. */
+.letter-seal-btn > * { grid-area: 1 / 1; }
+.letter-seal-sprig { width: 62px; height: auto; overflow: visible; transform: rotate(-12deg); pointer-events: none; }
+.letter-seal { position: relative; width: 40px; height: 40px; transform: rotate(-10deg); filter: drop-shadow(0 2px 2px #b47f8c40); }
 .letter-seal-wax { fill: #d39aa8; }
 .letter-seal-ring { fill: none; stroke: #f5e2e6; stroke-width: .9; }
 .letter-seal text { fill: #fdf3f5; font: 18px var(--lt-script); }
