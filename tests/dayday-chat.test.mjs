@@ -58,9 +58,9 @@ test('only she can confirm fixed costs and old cycle cards cannot charge a new c
   run(b, 'fixed.update', { id: f.id, name: '新订阅', amount: 3000, day: 17 }, true);
   run(b, 'fixed.pay', { id: f.id, cycle: '2026-10-15' });
   assert.throws(() => run(b, 'fixed.pay', { id: f.id, cycle: '2026-10-15' }), /已经处理/);
-  assert.equal(ledgerView(b).spent, 3000);
+  assert.equal(ledgerView(b, '2026-10-19').spent, 3000);
   run(b, 'fixed.update', { id: f.id, name: '新订阅', amount: 4000, day: 17 }, true);
-  assert.equal(ledgerView(b).due.length, 0, 'editing preserves the paid cycle');
+  assert.equal(ledgerView(b, '2026-10-19').due.length, 0, 'editing preserves the paid cycle');
 });
 
 test('ledger edits preserve original dates, and refills can be renamed', () => {
