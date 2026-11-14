@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import "./helpers/resolve-typescript.mjs";
 
-const { isCodeProject, canDeployCodeProject } = await import("../app/lib/code-projects.ts");
+const { isCodeProject, canDeployCodeProject, sessionWorkProject } = await import("../app/lib/code-projects.ts");
 const { loadDevelopmentModePrefs, inferDevelopmentModePref, DEVELOPMENT_MODE_KEY } = await import("../app/lib/app-settings.ts");
 const { workContextHistory } = await import("../app/lib/work-context.ts");
 const { startCodeRelease } = await import("../app/lib/code-release.ts");
@@ -55,4 +55,19 @@ test("source projects can deploy, while writing and unknown projects never spawn
 test("writing mode is recovered from its own last work turn", () => {
   assert.deepEqual(inferDevelopmentModePref([{ role: "assistant", source: "code_task_writing" }]),
     { enabled: true, project: "writing" });
+});
+
+test("chat list labels a window by its latest work project and leaves plain chats alone", () => {
+  assert.equal(sessionWorkProject([{ source: "chat" }, {}]), undefined);
+  assert.equal(sessionWorkProject([{ source: "code_task_writing" }, { source: "code_task_iooi" }, {}]), "iooi");
+  assert.equal(sessionWorkProject([{ source: "code_task_unknown" }]), undefined);
+});
+
+test("work history mentions an earlier file without re-sending it", () => {
+  const records = [
+    { role: "user", content: "看看这个", source: "code_task_iooi", roundId: "a", file: "/uploads/a.docx", fileName: "提示词.docx" },
+    { role: "user", content: "now", source: "code_task_iooi", roundId: "current", file: "/uploads/b.txt", fileName: "b.txt" },
+  ];
+  assert.deepEqual(workContextHistory(records, "iooi", "current").map((message) => message.content),
+    ["看看这个\n[当时附了文件 提示词.docx，本轮不再附带全文]"]);
 });

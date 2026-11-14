@@ -30,7 +30,7 @@ import {
   summerWritesFromSnapshot,
 } from "@/app/lib/summer-write-dedupe";
 import { existsSync, readFileSync } from "fs";
-import { chatFileNotes } from "@/app/lib/chat-files";
+import { chatFileNotes, readChatFile } from "@/app/lib/chat-files";
 import { exportWritingFiles, snapshotWritingFiles, type WritingSnapshot } from "@/app/lib/writing-files";
 import type { WritingFile } from "@/app/lib/writing-file-types";
 import { basename, extname, resolve, sep } from "path";
@@ -825,10 +825,20 @@ export async function POST(request: Request) {
     const taskImageUrls = messageImages(userMsg);
     if (!isCodeProject(codeMode?.project) || skipPersist || groupSessionId || !sessionId
       || !/^[a-zA-Z0-9_-]{1,100}$/.test(sessionId)
-      || !userMsg || typeof userMsg.content !== "string" || (!userMsg.content.trim() && !taskImageUrls.length)
-      || userMsg.content.length > 12_000 || userMsg.file
+      || !userMsg || typeof userMsg.content !== "string" || (!userMsg.content.trim() && !taskImageUrls.length && !userMsg.file)
+      || userMsg.content.length > 12_000 || (userMsg.file && (typeof userMsg.file !== "string" || codeMode.project === "writing"))
       || requestMessages.some((message) => message.file || messageImages(message).length)) {
-      return Response.json({ reply: "工作任务内容无效；请选择工作项目，发送文字或图片。写写的模板请预先放入工作文件夹。" }, { status: 400 });
+      return Response.json({ reply: "工作任务内容无效；请选择工作项目，发送文字、图片或一个文件。写写的资料请用上传按钮放入工作文件夹。" }, { status: 400 });
+    }
+    // A work file is only read for its text this round; it never enters a code workspace.
+    let taskAttachment: { name: string; text: string } | undefined;
+    if (userMsg.file) {
+      try {
+        taskAttachment = { name: String(userMsg.fileName || "附件").slice(0, 200), text: await readChatFile(userMsg.file) };
+      } catch (error) {
+        const reason = error instanceof Error ? error.message : "无法读取";
+        return Response.json({ reply: `这个文件读不出来：${reason}` }, { status: 400 });
+      }
     }
     let taskImages: ImageBlock[] = [];
     let taskImageBytes = 0;
@@ -849,7 +859,7 @@ export async function POST(request: Request) {
     }
     const taskSource = `code_task_${codeMode.project}`;
     userMsg.source = taskSource;
-    const releaseAction = taskImages.length ? null : parseCodeReleaseCommand(userMsg.content);
+    const releaseAction = taskImages.length || taskAttachment ? null : parseCodeReleaseCommand(userMsg.content);
     if (releaseAction) {
       await persistUserMessage(sessionId, userMsg);
       try {
@@ -916,8 +926,10 @@ export async function POST(request: Request) {
       try {
         const taskReply = await runClaudeCodeTask({
           project: codeMode.project,
-          instruction: userMsg.content.trim(),
+          // A file-only message is saved as "📄 name"; that placeholder is not an instruction.
+          instruction: taskAttachment && userMsg.content.trim() === `📄 ${userMsg.fileName}` ? "" : userMsg.content.trim(),
           images: taskImages,
+          attachment: taskAttachment,
           history: taskHistory,
           sessionId,
           modelId: String(modelId || "claude-sonnet-5"),

@@ -77,6 +77,8 @@ type CodeTaskInput = {
   project: CodeProject;
   instruction: string;
   images?: ClaudeImageBlock[];
+  /** Text extracted from a file she attached this round; only this round sees it. */
+  attachment?: { name: string; text: string };
   history?: ContextMessage[];
   sessionId: string;
   modelId: string;
@@ -89,7 +91,7 @@ type CodeTaskInput = {
 export async function runClaudeCodeTask(input: CodeTaskInput): Promise<string> {
   return input.project === "writing" ? withWritingLock(() => runTask(input)) : runTask(input);
 }
-async function runTask({ project, instruction, images = [], history = [], sessionId, modelId, onProgress, onSteps, onBeforeTask, onAfterTask }: CodeTaskInput): Promise<string> {
+async function runTask({ project, instruction, images = [], attachment, history = [], sessionId, modelId, onProgress, onSteps, onBeforeTask, onAfterTask }: CodeTaskInput): Promise<string> {
   if (taskRunning) throw new Error("已有一个开发任务正在执行，请等它完成后再发下一条。");
   taskRunning = true;
   const cwd = WORKSPACES[project];
@@ -111,13 +113,17 @@ async function runTask({ project, instruction, images = [], history = [], sessio
       scope: `work:${project}:${sessionId}`,
       messages: [...history, { index: history.length, role: "user", content: instruction }],
       budget: WORK_CONTEXT_BUDGET, kind: "work",
-      overhead: 3_000 + estimateTokens(systemPrompt) + images.length * IMAGE_TOKEN_ESTIMATE, onProgress,
+      overhead: 3_000 + estimateTokens(systemPrompt) + images.length * IMAGE_TOKEN_ESTIMATE
+        + (attachment ? estimateTokens(attachment.text) : 0), onProgress,
     });
     const previous = history.filter((message) => message.index >= context.until).map(contextText).join("\n\n");
     const prompt = [
       context.summary ? `此前同一项目工作的摘要（只作前情）：\n${context.summary}` : "",
       previous ? `此前同一项目的工作对话（只作前情）：\n${previous}` : "",
-      `本轮要执行的指令：\n${instruction || "（这轮只发了图片，没有文字。请先看图，再按图片内容判断她想让你做什么。）"}`,
+      `本轮要执行的指令：\n${instruction || (attachment
+        ? "（这轮只发了一个文件，没有文字。请先读文件，再按文件内容判断她想让你做什么。）"
+        : "（这轮只发了图片，没有文字。请先看图，再按图片内容判断她想让你做什么。）")}`,
+      attachment ? `本轮附带文件「${attachment.name}」，以下是提取出的文字（文件本身没有放进工作区）：\n${attachment.text}` : "",
       images.length ? `本轮附带 ${images.length} 张图片，按她选择的顺序排列在这段文字之后。` : "",
     ].filter(Boolean).join("\n\n");
     // Images need Claude Code's stream-json input; plain text keeps the simpler stdin prompt.

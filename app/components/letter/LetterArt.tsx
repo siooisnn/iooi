@@ -23,17 +23,40 @@ export function LetterRoomFlourish() {
 }
 
 /** The writing space: a few hand-drawn hairlines around the composer, never
-    quite closed (the left edge stands apart, the top line dips once). */
+    quite closed (the left edge stands apart, the top line dips once). A small
+    spray rests on the top line where it dips. */
 export function LetterComposerFrame() {
   return (
-    <svg className="letter-frame-line" viewBox="0 0 320 100" preserveAspectRatio="none" aria-hidden="true">
-      <path d="M4 6 C 3.5 30, 4.5 64, 4 96" />
-      <path d="M12 4 C 40 2.5, 70 1, 120 1.5 C 160 1.8, 178 1.5, 190 4.5 C 198 7, 204 8.5, 222 8 C 236 7.5, 240 5, 250 4 C 270 3, 296 3.2, 316 3.4 C 316.5 30, 314 66, 311 94" />
-      <path d="M10 98 C 60 99.4, 120 98.4, 180 98.6 C 240 98.8, 280 98.2, 309 97.4" />
-    </svg>
+    <>
+      <svg className="letter-frame-line" viewBox="0 0 320 100" preserveAspectRatio="none" aria-hidden="true">
+        <path d="M4 6 C 3.5 30, 4.5 64, 4 96" />
+        <path d="M12 4 C 40 2.5, 70 1, 120 1.5 C 160 1.8, 178 1.5, 190 4.5 C 198 7, 204 8.5, 222 8 C 236 7.5, 240 5, 250 4 C 270 3, 296 3.2, 316 3.4 C 316.5 30, 314 66, 311 94" />
+        <path d="M10 98 C 60 99.4, 120 98.4, 180 98.6 C 240 98.8, 280 98.2, 309 97.4" />
+      </svg>
+      <LetterComposerSprig />
+    </>
   );
 }
 
+/** Leaves, a rosebud and two forget-me-nots lying along the composer's top line. */
+function LetterComposerSprig() {
+  return (
+    <svg className="letter-sprig" viewBox="0 0 84 30" aria-hidden="true">
+      <path className="letter-art-stem" d="M2 25 C 16 23, 30 22, 44 18 C 54 15, 62 12, 72 6" />
+      <path className="letter-art-stem letter-art-fine" d="M30 21.5 C 28 16, 30 11, 34 9" />
+      <LetterLeaf x={10} y={24} turn={-160} size={0.8} />
+      <LetterLeaf x={22} y={22.5} turn={22} size={0.9} />
+      <LetterLeaf x={44} y={18} turn={-130} size={0.85} />
+      <LetterLeaf x={52} y={15} turn={-8} size={0.75} />
+      <LetterBud x={72} y={6} turn={62} size={0.9} />
+      <LetterBud x={34} y={9} turn={-14} size={0.62} />
+      <LetterForgetMeNot x={60} y={20} size={0.9} />
+      <LetterForgetMeNot x={66} y={24.5} size={0.7} />
+      <circle className="letter-art-seed" cx="16" cy="18" r=".9" />
+      <circle className="letter-art-seed" cx="40" cy="25" r=".7" />
+    </svg>
+  );
+}
 /** A small wobbly ring for each tool in the margin of the composer. */
 export function LetterRing({ turn = 0 }: { turn?: number }) {
   return (
@@ -90,17 +113,97 @@ export function LetterMenuIcon() {
   );
 }
 
-/** A rosebud and two leaves where the flourish comes to rest. */
+/** Where the flourish comes to rest: an open rose, two buds, leaves and a
+    few forget-me-nots, drawn in the same hairline as the list page's vine. */
 export function LetterRoomBud() {
   return (
-    <svg className="letter-room-bud" viewBox="0 0 36 30" aria-hidden="true">
-      <path className="letter-room-bud-stem" d="M4 22 C 12 22, 18 18, 22 12" />
-      <path className="letter-room-bud-leaf" d="M10 22 C 12 26, 18 28, 22 26 C 19 22, 14 21, 10 22 Z" />
-      <path className="letter-room-bud-leaf" d="M15 18 C 13 13, 15 9, 18 8 C 19 12, 18 16, 15 18 Z" />
-      <g transform="translate(23 12) rotate(28)">
-        <path className="letter-room-bud-petal" d="M0 0 C -4.5 -3, -4.5 -10, 0 -13 C 4.5 -10, 4.5 -3, 0 0 Z" />
-        <path className="letter-room-bud-sepal" d="M0 0 C -3 -2, -4 -5, -4 -7.5 M0 0 C 3 -2, 4 -5, 4 -7.5" />
-      </g>
+    <svg className="letter-room-bud" viewBox="0 0 104 50" aria-hidden="true">
+      <path className="letter-art-stem" d="M2 30 C 16 31, 28 30, 40 27 C 50 24.5, 56 24, 62 24" />
+      <path className="letter-art-stem" d="M58 24 C 70 20, 80 14, 88 6" />
+      <path className="letter-art-stem letter-art-fine" d="M70 21 C 78 24, 86 30, 94 32" />
+      <path className="letter-art-stem letter-art-fine" d="M38 28 C 36 21, 38 15, 43 11" />
+      <path className="letter-art-stem letter-art-fine" d="M24 30 C 22 35, 24 39, 28 40 C 31 40.5, 31 37, 28.5 37" />
+      <LetterLeaf x={14} y={30.5} turn={-165} size={0.95} />
+      <LetterLeaf x={30} y={29.5} turn={20} size={1.05} />
+      <LetterLeaf x={48} y={25.5} turn={-140} size={1} />
+      <LetterLeaf x={78} y={15} turn={-40} size={0.9} />
+      <LetterLeaf x={82} y={27} turn={40} size={0.85} />
+      <LetterOpenRose x={62} y={24} size={1.15} />
+      <LetterBud x={88} y={6} turn={50} />
+      <LetterBud x={43} y={11} turn={-20} size={0.78} />
+      <LetterForgetMeNot x={94} y={32} />
+      <LetterForgetMeNot x={98.5} y={38.5} size={0.7} />
+      <LetterForgetMeNot x={50} y={36} size={0.8} />
+      <circle className="letter-art-seed" cx="20" cy="22" r="1" />
+      <circle className="letter-art-seed" cx="86" cy="40" r=".9" />
+      <circle className="letter-art-seed" cx="100" cy="24" r=".8" />
+    </svg>
+  );
+}
+
+type Spot = { x: number; y: number; turn?: number; size?: number };
+
+function place({ x, y, turn = 0, size = 1 }: Spot) {
+  return `translate(${x} ${y}) rotate(${turn}) scale(${size})`;
+}
+
+function LetterLeaf(spot: Spot) {
+  return (
+    <g transform={place(spot)}>
+      <path className="letter-art-leaf" d="M0 0 C 3 -4.6, 10 -5, 15 0 C 10 4.4, 3 4.2, 0 0 Z" />
+      <path className="letter-art-vein" d="M1.2 0 C 5.5 -.5, 10 -.5, 13.6 0" />
+    </g>
+  );
+}
+
+function LetterBud(spot: Spot) {
+  return (
+    <g transform={place(spot)}>
+      <path className="letter-art-petal" d="M0 0 C -4.8 -3, -4.6 -10.5, 0 -13.5 C 4.6 -10.5, 4.8 -3, 0 0 Z" />
+      <path className="letter-art-petal letter-art-cup" d="M0 -1 C 2.6 -3.4, 3 -8, .6 -11.6 C 2.8 -8, 2 -3.6, 0 -1 Z" />
+      <path className="letter-art-sepal" d="M0 0 C -3 -2, -4.2 -5, -4 -8 M0 0 C 3 -2, 4.2 -5, 4 -8 M0 0 C 0 -2, -.6 -4, -1.6 -5.4" />
+    </g>
+  );
+}
+
+function LetterOpenRose(spot: Spot) {
+  return (
+    <g transform={place(spot)}>
+      <path className="letter-art-petal" d="M0 -11 C 5 -12.4, 10.4 -8.4, 10.8 -3 C 13 1.4, 10 8.4, 5 9.8 C 1.6 12.4, -4.4 12, -6.4 9 C -11 8, -12.8 2, -10.2 -2 C -11 -8, -5.4 -12, 0 -11 Z" />
+      <path className="letter-art-fold" d="M-10.2 -2 C -6.4 -1, -5.4 3.6, -6.4 9 M10.8 -3 C 7.4 -1.6, 6.4 2.4, 5 9.8 M0 -11 C -1.4 -8.6, -.6 -7.4, 1.6 -7" />
+      <path className="letter-art-petal letter-art-cup" d="M-6.6 -1 C -7 -6, -2 -8.6, 2.6 -7.2 C 7.2 -6, 8.2 -1, 6.6 2.6 C 5 6.6, 0 7.6, -3 6.2 C -6 5, -7 2, -6.6 -1 Z" />
+      <path className="letter-art-curl" d="M0 -.5 C 2 -2, 3.6 .5, 1.6 2 C -1 3.6, -3.6 1, -2.6 -1.8 C -1.6 -4.6, 2.6 -4.8, 4.2 -2.4" />
+    </g>
+  );
+}
+
+function LetterForgetMeNot({ x, y, size = 1 }: Spot) {
+  return (
+    <g className="letter-art-forget" transform={`translate(${x} ${y}) scale(${size})`}>
+      {[0, 72, 144, 216, 288].map((turn) => <circle key={turn} cx="0" cy="-2.1" r="1.7" transform={`rotate(${turn})`} />)}
+      <circle className="letter-art-forget-eye" cx="0" cy="0" r=".9" />
+    </g>
+  );
+}
+
+/** A large, very faint rose pressed into the paper behind the words. It stays
+    put while the letter scrolls. */
+export function LetterPaperBloom() {
+  return (
+    <svg className="letter-bloom" viewBox="0 0 120 140" aria-hidden="true">
+      <path className="letter-art-stem" d="M118 136 C 104 120, 92 104, 80 86 C 72 74, 66 64, 64 52" />
+      <path className="letter-art-stem" d="M84 92 C 70 90, 52 84, 38 70 C 30 62, 26 50, 28 38" />
+      <path className="letter-art-stem letter-art-fine" d="M98 112 C 106 104, 112 100, 118 100" />
+      <LetterLeaf x={88} y={98} turn={-150} size={2.2} />
+      <LetterLeaf x={98} y={112} turn={-30} size={1.9} />
+      <LetterLeaf x={58} y={80} turn={-170} size={2} />
+      <LetterLeaf x={74} y={74} turn={-70} size={1.8} />
+      <LetterLeaf x={34} y={58} turn={-120} size={1.6} />
+      <LetterOpenRose x={64} y={46} size={2.6} />
+      <LetterBud x={28} y={38} turn={-24} size={2} />
+      <LetterForgetMeNot x={92} y={70} size={2.2} />
+      <LetterForgetMeNot x={102} y={82} size={1.6} />
+      <LetterForgetMeNot x={44} y={96} size={1.8} />
     </svg>
   );
 }

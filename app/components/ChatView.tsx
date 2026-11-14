@@ -44,7 +44,7 @@ import { hasSpeakableText } from "../lib/tts-text";
 import { useSpeaker } from "../lib/use-speaker";
 import { useTheme } from "./ThemeProvider";
 import { RococoBow, RococoDivider, RococoRose } from "./rococo/RococoArt";
-import { LetterClipIcon, LetterComposerFrame, LetterGearIcon, LetterRing, LetterRoomBud, LetterRoomFlourish, LetterSeal, LetterSmileIcon, useLetterChrome } from "./letter/LetterArt";
+import { LetterClipIcon, LetterComposerFrame, LetterGearIcon, LetterPaperBloom, LetterRing, LetterRoomBud, LetterRoomFlourish, LetterSeal, LetterSmileIcon, useLetterChrome } from "./letter/LetterArt";
 
 // Animate only the current interaction, never a replayed history entry.
 const NUDGE_FRAMES: Keyframe[] = [
@@ -577,7 +577,9 @@ export function ChatView({
     if ((!moneyCard && !nudge && !input.trim() && !attachments.length) || loading || uploading || sendingRef.current) return;
     if (nudge && (isGpt || developmentMode || !retro)) return;
     const codeRequest = !isGpt && developmentMode;
-    const sendable = nudge || moneyCard ? [] : codeRequest ? attachments.filter((item) => item.kind === "image" || (writingMode && item.writingFile)) : attachments;
+    const sendable = nudge || moneyCard ? [] : codeRequest
+      ? attachments.filter((item) => item.kind === "image" || (writingMode ? item.writingFile : item.kind === "file"))
+      : attachments;
     const typed = moneyCard ? moneyCard.text : nudge ? NUDGE_USER_TEXT : stripObjectPlaceholders(input);
     if (!typed.trim() && !sendable.length) return;
     sendingRef.current = true;
@@ -871,10 +873,10 @@ export function ChatView({
     picker.value = "";
     if (!picked.length || uploadingRef.current || loading) return;
 
-    const allowFiles = !developmentMode || writingMode;
+    // Work projects read one file's text per message, like private chat; 写写 stores up to ten in its folder.
     const notes: string[] = [];
     let imageSlots = MAX_IMAGES_PER_MESSAGE - attachments.filter((item) => item.kind === "image").length;
-    let fileSlots = allowFiles ? (writingMode ? 10 : 1) - attachments.filter((item) => item.kind === "file").length : 0;
+    let fileSlots = (writingMode ? 10 : 1) - attachments.filter((item) => item.kind === "file").length;
     const queue: File[] = [];
     for (const file of picked) {
       if (file.type.startsWith("image/")) {
@@ -889,7 +891,7 @@ export function ChatView({
     }
     const messages: string[] = notes.map((note) => note === "image-limit"
       ? `一条消息最多 ${MAX_IMAGES_PER_MESSAGE} 张图片，多出来的没有加上`
-      : writingMode ? "一次最多上传 10 个资料文件" : allowFiles ? "一条消息只能带一个文件" : "这里只能发图片");
+      : writingMode ? "一次最多上传 10 个资料文件" : "一条消息只能带一个文件");
     if (!queue.length) {
       setUploadError(messages.join("；") + "。");
       return;
@@ -941,6 +943,11 @@ export function ChatView({
     }
     onBackToList?.();
   }
+
+  // Code work also takes logs, configs and source snippets; the server reads only their text.
+  const fileAccept = developmentMode && !writingMode
+    ? "image/*,application/pdf,.pdf,.docx,.txt,.md,.csv,.json,.log,.yml,.yaml,.xml,.js,.ts,.html,.css,.py,.java"
+    : "image/*,application/pdf,.pdf,.docx,.txt,.md,.csv";
 
   const developmentBadge = developmentMode && (
     <span className="dev-mode-badge" title={`工作模式 · ${developmentProjectLabel} 工作区`}>
@@ -1251,6 +1258,7 @@ export function ChatView({
         </div>
       )}
 
+      {letter && <LetterPaperBloom />}
       <section className={`chat-messages${rococo ? " rococo-message-paper" : ""}${letter ? " letter-paper" : ""}${saysAvatars ? " xp-log-avatars" : ""}${dotBubbles ? " xp-log-dots" : ""}${brickBubbles ? " xp-log-brick" : ""}`} ref={scrollRef} onScroll={handleScroll}>
         {session.messages.length === 0 && (
           <div className={`empty-chat${rococo ? " rococo-empty-letter" : ""}${letter ? " letter-empty" : ""}`}>
@@ -1550,7 +1558,7 @@ export function ChatView({
                 type="file"
                 multiple
                 className="attach-file-input"
-                accept={developmentMode && !writingMode ? "image/*" : "image/*,application/pdf,.pdf,.docx,.txt,.md,.csv"}
+                accept={fileAccept}
                 disabled={uploading || loading}
                 onChange={(event) => void uploadFile(event)}
                 aria-label={writingMode ? "上传资料到写写" : developmentMode ? "上传图片" : "上传图片或文件"}
@@ -1615,7 +1623,7 @@ export function ChatView({
               type="file"
               multiple
               className="attach-file-input"
-              accept={developmentMode && !writingMode ? "image/*" : "image/*,application/pdf,.pdf,.docx,.txt,.md,.csv"}
+              accept={fileAccept}
               disabled={uploading || loading}
               onChange={(event) => void uploadFile(event)}
               aria-label={writingMode ? "上传资料到写写" : developmentMode ? "上传图片" : "上传图片或文件"}
@@ -1661,7 +1669,7 @@ export function ChatView({
               type="file"
               multiple
               className="attach-file-input"
-              accept={developmentMode && !writingMode ? "image/*" : "image/*,application/pdf,.pdf,.docx,.txt,.md,.csv"}
+              accept={fileAccept}
               disabled={uploading || loading}
               onChange={(event) => void uploadFile(event)}
               aria-label={writingMode ? "上传资料到写写" : developmentMode ? "上传图片" : "上传图片或文件"}

@@ -2,7 +2,9 @@
    列表·目录: one sheet of paper; the composition is free (a big script title
    on the left, a rose stem reaching in from the right), the rows are not.
    对话·正文: a sheet that keeps being written on. Her words lie on the paper,
-   his own lines rest on the palest pink; ornament only at the very top. */
+   his own lines rest on the palest pink. Flowers stay in the margins: a
+   spray under the title, sprigs on the date rules and the composer, one
+   faint rose pressed into the paper; never across the words. */
 
 .lc-list,
 :root[data-theme="letter"] .chat-container[data-chat-ui="letter"] {
@@ -276,6 +278,26 @@
 .lc-photo-tilt-0 { transform: rotate(-3deg); }
 .lc-photo-tilt-1 { transform: rotate(2deg); }
 .lc-photo-tilt-2 { transform: rotate(-1deg); }
+/* Work windows: a narrow paper label pinned across the photo's lower edge. */
+.lc-photo-wrap { position: relative; display: block; flex: none; }
+.lc-photo-tag {
+  position: absolute;
+  left: 50%;
+  bottom: -6px;
+  z-index: 1;
+  max-width: 54px;
+  padding: 2px 5px 1px;
+  overflow: hidden;
+  border: 1px solid #e3cbd1;
+  background: var(--lt-blush);
+  box-shadow: 0 1px 2px #33405a14;
+  color: var(--lt-rose);
+  font: 500 9.5px/1.2 var(--lt-serif), var(--lt-cjk);
+  letter-spacing: .04em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  transform: translateX(-50%) rotate(-2deg);
+}
 .lc-photos { position: relative; display: block; flex: none; width: 42px; height: 47px; }
 .lc-photo-mini { position: absolute; width: 27px; height: 30px; padding: 2px 2px 4px; }
 .lc-photo-mini-1 { left: -2px; top: 2px; transform: rotate(-8deg); }
@@ -501,17 +523,43 @@
 }
 .letter-room-ornament {
   position: relative;
-  height: 24px;
+  height: 30px;
   margin: 0 -6px 0 -2px;
   pointer-events: none;
 }
-.letter-room-flourish { position: absolute; inset: 0 22px 0 0; width: calc(100% - 22px); height: 100%; overflow: visible; }
+.letter-room-flourish { position: absolute; inset: 0 70px 0 0; width: calc(100% - 70px); height: 24px; overflow: visible; }
 .letter-room-flourish-line { fill: none; stroke: var(--lt-gold); stroke-width: .8; stroke-linecap: round; vector-effect: non-scaling-stroke; opacity: .8; }
-.letter-room-bud { position: absolute; right: -2px; top: 1px; width: 36px; height: 30px; overflow: visible; }
-.letter-room-bud-stem { fill: none; stroke: #9fb0c5; stroke-width: .9; stroke-linecap: round; }
-.letter-room-bud-leaf { fill: #e8eef5; stroke: #9fb0c5; stroke-width: .7; }
-.letter-room-bud-petal { fill: var(--lt-blush); stroke: var(--lt-rose); stroke-width: .8; }
-.letter-room-bud-sepal { fill: none; stroke: #8fa3ba; stroke-width: .7; stroke-linecap: round; }
+.letter-room-bud { position: absolute; right: -10px; top: -7px; width: 94px; height: 45px; overflow: visible; }
+
+/* The flowers share one hairline hand: blue-grey stems and leaves, blush
+   roses edged in rose, forget-me-nots, a few gold seeds. */
+.letter-art-stem { fill: none; stroke: #9fb0c5; stroke-width: .9; stroke-linecap: round; }
+.letter-art-fine { stroke-width: .65; }
+.letter-art-leaf { fill: #e8eef5; stroke: #9fb0c5; stroke-width: .7; }
+.letter-art-vein { fill: none; stroke: #b6c4d4; stroke-width: .5; stroke-linecap: round; }
+.letter-art-petal { fill: var(--lt-blush); stroke: var(--lt-rose); stroke-width: .75; stroke-linejoin: round; }
+.letter-art-cup { fill: #f2d3db; }
+.letter-art-fold { fill: none; stroke: var(--lt-rose); stroke-width: .5; stroke-linecap: round; opacity: .65; }
+.letter-art-curl { fill: none; stroke: var(--lt-rose); stroke-width: .7; stroke-linecap: round; }
+.letter-art-sepal { fill: none; stroke: #8fa3ba; stroke-width: .7; stroke-linecap: round; }
+.letter-art-forget circle { fill: #dde6f1; stroke: #93a7bf; stroke-width: .45; }
+.letter-art-forget .letter-art-forget-eye { fill: var(--lt-gold); stroke: none; }
+.letter-art-seed { fill: var(--lt-gold); opacity: .75; }
+
+/* One large rose pressed into the paper, so faint it reads as a watermark.
+   It belongs to the sheet, not the text, and does not scroll. */
+.letter-bloom {
+  position: absolute;
+  z-index: 0;
+  right: -36px;
+  bottom: 158px;
+  width: 172px;
+  height: 200px;
+  overflow: visible;
+  opacity: .24;
+  pointer-events: none;
+}
+.letter-bloom :is(path, circle) { vector-effect: non-scaling-stroke; }
 
 /* The page itself. */
 :root[data-theme="letter"] .chat-container[data-chat-ui="letter"] > .chat-messages {
@@ -519,8 +567,8 @@
   z-index: 1;
   flex: 1 1 auto;
   min-height: 0;
-  gap: 18px;
-  padding: 18px 20px 26px;
+  gap: 16px;
+  padding: 16px 20px 26px;
   overflow-x: hidden;
   overflow-y: auto;
   background: transparent;
@@ -546,6 +594,19 @@
   box-shadow: 0 1px 2px #33405a24, 0 2px 6px #33405a10;
 }
 :root[data-theme="letter"] .chat-container[data-chat-ui="letter"] .avatar-spacer { box-shadow: none; }
+
+/* One photo per run: when the same person keeps writing, the photo is left
+   out but its width is kept, so the lines stay aligned, and the run closes
+   up like paragraphs of one letter. A new day or a new speaker shows it again. */
+:root[data-theme="letter"] .chat-container[data-chat-ui="letter"] :is(.msg-row-compact-top, .msg-row-compact-bottom) { margin-top: 0; margin-bottom: 0; }
+:root[data-theme="letter"] .chat-container[data-chat-ui="letter"] > .chat-messages > div:has(> .msg-row-compact-top:first-child) { margin-top: -10px; }
+:root[data-theme="letter"] .chat-container[data-chat-ui="letter"] .msg-row-compact-top > :is(.avatar, .avatar-img) {
+  height: 0;
+  padding: 0;
+  box-shadow: none;
+  visibility: hidden;
+}
+:root[data-theme="letter"] .chat-container[data-chat-ui="letter"] .msg-row-compact-top .msg-bubble-ai:not(.msg-bubble-summer-utility):not(.msg-bubble-img):first-child { padding-top: 0; }
 :root[data-theme="letter"] .chat-container[data-chat-ui="letter"] .msg-time {
   margin-bottom: 4px;
   padding: 0 2px;
@@ -560,7 +621,7 @@
   color: var(--lt-ink);
   font-family: var(--lt-cjk);
   font-size: 15.5px;
-  line-height: 1.85;
+  line-height: 1.72;
   letter-spacing: .02em;
   overflow-wrap: anywhere;
 }
@@ -572,7 +633,7 @@
   box-shadow: none;
 }
 :root[data-theme="letter"] .chat-container[data-chat-ui="letter"] .msg-bubble-user:not(.msg-bubble-summer-utility):not(.msg-bubble-img) {
-  padding: 8px 14px;
+  padding: 6px 13px;
   border: 0;
   border-radius: 14px 14px 4px 14px;
   background: #f6e2e7c2;
@@ -600,10 +661,18 @@
 :root[data-theme="letter"] .chat-container[data-chat-ui="letter"] .msg-speak { color: var(--lt-mist); }
 :root[data-theme="letter"] .chat-container[data-chat-ui="letter"] .group-speaker-meta { color: var(--lt-ink-faint); }
 
-/* A new day: a short gold rule and the date in italics. */
-:root[data-theme="letter"] .chat-container[data-chat-ui="letter"] .date-separator { gap: 12px; margin: 6px 0 2px; padding: 6px 0; }
+/* A new day: the date in italics between two gold rules, each ending in a
+   pair of leaves and a rosebud that point toward the date. */
+:root[data-theme="letter"] .chat-container[data-chat-ui="letter"] .date-separator { gap: 8px; margin: 6px 0 2px; padding: 6px 0; }
 :root[data-theme="letter"] .chat-container[data-chat-ui="letter"] .date-separator::before,
-:root[data-theme="letter"] .chat-container[data-chat-ui="letter"] .date-separator::after { content: ""; width: 26px; height: 1px; background: var(--lt-gold); opacity: .75; }
+:root[data-theme="letter"] .chat-container[data-chat-ui="letter"] .date-separator::after {
+  content: "";
+  flex: none;
+  width: 48px;
+  height: 12px;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 12'%3E%3Cpath d='M1 6.6C12 6 24 6.7 37 6' fill='none' stroke='%23c9ae7c' stroke-width='.8' stroke-linecap='round'/%3E%3Cpath d='M27 6.3C29 3 32.5 2.2 35 2.8 33.8 5 30.6 6.2 27 6.3Z' fill='%23e8eef5' stroke='%239fb0c5' stroke-width='.6'/%3E%3Cpath d='M25 6.6C27.2 9.4 30.6 10 33 9.2 31.2 7.4 28.4 6.6 25 6.6Z' fill='%23e8eef5' stroke='%239fb0c5' stroke-width='.6'/%3E%3Cpath d='M37 6C39.6 3 43.8 3.2 46 6 43.8 8.8 39.6 9 37 6Z' fill='%23f6e2e7' stroke='%23b47f8c' stroke-width='.65'/%3E%3Cpath d='M37 6C38.6 4.8 39.6 4.4 40.6 4.6M37 6C38.6 7.2 39.6 7.6 40.6 7.4' fill='none' stroke='%238fa3ba' stroke-width='.55' stroke-linecap='round'/%3E%3Ccircle cx='18' cy='4' r='.8' fill='%23c9ae7c'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+:root[data-theme="letter"] .chat-container[data-chat-ui="letter"] .date-separator::after { transform: scaleX(-1); }
 :root[data-theme="letter"] .chat-container[data-chat-ui="letter"] .date-separator-text {
   padding: 0;
   color: var(--lt-ink-faint);
@@ -644,6 +713,17 @@
   inset: 0;
   width: 100%;
   height: 100%;
+  overflow: visible;
+  pointer-events: none;
+}
+/* A sprig resting on the frame's top line, where it dips. */
+.letter-sprig {
+  position: absolute;
+  top: -18px;
+  right: 19%;
+  z-index: 1;
+  width: 78px;
+  height: 28px;
   overflow: visible;
   pointer-events: none;
 }

@@ -5,6 +5,7 @@ import type { AssistantMode, ChatListTab, ChatSession } from "../../lib/app-type
 import type { Settings } from "../../lib/app-settings";
 import { CLAUDE_DEFAULT_NAME } from "../../lib/app-settings";
 import { APP_TIME_ZONE } from "../../lib/app-time";
+import { CODE_PROJECT_LABELS, sessionWorkProject } from "../../lib/code-projects";
 import { getLatestSessionMessage, getSessionPreview, getSessionStamp, latestPrivateSession, listedPrivateSessions, sortByStamp } from "../../lib/chat-sessions";
 import { CHAT_LIST_TABS } from "../ChatListView";
 import { useLetterChrome } from "./LetterArt";
@@ -239,12 +240,13 @@ export function LetterChatList({
                       const latest = getLatestSessionMessage(entry.session);
                       const name = entry.group ? entry.session.name || "一个群" : entry.session.name;
                       const own = !entry.group;
+                      const work = own && assistantMode === "claude" ? sessionWorkProject(entry.session.messages) : undefined;
                       return (
                         <div key={entry.key} className="lc-row">
                           <button type="button" className="lc-row-open" onClick={() => open(entry)}>
                             {entry.group
                               ? <GroupPhotos avatars={[settings.aiAvatar, settings.gptAvatar, settings.userAvatar]} />
-                              : <Photo src={personAvatar(assistantMode)} tilt={index} />}
+                              : <Photo src={personAvatar(assistantMode)} tilt={index} tag={work && CODE_PROJECT_LABELS[work]} />}
                             <span className="lc-row-text">
                               <span className="lc-row-head">
                                 <b>{name}</b>
@@ -293,10 +295,18 @@ export function LetterChatList({
 }
 
 /** An avatar tucked into the letter like a small photograph. */
-function Photo({ src, tilt }: { src: string; tilt: number }) {
-  return (
+function Photo({ src, tilt, tag }: { src: string; tilt: number; tag?: string }) {
+  const photo = (
     <span className={`lc-photo lc-photo-tilt-${tilt % 3}`} aria-hidden="true">
       {src ? <img src={src} alt="" /> : <i />}
+    </span>
+  );
+  if (!tag) return photo;
+  // A work window gets a small paper label pinned under its photo.
+  return (
+    <span className="lc-photo-wrap">
+      {photo}
+      <span className="lc-photo-tag" aria-label={`工作：${tag}`}>{tag}</span>
     </span>
   );
 }

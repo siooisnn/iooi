@@ -12,3 +12,12 @@ export function isCodeProject(value: unknown): value is CodeProject {
 export function canDeployCodeProject(project: CodeProject) {
   return isCodeProject(project) && project !== "writing";
 }
+
+/** The work project a chat window was last used for, or undefined for a plain chat window. */
+export function sessionWorkProject(messages: ReadonlyArray<{ source?: string }>): CodeProject | undefined {
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    const project = CODE_PROJECTS.find((name) => messages[index].source === `code_task_${name}`);
+    if (project) return project;
+  }
+  return undefined;
+}

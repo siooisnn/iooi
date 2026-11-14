@@ -14,7 +14,7 @@ import { ContextUsageBadge, type UsageMessage } from "./ContextUsageBadge";
 import { ChatGlyph } from "./RetroDesktop";
 import { useTheme } from "./ThemeProvider";
 import { RococoDivider, RococoRose } from "./rococo/RococoArt";
-import { LetterClipIcon, LetterComposerFrame, LetterMenuIcon, LetterRing, LetterRoomBud, LetterRoomFlourish, LetterSeal, useLetterChrome } from "./letter/LetterArt";
+import { LetterClipIcon, LetterComposerFrame, LetterMenuIcon, LetterPaperBloom, LetterRing, LetterRoomBud, LetterRoomFlourish, LetterSeal, useLetterChrome } from "./letter/LetterArt";
 
 type PendingAttachment = { id: string; kind: "image" | "file"; url: string; name: string; writingFile?: WritingFile };
 
@@ -611,6 +611,7 @@ export function GroupChatView({
         {letter && <div className="letter-room-ornament"><LetterRoomFlourish /><LetterRoomBud /></div>}
       </header>
 
+      {letter && <LetterPaperBloom />}
       <section className={`chat-messages${rococo ? " rococo-message-paper" : ""}${letter ? " letter-paper" : ""}`} ref={scrollRef} onScroll={handleScroll}>
         {displayedMessages.length === 0 && (
           <div className="empty-chat"><p>{memberNames ? `你和${memberNames}都在这里` : "请先选择本窗口的参与者。"}</p></div>

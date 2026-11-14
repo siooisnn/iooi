@@ -60,7 +60,7 @@ export async function extractChatFile(buffer: Buffer, extension: string): Promis
     : text;
 }
 
-async function readChatFile(url: string) {
+export async function readChatFile(url: string) {
   if (!isUploadUrl(url)) throw new Error("文件地址无效");
   const directory = resolve(process.cwd(), "uploads");
   const path = resolve(directory, url.slice("/uploads/".length));
