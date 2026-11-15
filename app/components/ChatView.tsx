@@ -962,7 +962,7 @@ export function ChatView({
     : loading || streamingReply ? "writing to you…" : "yours";
   const roomIdentity = (
     <>
-      <h1 className="header-title chat-room-title">{assistantName}</h1>
+      <h1 className="header-title chat-room-title">{floralLetter ? "My dearest" : assistantName}</h1>
       {letter
         ? <span className="header-subtitle chat-room-status letter-room-status" title={developmentMode ? `工作模式 · ${developmentProjectLabel}` : undefined}>{letterStatus}</span>
         : <span className="header-subtitle chat-room-status">
@@ -1367,7 +1367,7 @@ export function ChatView({
                         steps={message.steps}
                         mode={message.source?.startsWith("code_task_") ? "work" : "chat"}
                       />
-                    : !compactTop && <span className="msg-time">{message.time}</span>)}
+                    : !compactTop && <span className="msg-time">{floralLetter ? ["rain", message.time].filter(Boolean).join(" · ") : message.time}</span>)}
                   {dotBubbles && showSays && dotsTag(message.role === "user", message.time)}
                   {/* Card themes: the steps sit under the name, inside the reply's own column. */}
                   {dotBubbles && stepsBlock}
