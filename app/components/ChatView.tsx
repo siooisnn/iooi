@@ -206,6 +206,29 @@ export function ChatView({
     .map((message, index) => ({ message, index }))
     .filter(({ message }) => !(message.source === "summer_call" &&
       message.content.includes("已读取 Summer 唤醒内容与记忆状态")));
+  // Decorate only the ends of a consecutive group of AI text frames.
+  const floralFirst = new Set<number>();
+  const floralLast = new Set<number>();
+  if (floralLetter) {
+    let first: number | undefined;
+    let last: number | undefined;
+    let previous: Message | undefined;
+    const close = () => {
+      if (first !== undefined && last !== undefined) { floralFirst.add(first); floralLast.add(last); }
+      first = last = undefined;
+    };
+    for (const { message, index } of displayMessages) {
+      const textFrame = message.role === "assistant" && Boolean(message.content.trim())
+        && !isSummerUtilityMessage(message)
+        && !["sticker", "chat_nudge", "blog_card", "dayday_card", "ledger_card"].includes(message.source || "");
+      if (!textFrame) { close(); previous = undefined; continue; }
+      if (previous && shouldShowChatRoomTime(message, previous)) close();
+      first ??= index;
+      last = index;
+      previous = message;
+    }
+    close();
+  }
   // Speaker: each run of Claude's plain-text bubbles is read out as one reply;
   // the button sits under the run's last bubble.
   // She can hide the button in room settings; hiding it also stops any playback.
@@ -1351,7 +1374,7 @@ export function ChatView({
               )}
               {/* The letter puts how long he took on his name line instead. */}
               {!dotBubbles && !letter && stepsBlock}
-              <div className={`msg-row ${message.role === "user" ? "msg-row-user" : "msg-row-ai"} ${isSummerUtility ? "msg-row-summer-utility" : ""} ${compactTop ? "msg-row-compact-top" : ""} ${compactBottom ? "msg-row-compact-bottom" : ""} ${animateMessage ? "" : "msg-row-static"}${dotBubbles && showSays ? " msg-row-says" : ""}`} style={animateMessage ? { animationDelay: `${Math.min(index * 0.03, 0.3)}s` } : undefined}>
+              <div className={`msg-row ${message.role === "user" ? "msg-row-user" : "msg-row-ai"} ${isSummerUtility ? "msg-row-summer-utility" : ""} ${compactTop ? "msg-row-compact-top" : ""} ${compactBottom ? "msg-row-compact-bottom" : ""} ${animateMessage ? "" : "msg-row-static"}${dotBubbles && showSays ? " msg-row-says" : ""}${floralFirst.has(index) ? " letter-floral-first" : ""}${floralLast.has(index) ? " letter-floral-last" : ""}`} style={animateMessage ? { animationDelay: `${Math.min(index * 0.03, 0.3)}s` } : undefined}>
                 {message.role === "assistant" && !isSummerUtility && (
                   assistantAvatar
                     ? <img src={assistantAvatar} className="avatar avatar-img" alt="" />
