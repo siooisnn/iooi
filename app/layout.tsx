@@ -24,7 +24,6 @@ import "./themes/xp-control.css";
 import "./themes/cute.css";
 import "./themes/sky-wallpaper.css";
 import "./themes/startup.css";
-import "./themes/rococo.css";
 import "./themes/letter-home.css";
 import "./themes/letter-chat.css";
 import { ThemeProvider } from "./components/ThemeProvider";

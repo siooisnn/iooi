@@ -20,7 +20,7 @@
   --lt-rose: #b47f8c;
   --lt-gold: #c3b69f;
   --lt-rule: #e6e2e3;
-  --lt-script: "Rococo Pinyon", "Snell Roundhand", "Apple Chancery", cursive;
+  --lt-script: "Letter Pinyon", "Snell Roundhand", "Apple Chancery", cursive;
   --lt-serif: "Bodoni 72", "Didot", "Baskerville", "Iowan Old Style", Georgia, serif;
   --lt-cjk: "Songti SC", "STSong", "Noto Serif SC", "Source Han Serif SC", serif;
 }
@@ -852,29 +852,25 @@
 :root[data-theme="letter"] .chat-container[data-chat-ui="letter"] .letter-seal-btn:disabled { opacity: .42; filter: saturate(.5); cursor: default; }
 :root[data-theme="letter"] .chat-container[data-chat-ui="letter"] .letter-frame-tools :is(.context-usage-badge, .context-usage) { margin-right: 2px; }
 
-/* His mood on a thin satin ribbon: the tail is cut like a swallow's, the
-   other end slips under the seal. Up to about ten characters, then "…". */
+/* A real SVG cloth silhouette keeps the tail and seams visible on mobile. */
 .letter-mood-ribbon {
   position: relative;
+  display: flex;
+  align-items: center;
   flex: 0 1 auto;
   min-width: 0;
   max-width: 10.5em;
-  height: 20px;
-  margin: 0 -18px 0 4px;
-  padding: 0 22px 0 14px;
-  background:
-    linear-gradient(#b47f8c80, #b47f8c80) top / 100% 1px no-repeat,
-    linear-gradient(#b47f8c80, #b47f8c80) bottom / 100% 1px no-repeat,
-    linear-gradient(#ffffff00 3px, #fdf3f5 3px, #fdf3f5 4px, #ffffff00 4px) 0 0 / 100% 100% no-repeat,
-    linear-gradient(#f9e9ed, #f3d9e0);
-  clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%, 8px 50%);
-  color: var(--lt-rose);
-  font: 12px/20px var(--lt-cjk);
+  height: 28px;
+  margin: 0 -20px 0 2px;
+  padding: 0 26px 0 16px;
+  color: #815566;
+  font: 12px/28px var(--lt-cjk);
   letter-spacing: .06em;
   transform: rotate(-2deg);
   pointer-events: none;
 }
-.letter-mood-ribbon > span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.letter-mood-cloth { position: absolute; inset: 0; display: block; width: 100%; height: 100%; overflow: visible; }
+.letter-mood-ribbon > span { position: relative; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 :root[data-theme="letter"] .chat-container[data-chat-ui="letter"] .letter-mood-ribbon + .letter-seal-btn { position: relative; z-index: 1; }
 
 :root[data-theme="letter"] .chat-container[data-chat-ui="letter"] .letter-composer :is(.composer-attachments) { margin: 0 4px 8px; }
@@ -911,7 +907,7 @@
 :root[data-theme="letter"] .chat-container[data-chat-ui="letter"] .chat-config-switch-on i { background: var(--lt-ink-soft); }
 :root[data-theme="letter"] .chat-container[data-chat-ui="letter"] .group-mention-row { flex-wrap: wrap; }
 
-/* Same stable settings sheet as the rococo room: only the page shrinks. */
+/* Stable settings sheet: only the page shrinks. */
 :root[data-theme="letter"] .chat-container[data-chat-ui="letter"] > .room-settings-panel {
   position: relative; z-index: 60; inset: auto; flex: 0 0 auto; height: min(420px, 40dvh); min-height: 80px;
   width: auto; max-width: none; max-height: 46%; margin: 10px 16px 0; padding: 12px;

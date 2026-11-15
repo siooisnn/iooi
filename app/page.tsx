@@ -5,7 +5,7 @@ import NextImage from "next/image";
 import { GroupChatView } from "./components/GroupChatView";
 import type { GroupOptions } from "./lib/group-options";
 import { useTheme, useThemePage } from "./components/ThemeProvider";
-import { isTheme, THEME_STORAGE_KEY } from "./lib/theme";
+import { DEFAULT_THEME, isTheme, THEME_STORAGE_KEY } from "./lib/theme";
 import { useFullscreenShell } from "./lib/use-fullscreen-shell";
 import { DEFAULT_GPT_MODEL } from "./lib/gpt-models";
 import type { AssistantMode, CacheStats, ChatListTab, ChatSession, FragmentEntry, Message, Mood } from "./lib/app-types";
@@ -18,10 +18,8 @@ import { ChatListView } from "./components/ChatListView";
 import { MoonPage } from "./components/HomeView";
 import type { HomeApp } from "./components/HomeView";
 import { RetroDesktop } from "./components/RetroDesktop";
-import { RococoHome } from "./components/rococo/RococoHome";
 import { LetterHome } from "./components/letter/LetterHome";
 import { LetterChatList } from "./components/letter/LetterChatList";
-import { RococoChatList } from "./components/rococo/RococoChatList";
 import { HeartbeatView } from "./components/AppPages";
 import { readLifeLog, type LifeEntry } from "./lib/life-log";
 import { ReadingView } from "./components/ReadingView";
@@ -43,10 +41,9 @@ import { useDailyMood } from "./lib/use-daily-mood";
 // Main App
 export default function Home() {
   const { theme, setTheme } = useTheme();
-  const rococo = theme === "rococo";
   // The white love letter: its own chat list and a paper room, never the XP windows.
   const letter = theme === "letter";
-  const plainRooms = rococo || letter;
+  const plainRooms = letter;
   const defaultSettings: Settings = {
     model: "sonnet5",
     gptModel: DEFAULT_GPT_MODEL.id,
@@ -224,6 +221,8 @@ export default function Home() {
         if (s.theme !== localTheme) setTheme(s.theme);
       } else if (isTheme(localTheme)) {
         s = { ...s, theme: localTheme };
+      } else {
+        s = { ...s, theme: DEFAULT_THEME };
       }
       setSettings(s);
       saveLocal("iooi-settings", s);
@@ -685,15 +684,13 @@ export default function Home() {
         ref={shellRef}
         className="chat-container"
         data-chat-view={tab === "chat" ? chatView : undefined}
-        data-chat-ui={tab === "chat" && (chatView === "room" || chatView === "group") ? (rococo ? "rococo" : letter ? "letter" : retroRoom ? "xp" : "default") : undefined}
+        data-chat-ui={tab === "chat" && (chatView === "room" || chatView === "group") ? (letter ? "letter" : retroRoom ? "xp" : "default") : undefined}
         data-chat-background={activeChatBackground ? "image" : undefined}
       >
         {activeChatBackground && (
           <NextImage className="chat-room-background" src={activeChatBackground} alt="" fill unoptimized aria-hidden="true" />
         )}
-        {tab === "home" && (rococo ? (
-          <RococoHome settings={settings} onOpen={openApp} />
-        ) : theme === "letter" ? (
+        {tab === "home" && (theme === "letter" ? (
           <LetterHome settings={settings} onOpen={openApp} />
         ) : (
           <RetroDesktop settings={settings} onOpen={openApp} />
@@ -703,27 +700,6 @@ export default function Home() {
             <MoonPage settings={settings} />
             <PageBack onBack={goHome} />
           </>
-        )}
-        {chatListOpen && rococo && (
-          <RococoChatList
-            key={`rococo-${listMode}`}
-            assistantMode={listMode}
-            settings={settings}
-            updateSettings={updateSettings}
-            sessions={listMode === "gpt" ? gptSessions : sessions}
-            groupSessions={groupSessions}
-            renameSession={listMode === "gpt" ? renameGptSession : renameSession}
-            deleteSession={listMode === "gpt" ? deleteGptSession : deleteSession}
-            openSession={openPrivateRoom}
-            openGroup={openGroupRoom}
-            createSession={openNewPrivateRoom}
-            createGroup={openNewGroupRoom}
-            listTab={listTab}
-            setListTab={setListTab}
-            onBack={goHome}
-            contactSessions={{ claude: sessions, gpt: gptSessions }}
-            todayState={dailyMood.current?.value || ""}
-          />
         )}
         {chatListOpen && letter && (
           <LetterChatList
@@ -746,7 +722,7 @@ export default function Home() {
             todayState={dailyMood.current?.value || ""}
           />
         )}
-        {chatListOpen && !rococo && !letter && (
+        {chatListOpen && !letter && (
           <ChatListView
             key={listMode}
             assistantMode={listMode}

@@ -13,7 +13,6 @@ import { prepareImageForUpload } from "../lib/image-compress";
 import { ContextUsageBadge, type UsageMessage } from "./ContextUsageBadge";
 import { ChatGlyph } from "./RetroDesktop";
 import { useTheme } from "./ThemeProvider";
-import { RococoDivider, RococoRose } from "./rococo/RococoArt";
 import { LetterClipIcon, LetterComposerFrame, LetterMenuIcon, LetterPaperBloom, LetterRing, LetterRoomBud, LetterRoomFlourish, LetterSeal, useLetterChrome } from "./letter/LetterArt";
 
 type PendingAttachment = { id: string; kind: "image" | "file"; url: string; name: string; writingFile?: WritingFile };
@@ -277,7 +276,6 @@ export function GroupChatView({
   retro?: boolean;
 }) {
   const { theme } = useTheme();
-  const rococo = theme === "rococo";
   const letter = theme === "letter" && !retro;
   useLetterChrome(letter);
   const [input, setInput] = useState("");
@@ -566,8 +564,7 @@ export function GroupChatView({
 
   return (
     <>
-      <header className={`chat-header chat-room-header group-room-header${rococo ? " rococo-room-header rococo-group-header" : ""}${letter ? " letter-room-header letter-group-header" : ""}`}>
-        {rococo && <><RococoRose className="rococo-room-rose" /><div className="rococo-room-topline"><span />NOTRE PETITE ASSEMBLÉE<span /></div></>}
+      <header className={`chat-header chat-room-header group-room-header${letter ? " letter-room-header letter-group-header" : ""}`}>
         {retro ? <>
           <div className="xp-chat-titlebar">
             <span className="xp-chat-title-icon" aria-hidden="true"><ChatGlyph /></span>
@@ -611,12 +608,11 @@ export function GroupChatView({
             <ClaudeUsageCircle {...claudeUsage} className="room-header-quota" title="剩余百分比：五小时 / 本周" />
           </div>
         </div>}
-        {rococo && <RococoDivider className="rococo-room-divider" />}
         {letter && <div className="letter-room-ornament"><LetterRoomFlourish /><LetterRoomBud /></div>}
       </header>
 
       {letter && <LetterPaperBloom />}
-      <section className={`chat-messages${rococo ? " rococo-message-paper" : ""}${letter ? " letter-paper" : ""}`} ref={scrollRef} onScroll={handleScroll}>
+      <section className={`chat-messages${letter ? " letter-paper" : ""}`} ref={scrollRef} onScroll={handleScroll}>
         {displayedMessages.length === 0 && (
           <div className="empty-chat"><p>{memberNames ? `你和${memberNames}都在这里` : "请先选择本窗口的参与者。"}</p></div>
         )}
@@ -698,7 +694,7 @@ export function GroupChatView({
         )}
       </section>
 
-      <footer className={`chat-footer group-chat-footer${rococo ? " rococo-composer" : ""}${letter ? " letter-composer" : ""}`}>
+      <footer className={`chat-footer group-chat-footer${letter ? " letter-composer" : ""}`}>
         {!letter && <ChatClawd />}
         {retro && <div className="xp-chat-toolbar">
           <button type="button" className="xp-chat-tool" aria-label="群聊菜单" aria-expanded={showMenu}
@@ -833,8 +829,7 @@ export function GroupChatView({
             </div>
           </div>
         ) : (
-        <div className={retro ? "xp-chat-compose" : `composer-row${rococo ? " rococo-composer-row" : ""}`}>
-          {rococo && <div className="rococo-writing-heading" aria-hidden="true"><span>Écrivez-nous</span><small>notre correspondance</small></div>}
+        <div className={retro ? "xp-chat-compose" : `composer-row`}>
           {!retro &&
           <button type="button" className="attach-btn attach-btn-separate group-menu-trigger" aria-label="群聊菜单" aria-expanded={showMenu}
             onClick={() => { setShowMenu((open) => !open); setShowWebSearchMenu(false); }}>

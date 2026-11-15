@@ -43,7 +43,6 @@ import { NUDGE_USER_TEXT, NUDGE_REPLY_TEXT } from "../lib/chat-nudge";
 import { hasSpeakableText } from "../lib/tts-text";
 import { useSpeaker } from "../lib/use-speaker";
 import { useTheme } from "./ThemeProvider";
-import { RococoBow, RococoDivider, RococoRose } from "./rococo/RococoArt";
 import { LetterClipIcon, LetterComposerFrame, LetterGearIcon, LetterPaperBloom, LetterRing, LetterRoomBud, LetterRoomFlourish, LetterSeal, LetterSmileIcon, useLetterChrome } from "./letter/LetterArt";
 
 // Animate only the current interaction, never a replayed history entry.
@@ -126,7 +125,6 @@ export function ChatView({
   onOpenBlogPost?: (target: BlogTarget) => void;
 }) {
   const { theme } = useTheme();
-  const rococo = theme === "rococo";
   // The white love letter: one sheet of paper that keeps being written on.
   const letter = theme === "letter" && listEntryMode === true && !retro;
   useLetterChrome(letter);
@@ -996,23 +994,7 @@ export function ChatView({
 
   return (
     <>
-      {listEntryMode && rococo ? (
-        <header className="chat-header chat-room-header rococo-room-header">
-          <RococoRose className="rococo-room-rose" />
-          <div className="rococo-room-topline"><span />CORRESPONDANCE AMOUREUSE<span /></div>
-          <div className="header-top">
-            <button className="header-icon-btn chat-room-back rococo-room-back" onClick={handleBackToList} aria-label="返回列表"><span aria-hidden="true">‹</span><small>lettres</small></button>
-            <div className="header-center">
-              <p>Lettre à</p>
-              {roomIdentity}
-            </div>
-            <div className="room-header-usage">
-              {showQuota && <ClaudeUsageCircle {...claudeUsage} className="room-header-quota" title="剩余百分比：五小时 / 本周；详细额度在聊天设置" />}
-            </div>
-          </div>
-          <RococoDivider className="rococo-room-divider" />
-        </header>
-      ) : letter ? (
+      {letter ? (
         <header className="chat-header chat-room-header letter-room-header">
           <div className="header-top">
             <button className="header-icon-btn chat-room-back letter-room-back" onClick={handleBackToList} aria-label="返回列表">
@@ -1268,13 +1250,11 @@ export function ChatView({
       )}
 
       {letter && <LetterPaperBloom />}
-      <section className={`chat-messages${rococo ? " rococo-message-paper" : ""}${letter ? " letter-paper" : ""}${saysAvatars ? " xp-log-avatars" : ""}${dotBubbles ? " xp-log-dots" : ""}${brickBubbles ? " xp-log-brick" : ""}`} ref={scrollRef} onScroll={handleScroll}>
+      <section className={`chat-messages${letter ? " letter-paper" : ""}${saysAvatars ? " xp-log-avatars" : ""}${dotBubbles ? " xp-log-dots" : ""}${brickBubbles ? " xp-log-brick" : ""}`} ref={scrollRef} onScroll={handleScroll}>
         {session.messages.length === 0 && (
-          <div className={`empty-chat${rococo ? " rococo-empty-letter" : ""}${letter ? " letter-empty" : ""}`}>
-            {rococo && <><RococoBow /><span>Ma très chère</span></>}
+          <div className={`empty-chat${letter ? " letter-empty" : ""}`}>
             {letter && <span>A blank page, for you</span>}
             <p>{letter ? "这张信纸，正等你的第一句话。" : "说点什么开始聊天吧"}</p>
-            {rococo && <small>这张信纸，正等你的第一句话</small>}
           </div>
         )}
         {displayMessages.map(({ message, index }, displayIndex) => {
@@ -1553,7 +1533,7 @@ export function ChatView({
 
       {showStickers && <StickerLibrary onClose={() => setShowStickers(false)} onSelect={chooseSticker} />}
       {showMoneyDialog && <ChatMoneyDialog key={session.id} book={ledgerBook} sessionId={session.id} onClose={() => setShowMoneyDialog(false)} onSent={(card) => { setShowMoneyDialog(false); void sendMessage(false, card); }} />}
-      <footer className={`chat-footer single-chat-footer${rococo ? " rococo-composer" : ""}${letter ? " letter-composer" : ""}${retro ? " xp-chat-footer" : ""}${dotBubbles ? " xp-chat-footer-dots" : ""}${compactComposer ? " xp-chat-footer-compact" : ""}`}>
+      <footer className={`chat-footer single-chat-footer${letter ? " letter-composer" : ""}${retro ? " xp-chat-footer" : ""}${dotBubbles ? " xp-chat-footer-dots" : ""}${compactComposer ? " xp-chat-footer-compact" : ""}`}>
         {!letter && <ChatClawd />}
 
         {uploadError && <p className="composer-upload-error" role="alert">{uploadError}</p>}
@@ -1674,6 +1654,13 @@ export function ChatView({
               {/* His mood on a satin ribbon tucked under the seal. */}
               {letterMood && (
                 <span className="letter-mood-ribbon" title={`心情：${letterMood}`} aria-label={`心情：${letterMood}`}>
+                  <svg className="letter-mood-cloth" viewBox="0 0 140 28" preserveAspectRatio="none" aria-hidden="true">
+                    <path d="M1 2H139V26H1L10 14Z" fill="#edd0da" stroke="#ba8798" strokeWidth="1" />
+                    <path d="M3 3H139V13H11Z" fill="#f8e6eb" />
+                    <path d="M3 25H139V21H7Z" fill="#dfb6c4" />
+                    <path d="M12 5H138M12 23H138" fill="none" stroke="#fff7fa" strokeWidth="1" />
+                    <path d="M122 2V26L133 21V5Z" fill="#c797a8" opacity=".45" />
+                  </svg>
                   <span>{letterMood}</span>
                 </span>
               )}
@@ -1693,10 +1680,9 @@ export function ChatView({
             </div>
           </div>
         ) : (
-          <div className={`composer-row${rococo ? " rococo-composer-row" : ""}`}>
-            {rococo && <div className="rococo-writing-heading" aria-hidden="true"><span>Écrivez-moi</span><small>{isGpt ? currentGptModel.label : currentModel.label}</small></div>}
+          <div className={`composer-row`}>
             {!isGpt && !developmentMode && <button type="button" className="attach-btn" aria-label="红包/转账" disabled={loading || uploading} onClick={() => setShowMoneyDialog(true)}>{<DaydayMoneyIcon kind="redpacket" />}</button>}
-            {!isGpt && !developmentMode && <button type="button" className="attach-btn" aria-label="表情包" disabled={loading || uploading} onClick={() => setShowStickers(true)}>{rococo ? <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M8 14s1 3 4 3 4-3 4-3M8 9h.01M16 9h.01" /></svg> : "☺"}</button>}
+            {!isGpt && !developmentMode && <button type="button" className="attach-btn" aria-label="表情包" disabled={loading || uploading} onClick={() => setShowStickers(true)}>☺</button>}
             <input
               ref={fileInputRef}
               type="file"

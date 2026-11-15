@@ -49,10 +49,8 @@ export function SettingsView({
   const [directoryOpen, setDirectoryOpen] = useState(false);
   function jumpTo(index: number) {
     setDirectoryOpen(false);
-    const body = settingsRef.current;
-    const target = body?.children[index] as HTMLElement | undefined;
-    if (theme === "rococo" && body && target) body.scrollTo({ top: target.offsetTop, behavior: "instant" });
-    else target?.scrollIntoView({ block: "start", behavior: "auto" });
+    const target = settingsRef.current?.children[index] as HTMLElement | undefined;
+    target?.scrollIntoView({ block: "start", behavior: "auto" });
   }
   function handleAvatarUpload(field: "aiAvatar" | "gptAvatar" | "userAvatar") {
     const input = document.createElement("input");
@@ -122,21 +120,17 @@ export function SettingsView({
         <div className="settings-group theme-setting">
           <h2 className="settings-group-title">主题</h2>
           <p className="settings-hint">选择后立即生效，也会同步保存，换浏览器或重开都还是它。</p>
-          <div className="theme-options" role="group" aria-label="界面主题">
+          <fieldset className="theme-choices">
+            <legend className="sr-only">界面主题</legend>
             {THEME_OPTIONS.map((option) => (
-              <button
-                type="button"
-                key={option.id}
-                className={`theme-option ${theme === option.id ? "theme-option-active" : ""}`}
-                aria-pressed={theme === option.id}
-                onClick={() => { setTheme(option.id); updateSettings({ theme: option.id }); }}
-              >
-                <span className={`theme-option-preview theme-option-preview-${option.id}`} aria-hidden="true"><i /><i /><i /></span>
-                <span className="theme-option-text"><b>{option.label}</b><small>{option.description}</small></span>
-                <span className="theme-option-check" aria-hidden="true">✓</span>
-              </button>
+              <label key={option.id} className="theme-choice">
+                <input type="radio" name="interface-theme" value={option.id}
+                  checked={theme === option.id}
+                  onChange={() => { setTheme(option.id); updateSettings({ theme: option.id }); }} />
+                <span>{option.label}</span>
+              </label>
             ))}
-          </div>
+          </fieldset>
         </div>
 
         <ChatBackgroundSetting
@@ -304,19 +298,6 @@ export function SettingsView({
       </section>
   );
 
-  if (theme === "rococo") return (
-    <section className="rococo-settings-page" aria-label="小窝设置">
-      <header className="rococo-settings-header">
-        <button type="button" onClick={onBack}>返回</button><div><p>La maison</p><h1>小窝设置</h1></div>
-      </header>
-      <nav className="rococo-settings-index" aria-label="设置目录">
-        {CONTROL_SECTIONS.flatMap((section) => section.items).map((item) => (
-          <button type="button" key={item.index} onClick={() => jumpTo(item.index)}>{item.label}</button>
-        ))}
-      </nav>
-      {content}
-    </section>
-  );
 
   if (!settings.retroDesktop) return <>{content}<PageBack onBack={onBack} /></>;
 
