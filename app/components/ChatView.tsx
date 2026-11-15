@@ -1587,6 +1587,7 @@ export function ChatView({
               {!isGpt && !developmentMode && <button type="button" className="xp-chat-tool" disabled={loading || uploading} onClick={() => setShowMoneyDialog(true)}><DaydayMoneyIcon kind="redpacket" /><span>红包/转账</span></button>}
               {!isGpt && !developmentMode && <button type="button" className="xp-chat-tool" disabled={loading || uploading} onClick={() => setShowStickers(true)}><span aria-hidden="true">☺</span><span>表情包</span></button>}
               <span className="xp-chat-toolbar-gap" />
+              <span className="letter-frame-gap" />
               {developmentMode && (
                 <ContextUsageBadge kind="work" sessionId={session.id} project={developmentProject} messages={workUsageMessages} />
               )}
@@ -1650,20 +1651,13 @@ export function ChatView({
                 disabled={loading || uploading} onClick={() => setShowStickers(true)}>
                 <LetterRing turn={160} /><LetterSmileIcon />
               </button>}
-              <span className="letter-frame-gap" />
-              {/* His mood on a satin ribbon tucked under the seal. */}
+              {/* A small paper label follows the sticker button. */}
               {letterMood && (
-                <span className="letter-mood-ribbon" title={`心情：${letterMood}`} aria-label={`心情：${letterMood}`}>
-                  <svg className="letter-mood-cloth" viewBox="0 0 140 28" preserveAspectRatio="none" aria-hidden="true">
-                    <path d="M1 2H139V26H1L10 14Z" fill="#edd0da" stroke="#ba8798" strokeWidth="1" />
-                    <path d="M3 3H139V13H11Z" fill="#f8e6eb" />
-                    <path d="M3 25H139V21H7Z" fill="#dfb6c4" />
-                    <path d="M12 5H138M12 23H138" fill="none" stroke="#fff7fa" strokeWidth="1" />
-                    <path d="M122 2V26L133 21V5Z" fill="#c797a8" opacity=".45" />
-                  </svg>
+                <span className="letter-mood-label" title={`心情：${letterMood}`} aria-label={`心情：${letterMood}`}>
                   <span>{letterMood}</span>
                 </span>
               )}
+              <span className="letter-frame-gap" />
               {developmentMode && (
                 <ContextUsageBadge kind="work" sessionId={session.id} project={developmentProject} messages={workUsageMessages} />
               )}

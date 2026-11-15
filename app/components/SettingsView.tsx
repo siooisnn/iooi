@@ -120,17 +120,15 @@ export function SettingsView({
         <div className="settings-group theme-setting">
           <h2 className="settings-group-title">主题</h2>
           <p className="settings-hint">选择后立即生效，也会同步保存，换浏览器或重开都还是它。</p>
-          <fieldset className="theme-choices">
-            <legend className="sr-only">界面主题</legend>
+          <div className="theme-choices" role="group" aria-label="界面主题">
             {THEME_OPTIONS.map((option) => (
-              <label key={option.id} className="theme-choice">
-                <input type="radio" name="interface-theme" value={option.id}
-                  checked={theme === option.id}
-                  onChange={() => { setTheme(option.id); updateSettings({ theme: option.id }); }} />
-                <span>{option.label}</span>
-              </label>
+              <button type="button" key={option.id} className="settings-danger-btn theme-choice"
+                aria-pressed={theme === option.id}
+                onClick={() => { setTheme(option.id); updateSettings({ theme: option.id }); }}>
+                {option.label}
+              </button>
             ))}
-          </fieldset>
+          </div>
         </div>
 
         <ChatBackgroundSetting

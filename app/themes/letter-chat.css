@@ -852,26 +852,22 @@
 :root[data-theme="letter"] .chat-container[data-chat-ui="letter"] .letter-seal-btn:disabled { opacity: .42; filter: saturate(.5); cursor: default; }
 :root[data-theme="letter"] .chat-container[data-chat-ui="letter"] .letter-frame-tools :is(.context-usage-badge, .context-usage) { margin-right: 2px; }
 
-/* A real SVG cloth silhouette keeps the tail and seams visible on mobile. */
-.letter-mood-ribbon {
-  position: relative;
-  display: flex;
-  align-items: center;
+/* The same blush paper as the work label on a chat-list photograph. */
+.letter-mood-label {
+  display: block;
   flex: 0 1 auto;
   min-width: 0;
-  max-width: 10.5em;
-  height: 28px;
-  margin: 0 -20px 0 2px;
-  padding: 0 26px 0 16px;
-  color: #815566;
-  font: 12px/28px var(--lt-cjk);
-  letter-spacing: .06em;
-  transform: rotate(-2deg);
-  pointer-events: none;
+  max-width: 10em;
+  margin-left: 4px;
+  padding: 3px 7px;
+  border: 1px solid #e3cbd1;
+  background: var(--lt-blush);
+  box-shadow: 0 1px 2px #33405a14;
+  color: var(--lt-rose);
+  font: 500 11px/1.3 var(--lt-serif), var(--lt-cjk);
+  letter-spacing: .04em;
 }
-.letter-mood-cloth { position: absolute; inset: 0; display: block; width: 100%; height: 100%; overflow: visible; }
-.letter-mood-ribbon > span { position: relative; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-:root[data-theme="letter"] .chat-container[data-chat-ui="letter"] .letter-mood-ribbon + .letter-seal-btn { position: relative; z-index: 1; }
+.letter-mood-label > span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 :root[data-theme="letter"] .chat-container[data-chat-ui="letter"] .letter-composer :is(.composer-attachments) { margin: 0 4px 8px; }
 :root[data-theme="letter"] .chat-container[data-chat-ui="letter"] .letter-composer :is(.composer-attachment) { border-color: var(--lt-rule); border-radius: 2px; background: #fff; }
