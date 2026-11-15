@@ -944,9 +944,9 @@
 :root[data-theme="letter"] .chat-container[data-chat-ui="letter"][data-letter-style="floral"] .letter-room-header .room-header-usage { order: 2; }
 :root[data-theme="letter"] .chat-container[data-chat-ui="letter"][data-letter-style="floral"] .letter-room-ornament { height: 22px; margin-top: -3px; }
 :root[data-theme="letter"] .chat-container[data-chat-ui="letter"][data-letter-style="floral"] > .chat-messages { padding-top: 10px; }
-:root[data-theme="letter"] .chat-container[data-chat-ui="letter"][data-letter-style="floral"] .msg-row-ai:not(.msg-row-summer-utility) { flex-direction: column; align-items: flex-start; gap: 6px; }
-:root[data-theme="letter"] .chat-container[data-chat-ui="letter"][data-letter-style="floral"] .msg-row-ai.msg-row-compact-top > :is(.avatar, .avatar-img) { display: none; }
-:root[data-theme="letter"] .chat-container[data-chat-ui="letter"][data-letter-style="floral"] .msg-content-ai { width: fit-content; max-width: 90%; }
+:root[data-theme="letter"] .chat-container[data-chat-ui="letter"][data-letter-style="floral"] .msg-row-ai:not(.msg-row-summer-utility) { flex-direction: row; align-items: flex-start; gap: 11px; }
+:root[data-theme="letter"] .chat-container[data-chat-ui="letter"][data-letter-style="floral"] .msg-row-ai.msg-row-compact-top > :is(.avatar, .avatar-img) { display: block; }
+:root[data-theme="letter"] .chat-container[data-chat-ui="letter"][data-letter-style="floral"] .msg-content-ai { width: fit-content; max-width: 86%; }
 :root[data-theme="letter"] .chat-container[data-chat-ui="letter"][data-letter-style="floral"] .msg-row-compact-top, :root[data-theme="letter"] .chat-container[data-chat-ui="letter"][data-letter-style="floral"] .msg-row-compact-bottom { margin-top: 5px; margin-bottom: 5px; }
 :root[data-theme="letter"] .chat-container[data-chat-ui="letter"][data-letter-style="floral"] .msg-row-compact-top .msg-bubble-ai:first-child { padding-top: 18px; }
 :root[data-theme="letter"] .chat-container[data-chat-ui="letter"][data-letter-style="floral"] .msg-bubble:not(.msg-bubble-img, .msg-bubble-summer-utility, .chat-file-card, .reply-status-bubble) {
