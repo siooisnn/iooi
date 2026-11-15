@@ -127,6 +127,7 @@ export function ChatView({
   const { theme } = useTheme();
   // The white love letter: one sheet of paper that keeps being written on.
   const letter = theme === "letter" && listEntryMode === true && !retro;
+  const floralLetter = letter && settings.letterChatStyle === "floral";
   useLetterChrome(letter);
   const isGpt = assistantMode === "gpt";
   const compactComposer = retro && settings.chatCompactComposer === true;
@@ -999,16 +1000,17 @@ export function ChatView({
           <div className="header-top">
             <button className="header-icon-btn chat-room-back letter-room-back" onClick={handleBackToList} aria-label="返回列表">
               <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M10 3.5 5.5 8l4.5 4.5" /></svg>
-              <span>letters</span>
+              {!floralLetter && <span>letters</span>}
             </button>
             <div className="room-header-usage">
               {showQuota && <ClaudeUsageCircle {...claudeUsage} className="room-header-quota" title="剩余百分比：五小时 / 本周；详细额度在聊天设置" />}
             </div>
+            {floralLetter && <div className="header-center letter-room-heading">{roomIdentity}</div>}
           </div>
-          <div className="header-center letter-room-heading">
+          {!floralLetter && <div className="header-center letter-room-heading">
             <p className="letter-room-salutation">My dearest</p>
             {roomIdentity}
-          </div>
+          </div>}
           <div className="letter-room-ornament"><LetterRoomFlourish /><LetterRoomBud /></div>
         </header>
       ) : listEntryMode && retro ? (
@@ -1190,6 +1192,19 @@ export function ChatView({
               </button>
             </section>
           )}
+          {letter && (
+            <section className="chat-config-section">
+              <p>LETTER 聊天界面</p>
+              <div className="chat-config-options" role="group" aria-label="Letter 聊天界面">
+                {([["paper", "信纸"], ["floral", "花枝"]] as const).map(([value, label]) => (
+                  <button type="button" key={value}
+                    className={`chat-config-option${(settings.letterChatStyle === "floral" ? "floral" : "paper") === value ? " chat-config-option-active" : ""}`}
+                    aria-pressed={(settings.letterChatStyle === "floral" ? "floral" : "paper") === value}
+                    onClick={() => updateSettings({ letterChatStyle: value })}>{label}</button>
+                ))}
+              </div>
+            </section>
+          )}
           {retro && (
             <section className="chat-config-section">
               <p>聊天主题</p>
@@ -1249,7 +1264,7 @@ export function ChatView({
         </div>
       )}
 
-      {letter && <LetterPaperBloom />}
+      {letter && !floralLetter && <LetterPaperBloom />}
       <section className={`chat-messages${letter ? " letter-paper" : ""}${saysAvatars ? " xp-log-avatars" : ""}${dotBubbles ? " xp-log-dots" : ""}${brickBubbles ? " xp-log-brick" : ""}`} ref={scrollRef} onScroll={handleScroll}>
         {session.messages.length === 0 && (
           <div className={`empty-chat${letter ? " letter-empty" : ""}`}>
@@ -1620,7 +1635,7 @@ export function ChatView({
           /* The letter: one hand-drawn frame; the pen's tools sit in its
              lower margin and sending is pressing the seal. No red packet here. */
           <div className="letter-frame">
-            <LetterComposerFrame />
+            {!floralLetter && <LetterComposerFrame />}
             <textarea
               ref={inputRef} value={input} onChange={handleInputChange}
               placeholder="Write to me…" rows={1} className="chat-input letter-frame-input"

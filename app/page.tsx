@@ -685,6 +685,7 @@ export default function Home() {
         className="chat-container"
         data-chat-view={tab === "chat" ? chatView : undefined}
         data-chat-ui={tab === "chat" && (chatView === "room" || chatView === "group") ? (letter ? "letter" : retroRoom ? "xp" : "default") : undefined}
+        data-letter-style={letter && tab === "chat" && chatView === "room" ? (settings.letterChatStyle === "floral" ? "floral" : "paper") : undefined}
         data-chat-background={activeChatBackground ? "image" : undefined}
       >
         {activeChatBackground && (
