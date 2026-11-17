@@ -152,7 +152,6 @@ export function renderStreamInput(messages: ClaudeCodeMessage[]) {
 }
 
 const SUPPORTED_CLAUDE_MODELS = new Set([
-  "claude-fable-5-2",
   "claude-sonnet-5",
   "claude-sonnet-4-6",
   "claude-opus-5-5",
@@ -165,7 +164,6 @@ const SUPPORTED_CLAUDE_MODELS = new Set([
 export function normalizeClaudeCodeModel(modelId: string) {
   const normalized = modelId.trim().toLowerCase().replace(/^anthropic\//, "");
   const legacyAliases: Record<string, string> = {
-    "claude-fable-5.2": "claude-fable-5-2",
     sonnet: "claude-sonnet-5",
     opus: "claude-opus-5",
     "claude-sonnet-4.6": "claude-sonnet-4-6",
